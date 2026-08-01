@@ -1,0 +1,812 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		03AB4D71301BB7F7006D74C0 /* DockMagicApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03AB4D70301BB7F7006D74C0 /* DockMagicApp.swift */; };
+		03AB4D77301BB7FA006D74C0 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 03AB4D76301BB7FA006D74C0 /* Assets.xcassets */; };
+		03AB4D7A301BB7FA006D74C0 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 03AB4D79301BB7FA006D74C0 /* Preview Assets.xcassets */; };
+		03AB4D85301BB7FA006D74C0 /* DockMagicTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03AB4D84301BB7FA006D74C0 /* DockMagicTests.swift */; };
+		03AB4D8F301BB7FA006D74C0 /* DockMagicUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03AB4D8E301BB7FA006D74C0 /* DockMagicUITests.swift */; };
+		03AB4D91301BB7FA006D74C0 /* DockMagicUITestsLaunchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03AB4D90301BB7FA006D74C0 /* DockMagicUITestsLaunchTests.swift */; };
+		D0C000000000000000000001 /* SystemMetricsSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0C100000000000000000001 /* SystemMetricsSnapshot.swift */; };
+		D0C000000000000000000002 /* SystemMetricsSampler.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0C100000000000000000002 /* SystemMetricsSampler.swift */; };
+		D0C000000000000000000003 /* SystemMetricsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0C100000000000000000003 /* SystemMetricsStore.swift */; };
+		D0C000000000000000000004 /* DockTileController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0C100000000000000000004 /* DockTileController.swift */; };
+		D0C000000000000000000005 /* DockMetricsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0C100000000000000000005 /* DockMetricsView.swift */; };
+		D0C000000000000000000007 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0C100000000000000000007 /* SettingsView.swift */; };
+		D5A000000000000000000001 /* DesignTokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5B000000000000000000001 /* DesignTokens.swift */; };
+		D5A000000000000000000002 /* DesignTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5B000000000000000000002 /* DesignTheme.swift */; };
+		D5A000000000000000000003 /* DSSurface.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5B000000000000000000003 /* DSSurface.swift */; };
+		D5A000000000000000000004 /* DSControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5B000000000000000000004 /* DSControls.swift */; };
+		D5A000000000000000000005 /* DSComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5B000000000000000000005 /* DSComponents.swift */; };
+		D5A000000000000000000006 /* ProjectTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5B000000000000000000006 /* ProjectTheme.swift */; };
+		D7A000000000000000000001 /* DockConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7B000000000000000000001 /* DockConfiguration.swift */; };
+		D7A000000000000000000002 /* CodexRateLimitSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7B000000000000000000002 /* CodexRateLimitSnapshot.swift */; };
+		D7A000000000000000000003 /* CodexRateLimitProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7B000000000000000000003 /* CodexRateLimitProvider.swift */; };
+		D7A000000000000000000004 /* DockPreferencesStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7B000000000000000000004 /* DockPreferencesStore.swift */; };
+		D7A000000000000000000005 /* CodexUsageStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7B000000000000000000005 /* CodexUsageStore.swift */; };
+		D7A000000000000000000006 /* DockAppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7B000000000000000000006 /* DockAppModel.swift */; };
+		D7A000000000000000000007 /* SettingsWindowRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7B000000000000000000007 /* SettingsWindowRouter.swift */; };
+		D8A000000000000000000001 /* ClaudeCodeRateLimitProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8B000000000000000000001 /* ClaudeCodeRateLimitProvider.swift */; };
+		D8A000000000000000000002 /* ClaudeCodeUsageStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8B000000000000000000002 /* ClaudeCodeUsageStore.swift */; };
+		D9A000000000000000000001 /* WeatherSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9B000000000000000000001 /* WeatherSnapshot.swift */; };
+		D9A000000000000000000002 /* OpenMeteoWeatherProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9B000000000000000000002 /* OpenMeteoWeatherProvider.swift */; };
+		D9A000000000000000000003 /* WeatherStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9B000000000000000000003 /* WeatherStore.swift */; };
+		D9A000000000000000000004 /* DockWeatherView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9B000000000000000000004 /* DockWeatherView.swift */; };
+		DAA000000000000000000001 /* NetworkMetricsSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAB000000000000000000001 /* NetworkMetricsSnapshot.swift */; };
+		DAA000000000000000000002 /* StorageMetricsSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAB000000000000000000002 /* StorageMetricsSnapshot.swift */; };
+		DAA000000000000000000003 /* NetworkMetricsSampler.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAB000000000000000000003 /* NetworkMetricsSampler.swift */; };
+		DAA000000000000000000004 /* StorageMetricsSampler.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAB000000000000000000004 /* StorageMetricsSampler.swift */; };
+		DAA000000000000000000005 /* NetworkMetricsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAB000000000000000000005 /* NetworkMetricsStore.swift */; };
+		DAA000000000000000000006 /* StorageMetricsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAB000000000000000000006 /* StorageMetricsStore.swift */; };
+		DAA000000000000000000007 /* DockNetworkView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAB000000000000000000007 /* DockNetworkView.swift */; };
+		DAA000000000000000000008 /* DockStorageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAB000000000000000000008 /* DockStorageView.swift */; };
+		DAA000000000000000000009 /* NetworkHistoryChart.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAB000000000000000000009 /* NetworkHistoryChart.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		03AB4D81301BB7FA006D74C0 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 03AB4D65301BB7F7006D74C0 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 03AB4D6C301BB7F7006D74C0;
+			remoteInfo = DockMagic;
+		};
+		03AB4D8B301BB7FA006D74C0 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 03AB4D65301BB7F7006D74C0 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 03AB4D6C301BB7F7006D74C0;
+			remoteInfo = DockMagic;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		03AB4D6D301BB7F7006D74C0 /* DockMagic.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DockMagic.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		03AB4D70301BB7F7006D74C0 /* DockMagicApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DockMagicApp.swift; sourceTree = "<group>"; };
+		03AB4D76301BB7FA006D74C0 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		03AB4D79301BB7FA006D74C0 /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
+		03AB4D7B301BB7FA006D74C0 /* DockMagic.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = DockMagic.entitlements; sourceTree = "<group>"; };
+		D9B000000000000000000005 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		03AB4D80301BB7FA006D74C0 /* DockMagicTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DockMagicTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		03AB4D84301BB7FA006D74C0 /* DockMagicTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DockMagicTests.swift; sourceTree = "<group>"; };
+		03AB4D8A301BB7FA006D74C0 /* DockMagicUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DockMagicUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		03AB4D8E301BB7FA006D74C0 /* DockMagicUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DockMagicUITests.swift; sourceTree = "<group>"; };
+		03AB4D90301BB7FA006D74C0 /* DockMagicUITestsLaunchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DockMagicUITestsLaunchTests.swift; sourceTree = "<group>"; };
+		D0C100000000000000000001 /* SystemMetricsSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemMetricsSnapshot.swift; sourceTree = "<group>"; };
+		D0C100000000000000000002 /* SystemMetricsSampler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemMetricsSampler.swift; sourceTree = "<group>"; };
+		D0C100000000000000000003 /* SystemMetricsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemMetricsStore.swift; sourceTree = "<group>"; };
+		D0C100000000000000000004 /* DockTileController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DockTileController.swift; sourceTree = "<group>"; };
+		D0C100000000000000000005 /* DockMetricsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DockMetricsView.swift; sourceTree = "<group>"; };
+		D0C100000000000000000007 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		D5B000000000000000000001 /* DesignTokens.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignTokens.swift; sourceTree = "<group>"; };
+		D5B000000000000000000002 /* DesignTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignTheme.swift; sourceTree = "<group>"; };
+		D5B000000000000000000003 /* DSSurface.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DSSurface.swift; sourceTree = "<group>"; };
+		D5B000000000000000000004 /* DSControls.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DSControls.swift; sourceTree = "<group>"; };
+		D5B000000000000000000005 /* DSComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DSComponents.swift; sourceTree = "<group>"; };
+		D5B000000000000000000006 /* ProjectTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectTheme.swift; sourceTree = "<group>"; };
+		D7B000000000000000000001 /* DockConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DockConfiguration.swift; sourceTree = "<group>"; };
+		D7B000000000000000000002 /* CodexRateLimitSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexRateLimitSnapshot.swift; sourceTree = "<group>"; };
+		D7B000000000000000000003 /* CodexRateLimitProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexRateLimitProvider.swift; sourceTree = "<group>"; };
+		D7B000000000000000000004 /* DockPreferencesStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DockPreferencesStore.swift; sourceTree = "<group>"; };
+		D7B000000000000000000005 /* CodexUsageStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexUsageStore.swift; sourceTree = "<group>"; };
+		D7B000000000000000000006 /* DockAppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DockAppModel.swift; sourceTree = "<group>"; };
+		D7B000000000000000000007 /* SettingsWindowRouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsWindowRouter.swift; sourceTree = "<group>"; };
+		D8B000000000000000000001 /* ClaudeCodeRateLimitProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeCodeRateLimitProvider.swift; sourceTree = "<group>"; };
+		D8B000000000000000000002 /* ClaudeCodeUsageStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeCodeUsageStore.swift; sourceTree = "<group>"; };
+		D9B000000000000000000001 /* WeatherSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeatherSnapshot.swift; sourceTree = "<group>"; };
+		D9B000000000000000000002 /* OpenMeteoWeatherProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenMeteoWeatherProvider.swift; sourceTree = "<group>"; };
+		D9B000000000000000000003 /* WeatherStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeatherStore.swift; sourceTree = "<group>"; };
+		D9B000000000000000000004 /* DockWeatherView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DockWeatherView.swift; sourceTree = "<group>"; };
+		DAB000000000000000000001 /* NetworkMetricsSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkMetricsSnapshot.swift; sourceTree = "<group>"; };
+		DAB000000000000000000002 /* StorageMetricsSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StorageMetricsSnapshot.swift; sourceTree = "<group>"; };
+		DAB000000000000000000003 /* NetworkMetricsSampler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkMetricsSampler.swift; sourceTree = "<group>"; };
+		DAB000000000000000000004 /* StorageMetricsSampler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StorageMetricsSampler.swift; sourceTree = "<group>"; };
+		DAB000000000000000000005 /* NetworkMetricsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkMetricsStore.swift; sourceTree = "<group>"; };
+		DAB000000000000000000006 /* StorageMetricsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StorageMetricsStore.swift; sourceTree = "<group>"; };
+		DAB000000000000000000007 /* DockNetworkView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DockNetworkView.swift; sourceTree = "<group>"; };
+		DAB000000000000000000008 /* DockStorageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DockStorageView.swift; sourceTree = "<group>"; };
+		DAB000000000000000000009 /* NetworkHistoryChart.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkHistoryChart.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		03AB4D6A301BB7F7006D74C0 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		03AB4D7D301BB7FA006D74C0 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		03AB4D87301BB7FA006D74C0 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		03AB4D64301BB7F7006D74C0 = {
+			isa = PBXGroup;
+			children = (
+				03AB4D6F301BB7F7006D74C0 /* DockMagic */,
+				03AB4D83301BB7FA006D74C0 /* DockMagicTests */,
+				03AB4D8D301BB7FA006D74C0 /* DockMagicUITests */,
+				03AB4D6E301BB7F7006D74C0 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		03AB4D6E301BB7F7006D74C0 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				03AB4D6D301BB7F7006D74C0 /* DockMagic.app */,
+				03AB4D80301BB7FA006D74C0 /* DockMagicTests.xctest */,
+				03AB4D8A301BB7FA006D74C0 /* DockMagicUITests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		03AB4D6F301BB7F7006D74C0 /* DockMagic */ = {
+			isa = PBXGroup;
+			children = (
+				D0C200000000000000000001 /* App */,
+				D5C000000000000000000001 /* DesignSystem */,
+				D0C200000000000000000002 /* Models */,
+				D0C200000000000000000003 /* Services */,
+				D0C200000000000000000004 /* Stores */,
+				D5C000000000000000000004 /* Support */,
+				D0C200000000000000000005 /* Views */,
+				03AB4D76301BB7FA006D74C0 /* Assets.xcassets */,
+				D9B000000000000000000005 /* Info.plist */,
+				03AB4D7B301BB7FA006D74C0 /* DockMagic.entitlements */,
+				03AB4D78301BB7FA006D74C0 /* Preview Content */,
+			);
+			path = DockMagic;
+			sourceTree = "<group>";
+		};
+		03AB4D78301BB7FA006D74C0 /* Preview Content */ = {
+			isa = PBXGroup;
+			children = (
+				03AB4D79301BB7FA006D74C0 /* Preview Assets.xcassets */,
+			);
+			path = "Preview Content";
+			sourceTree = "<group>";
+		};
+		03AB4D83301BB7FA006D74C0 /* DockMagicTests */ = {
+			isa = PBXGroup;
+			children = (
+				03AB4D84301BB7FA006D74C0 /* DockMagicTests.swift */,
+			);
+			path = DockMagicTests;
+			sourceTree = "<group>";
+		};
+		03AB4D8D301BB7FA006D74C0 /* DockMagicUITests */ = {
+			isa = PBXGroup;
+			children = (
+				03AB4D8E301BB7FA006D74C0 /* DockMagicUITests.swift */,
+				03AB4D90301BB7FA006D74C0 /* DockMagicUITestsLaunchTests.swift */,
+			);
+			path = DockMagicUITests;
+			sourceTree = "<group>";
+		};
+		D0C200000000000000000001 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				03AB4D70301BB7F7006D74C0 /* DockMagicApp.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		D0C200000000000000000002 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				D7B000000000000000000001 /* DockConfiguration.swift */,
+				D7B000000000000000000002 /* CodexRateLimitSnapshot.swift */,
+				DAB000000000000000000001 /* NetworkMetricsSnapshot.swift */,
+				DAB000000000000000000002 /* StorageMetricsSnapshot.swift */,
+				D0C100000000000000000001 /* SystemMetricsSnapshot.swift */,
+				D9B000000000000000000001 /* WeatherSnapshot.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		D0C200000000000000000003 /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				D8B000000000000000000001 /* ClaudeCodeRateLimitProvider.swift */,
+				D7B000000000000000000003 /* CodexRateLimitProvider.swift */,
+				D0C100000000000000000004 /* DockTileController.swift */,
+				DAB000000000000000000003 /* NetworkMetricsSampler.swift */,
+				DAB000000000000000000004 /* StorageMetricsSampler.swift */,
+				D0C100000000000000000002 /* SystemMetricsSampler.swift */,
+				D9B000000000000000000002 /* OpenMeteoWeatherProvider.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		D0C200000000000000000004 /* Stores */ = {
+			isa = PBXGroup;
+			children = (
+				D8B000000000000000000002 /* ClaudeCodeUsageStore.swift */,
+				D7B000000000000000000005 /* CodexUsageStore.swift */,
+				D7B000000000000000000006 /* DockAppModel.swift */,
+				D7B000000000000000000004 /* DockPreferencesStore.swift */,
+				DAB000000000000000000005 /* NetworkMetricsStore.swift */,
+				DAB000000000000000000006 /* StorageMetricsStore.swift */,
+				D0C100000000000000000003 /* SystemMetricsStore.swift */,
+				D9B000000000000000000003 /* WeatherStore.swift */,
+			);
+			path = Stores;
+			sourceTree = "<group>";
+		};
+		D0C200000000000000000005 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				D0C200000000000000000006 /* Dock */,
+				D0C200000000000000000008 /* Settings */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		D0C200000000000000000006 /* Dock */ = {
+			isa = PBXGroup;
+			children = (
+				D0C100000000000000000005 /* DockMetricsView.swift */,
+				DAB000000000000000000007 /* DockNetworkView.swift */,
+				DAB000000000000000000008 /* DockStorageView.swift */,
+				D9B000000000000000000004 /* DockWeatherView.swift */,
+			);
+			path = Dock;
+			sourceTree = "<group>";
+		};
+		D0C200000000000000000008 /* Settings */ = {
+			isa = PBXGroup;
+			children = (
+				DAB000000000000000000009 /* NetworkHistoryChart.swift */,
+				D0C100000000000000000007 /* SettingsView.swift */,
+			);
+			path = Settings;
+			sourceTree = "<group>";
+		};
+		D5C000000000000000000001 /* DesignSystem */ = {
+			isa = PBXGroup;
+			children = (
+				D5C000000000000000000002 /* Foundation */,
+				D5C000000000000000000003 /* Components */,
+			);
+			path = DesignSystem;
+			sourceTree = "<group>";
+		};
+		D5C000000000000000000002 /* Foundation */ = {
+			isa = PBXGroup;
+			children = (
+				D5B000000000000000000001 /* DesignTokens.swift */,
+				D5B000000000000000000002 /* DesignTheme.swift */,
+			);
+			path = Foundation;
+			sourceTree = "<group>";
+		};
+		D5C000000000000000000003 /* Components */ = {
+			isa = PBXGroup;
+			children = (
+				D5B000000000000000000003 /* DSSurface.swift */,
+				D5B000000000000000000004 /* DSControls.swift */,
+				D5B000000000000000000005 /* DSComponents.swift */,
+			);
+			path = Components;
+			sourceTree = "<group>";
+		};
+		D5C000000000000000000004 /* Support */ = {
+			isa = PBXGroup;
+			children = (
+				D5B000000000000000000006 /* ProjectTheme.swift */,
+				D7B000000000000000000007 /* SettingsWindowRouter.swift */,
+			);
+			path = Support;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		03AB4D6C301BB7F7006D74C0 /* DockMagic */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 03AB4D94301BB7FA006D74C0 /* Build configuration list for PBXNativeTarget "DockMagic" */;
+			buildPhases = (
+				03AB4D69301BB7F7006D74C0 /* Sources */,
+				03AB4D6A301BB7F7006D74C0 /* Frameworks */,
+				03AB4D6B301BB7F7006D74C0 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = DockMagic;
+			productName = DockMagic;
+			productReference = 03AB4D6D301BB7F7006D74C0 /* DockMagic.app */;
+			productType = "com.apple.product-type.application";
+		};
+		03AB4D7F301BB7FA006D74C0 /* DockMagicTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 03AB4D97301BB7FA006D74C0 /* Build configuration list for PBXNativeTarget "DockMagicTests" */;
+			buildPhases = (
+				03AB4D7C301BB7FA006D74C0 /* Sources */,
+				03AB4D7D301BB7FA006D74C0 /* Frameworks */,
+				03AB4D7E301BB7FA006D74C0 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				03AB4D82301BB7FA006D74C0 /* PBXTargetDependency */,
+			);
+			name = DockMagicTests;
+			productName = DockMagicTests;
+			productReference = 03AB4D80301BB7FA006D74C0 /* DockMagicTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		03AB4D89301BB7FA006D74C0 /* DockMagicUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 03AB4D9A301BB7FA006D74C0 /* Build configuration list for PBXNativeTarget "DockMagicUITests" */;
+			buildPhases = (
+				03AB4D86301BB7FA006D74C0 /* Sources */,
+				03AB4D87301BB7FA006D74C0 /* Frameworks */,
+				03AB4D88301BB7FA006D74C0 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				03AB4D8C301BB7FA006D74C0 /* PBXTargetDependency */,
+			);
+			name = DockMagicUITests;
+			productName = DockMagicUITests;
+			productReference = 03AB4D8A301BB7FA006D74C0 /* DockMagicUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		03AB4D65301BB7F7006D74C0 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1540;
+				LastUpgradeCheck = 1540;
+				TargetAttributes = {
+					03AB4D6C301BB7F7006D74C0 = {
+						CreatedOnToolsVersion = 15.4;
+					};
+					03AB4D7F301BB7FA006D74C0 = {
+						CreatedOnToolsVersion = 15.4;
+						TestTargetID = 03AB4D6C301BB7F7006D74C0;
+					};
+					03AB4D89301BB7FA006D74C0 = {
+						CreatedOnToolsVersion = 15.4;
+						TestTargetID = 03AB4D6C301BB7F7006D74C0;
+					};
+				};
+			};
+			buildConfigurationList = 03AB4D68301BB7F7006D74C0 /* Build configuration list for PBXProject "DockMagic" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 03AB4D64301BB7F7006D74C0;
+			productRefGroup = 03AB4D6E301BB7F7006D74C0 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				03AB4D6C301BB7F7006D74C0 /* DockMagic */,
+				03AB4D7F301BB7FA006D74C0 /* DockMagicTests */,
+				03AB4D89301BB7FA006D74C0 /* DockMagicUITests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		03AB4D6B301BB7F7006D74C0 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				03AB4D7A301BB7FA006D74C0 /* Preview Assets.xcassets in Resources */,
+				03AB4D77301BB7FA006D74C0 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		03AB4D7E301BB7FA006D74C0 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		03AB4D88301BB7FA006D74C0 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		03AB4D69301BB7F7006D74C0 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				03AB4D71301BB7F7006D74C0 /* DockMagicApp.swift in Sources */,
+				D0C000000000000000000001 /* SystemMetricsSnapshot.swift in Sources */,
+				D0C000000000000000000002 /* SystemMetricsSampler.swift in Sources */,
+				D0C000000000000000000003 /* SystemMetricsStore.swift in Sources */,
+				D0C000000000000000000004 /* DockTileController.swift in Sources */,
+				D0C000000000000000000005 /* DockMetricsView.swift in Sources */,
+				D0C000000000000000000007 /* SettingsView.swift in Sources */,
+				D5A000000000000000000001 /* DesignTokens.swift in Sources */,
+				D5A000000000000000000002 /* DesignTheme.swift in Sources */,
+				D5A000000000000000000003 /* DSSurface.swift in Sources */,
+				D5A000000000000000000004 /* DSControls.swift in Sources */,
+				D5A000000000000000000005 /* DSComponents.swift in Sources */,
+				D5A000000000000000000006 /* ProjectTheme.swift in Sources */,
+				D7A000000000000000000001 /* DockConfiguration.swift in Sources */,
+				D7A000000000000000000002 /* CodexRateLimitSnapshot.swift in Sources */,
+				D7A000000000000000000003 /* CodexRateLimitProvider.swift in Sources */,
+				D7A000000000000000000004 /* DockPreferencesStore.swift in Sources */,
+				D7A000000000000000000005 /* CodexUsageStore.swift in Sources */,
+				D7A000000000000000000006 /* DockAppModel.swift in Sources */,
+				D7A000000000000000000007 /* SettingsWindowRouter.swift in Sources */,
+				D8A000000000000000000001 /* ClaudeCodeRateLimitProvider.swift in Sources */,
+				D8A000000000000000000002 /* ClaudeCodeUsageStore.swift in Sources */,
+				D9A000000000000000000001 /* WeatherSnapshot.swift in Sources */,
+				D9A000000000000000000002 /* OpenMeteoWeatherProvider.swift in Sources */,
+				D9A000000000000000000003 /* WeatherStore.swift in Sources */,
+				D9A000000000000000000004 /* DockWeatherView.swift in Sources */,
+				DAA000000000000000000001 /* NetworkMetricsSnapshot.swift in Sources */,
+				DAA000000000000000000002 /* StorageMetricsSnapshot.swift in Sources */,
+				DAA000000000000000000003 /* NetworkMetricsSampler.swift in Sources */,
+				DAA000000000000000000004 /* StorageMetricsSampler.swift in Sources */,
+				DAA000000000000000000005 /* NetworkMetricsStore.swift in Sources */,
+				DAA000000000000000000006 /* StorageMetricsStore.swift in Sources */,
+				DAA000000000000000000007 /* DockNetworkView.swift in Sources */,
+				DAA000000000000000000008 /* DockStorageView.swift in Sources */,
+				DAA000000000000000000009 /* NetworkHistoryChart.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		03AB4D7C301BB7FA006D74C0 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				03AB4D85301BB7FA006D74C0 /* DockMagicTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		03AB4D86301BB7FA006D74C0 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				03AB4D8F301BB7FA006D74C0 /* DockMagicUITests.swift in Sources */,
+				03AB4D91301BB7FA006D74C0 /* DockMagicUITestsLaunchTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		03AB4D82301BB7FA006D74C0 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 03AB4D6C301BB7F7006D74C0 /* DockMagic */;
+			targetProxy = 03AB4D81301BB7FA006D74C0 /* PBXContainerItemProxy */;
+		};
+		03AB4D8C301BB7FA006D74C0 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 03AB4D6C301BB7F7006D74C0 /* DockMagic */;
+			targetProxy = 03AB4D8B301BB7FA006D74C0 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		03AB4D92301BB7FA006D74C0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.4;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		03AB4D93301BB7FA006D74C0 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.4;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+			};
+			name = Release;
+		};
+		03AB4D95301BB7FA006D74C0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = DockMagic/DockMagic.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_ASSET_PATHS = "\"DockMagic/Preview Content\"";
+				DEVELOPMENT_TEAM = S35WXF7W5L;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = DockMagic/Info.plist;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.hypevibe.DockMagic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		03AB4D96301BB7FA006D74C0 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = DockMagic/DockMagic.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_ASSET_PATHS = "\"DockMagic/Preview Content\"";
+				DEVELOPMENT_TEAM = S35WXF7W5L;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = DockMagic/Info.plist;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.hypevibe.DockMagic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		03AB4D98301BB7FA006D74C0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = S35WXF7W5L;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.hypevibe.DockMagicTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/DockMagic.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/DockMagic";
+			};
+			name = Debug;
+		};
+		03AB4D99301BB7FA006D74C0 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = S35WXF7W5L;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.hypevibe.DockMagicTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/DockMagic.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/DockMagic";
+			};
+			name = Release;
+		};
+		03AB4D9B301BB7FA006D74C0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = S35WXF7W5L;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.hypevibe.DockMagicUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TEST_TARGET_NAME = DockMagic;
+			};
+			name = Debug;
+		};
+		03AB4D9C301BB7FA006D74C0 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = S35WXF7W5L;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.hypevibe.DockMagicUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TEST_TARGET_NAME = DockMagic;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		03AB4D68301BB7F7006D74C0 /* Build configuration list for PBXProject "DockMagic" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				03AB4D92301BB7FA006D74C0 /* Debug */,
+				03AB4D93301BB7FA006D74C0 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		03AB4D94301BB7FA006D74C0 /* Build configuration list for PBXNativeTarget "DockMagic" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				03AB4D95301BB7FA006D74C0 /* Debug */,
+				03AB4D96301BB7FA006D74C0 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		03AB4D97301BB7FA006D74C0 /* Build configuration list for PBXNativeTarget "DockMagicTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				03AB4D98301BB7FA006D74C0 /* Debug */,
+				03AB4D99301BB7FA006D74C0 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		03AB4D9A301BB7FA006D74C0 /* Build configuration list for PBXNativeTarget "DockMagicUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				03AB4D9B301BB7FA006D74C0 /* Debug */,
+				03AB4D9C301BB7FA006D74C0 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 03AB4D65301BB7F7006D74C0 /* Project object */;
+}
