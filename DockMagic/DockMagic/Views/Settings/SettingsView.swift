@@ -142,11 +142,6 @@ struct SettingsView: View {
         }
         .navigationSplitViewStyle(.balanced)
         .frame(minWidth: 860, minHeight: 620)
-        .toolbar {
-            ToolbarItem(placement: .navigation) {
-                SettingsHeaderView()
-            }
-        }
         .background(SettingsWindowTitleVisibilityBridge())
         .onChange(of: destination, initial: true) { _, newDestination in
             guard newDestination == .weather else {
@@ -185,6 +180,16 @@ struct SettingsView: View {
         .listStyle(.sidebar)
         .scrollContentBackground(.hidden)
         .background(theme.opaqueSurfaceChrome)
+        .safeAreaInset(edge: .top, spacing: 0) {
+            SettingsHeaderView()
+                .padding(.horizontal, DSSpacing.panel)
+                .padding(.vertical, 12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(.thinMaterial)
+                .overlay(alignment: .bottom) {
+                    Divider()
+                }
+        }
         .safeAreaInset(edge: .bottom) {
             HStack(spacing: DSSpacing.compact) {
                 Image(systemName: "sun.max.fill")
@@ -1385,24 +1390,16 @@ private struct SettingsHeaderView: View {
     @Environment(\.designTheme) private var theme
 
     var body: some View {
-        HStack(spacing: 10) {
-            Image("DockMagicLogo")
+        HStack(spacing: DSSpacing.standard) {
+            Image(nsImage: NSApplication.shared.applicationIconImage)
                 .resizable()
                 .interpolation(.high)
                 .scaledToFit()
-                .frame(width: 30, height: 30)
-                .padding(2)
-                .overlay {
-                    RoundedRectangle(
-                        cornerRadius: 7,
-                        style: .continuous
-                    )
-                    .stroke(theme.outlineStrong, lineWidth: 1)
-                }
+                .frame(width: 28, height: 28)
                 .accessibilityHidden(true)
 
             Text("Settings")
-                .font(.system(size: 17, weight: .semibold))
+                .font(.system(size: 18, weight: .semibold))
                 .foregroundStyle(theme.textPrimary)
         }
         .accessibilityElement(children: .combine)
@@ -1412,8 +1409,8 @@ private struct SettingsHeaderView: View {
 }
 
 /// SwiftUI does not expose `NSWindow.titleVisibility`. Keep the scene's title
-/// intact for window routing and accessibility while the custom toolbar header
-/// owns the visible title treatment.
+/// intact for window routing and accessibility while the sidebar header owns
+/// the visible title treatment.
 private struct SettingsWindowTitleVisibilityBridge: NSViewRepresentable {
     func makeNSView(context: Context) -> WindowTitleVisibilityView {
         WindowTitleVisibilityView()
@@ -1434,7 +1431,18 @@ private final class WindowTitleVisibilityView: NSView {
     }
 
     func applyTitleVisibility() {
-        window?.titleVisibility = .hidden
+        guard let window else {
+            return
+        }
+
+        window.titleVisibility = .hidden
+
+        // SwiftUI can reapply the scene title while the window is being
+        // configured. Apply this again on the next run loop so only the
+        // branded sidebar header is visible.
+        DispatchQueue.main.async { [weak window] in
+            window?.titleVisibility = .hidden
+        }
     }
 }
 

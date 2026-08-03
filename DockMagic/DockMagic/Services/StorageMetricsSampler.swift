@@ -26,12 +26,23 @@ actor StorageMetricsSampler: StorageMetricsSampling {
         let values = try volumeURL.resourceValues(forKeys: [
             .volumeLocalizedNameKey,
             .volumeTotalCapacityKey,
-            .volumeAvailableCapacityKey
+            .volumeAvailableCapacityKey,
+            .volumeAvailableCapacityForImportantUsageKey
         ])
+
+        // Match the capacity shown by macOS. This value includes space the
+        // system can reclaim when an important operation needs it.
+        let availableCapacity: Int64?
+        if let importantUsageCapacity = values.volumeAvailableCapacityForImportantUsage,
+           importantUsageCapacity >= 0 {
+            availableCapacity = importantUsageCapacity
+        } else {
+            availableCapacity = values.volumeAvailableCapacity.map(Int64.init)
+        }
 
         guard
             let totalCapacity = values.volumeTotalCapacity,
-            let availableCapacity = values.volumeAvailableCapacity,
+            let availableCapacity,
             totalCapacity > 0,
             availableCapacity >= 0
         else {

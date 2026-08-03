@@ -1366,9 +1366,22 @@ final class DockMagicTests: XCTestCase {
         }
 
         let storage = try await StorageMetricsSampler().sample()
+        let storageValues = try URL(fileURLWithPath: "/", isDirectory: true)
+            .resourceValues(forKeys: [
+                .volumeAvailableCapacityKey,
+                .volumeAvailableCapacityForImportantUsageKey
+            ])
+        let expectedAvailableCapacity = storageValues.volumeAvailableCapacityForImportantUsage
+            ?? storageValues.volumeAvailableCapacity.map(Int64.init)
+
+        guard let expectedAvailableCapacity, expectedAvailableCapacity >= 0 else {
+            throw XCTSkip("The host did not report available capacity.")
+        }
+
         XCTAssertGreaterThan(storage.totalBytes, 0)
         XCTAssertLessThanOrEqual(storage.availableBytes, storage.totalBytes)
         XCTAssertTrue((0...1).contains(storage.usage))
+        XCTAssertEqual(storage.availableBytes, UInt64(expectedAvailableCapacity))
     }
 
     @MainActor

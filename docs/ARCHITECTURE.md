@@ -135,14 +135,17 @@ không nhảy scale ở từng sample. Không có network history nào được 
 ## 7. Storage
 
 Storage đọc startup volume qua `URL(fileURLWithPath: "/")`, lấy
-`volumeTotalCapacityKey` và `volumeAvailableCapacityKey` rồi tính:
+`volumeTotalCapacityKey` và `volumeAvailableCapacityForImportantUsageKey` rồi tính:
 
 ```text
 usedBytes = totalBytes - availableBytes
 usage     = usedBytes / totalBytes
 ```
 
-Giá trị được normalize/clamp khi filesystem trả dữ liệu thiếu hoặc lệch.
+Giá trị `available` khớp cách macOS báo dung lượng có thể dùng cho tác vụ quan
+trọng, bao gồm cả phần hệ thống có thể thu hồi khi cần. Nếu API này không khả
+dụng, app fallback về `volumeAvailableCapacityKey`. Giá trị được
+normalize/clamp khi filesystem trả dữ liệu thiếu hoặc lệch.
 `StorageMetricsStore` poll mỗi 5 giây chỉ khi feature active. Dock và Settings
 dùng cùng renderer một vòng; không quét file, không cần Full Disk Access và
 không persist capacity snapshot.
