@@ -1,71 +1,75 @@
-# Kiến trúc DockMagic
+# DockMagic Architecture
 
 ## 1. Product contract
 
-DockMagic là ứng dụng macOS `.regular`: icon Dock vừa là mặt hiển thị vừa là
-entry point mở Settings. Không có `MenuBarExtra`, `NSStatusItem`, dashboard phụ
-hay logo placeholder. App tiếp tục chạy khi Settings đóng để Dock tile được cập
-nhật.
+DockMagic is a `.regular` macOS application: its Dock icon is both the display
+surface and the entry point for opening Settings. There is no `MenuBarExtra`,
+`NSStatusItem`, secondary dashboard, or placeholder logo. The app continues
+running after Settings closes so the Dock tile can keep updating.
 
-Settings có native `NavigationSplitView`:
+Settings uses a native `NavigationSplitView`:
 
-- `General`: chọn đúng một feature active.
-- `CPU & RAM`: preview, màu và độ rộng hai vòng.
-- `Network`: preview live, current download/upload/interface và màu hai series.
-- `Storage`: preview live, used/available/total và màu/độ rộng một vòng.
-- `Weather`: preview responsive có tên địa điểm, trạng thái freshness và
-  Open-Meteo attribution; không có connection hoặc Location/privacy section.
-- `Codex`: preview quota, display style, màu và độ rộng hai vòng; không có
-  connection controls.
-- `Claude Code`: preview quota, display style, màu và độ rộng hai vòng; không có
-  connection controls.
-- `About`: version, privacy và distribution.
+- `General`: select exactly one active feature.
+- `CPU & RAM`: preview, colors, and widths for the two rings.
+- `Network`: live preview, current download/upload/interface, and colors for
+  the two series.
+- `Storage`: live preview, used/available/total capacity, and color/width for
+  one ring.
+- `Weather`: responsive preview with location name, freshness state, and
+  Open-Meteo attribution; there is no connection or Location/privacy section.
+- `Codex`: quota preview, display style, colors, and widths for the two rings;
+  there are no connection controls.
+- `Claude Code`: quota preview, display style, colors, and widths for the two
+  rings; there are no connection controls.
+- `About`: version, privacy, and distribution.
 
 ## 2. Ownership
 
-| Owner | Trách nhiệm |
+| Owner | Responsibility |
 | --- | --- |
-| `DockMagicApp` / `AppDelegate` | Scene graph, activation policy, app lifecycle |
-| `SettingsWindowRouter` | Focus hoặc mở một Settings window; Dock reopen và `⌘,` dùng chung đường này |
-| `DockAppModel` | Composition root và đảm bảo chỉ provider của feature active chạy |
-| `DockPreferencesStore` | Persist feature, renderer appearance và Codex executable override |
-| `SystemMetricsStore` | Sampling loop `1 Hz`, current/history/error |
-| `SystemMetricsSampler` | Đọc Mach CPU/VM counters, không sở hữu UI |
-| `NetworkMetricsStore` / `NetworkMetricsSampler` | Sampling `1 Hz`, history tối đa 60 mẫu và delta byte counters của primary interface |
-| `StorageMetricsStore` / `StorageMetricsSampler` | Poll startup volume mỗi 5 giây và tính used/available/total |
-| `WeatherStore` | Poll 10 phút, cache snapshot và state live/stale/unavailable |
-| `OpenMeteoWeatherProvider` | Lấy Core Location, gọi Forecast API, validate HTTP/JSON và map WMO code |
-| `CodexUsageStore` | Polling lifecycle và state live/stale/unavailable |
-| `CodexAppServerRateLimitProvider` | Resolve CLI, nói JSON-RPC với `codex app-server` và parse quota |
-| `ClaudeCodeUsageStore` | Poll local snapshot, freshness và state live/stale/unavailable |
-| `ClaudeCodeStatusLineBridge` | Cài/gỡ wrapper status line và bảo toàn config cũ |
-| `ClaudeCodeStatusLineRateLimitProvider` | Chỉ đọc/parse cache `rate_limits` local |
-| `DockTileController` | Một `NSHostingView` lâu dài, cập nhật root view và gọi `NSDockTile.display()` |
-| `DockMetricsView` / `DockNetworkView` / `DockStorageView` / `DockWeatherView` / `CodexDockView` | Renderer thuần từ input model và appearance |
-| `SettingsView` | UI preferences; không tạo timer hay gọi Mach API |
-| `DesignSystem` / `ProjectTheme` | Tokens, components, semantic palette và appearance-aware theme root |
+| `DockMagicApp` / `AppDelegate` | Scene graph, activation policy, and app lifecycle |
+| `SettingsWindowRouter` | Focuses or opens one Settings window; Dock reopen and `⌘,` share this path |
+| `DockAppModel` | Composition root; ensures only the active feature's provider runs |
+| `DockPreferencesStore` | Persists the feature, renderer appearance, and Codex executable override |
+| `SystemMetricsStore` | `1 Hz` sampling loop, current/history/error state |
+| `SystemMetricsSampler` | Reads Mach CPU/VM counters; does not own UI |
+| `NetworkMetricsStore` / `NetworkMetricsSampler` | `1 Hz` sampling, up to 60 history samples, and byte-counter deltas for the primary interface |
+| `StorageMetricsStore` / `StorageMetricsSampler` | Polls the startup volume every 5 seconds and calculates used/available/total capacity |
+| `WeatherStore` | Polls every 10 minutes, caches the snapshot, and owns live/stale/unavailable state |
+| `OpenMeteoWeatherProvider` | Obtains Core Location, calls the Forecast API, validates HTTP/JSON, and maps WMO codes |
+| `CodexUsageStore` | Polling lifecycle and live/stale/unavailable state |
+| `CodexAppServerRateLimitProvider` | Resolves the CLI, communicates with `codex app-server` over JSON-RPC, and parses quotas |
+| `ClaudeCodeUsageStore` | Polls the local snapshot and owns freshness and live/stale/unavailable state |
+| `ClaudeCodeStatusLineBridge` | Installs/removes the status-line wrapper and preserves the previous configuration |
+| `ClaudeCodeStatusLineRateLimitProvider` | Reads and parses only the local `rate_limits` cache |
+| `DockTileController` | Maintains one long-lived `NSHostingView`, updates its root view, and calls `NSDockTile.display()` |
+| `DockMetricsView` / `DockNetworkView` / `DockStorageView` / `DockWeatherView` / `CodexDockView` | Pure renderers driven by input models and appearance |
+| `SettingsView` | Preference UI; does not create timers or call Mach APIs |
+| `DesignSystem` / `ProjectTheme` | Tokens, components, semantic palette, and appearance-aware theme root |
 
-Các owner sống suốt process được tạo đúng một lần trong `AppDelegate`. Feature
-view không tạo store cục bộ, vì việc đó sẽ gây timer/polling trùng và Dock không
-đồng bộ với Settings.
+Process-lifetime owners are created exactly once in `AppDelegate`. Feature
+views do not create local stores, which would cause duplicate timers or polling
+and allow the Dock to fall out of sync with Settings.
 
-Design system dùng ba color scheme System/Light/Dark, tích hợp glass mặc định
-nhưng vẫn giới hạn nó ở navigation/chrome theo kiến trúc
-Canvas → Content → Navigation. Xem
-[SIGMA_DESIGN_SYSTEM.md](SIGMA_DESIGN_SYSTEM.md) để phân biệt token Sigma công
-khai với quyết định do DockMagic suy diễn, cùng contract tương thích và QA.
+The design system supports three color schemes—System, Light, and Dark—and
+integrates glass by default while limiting it to navigation and chrome under
+the Canvas → Content → Navigation architecture. See
+[SIGMA_DESIGN_SYSTEM.md](SIGMA_DESIGN_SYSTEM.md) for the distinction between
+public Sigma tokens and DockMagic-derived decisions, as well as compatibility
+and QA contracts.
 
-## 3. Lifecycle cửa sổ
+## 3. Window lifecycle
 
-`WindowGroup("DockMagic Settings", id: "settings")` là primary scene để macOS
-tạo cửa sổ khi app launch. `SettingsWindowRouter.showSettings()` luôn tìm cửa
-sổ có title tương ứng trước, đưa nó lên trước và activate app; chỉ gọi public
-`OpenWindowAction` khi chưa có cửa sổ.
+`WindowGroup("DockMagic Settings", id: "settings")` is the primary scene macOS
+uses to create a window at app launch. `SettingsWindowRouter.showSettings()`
+first looks for a window with the corresponding title, brings it forward, and
+activates the app. It calls the public `OpenWindowAction` only when no such
+window exists.
 
-`applicationShouldHandleReopen` đi qua cùng router và trả `false` vì delegate
-đã xử lý action. `applicationShouldTerminateAfterLastWindowClosed` trả `false`.
-New Window command bị loại bỏ, nên click Dock, `⌘,` và menu Settings không sinh
-thêm cửa sổ cạnh tranh.
+`applicationShouldHandleReopen` uses the same router and returns `false` because
+the delegate has handled the action. `applicationShouldTerminateAfterLastWindowClosed`
+also returns `false`. The New Window command is removed, so clicking the Dock,
+using `⌘,`, and choosing the Settings menu item do not create competing windows.
 
 ## 4. Feature coordination
 
@@ -89,144 +93,157 @@ flowchart LR
     H --> N["NSDockTile.display()"]
 ```
 
-Khi đổi feature, coordinator dừng provider cũ trước khi start provider mới.
-`start()`/`stop()` đều idempotent. Khi appearance preference, effective
-Light/Dark của macOS hoặc accessibility display options đổi, Dock controller
-re-host presentation hiện tại bằng theme mới rồi redraw ngay, không cần đợi
-sample tiếp theo.
+When the feature changes, the coordinator stops the previous provider before
+starting the new one. Both `start()` and `stop()` are idempotent. When the
+appearance preference, effective macOS Light/Dark appearance, or accessibility
+display options change, the Dock controller re-hosts the current presentation
+with the new theme and redraws immediately without waiting for the next sample.
 
-## 5. CPU và RAM
+## 5. CPU and RAM
 
-CPU dùng hai mẫu `HOST_CPU_LOAD_INFO`:
+CPU usage is calculated from two `HOST_CPU_LOAD_INFO` samples:
 
 ```text
 busyDelta = Δuser + Δsystem + Δnice
 cpuUsage  = busyDelta / (busyDelta + Δidle)
 ```
 
-Mẫu đầu chỉ tạo baseline. Counter reset, tổng delta bằng 0 và kết quả ngoài
-range đều được xử lý/clamp về `0...1`.
+The first sample establishes only the baseline. Counter resets, zero total
+deltas, and out-of-range results are handled and clamped to `0...1`.
 
-RAM dùng `HOST_VM_INFO64`:
+RAM usage uses `HOST_VM_INFO64`:
 
 ```text
 usedBytes  = (activePages + wiredPages + compressorPages) × pageSize
 memoryUsage = usedBytes / physicalMemory
 ```
 
-Đây là ước lượng có chủ đích, không cam kết trùng Activity Monitor: inactive,
-speculative và cache có thể thu hồi không được coi là used. Nếu cần cảnh báo
-thiếu RAM nên thêm memory-pressure feature riêng.
+This is an intentional estimate and is not guaranteed to match Activity
+Monitor: inactive, speculative, and reclaimable cached pages are not counted as
+used. RAM-shortage warnings should be implemented as a separate memory-pressure
+feature.
 
 ## 6. Network
 
-Network chỉ đo primary IPv4/IPv6 interface do SystemConfiguration công bố,
-thay vì cộng tất cả interface và vô tình đếm đôi traffic giữa VPN và interface
-vật lý. Counter được đọc từ public routing sysctl `NET_RT_IFLIST2` với
-`if_msghdr2.ifm_data.ifi_ibytes` và `ifi_obytes` 64-bit.
+Network measures only the primary IPv4/IPv6 interface published by
+SystemConfiguration instead of summing all interfaces and accidentally
+double-counting traffic between a VPN and its physical interface. Counters are
+read from the public `NET_RT_IFLIST2` routing sysctl using the 64-bit
+`if_msghdr2.ifm_data.ifi_ibytes` and `ifi_obytes` values.
 
 ```text
 downloadBytesPerSecond = ΔinputBytes / elapsedSeconds
 uploadBytesPerSecond   = ΔoutputBytes / elapsedSeconds
 ```
 
-Mẫu đầu chỉ tạo baseline. Đổi interface, counter rollback, elapsed time không
-hợp lệ hoặc thiếu interface đều reset tốc độ về 0 thay vì tạo spike giả.
-`NetworkMetricsStore` lấy mẫu `1 Hz`, chỉ sống khi feature active và giữ tối đa
-60 mẫu trong bộ nhớ. Dock vẽ 30 mẫu gần nhất; Settings vẽ 60 mẫu.
+The first sample establishes only the baseline. An interface change, counter
+rollback, invalid elapsed time, or missing interface resets throughput to zero
+instead of creating a false spike. `NetworkMetricsStore` samples at `1 Hz`,
+runs only while the feature is active, and retains up to 60 samples in memory.
+The Dock draws the latest 30 samples; Settings draws 60.
 
-Chart diverge quanh baseline giữa: upload ở trên, download ở dưới. Hai hướng
-dùng chung thang tuyến tính được quantize theo các mức 64 KiB/s tới 1 GiB/s rồi
-lên power-of-two tiếp theo, nên độ cao hai phía có thể so sánh trực tiếp và
-không nhảy scale ở từng sample. Không có network history nào được persist.
+The chart diverges around a central baseline: upload is above and download is
+below. Both directions share a linear scale quantized from 64 KiB/s through
+1 GiB/s and then to the next power of two. Their heights are therefore directly
+comparable, and the scale does not jump on every sample. Network history is not
+persisted.
 
 ## 7. Storage
 
-Storage đọc startup volume qua `URL(fileURLWithPath: "/")`, lấy
-`volumeTotalCapacityKey` và `volumeAvailableCapacityForImportantUsageKey` rồi tính:
+Storage reads the startup volume through `URL(fileURLWithPath: "/")`, obtains
+`volumeTotalCapacityKey` and `volumeAvailableCapacityForImportantUsageKey`, and
+then calculates:
 
 ```text
 usedBytes = totalBytes - availableBytes
 usage     = usedBytes / totalBytes
 ```
 
-Giá trị `available` khớp cách macOS báo dung lượng có thể dùng cho tác vụ quan
-trọng, bao gồm cả phần hệ thống có thể thu hồi khi cần. Nếu API này không khả
-dụng, app fallback về `volumeAvailableCapacityKey`. Giá trị được
-normalize/clamp khi filesystem trả dữ liệu thiếu hoặc lệch.
-`StorageMetricsStore` poll mỗi 5 giây chỉ khi feature active. Dock và Settings
-dùng cùng renderer một vòng; không quét file, không cần Full Disk Access và
-không persist capacity snapshot.
+The `available` value matches the way macOS reports space available for
+important usage, including space the system can reclaim when needed. If this
+API is unavailable, the app falls back to `volumeAvailableCapacityKey`. Values
+are normalized and clamped when the file system returns missing or inconsistent
+data. `StorageMetricsStore` polls every five seconds only while the feature is
+active. Dock and Settings share the same one-ring renderer; the app does not
+scan files, require Full Disk Access, or persist capacity snapshots.
 
 ## 8. Weather
 
-Weather dùng Core Location public của macOS và Open-Meteo Forecast API, không
-scrape Weather.app hoặc yêu cầu Shortcut/helper app:
+Weather uses the public macOS Core Location API and the Open-Meteo Forecast API;
+it does not scrape Weather.app or require a Shortcut or helper app.
 
-`CoreLocationWeatherCoordinateProvider` xin quyền Location chuẩn, dùng one-shot
-`requestLocation()` ở accuracy ba kilomet và timeout 20 giây. Tọa độ được truyền
-qua HTTPS với current temperature/apparent temperature/WMO code/daylight và daily
-high/low/precipitation probability trong một request. Provider validate tọa độ,
-HTTP status, schema và range trước khi tạo `WeatherSnapshot`.
+`CoreLocationWeatherCoordinateProvider` requests standard Location permission
+and makes a one-shot `requestLocation()` call with three-kilometer accuracy and
+a 20-second timeout. One HTTPS request sends the coordinates and requests the
+current temperature, apparent temperature, WMO code, daylight state, daily
+high/low, and precipitation probability. The provider validates coordinates,
+HTTP status, schema, and value ranges before creating `WeatherSnapshot`.
 
 State contract:
 
-- `idle` / `loading`: chưa có snapshot dùng được.
-- `live`: Open-Meteo payload hợp lệ và `observedAt` không quá 45 phút.
-- `stale`: snapshot cũ hoặc refresh lỗi; vẫn render dữ liệu thành công gần nhất
-  cùng badge cảnh báo.
-- `unavailable`: chưa có snapshot và Location bị tắt/từ chối/timeout, network,
-  HTTP hoặc schema không hợp lệ.
+- `idle` / `loading`: no usable snapshot exists yet.
+- `live`: the Open-Meteo payload is valid and `observedAt` is no more than 45
+  minutes old.
+- `stale`: the snapshot is old or refresh failed; the latest successful data
+  remains rendered with a warning badge.
+- `unavailable`: no snapshot exists and Location is disabled, denied, or timed
+  out, or the network, HTTP response, or schema is invalid.
 
-Chỉ feature Weather active mới poll mỗi 10 phút. Refresh thủ công vẫn chạy từ
-Settings và được deduplicate. Snapshot thành công cuối cùng được cache trong
-`UserDefaults` bằng namespace Open-Meteo riêng; cache Shortcut legacy không được
-restore để tránh attribution sai. Xem [WEATHER_OPEN_METEO.md](WEATHER_OPEN_METEO.md) cho auth,
-licence, setup và privacy.
+Polling runs every 10 minutes only while Weather is the active feature. A manual
+refresh remains available in Settings and is deduplicated. The last successful
+snapshot is cached in `UserDefaults` under a separate Open-Meteo namespace;
+legacy Shortcut cache data is not restored, preventing incorrect attribution.
+See [WEATHER_OPEN_METEO.md](WEATHER_OPEN_METEO.md) for authentication, licensing,
+setup, and privacy details.
 
-Build mặc định dùng open-access endpoint không API key, chỉ phù hợp với
-non-commercial terms của Open-Meteo. Paid commercial endpoint nhận `apikey` qua
-provider configuration; không coi key nhúng trong desktop binary là secret.
-Weather Settings đặt `Open-Meteo · CC BY 4.0` ngay dưới production preview để
-attribution luôn rõ, không ẩn ở cuối setup.
+The default build uses the open-access endpoint without an API key and is
+suitable only under Open-Meteo's non-commercial terms. The paid commercial
+endpoint accepts an `apikey` through provider configuration; a key embedded in
+a desktop binary must not be treated as secret. Weather Settings places
+`Open-Meteo · CC BY 4.0` directly below the production preview so attribution
+remains clear rather than being hidden at the end of setup.
 
 ## 9. Codex quota
 
-Khi Codex được chọn trong General, executable được tự resolve theo thứ tự:
-override đã lưu nếu có, biến `CODEX_EXECUTABLE`, `PATH`, Homebrew/local
-candidates và các bản Node trong `~/.nvm/versions/node`. Khi chạy CLI, parent
-directory của executable được thêm vào `PATH` để launcher
-`#!/usr/bin/env node` hoạt động.
+When Codex is selected in General, the executable is resolved automatically in
+this order: a persisted override, if present; the `CODEX_EXECUTABLE` variable;
+`PATH`; Homebrew/local candidates; and Node installations under
+`~/.nvm/versions/node`. When launching the CLI, the executable's parent
+directory is added to `PATH` so the `#!/usr/bin/env node` launcher works.
 
-Provider khởi chạy:
+The provider launches:
 
 ```text
 codex app-server --stdio
 ```
 
-Sau đó gửi `initialize`, `initialized`, `account/read` và
-`account/rateLimits/read`. Stdin được giữ mở cho tới khi nhận response của
-request rate limit; request bị timeout sau 12 giây. Parser ưu tiên limit id
-`codex`, nhận chính xác cửa sổ 300 phút và 10.080 phút, clamp `usedPercent`, rồi
-chuyển thành phần trăm còn lại.
+It then sends `initialize`, `initialized`, `account/read`, and
+`account/rateLimits/read`. Stdin remains open until the rate-limit request
+receives a response; the request times out after 12 seconds. The parser
+prioritizes the `codex` limit ID, accepts the exact 300-minute and 10,080-minute
+windows, clamps `usedPercent`, and converts it to the remaining percentage.
 
 State contract:
 
-- `idle` / `loading`: chưa có dữ liệu sử dụng được.
-- `live`: response hiện tại hợp lệ.
-- `stale`: refresh lỗi nhưng vẫn giữ snapshot live gần nhất và nêu lỗi.
-- `unavailable`: chưa từng có snapshot và CLI/protocol không dùng được.
+- `idle` / `loading`: no usable data exists yet.
+- `live`: the current response is valid.
+- `stale`: refresh failed, but the latest live snapshot remains available and
+  the error is reported.
+- `unavailable`: there has never been a snapshot and the CLI or protocol cannot
+  be used.
 
-Không suy diễn quota 5 giờ khi server chỉ trả quota tuần. Với weekly-only, Dock
-render một vòng tuần ở vị trí cân bằng. Polling mặc định 5 phút và bắt đầu ngay
-khi Codex được chọn; Settings không yêu cầu refresh hay chọn executable thủ
-công. DockMagic không đọc credential files.
+Do not infer a five-hour quota when the server returns only a weekly quota. In
+the weekly-only state, the Dock renders one weekly ring in a balanced position.
+Polling defaults to every five minutes and begins as soon as Codex is selected;
+Settings does not require a manual refresh or executable selection. DockMagic
+does not read credential files.
 
 ## 10. Claude Code quota
 
-Claude Code có `/usage` cho người dùng tương tác, nhưng integration tự động được
-tài liệu Anthropic hỗ trợ là `statusLine`. Sau assistant response, Claude Code
-pipe JSON vào command đã cấu hình. Với subscription được hỗ trợ, object này có:
+Claude Code provides `/usage` for interactive users, but the Anthropic-documented
+automatic integration is `statusLine`. After an assistant response, Claude Code
+pipes JSON to the configured command. For a supported subscription, the object
+contains:
 
 ```text
 rate_limits.five_hour.used_percentage
@@ -235,96 +252,108 @@ rate_limits.seven_day.used_percentage
 rate_limits.seven_day.resets_at
 ```
 
-Automatic setup mặc định bật. Khi Claude Code được chọn làm Dock feature trong
-General, DockMagic tự cài bridge ở
-`~/.claude/dockmagic-statusline.sh`. Bridge dùng `plutil` lấy riêng
-`rate_limits`, ghi atomic vào `~/.claude/dockmagic-usage.json`, rồi chuyển
-nguyên input cho command status line cũ. Backup chỉ dùng để restore cấu hình khi
-bridge được gỡ. Trang Claude Code Settings chỉ còn preview và appearance, không
-có connection controls. Bridge không đọc OAuth token/Keychain, không gọi
-endpoint web nội bộ và không làm phát sinh model request.
+Automatic setup is enabled by default. When Claude Code is selected as the Dock
+feature in General, DockMagic installs the bridge at
+`~/.claude/dockmagic-statusline.sh`. The bridge uses `plutil` to extract only
+`rate_limits`, writes it atomically to `~/.claude/dockmagic-usage.json`, and
+passes the original input to the previous status-line command. The backup is
+used only to restore the configuration when the bridge is removed. The Claude
+Code Settings page contains only the preview and appearance controls, with no
+connection controls. The bridge does not read OAuth tokens or Keychain, call
+internal web endpoints, or generate model requests.
 
-`rate_limits` có thể vắng trước response đầu tiên hoặc với account không được
-hỗ trợ. Cache quá 15 phút được render `stale`; thiếu bridge/cache hoặc schema
-không hợp lệ trở thành `unavailable`. Không suy đoán 100% còn lại khi dữ liệu
-vắng. Project-local status line có thể override user-level bridge; khi đó người
-dùng cần bỏ override hoặc cấu hình wrapper tương đương ở project đó.
+`rate_limits` may be absent before the first response or for unsupported
+accounts. A cache older than 15 minutes renders as `stale`; a missing bridge or
+cache, or an invalid schema, becomes `unavailable`. DockMagic does not infer
+100% remaining when data is absent. A project-local status line can override
+the user-level bridge; the user must then remove the override or configure an
+equivalent wrapper in that project.
 
 ## 11. Dock rendering
 
-`DockTileController` cài một `NSHostingView` vào `NSApp.dockTile.contentView` và
-giữ host đó suốt vòng đời app. Nó thay `rootView` khi presentation đổi hoặc khi
-theme/appearance cần refresh, rồi gọi `display()` trên main actor.
+`DockTileController` installs one `NSHostingView` into
+`NSApp.dockTile.contentView` and retains that host for the app's lifetime. It
+replaces the `rootView` when the presentation changes or the theme/appearance
+needs refreshing, then calls `display()` on the main actor.
 
-- CPU/Codex/Claude Code 5 giờ là vòng ngoài; RAM/Codex/Claude Code tuần là vòng
-  trong. Storage dùng một vòng. Network dùng diverging chart quanh baseline;
-  Weather dùng condition symbol + temperature, không dùng ring metaphor.
-- Dock Network giới hạn 30 mẫu và dùng chung scale cho upload/download; zero và
-  unavailable có symbol riêng để không tạo chart giả.
-- Weather scale theo tile `32...128 pt`; tile lớn thêm H/L, live không thêm
-  badge, stale có clock và unavailable có cảnh báo để trạng thái không chỉ dựa
-  vào màu.
-- Progress dùng giá trị `0...1`; track dùng semantic asset.
-- Màu/stroke là preference product-owned với default riêng từng feature.
-- Stroke được clamp riêng và clamp tổng để hai vòng không chồng nhau.
-- Dock path không chạy interpolation animation vì Dock compositor chỉ chụp các
-  frame khi `display()` được gọi.
-- Accessibility label/value luôn diễn đạt feature, giá trị và trạng thái; màu
-  không phải tín hiệu duy nhất.
+- The CPU, Codex five-hour, and Claude Code five-hour metrics use the outer
+  ring; RAM, Codex weekly, and Claude Code weekly metrics use the inner ring.
+  Storage uses one ring. Network uses a diverging chart around a baseline.
+  Weather uses a condition symbol and temperature instead of the ring metaphor.
+- Dock Network is limited to 30 samples and uses one scale for upload and
+  download; zero and unavailable states have distinct symbols to avoid drawing
+  a false chart.
+- Weather scales with tile sizes from `32...128 pt`; larger tiles add H/L, live
+  state adds no badge, stale state adds a clock, and unavailable state adds a
+  warning so state is not communicated by color alone.
+- Progress uses values in `0...1`; tracks use semantic assets.
+- Colors and strokes are product-owned preferences with feature-specific
+  defaults.
+- Stroke widths are clamped individually and in aggregate so the two rings do
+  not overlap.
+- The Dock path does not run interpolation animations because the Dock
+  compositor captures frames only when `display()` is called.
+- Accessibility labels and values always communicate the feature, value, and
+  state; color is not the only signal.
 
-Settings preview dùng cùng production renderer, nhưng cho phép animation ngắn
-để phản hồi thao tác trực tiếp.
+The Settings preview uses the same production renderer but allows short
+animations to provide immediate interaction feedback.
 
-## 12. Persistence và privacy
+## 12. Persistence and privacy
 
-`UserDefaults` chỉ lưu:
+`UserDefaults` stores only:
 
-- appearance color scheme System/Light/Dark; glass chrome là mặc định ở cả ba;
-- feature active;
-- RGBA + stroke width + Chart/Numbers display style cho CPU/RAM, Storage,
-  Codex và Claude Code;
-- RGBA cho hai series download/upload của Network;
-- snapshot Weather thành công cuối cùng;
-- Codex executable override (nếu có).
+- the System/Light/Dark appearance color scheme; glass chrome is the default in
+  all three;
+- the active feature;
+- RGBA values, stroke widths, and Chart/Numbers display styles for CPU/RAM,
+  Storage, Codex, and Claude Code;
+- RGBA values for the Network download and upload series;
+- the last successful Weather snapshot;
+- the Codex executable override, if present.
 
-Realtime metric samples, Network history, token, prompt và account metadata
-không được persist trong app container. CPU/RAM, Network và Storage không ra
-khỏi máy. Weather cache chỉ chứa dữ liệu đã hiển thị
-(location label, nhiệt độ, condition, freshness); tọa độ hiện tại được gửi qua
-HTTPS tới Open-Meteo và không được lưu thành location history. Codex app-server dùng chính phiên đăng
-nhập do Codex CLI sở hữu. Claude Code bridge
-persist snapshot usage tối thiểu vì status line chỉ giao dữ liệu theo event;
-file chỉ chứa hai cửa sổ `rate_limits` và được xóa khi bridge được gỡ.
+Real-time metric samples, Network history, tokens, prompts, and account metadata
+are not persisted in the app container. CPU/RAM, Network, and Storage data do
+not leave the Mac. The Weather cache contains only data already shown to the
+user (location label, temperature, condition, and freshness); current
+coordinates are sent to Open-Meteo over HTTPS and are not stored as location
+history. The Codex app-server uses the login session owned by the Codex CLI.
+The Claude Code bridge persists a minimal usage snapshot because the status
+line delivers data only in response to events; the file contains only the two
+`rate_limits` windows and is deleted when the bridge is removed.
 
-## 13. Threading và failure containment
+## 13. Threading and failure containment
 
-Stores, app model và AppKit bridge là `@MainActor`. Mach, network, filesystem
-reads và process I/O được đóng gói sau protocol để test bằng double.
-Poll/sampling task có thể cancel; task ngủ không giữ store sống vô hạn. Một lỗi
-không tạo busy retry loop.
+Stores, the app model, and the AppKit bridge are `@MainActor`. Mach, network,
+and file-system reads and process I/O are encapsulated behind protocols so they
+can be tested with doubles. Polling and sampling tasks are cancellable; sleeping
+tasks do not retain stores indefinitely. A failure does not create a busy retry
+loop.
 
-Provider/process failure phải trở thành UI state có mô tả, không crash app hoặc
-giữ feature còn lại chạy ngầm.
+Provider or process failures must become descriptive UI states. They must not
+crash the app or leave another feature running in the background.
 
 ## 14. Verification contract
 
-Mỗi thay đổi cần kiểm tra theo mức rủi ro:
+Every change must be checked according to its risk:
 
-1. Unit: clamp/persistence, Network delta/reset/scale, Storage capacity math,
-   Weather/Open-Meteo request/decoder/WMO variants, executable resolution, timeout/cancel,
-   live→stale/unavailable, lifecycle exclusivity, Mach math và Dock redraw.
-2. Renderer: Weather `32/48/64/128 pt`, Network/Storage và
-   CPU/Codex/Claude Code loading/live/weekly-only/stale/error, gồm cả Chart và
-   Numbers ở nhiều tile size.
-3. UI: launch Settings với glass chrome, ba appearance options, tám sidebar
-   destinations, active-feature icon/picker, numeric display controls,
-   close→Dock activation→một Settings window.
-4. Runtime: signed launch smoke, process sống sau khi đóng Settings.
-5. Release: Developer ID, Hardened Runtime, notarization, Gatekeeper và quan sát
-   pixel thật trên Dock ở nhiều size/position.
+1. Unit: clamping/persistence, Network delta/reset/scale, Storage capacity math,
+   Weather/Open-Meteo requests/decoder/WMO variants, executable resolution,
+   timeout/cancellation, live→stale/unavailable transitions, lifecycle
+   exclusivity, Mach math, and Dock redraw.
+2. Renderer: Weather at `32/48/64/128 pt`; Network and Storage; and CPU, Codex,
+   and Claude Code in loading/live/weekly-only/stale/error states, including
+   Chart and Numbers at multiple tile sizes.
+3. UI: launch Settings with glass chrome, three appearance options, eight
+   sidebar destinations, active-feature icon/picker, numeric display controls,
+   and close→Dock activation→one Settings window.
+4. Runtime: signed launch smoke test; process remains alive after Settings
+   closes.
+5. Release: Developer ID, Hardened Runtime, notarization, Gatekeeper, and real
+   Dock-pixel observation at multiple sizes and positions.
 
-AX tree và offscreen render chứng minh wiring/layout, không thay thế việc quan
-sát pixel do system Dock compositor tạo ra hoặc VoiceOver thủ công trước release.
-XCUI runner trên macOS cần Apple Development signing identity hợp lệ; một
-unsigned runner bị AppleSystemPolicy kill trước khi test bootstrap và không được
-báo cáo như một product-test failure.
+The AX tree and offscreen renders prove wiring and layout; they do not replace
+observing pixels produced by the system Dock compositor or manually testing
+VoiceOver before release. An XCUI runner on macOS requires a valid Apple
+Development signing identity. If AppleSystemPolicy kills an unsigned runner
+before test bootstrap, that must not be reported as a product-test failure.
