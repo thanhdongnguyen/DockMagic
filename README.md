@@ -17,6 +17,7 @@ to open its single Settings window.
 
 ## Contents
 
+- [Screenshots](#screenshots)
 - [Features](#features)
 - [Privacy and distribution](#privacy-and-distribution)
 - [Requirements](#requirements)
@@ -26,6 +27,55 @@ to open its single Settings window.
 - [Contributing](#contributing)
 - [Reporting bugs and security issues](#reporting-bugs-and-security-issues)
 - [License](#license)
+
+## Screenshots
+
+<p align="center">
+  <a href="docs/screenshots/dockmagic-general-dark.jpg">
+    <img
+      src="docs/screenshots/dockmagic-general-dark.jpg"
+      alt="DockMagic General settings in Dark appearance"
+      width="900"
+    />
+  </a>
+</p>
+<p align="center">
+  <sub>Select one active Dock feature and choose the app appearance.</sub>
+</p>
+
+<table>
+  <tr>
+    <td width="50%">
+      <a href="docs/screenshots/dockmagic-cpu-ram-dark.jpg">
+        <img
+          src="docs/screenshots/dockmagic-cpu-ram-dark.jpg"
+          alt="DockMagic live CPU and RAM settings"
+        />
+      </a>
+    </td>
+    <td width="50%">
+      <a href="docs/screenshots/dockmagic-network-dark.jpg">
+        <img
+          src="docs/screenshots/dockmagic-network-dark.jpg"
+          alt="DockMagic live Network settings"
+        />
+      </a>
+    </td>
+  </tr>
+  <tr>
+    <td align="center">
+      <strong>CPU &amp; RAM</strong><br />
+      <sub>Live system usage with a size-aware Dock preview.</sub>
+    </td>
+    <td align="center">
+      <strong>Network</strong><br />
+      <sub>Live download and upload throughput for the primary interface.</sub>
+    </td>
+  </tr>
+</table>
+
+Screenshots show Dark appearance. Live values vary by Mac and capture time.
+Click any screenshot to view it at full resolution.
 
 ## Features
 
