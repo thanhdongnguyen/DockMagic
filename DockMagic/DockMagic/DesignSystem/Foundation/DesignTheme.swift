@@ -4,18 +4,23 @@ import SwiftUI
 /// the app's `ProjectTheme` and its asset catalog.
 struct DesignTheme {
     let action: Color
+    let actionForeground: Color
     let onAction: Color
     let information: Color
+    let informationForeground: Color
     let onInformation: Color
     let processing: Color
+    let processingForeground: Color
     let onProcessing: Color
     let dockTrack: Color
     let dockBackgroundRaised: Color
     let dockBackgroundInset: Color
     let dockOutline: Color
     let warning: Color
+    let warningForeground: Color
     let onWarning: Color
     let danger: Color
+    let dangerForeground: Color
     let onDanger: Color
     let focus: Color
     let textPrimary: Color
@@ -91,6 +96,23 @@ struct DesignTheme {
             onWarning
         case .danger:
             onDanger
+        }
+    }
+
+    /// Accessible accent for text and icons drawn directly on content
+    /// surfaces. The brighter base colors remain available for fills.
+    func accentForeground(for role: DSSemanticRole) -> Color {
+        switch role {
+        case .neutral:
+            textPrimary
+        case .information:
+            informationForeground
+        case .processing:
+            processingForeground
+        case .warning:
+            warningForeground
+        case .danger:
+            dangerForeground
         }
     }
 }

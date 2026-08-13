@@ -95,28 +95,50 @@ struct DockMetricsView: View {
         self.animatesChanges = animatesChanges
     }
 
+    @ViewBuilder
     var body: some View {
-        DockRingTileView(
-            outerRing: DockRingDescriptor(
-                progress: snapshot.cpuUsage,
-                color: appearance.outerColor.color,
-                width: appearance.outerWidth
-            ),
-            innerRing: DockRingDescriptor(
-                progress: snapshot.memoryUsage,
-                color: appearance.innerColor.color,
-                width: appearance.innerWidth
-            ),
-            stateSymbol: errorDescription == nil
-                ? nil
-                : "exclamationmark.triangle.fill",
-            stateRole: .danger,
-            animatesChanges: animatesChanges
-        )
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("System usage")
-        .accessibilityValue(accessibilityValue)
-        .accessibilityIdentifier("dock.metrics")
+        if appearance.displayStyle == .numeric {
+            DockNumericTileView(
+                values: [
+                    DockNumericValue(
+                        label: "CPU",
+                        value: percentage(snapshot.cpuUsage),
+                        color: appearance.outerColor.color
+                    ),
+                    DockNumericValue(
+                        label: "RAM",
+                        value: percentage(snapshot.memoryUsage),
+                        color: appearance.innerColor.color
+                    )
+                ]
+            )
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("System usage")
+            .accessibilityValue(accessibilityValue)
+            .accessibilityIdentifier("dock.metrics")
+        } else {
+            DockRingTileView(
+                outerRing: DockRingDescriptor(
+                    progress: snapshot.cpuUsage,
+                    color: appearance.outerColor.color,
+                    width: appearance.outerWidth
+                ),
+                innerRing: DockRingDescriptor(
+                    progress: snapshot.memoryUsage,
+                    color: appearance.innerColor.color,
+                    width: appearance.innerWidth
+                ),
+                stateSymbol: errorDescription == nil
+                    ? nil
+                    : "exclamationmark.triangle.fill",
+                stateRole: .danger,
+                animatesChanges: animatesChanges
+            )
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("System usage")
+            .accessibilityValue(accessibilityValue)
+            .accessibilityIdentifier("dock.metrics")
+        }
     }
 
     private var accessibilityValue: String {
@@ -138,6 +160,7 @@ struct DockCodexView: View {
             state: state,
             appearance: appearance,
             animatesChanges: animatesChanges,
+            showsStateSymbol: true,
             accessibilityLabel: "Codex usage remaining",
             accessibilityIdentifier: "dock.codex"
         )
@@ -154,6 +177,7 @@ struct DockClaudeCodeView: View {
             state: state,
             appearance: appearance,
             animatesChanges: animatesChanges,
+            showsStateSymbol: false,
             accessibilityLabel: "Claude Code usage remaining",
             accessibilityIdentifier: "dock.claudeCode"
         )
@@ -164,21 +188,69 @@ private struct DockUsageLimitView: View {
     let state: CodexUsageState
     let appearance: DockRingAppearance
     let animatesChanges: Bool
+    let showsStateSymbol: Bool
     let accessibilityLabel: String
     let accessibilityIdentifier: String
 
+    @ViewBuilder
     var body: some View {
-        DockRingTileView(
-            outerRing: outerRing,
-            innerRing: innerRing,
-            stateSymbol: stateSymbol,
-            stateRole: stateRole,
-            animatesChanges: animatesChanges
-        )
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(accessibilityLabel)
-        .accessibilityValue(accessibilityValue)
-        .accessibilityIdentifier(accessibilityIdentifier)
+        if appearance.displayStyle == .numeric {
+            DockNumericTileView(values: numericValues)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(accessibilityLabel)
+                .accessibilityValue(accessibilityValue)
+                .accessibilityIdentifier(accessibilityIdentifier)
+        } else {
+            DockRingTileView(
+                outerRing: outerRing,
+                innerRing: innerRing,
+                stateSymbol: showsStateSymbol ? stateSymbol : nil,
+                stateRole: stateRole,
+                animatesChanges: animatesChanges
+            )
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(accessibilityLabel)
+            .accessibilityValue(accessibilityValue)
+            .accessibilityIdentifier(accessibilityIdentifier)
+        }
+    }
+
+    private var numericValues: [DockNumericValue] {
+        guard let snapshot = state.snapshot else {
+            return [
+                DockNumericValue(
+                    label: "5H",
+                    value: "—",
+                    color: appearance.outerColor.color
+                ),
+                DockNumericValue(
+                    label: "7D",
+                    value: "—",
+                    color: appearance.innerColor.color
+                )
+            ]
+        }
+
+        var values: [DockNumericValue] = []
+        if let fiveHour = snapshot.fiveHour {
+            values.append(
+                DockNumericValue(
+                    label: "5H",
+                    value: percentage(fiveHour.remainingFraction),
+                    color: appearance.outerColor.color
+                )
+            )
+        }
+        if let weekly = snapshot.weekly {
+            values.append(
+                DockNumericValue(
+                    label: "7D",
+                    value: percentage(weekly.remainingFraction),
+                    color: appearance.innerColor.color
+                )
+            )
+        }
+        return values
     }
 
     private var outerRing: DockRingDescriptor? {
@@ -350,6 +422,58 @@ struct DockTileSurface<Content: View>: View {
             .position(x: proxy.size.width / 2, y: proxy.size.height / 2)
         }
         .aspectRatio(1, contentMode: .fit)
+    }
+}
+
+struct DockNumericValue {
+    let label: String
+    let value: String
+    let color: Color
+}
+
+struct DockNumericTileView: View {
+    let values: [DockNumericValue]
+
+    @Environment(\.designTheme) private var theme
+
+    var body: some View {
+        DockTileSurface { side in
+            let fontSize = max(8, side * 0.215)
+
+            VStack(spacing: max(1, side * 0.035)) {
+                ForEach(Array(values.enumerated()), id: \.offset) { _, value in
+                    HStack(alignment: .firstTextBaseline, spacing: side * 0.045) {
+                        Text(value.label)
+                            .font(
+                                .system(
+                                    size: fontSize,
+                                    weight: .bold,
+                                    design: .rounded
+                                )
+                            )
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.65)
+                            .foregroundStyle(theme.dockOutline)
+                            .frame(width: side * 0.29, alignment: .trailing)
+
+                        Text(value.value)
+                            .font(
+                                .system(
+                                    size: fontSize,
+                                    weight: .bold,
+                                    design: .rounded
+                                )
+                            )
+                            .monospacedDigit()
+                            .minimumScaleFactor(0.65)
+                            .lineLimit(1)
+                            .foregroundStyle(value.color)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                }
+            }
+            .padding(.horizontal, side * 0.09)
+        }
     }
 }
 

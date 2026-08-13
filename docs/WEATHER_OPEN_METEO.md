@@ -58,27 +58,29 @@ bỏ khi tinh giản UI.
 
 ## Location, polling và state
 
-Lần refresh đầu, DockMagic gọi `requestWhenInUseAuthorization()` và macOS hiển
-thị permission prompt dựa trên `NSLocationUsageDescription`. Khi được phép, app
-dùng one-shot `requestLocation()` với accuracy ở mức ba kilomet, timeout sau 20
-giây và không chạy location tracking liên tục.
+Khi người dùng mở Weather Settings hoặc chọn Weather làm active Dock feature,
+DockMagic tự refresh. Lần refresh đầu gọi `requestWhenInUseAuthorization()` và
+macOS hiển thị permission prompt dựa trên `NSLocationUsageDescription`; Settings
+không có connection/setup form riêng. Khi được phép, app dùng one-shot
+`requestLocation()` với accuracy ở mức ba kilomet, timeout sau 20 giây và không
+chạy location tracking liên tục.
 
-Ngay khi người dùng chọn Weather làm active Dock feature, Settings chuyển sang
-trang Weather, kiểm tra trạng thái Location hiện tại rồi hiển thị đúng recovery
-flow:
+Core Location reverse-geocode tọa độ thành tên locality và country để hiển thị
+trong hàng `Location` của Weather Dock preview. Nếu reverse geocoding không trả
+về tên trong 3 giây, app hủy bước này và dùng locality suy ra từ timezone của
+Open-Meteo trước khi fallback về `Current Location`; việc tìm tên không được giữ
+toàn bộ vòng refresh vô thời hạn.
 
-- `notDetermined`: nút `Allow Location & Refresh` mở permission prompt chuẩn của
-  macOS.
-- `denied`, `restricted` hoặc Location Services đang tắt: nút `Open Location
-  Services` mở thẳng `System Settings > Privacy & Security > Location Services`;
-  nút `Refresh Location & Weather` kiểm tra lại quyền trước khi lấy tọa độ.
-- Khi người dùng quay lại DockMagic và quyền vừa chuyển sang allowed, Weather tự
-  refresh; người dùng vẫn có thể bấm refresh thủ công.
-- Nếu quyền chưa hợp lệ, request bị chặn trước provider nên không gọi
-  Open-Meteo và không gửi tọa độ.
+Nếu quyền chưa hợp lệ, request bị chặn trước provider nên không gọi Open-Meteo
+và không gửi tọa độ. Khi người dùng cấp lại quyền trong System Settings rồi quay
+lại DockMagic, Weather tự kiểm tra và refresh.
 
 - Chỉ khi Weather là feature active, `WeatherStore` refresh ngay rồi poll mỗi
   10 phút (`600` giây).
+- Sau khi Mac wake hoặc user session active lại sau unlock, Weather active được
+  re-arm và refresh ngay thay vì đợi chu kỳ kế tiếp.
+- Forecast request bỏ qua local URL cache và yêu cầu revalidation để mỗi chu kỳ
+  đọc dữ liệu hiện tại từ provider.
 - Nút refresh gọi cùng provider và được deduplicate với refresh đang chạy.
 - Đổi feature hoặc quit sẽ cancel cả polling task và refresh/location request.
 - Snapshot có `observedAt` cũ hơn 45 phút bị đánh dấu `stale`.
@@ -97,15 +99,16 @@ Cache Open-Meteo dùng namespace riêng; snapshot legacy từ Weather Shortcut k
 được restore để tránh gắn attribution Open-Meteo lên dữ liệu Apple Weather cũ.
 
 Người dùng có thể thu hồi quyền tại `System Settings > Privacy & Security >
-Location Services`. Khi Location Services tắt hoặc quyền bị từ chối, Settings
-hiển thị hướng dẫn cụ thể và cache cũ vẫn ở trạng thái stale nếu có.
+Location Services`. Khi Location Services tắt hoặc quyền bị từ chối, Weather
+preview hiển thị trạng thái Location tương ứng và cache cũ vẫn ở trạng thái stale
+nếu có.
 
 ## Verification contract
 
 - Unit: URL/query, free endpoint không key, paid endpoint có `apikey`, JSON
   current/daily, WMO mapping, time-zone conversion, invalid payload, HTTP error,
-  cache/stale/dedup/cancel, Location permission preflight/recovery, System
-  Settings deep link và default polling 600 giây.
+  cache/stale/dedup/cancel, Location permission preflight/recovery, location-name
+  resolution và default polling 600 giây.
 - Integration: gọi endpoint thật bằng tọa độ test công khai, không phụ thuộc
   permission của máy test.
 - Runtime: launch app ký local, kiểm tra prompt Location, allow/deny flow,

@@ -98,6 +98,83 @@ extension WeatherCoordinateProviding {
     }
 }
 
+protocol WeatherLocationNameProviding: Sendable {
+    @MainActor
+    func locationName(for coordinate: WeatherCoordinate) async -> String?
+}
+
+@MainActor
+final class CoreLocationWeatherLocationNameProvider:
+    WeatherLocationNameProviding,
+    @unchecked Sendable
+{
+    private let geocoder: CLGeocoder
+
+    init(geocoder: CLGeocoder = CLGeocoder()) {
+        self.geocoder = geocoder
+    }
+
+    func locationName(for coordinate: WeatherCoordinate) async -> String? {
+        guard coordinate.isValid else {
+            return nil
+        }
+
+        let location = CLLocation(
+            latitude: coordinate.latitude,
+            longitude: coordinate.longitude
+        )
+        let placemark = await withTaskCancellationHandler {
+            (try? await geocoder.reverseGeocodeLocation(location))?.first
+        } onCancel: {
+            Task { @MainActor [weak self] in
+                self?.geocoder.cancelGeocode()
+            }
+        }
+        guard let placemark else {
+            return nil
+        }
+
+        let primary = [
+            placemark.locality,
+            placemark.subAdministrativeArea,
+            placemark.administrativeArea,
+            placemark.name
+        ]
+        .compactMap(Self.normalizedComponent)
+        .first
+        let country = Self.normalizedComponent(placemark.country)
+        let components = [primary, country]
+            .compactMap { $0 }
+            .reduce(into: [String]()) { result, component in
+                guard !result.contains(where: {
+                    $0.caseInsensitiveCompare(component) == .orderedSame
+                }) else {
+                    return
+                }
+                result.append(component)
+            }
+
+        return components.isEmpty ? nil : components.joined(separator: ", ")
+    }
+
+    private static func normalizedComponent(_ value: String?) -> String? {
+        guard let value else {
+            return nil
+        }
+        let normalized = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        return normalized.isEmpty ? nil : normalized
+    }
+}
+
+private struct UnresolvedWeatherLocationNameProvider:
+    WeatherLocationNameProviding
+{
+    @MainActor
+    func locationName(for coordinate: WeatherCoordinate) async -> String? {
+        nil
+    }
+}
+
 @MainActor
 final class CoreLocationWeatherCoordinateProvider: NSObject,
     WeatherCoordinateProviding,
@@ -287,30 +364,41 @@ struct OpenMeteoWeatherProvider: WeatherSnapshotProviding,
     )!
 
     private let coordinateProvider: any WeatherCoordinateProviding
+    private let locationNameProvider: any WeatherLocationNameProviding
     private let httpClient: any OpenMeteoHTTPClient
     private let endpoint: URL
     private let apiKey: String?
+    private let locationNameTimeout: Duration
     private let now: @Sendable () -> Date
 
     @MainActor
     init() {
         self.init(
             coordinateProvider: CoreLocationWeatherCoordinateProvider(),
+            locationNameProvider: CoreLocationWeatherLocationNameProvider(),
             httpClient: URLSessionOpenMeteoHTTPClient()
         )
     }
 
     init(
         coordinateProvider: any WeatherCoordinateProviding,
+        locationNameProvider: any WeatherLocationNameProviding = UnresolvedWeatherLocationNameProvider(),
         httpClient: any OpenMeteoHTTPClient,
         endpoint: URL = Self.openAccessEndpoint,
         apiKey: String? = nil,
+        locationNameTimeout: Duration = .seconds(3),
         now: @escaping @Sendable () -> Date = { Date() }
     ) {
+        precondition(
+            locationNameTimeout > .zero,
+            "Location-name timeout must be positive."
+        )
         self.coordinateProvider = coordinateProvider
+        self.locationNameProvider = locationNameProvider
         self.httpClient = httpClient
         self.endpoint = endpoint
         self.apiKey = apiKey
+        self.locationNameTimeout = locationNameTimeout
         self.now = now
     }
 
@@ -320,6 +408,7 @@ struct OpenMeteoWeatherProvider: WeatherSnapshotProviding,
             throw OpenMeteoWeatherError.invalidRequest
         }
 
+        async let locationName = resolveLocationName(for: coordinate)
         let request = try makeRequest(for: coordinate)
         let (data, response) = try await httpClient.data(for: request)
         try Task.checkCancellation()
@@ -345,7 +434,12 @@ struct OpenMeteoWeatherProvider: WeatherSnapshotProviding,
         } catch {
             throw OpenMeteoWeatherError.invalidPayload
         }
-        return try Self.makeSnapshot(from: responsePayload, fetchedAt: fetchedAt)
+        let resolvedLocation = await locationName
+        return try Self.makeSnapshot(
+            from: responsePayload,
+            fetchedAt: fetchedAt,
+            location: resolvedLocation
+        )
     }
 
     @MainActor
@@ -394,15 +488,58 @@ struct OpenMeteoWeatherProvider: WeatherSnapshotProviding,
         guard let url = components.url else {
             throw OpenMeteoWeatherError.invalidRequest
         }
-        var request = URLRequest(url: url)
-        request.timeoutInterval = 20
+        var request = URLRequest(
+            url: url,
+            cachePolicy: .reloadIgnoringLocalCacheData,
+            timeoutInterval: 20
+        )
         request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("no-cache", forHTTPHeaderField: "Cache-Control")
         return request
+    }
+
+    private func resolveLocationName(
+        for coordinate: WeatherCoordinate
+    ) async -> String? {
+        enum Resolution: Sendable {
+            case value(String?)
+            case timedOut
+        }
+
+        let locationNameProvider = locationNameProvider
+        let locationNameTimeout = locationNameTimeout
+        return await withTaskGroup(of: Resolution.self) { group in
+            group.addTask {
+                .value(
+                    await locationNameProvider.locationName(for: coordinate)
+                )
+            }
+            group.addTask {
+                do {
+                    try await Task.sleep(for: locationNameTimeout)
+                } catch {
+                    return .timedOut
+                }
+                return .timedOut
+            }
+
+            guard let first = await group.next() else {
+                return nil
+            }
+            group.cancelAll()
+            return switch first {
+            case let .value(value):
+                value
+            case .timedOut:
+                nil
+            }
+        }
     }
 
     static func makeSnapshot(
         from response: OpenMeteoForecastResponse,
-        fetchedAt: Date
+        fetchedAt: Date,
+        location: String? = nil
     ) throws -> WeatherSnapshot {
         let temperature = response.current.temperature2M
         guard Self.isValidTemperature(temperature) else {
@@ -429,9 +566,12 @@ struct OpenMeteoWeatherProvider: WeatherSnapshotProviding,
             response.current.time,
             utcOffsetSeconds: response.utcOffsetSeconds
         ) ?? fetchedAt
+        let displayLocation = normalizedLocationName(location)
+            ?? locationName(fromTimeZoneIdentifier: response.timezone)
+            ?? "Current Location"
 
         return WeatherSnapshot(
-            location: "Current Location",
+            location: displayLocation,
             temperatureCelsius: temperature,
             feelsLikeCelsius: feelsLike,
             conditionDescription: weather.description,
@@ -443,6 +583,32 @@ struct OpenMeteoWeatherProvider: WeatherSnapshotProviding,
             observedAt: observedAt,
             fetchedAt: fetchedAt
         )
+    }
+
+    private static func normalizedLocationName(_ value: String?) -> String? {
+        guard let value else {
+            return nil
+        }
+        let normalized = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        return normalized.isEmpty ? nil : normalized
+    }
+
+    private static func locationName(
+        fromTimeZoneIdentifier identifier: String?
+    ) -> String? {
+        guard let identifier = normalizedLocationName(identifier),
+              let finalComponent = identifier.split(separator: "/").last
+        else {
+            return nil
+        }
+
+        let name = finalComponent.replacingOccurrences(of: "_", with: " ")
+        guard name.caseInsensitiveCompare("GMT") != .orderedSame,
+              !name.hasPrefix("GMT+") && !name.hasPrefix("GMT-")
+        else {
+            return nil
+        }
+        return name
     }
 
     private static func validatedTemperature(_ value: Double?) throws -> Double? {
@@ -479,6 +645,7 @@ struct OpenMeteoWeatherProvider: WeatherSnapshotProviding,
 
 struct OpenMeteoForecastResponse: Decodable, Sendable {
     let utcOffsetSeconds: Int
+    let timezone: String?
     let current: Current
     let daily: Daily
 
@@ -512,6 +679,7 @@ struct OpenMeteoForecastResponse: Decodable, Sendable {
 
     enum CodingKeys: String, CodingKey {
         case utcOffsetSeconds = "utc_offset_seconds"
+        case timezone
         case current
         case daily
     }

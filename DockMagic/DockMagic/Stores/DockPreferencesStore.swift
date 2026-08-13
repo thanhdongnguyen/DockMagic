@@ -10,6 +10,8 @@ final class DockPreferencesStore {
     static let codexAppearanceKey = "DockMagicCodexAppearance"
     static let codexExecutablePathKey = "DockMagicCodexExecutablePath"
     static let claudeCodeAppearanceKey = "DockMagicClaudeCodeAppearance"
+    static let automaticallyConfigureClaudeCodeKey =
+        "DockMagicAutomaticallyConfigureClaudeCode"
 
     var activeFeature: DockFeature {
         didSet {
@@ -44,6 +46,18 @@ final class DockPreferencesStore {
             } else {
                 defaults.removeObject(forKey: Self.codexExecutablePathKey)
             }
+        }
+    }
+
+    var automaticallyConfigureClaudeCode: Bool {
+        didSet {
+            guard automaticallyConfigureClaudeCode != oldValue else {
+                return
+            }
+            defaults.set(
+                automaticallyConfigureClaudeCode,
+                forKey: Self.automaticallyConfigureClaudeCodeKey
+            )
         }
     }
 
@@ -85,6 +99,10 @@ final class DockPreferencesStore {
         codexExecutablePath = Self.normalizedPath(
             defaults.string(forKey: Self.codexExecutablePathKey)
         )
+        automaticallyConfigureClaudeCode =
+            defaults.object(
+                forKey: Self.automaticallyConfigureClaudeCodeKey
+            ) as? Bool ?? true
     }
 
     func setSystemMetricsOuterColor(_ color: DockColor) {
@@ -107,8 +125,15 @@ final class DockPreferencesStore {
         persistSystemMetricsAppearance()
     }
 
+    func setSystemMetricsDisplayStyle(_ value: DockDisplayStyle) {
+        systemMetricsAppearance.setDisplayStyle(value)
+        persistSystemMetricsAppearance()
+    }
+
     func resetSystemMetricsAppearance() {
+        let displayStyle = systemMetricsAppearance.displayStyle
         systemMetricsAppearance = DockFeatureDefaults.systemMetricsAppearance
+        systemMetricsAppearance.setDisplayStyle(displayStyle)
         persistSystemMetricsAppearance()
     }
 
@@ -137,8 +162,15 @@ final class DockPreferencesStore {
         persistStorageAppearance()
     }
 
+    func setStorageDisplayStyle(_ value: DockDisplayStyle) {
+        storageAppearance.setDisplayStyle(value)
+        persistStorageAppearance()
+    }
+
     func resetStorageAppearance() {
+        let displayStyle = storageAppearance.displayStyle
         storageAppearance = DockFeatureDefaults.storageAppearance
+        storageAppearance.setDisplayStyle(displayStyle)
         persistStorageAppearance()
     }
 
@@ -162,8 +194,15 @@ final class DockPreferencesStore {
         persistCodexAppearance()
     }
 
+    func setCodexDisplayStyle(_ value: DockDisplayStyle) {
+        codexAppearance.setDisplayStyle(value)
+        persistCodexAppearance()
+    }
+
     func resetCodexAppearance() {
+        let displayStyle = codexAppearance.displayStyle
         codexAppearance = DockFeatureDefaults.codexAppearance
+        codexAppearance.setDisplayStyle(displayStyle)
         persistCodexAppearance()
     }
 
@@ -187,8 +226,15 @@ final class DockPreferencesStore {
         persistClaudeCodeAppearance()
     }
 
+    func setClaudeCodeDisplayStyle(_ value: DockDisplayStyle) {
+        claudeCodeAppearance.setDisplayStyle(value)
+        persistClaudeCodeAppearance()
+    }
+
     func resetClaudeCodeAppearance() {
+        let displayStyle = claudeCodeAppearance.displayStyle
         claudeCodeAppearance = DockFeatureDefaults.claudeCodeAppearance
+        claudeCodeAppearance.setDisplayStyle(displayStyle)
         persistClaudeCodeAppearance()
     }
 
@@ -251,7 +297,8 @@ final class DockPreferencesStore {
             outerColor: appearance.outerColor,
             innerColor: appearance.innerColor,
             outerWidth: appearance.outerWidth,
-            innerWidth: appearance.innerWidth
+            innerWidth: appearance.innerWidth,
+            displayStyle: appearance.displayStyle
         )
     }
 

@@ -72,6 +72,40 @@ enum DockFeature: String, CaseIterable, Codable, Identifiable, Sendable {
     }
 }
 
+enum DockDisplayStyle: String, CaseIterable, Codable, Identifiable, Sendable {
+    case chart
+    case numeric
+
+    var id: Self { self }
+
+    var title: String {
+        switch self {
+        case .chart:
+            "Chart"
+        case .numeric:
+            "Numbers"
+        }
+    }
+
+    var detail: String {
+        switch self {
+        case .chart:
+            "Show progress as rings."
+        case .numeric:
+            "Show the current values as large numbers."
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .chart:
+            "chart.donut"
+        case .numeric:
+            "number"
+        }
+    }
+}
+
 struct DockColor: Codable, Equatable, Sendable {
     var red: Double
     var green: Double
@@ -130,6 +164,7 @@ struct DockRingAppearance: Codable, Equatable, Sendable {
 
     var outerColor: DockColor
     var innerColor: DockColor
+    private(set) var displayStyle: DockDisplayStyle
     private(set) var outerWidth: Double
     private(set) var innerWidth: Double
 
@@ -137,10 +172,12 @@ struct DockRingAppearance: Codable, Equatable, Sendable {
         outerColor: DockColor,
         innerColor: DockColor,
         outerWidth: Double,
-        innerWidth: Double
+        innerWidth: Double,
+        displayStyle: DockDisplayStyle = .chart
     ) {
         self.outerColor = outerColor
         self.innerColor = innerColor
+        self.displayStyle = displayStyle
         self.outerWidth = Self.clamp(
             outerWidth,
             minimum: Self.minimumOuterWidth,
@@ -152,6 +189,10 @@ struct DockRingAppearance: Codable, Equatable, Sendable {
             maximum: Self.maximumInnerWidth
         )
         normalizeCombinedWidth(preferOuter: true)
+    }
+
+    mutating func setDisplayStyle(_ value: DockDisplayStyle) {
+        displayStyle = value
     }
 
     mutating func setOuterWidth(_ value: Double) {
@@ -196,6 +237,28 @@ struct DockRingAppearance: Codable, Equatable, Sendable {
 
         return min(max(value, minimum), maximum)
     }
+
+    private enum CodingKeys: String, CodingKey {
+        case outerColor
+        case innerColor
+        case outerWidth
+        case innerWidth
+        case displayStyle
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            outerColor: try container.decode(DockColor.self, forKey: .outerColor),
+            innerColor: try container.decode(DockColor.self, forKey: .innerColor),
+            outerWidth: try container.decode(Double.self, forKey: .outerWidth),
+            innerWidth: try container.decode(Double.self, forKey: .innerWidth),
+            displayStyle: try container.decodeIfPresent(
+                DockDisplayStyle.self,
+                forKey: .displayStyle
+            ) ?? .chart
+        )
+    }
 }
 
 struct DockSingleRingAppearance: Codable, Equatable, Sendable {
@@ -203,11 +266,21 @@ struct DockSingleRingAppearance: Codable, Equatable, Sendable {
     static let maximumWidth = 0.22
 
     var color: DockColor
+    private(set) var displayStyle: DockDisplayStyle
     private(set) var width: Double
 
-    init(color: DockColor, width: Double) {
+    init(
+        color: DockColor,
+        width: Double,
+        displayStyle: DockDisplayStyle = .chart
+    ) {
         self.color = color
+        self.displayStyle = displayStyle
         self.width = Self.clamped(width)
+    }
+
+    mutating func setDisplayStyle(_ value: DockDisplayStyle) {
+        displayStyle = value
     }
 
     mutating func setWidth(_ value: Double) {
@@ -220,6 +293,24 @@ struct DockSingleRingAppearance: Codable, Equatable, Sendable {
         }
         return min(max(value, minimumWidth), maximumWidth)
     }
+
+    private enum CodingKeys: String, CodingKey {
+        case color
+        case width
+        case displayStyle
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            color: try container.decode(DockColor.self, forKey: .color),
+            width: try container.decode(Double.self, forKey: .width),
+            displayStyle: try container.decodeIfPresent(
+                DockDisplayStyle.self,
+                forKey: .displayStyle
+            ) ?? .chart
+        )
+    }
 }
 
 struct DockNetworkAppearance: Codable, Equatable, Sendable {
@@ -229,25 +320,25 @@ struct DockNetworkAppearance: Codable, Equatable, Sendable {
 
 enum DockFeatureDefaults {
     static let systemMetricsAppearance = DockRingAppearance(
-        outerColor: DockColor(red: 1, green: 0.419_608, blue: 0.207_843),
-        innerColor: DockColor(red: 0.298_039, green: 0.788_235, blue: 0.941_176),
+        outerColor: DockColor(red: 1, green: 0.552_941, blue: 0.156_863),
+        innerColor: DockColor(red: 0, green: 0.752_941, blue: 0.909_804),
         outerWidth: 0.12,
         innerWidth: 0.18
     )
 
     static let networkAppearance = DockNetworkAppearance(
-        downloadColor: DockColor(red: 0.298_039, green: 0.788_235, blue: 0.941_176),
-        uploadColor: DockColor(red: 1, green: 0.419_608, blue: 0.207_843)
+        downloadColor: DockColor(red: 0, green: 0.752_941, blue: 0.909_804),
+        uploadColor: DockColor(red: 1, green: 0.552_941, blue: 0.156_863)
     )
 
     static let storageAppearance = DockSingleRingAppearance(
-        color: DockColor(red: 0.654_902, green: 0.545_098, blue: 0.980_392),
+        color: DockColor(red: 0.796_078, green: 0.188_235, blue: 0.878_431),
         width: 0.16
     )
 
     static let codexAppearance = DockRingAppearance(
-        outerColor: DockColor(red: 0.078, green: 0.639, blue: 0.498),
-        innerColor: DockColor(red: 0.655, green: 0.545, blue: 0.980),
+        outerColor: DockColor(red: 0, green: 0.784_314, blue: 0.701_961),
+        innerColor: DockColor(red: 0.796_078, green: 0.188_235, blue: 0.878_431),
         outerWidth: 0.12,
         innerWidth: 0.18
     )

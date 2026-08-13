@@ -9,9 +9,9 @@ enum ClaudeCodeRateLimitProviderError: LocalizedError, Equatable {
     var errorDescription: String? {
         switch self {
         case .bridgeNotInstalled:
-            "Enable the Claude Code status line bridge in Settings."
+            "Activate Claude Code in General so DockMagic can configure its status line bridge automatically."
         case .snapshotMissing:
-            "Complete one Claude Code response after enabling the bridge."
+            "Complete one Claude Code response after automatic setup finishes."
         case .invalidSnapshot:
             "Claude Code wrote an unreadable usage snapshot."
         case .supportedWindowsMissing:

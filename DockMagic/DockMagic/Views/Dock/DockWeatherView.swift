@@ -38,23 +38,6 @@ struct DockWeatherView: View {
 
                 weatherContent(side: side, palette: palette)
 
-                if let badge = statusBadge {
-                    Image(systemName: badge.symbol)
-                        .font(.system(size: max(6, side * 0.105), weight: .bold))
-                        .foregroundStyle(badge.foreground)
-                        .frame(
-                            width: max(13, side * 0.22),
-                            height: max(13, side * 0.22)
-                        )
-                        .background(.black.opacity(0.38), in: Circle())
-                        .overlay {
-                            Circle().stroke(.white.opacity(0.42), lineWidth: 0.7)
-                        }
-                        .padding(max(3, side * 0.06))
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
-                        .accessibilityHidden(true)
-                }
-
                 shape.strokeBorder(
                     .white.opacity(contrast == .increased ? 0.9 : 0.5),
                     lineWidth: contrast == .increased
@@ -149,21 +132,6 @@ struct DockWeatherView: View {
             "…"
         case .idle, .unavailable, .live, .stale:
             "—°"
-        }
-    }
-
-    private var statusBadge: (symbol: String, foreground: Color)? {
-        switch state {
-        case .idle:
-            ("location.circle", .white)
-        case .loading:
-            ("arrow.clockwise", .white)
-        case .live:
-            nil
-        case .stale:
-            ("clock.fill", .yellow)
-        case .unavailable:
-            ("exclamationmark", .yellow)
         }
     }
 

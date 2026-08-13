@@ -5,7 +5,7 @@ final class DockMagicUITests: XCTestCase {
         continueAfterFailure = false
     }
 
-    func testLaunchPresentsLightSettingsWithRequestedSidebar() {
+    func testLaunchPresentsGlassSettingsWithRequestedSidebar() {
         let app = launchApp()
         let settings = app.windows["DockMagic Settings"]
 
@@ -18,7 +18,10 @@ final class DockMagicUITests: XCTestCase {
                 .waitForExistence(timeout: 3),
             "Missing the DockMagic logo and Settings title in the window header."
         )
-        XCTAssertTrue(app.staticTexts["Light appearance"].exists)
+        XCTAssertTrue(app.staticTexts["System appearance"].exists)
+        XCTAssertTrue(
+            app.descendants(matching: .any)["settings.appearancePicker"].exists
+        )
 
         for destination in [
             "General",
@@ -35,8 +38,16 @@ final class DockMagicUITests: XCTestCase {
                 "Missing \(destination) in the Settings sidebar."
             )
         }
+        XCTAssertTrue(sidebarRow(named: "General", in: app).isSelected)
+        XCTAssertEqual(
+            sidebarRow(named: "CPU & RAM", in: app).value as? String,
+            "Active"
+        )
 
-        attachScreenshot(named: "Settings — General — Runtime Light")
+        attachScreenshot(
+            named: "Settings — General — System Glass Chrome",
+            in: app
+        )
     }
 
     func testSettingsDestinationsExposeFeatureControls() {
@@ -51,20 +62,28 @@ final class DockMagicUITests: XCTestCase {
             app.descendants(matching: .any)["settings.systemMetrics"]
                 .waitForExistence(timeout: 3)
         )
+        selectDisplayStyle(.chart, in: app, feature: "CPU & RAM")
         XCTAssertTrue(app.staticTexts["Ring appearance"].exists)
+        XCTAssertGreaterThanOrEqual(app.colorWells.count, 2)
+        XCTAssertGreaterThanOrEqual(app.sliders.count, 2)
+        selectNumericDisplay(in: app, feature: "CPU & RAM")
+        XCTAssertTrue(app.staticTexts["Number appearance"].exists)
         XCTAssertTrue(
             app.descendants(matching: .any)["settings.dockPreview"].exists
         )
         XCTAssertGreaterThanOrEqual(app.colorWells.count, 2)
-        XCTAssertGreaterThanOrEqual(app.sliders.count, 2)
-        attachScreenshot(named: "Settings — CPU RAM — Runtime Light")
+        XCTAssertEqual(app.sliders.count, 0)
+        attachScreenshot(
+            named: "Settings — CPU RAM — Numeric",
+            in: app
+        )
 
         openSidebarDestination(named: "Network", in: app)
         XCTAssertTrue(
             app.descendants(matching: .any)["settings.network"]
                 .waitForExistence(timeout: 3)
         )
-        XCTAssertTrue(app.staticTexts["60-second history"].exists)
+        XCTAssertFalse(app.staticTexts["60-second history"].exists)
         XCTAssertTrue(app.staticTexts["Chart appearance"].exists)
         XCTAssertTrue(
             app.descendants(matching: .any)["settings.network.color.download"]
@@ -74,21 +93,33 @@ final class DockMagicUITests: XCTestCase {
             app.descendants(matching: .any)["settings.network.color.upload"]
                 .exists
         )
-        attachScreenshot(named: "Settings — Network — Runtime Light")
+        attachScreenshot(
+            named: "Settings — Network — System Glass Chrome",
+            in: app
+        )
 
         openSidebarDestination(named: "Storage", in: app)
         XCTAssertTrue(
             app.descendants(matching: .any)["settings.storage"]
                 .waitForExistence(timeout: 3)
         )
+        selectDisplayStyle(.chart, in: app, feature: "Storage")
         XCTAssertTrue(app.staticTexts["Ring appearance"].exists)
-        XCTAssertTrue(
-            app.descendants(matching: .any)["settings.storage.color"].exists
-        )
         XCTAssertTrue(
             app.descendants(matching: .any)["settings.storage.width"].exists
         )
-        attachScreenshot(named: "Settings — Storage — Runtime Light")
+        selectNumericDisplay(in: app, feature: "Storage")
+        XCTAssertTrue(app.staticTexts["Number appearance"].exists)
+        XCTAssertTrue(
+            app.descendants(matching: .any)["settings.storage.color"].exists
+        )
+        XCTAssertFalse(
+            app.descendants(matching: .any)["settings.storage.width"].exists
+        )
+        attachScreenshot(
+            named: "Settings — Storage — Numeric",
+            in: app
+        )
 
         openSidebarDestination(named: "Weather", in: app)
         XCTAssertTrue(
@@ -96,38 +127,80 @@ final class DockMagicUITests: XCTestCase {
                 .waitForExistence(timeout: 3)
         )
         XCTAssertTrue(
-            app.descendants(matching: .any)["settings.weather.refresh"].exists
-        )
-        XCTAssertTrue(
             app.descendants(matching: .any)["settings.weather.attribution"].exists
         )
-        XCTAssertTrue(app.staticTexts["Open-Meteo connection"].exists)
-        XCTAssertTrue(app.staticTexts["Location & privacy"].exists)
-        XCTAssertTrue(app.staticTexts["Location access"].exists)
-        attachScreenshot(named: "Settings — Weather — Runtime Light")
+        XCTAssertTrue(
+            app.descendants(matching: .any)["settings.weather.location"].exists
+        )
+        XCTAssertFalse(app.staticTexts["Open-Meteo connection"].exists)
+        XCTAssertFalse(app.staticTexts["Location & privacy"].exists)
+        XCTAssertFalse(app.staticTexts["Location access"].exists)
+        attachScreenshot(
+            named: "Settings — Weather — System Glass Chrome",
+            in: app
+        )
 
         openSidebarDestination(named: "Codex", in: app)
         XCTAssertTrue(
             app.descendants(matching: .any)["settings.codex"]
                 .waitForExistence(timeout: 3)
         )
-        XCTAssertTrue(
+        XCTAssertFalse(app.staticTexts["Codex connection"].exists)
+        XCTAssertFalse(
+            app.descendants(matching: .any)["settings.codex.detect"].exists
+        )
+        XCTAssertFalse(
+            app.descendants(matching: .any)["settings.codex.choose"].exists
+        )
+        XCTAssertFalse(
             app.descendants(matching: .any)["settings.codex.refresh"].exists
         )
         XCTAssertFalse(app.staticTexts["Usage limits"].exists)
-        attachScreenshot(named: "Settings — Codex — Runtime Light")
+        selectDisplayStyle(.chart, in: app, feature: "Codex")
+        selectNumericDisplay(in: app, feature: "Codex")
+        XCTAssertTrue(app.staticTexts["Number appearance"].exists)
+        attachScreenshot(
+            named: "Settings — Codex — Numeric",
+            in: app
+        )
 
         openSidebarDestination(named: "Claude Code", in: app)
         XCTAssertTrue(
             app.descendants(matching: .any)["settings.claudeCode"]
                 .waitForExistence(timeout: 3)
         )
-        XCTAssertTrue(
+        XCTAssertFalse(app.staticTexts["Claude Code connection"].exists)
+        XCTAssertFalse(
+            app.descendants(matching: .any)["settings.claudeCode.enable"]
+                .exists
+        )
+        XCTAssertFalse(
+            app.descendants(matching: .any)["settings.claudeCode.disable"]
+                .exists
+        )
+        XCTAssertFalse(
             app.descendants(matching: .any)["settings.claudeCode.refresh"]
                 .exists
         )
-        XCTAssertTrue(app.staticTexts["Claude Code connection"].exists)
-        attachScreenshot(named: "Settings — Claude Code — Runtime Light")
+        selectDisplayStyle(.chart, in: app, feature: "Claude Code")
+        selectNumericDisplay(in: app, feature: "Claude Code")
+        XCTAssertTrue(app.staticTexts["Number appearance"].exists)
+        attachScreenshot(
+            named: "Settings — Claude Code — Numeric",
+            in: app
+        )
+
+        openSidebarDestination(named: "About", in: app)
+        XCTAssertTrue(
+            app.descendants(matching: .any)["settings.about"]
+                .waitForExistence(timeout: 3)
+        )
+        XCTAssertTrue(app.staticTexts["Version"].exists)
+        XCTAssertTrue(app.staticTexts["Distribution"].exists)
+        attachScreenshot(
+            named: "Settings — About — System Glass Chrome",
+            in: app
+        )
     }
 
     func testGeneralEnforcesOneActiveFeature() {
@@ -145,6 +218,11 @@ final class DockMagicUITests: XCTestCase {
             app.debugDescription
         )
         XCTAssertEqual(featurePicker.value as? String, "CPU & RAM")
+        XCTAssertEqual(
+            featurePicker.label,
+            "Active Dock feature with CPU & RAM icon"
+        )
+        XCTAssertGreaterThanOrEqual(featurePicker.frame.width, 280)
 
         for title in [
             "DockMagic",
@@ -158,6 +236,98 @@ final class DockMagicUITests: XCTestCase {
         ] {
             selectFeature(title, in: app)
         }
+    }
+
+    func testGeneralAppearanceControlExposesAllSupportedModes() {
+        let app = launchApp()
+        XCTAssertTrue(
+            app.windows["DockMagic Settings"].waitForExistence(timeout: 5)
+        )
+
+        let picker = app.descendants(matching: .any)["settings.appearancePicker"]
+            .firstMatch
+        XCTAssertTrue(picker.waitForExistence(timeout: 3), app.debugDescription)
+        XCTAssertEqual(picker.value as? String, "System")
+
+        for rawValue in ["system", "light", "dark"] {
+            XCTAssertTrue(
+                app.descendants(matching: .any)[
+                    "settings.appearanceOption.\(rawValue)"
+                ].exists,
+                "Missing appearance option \(rawValue)."
+            )
+        }
+        XCTAssertFalse(
+            app.descendants(matching: .any)[
+                "settings.appearanceOption.liquidGlass"
+            ].exists
+        )
+    }
+
+    func testAppearanceSelectionUpdatesAndPersistsAcrossRelaunch() {
+        let suiteName = "DockMagicUITests.Appearance.\(UUID().uuidString)"
+        let isolatedDefaults = UserDefaults(suiteName: suiteName)!
+        isolatedDefaults.removePersistentDomain(forName: suiteName)
+
+        // Do not pass the appearance launch argument in this test. Command-line
+        // defaults outrank persisted defaults and would mask the value written
+        // by the Settings control on relaunch.
+        let app = launchApp(appearance: nil, defaultsSuite: suiteName)
+        defer {
+            XCUIApplication().terminate()
+            isolatedDefaults.removePersistentDomain(forName: suiteName)
+        }
+        XCTAssertTrue(
+            app.windows["DockMagic Settings"].waitForExistence(timeout: 5)
+        )
+        app.activate()
+
+        // Establish a deterministic starting point even when a developer has
+        // previously changed the persisted preference on this test host.
+        let systemOption = appearanceOption("system", in: app)
+        XCTAssertTrue(systemOption.waitForExistence(timeout: 3))
+        systemOption.click()
+        XCTAssertTrue(
+            app.staticTexts["System appearance"]
+                .waitForExistence(timeout: 3)
+        )
+
+        let darkOption = appearanceOption("dark", in: app)
+        XCTAssertTrue(darkOption.waitForExistence(timeout: 3))
+        darkOption.click()
+
+        XCTAssertTrue(
+            app.staticTexts["Dark appearance"].waitForExistence(timeout: 3),
+            "Appearance footer did not update after selecting Dark."
+        )
+        XCTAssertEqual(appearancePicker(in: app).value as? String, "Dark")
+
+        app.terminate()
+        let relaunched = launchApp(
+            appearance: nil,
+            defaultsSuite: suiteName
+        )
+        XCTAssertTrue(
+            relaunched.windows["DockMagic Settings"].waitForExistence(timeout: 5)
+        )
+        relaunched.activate()
+        XCTAssertTrue(
+            relaunched.staticTexts["Dark appearance"]
+                .waitForExistence(timeout: 3),
+            "Dark appearance did not persist across relaunch."
+        )
+        XCTAssertEqual(
+            appearancePicker(in: relaunched).value as? String,
+            "Dark"
+        )
+
+        let restoredLightOption = appearanceOption("light", in: relaunched)
+        XCTAssertTrue(restoredLightOption.waitForExistence(timeout: 3))
+        restoredLightOption.click()
+        XCTAssertTrue(
+            relaunched.staticTexts["Light appearance"]
+                .waitForExistence(timeout: 3)
+        )
     }
 
     func testClosingThenUsingSettingsCommandReopensSingleSettingsWindow() {
@@ -181,16 +351,94 @@ final class DockMagicUITests: XCTestCase {
         XCTAssertEqual(app.windows.count, 1)
     }
 
-    private func launchApp() -> XCUIApplication {
+    private func launchApp(
+        appearance: String? = "system",
+        defaultsSuite: String? = nil
+    ) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments += [
             "-DockMagicActiveFeature",
             "systemMetrics",
             "-DockMagicCodexExecutablePath",
-            "/usr/bin/false"
+            "/usr/bin/false",
+            // Keep UI automation from editing the developer account's real
+            // ~/.claude/settings.json. Unit tests cover the default-on setup
+            // path with an injected bridge.
+            "-DockMagicAutomaticallyConfigureClaudeCode",
+            "false"
         ]
+        if let appearance {
+            app.launchArguments += [
+                "-DockMagicAppearanceMode",
+                appearance
+            ]
+        }
+        if let defaultsSuite {
+            app.launchEnvironment[
+                "DockMagicUITestDefaultsSuite"
+            ] = defaultsSuite
+        }
         app.launch()
         return app
+    }
+
+    private func appearancePicker(in app: XCUIApplication) -> XCUIElement {
+        app.radioGroups["settings.appearancePicker"].firstMatch
+    }
+
+    private func appearanceOption(
+        _ rawValue: String,
+        in app: XCUIApplication
+    ) -> XCUIElement {
+        app.radioButtons[
+            "settings.appearanceOption.\(rawValue)"
+        ].firstMatch
+    }
+
+    private func selectNumericDisplay(
+        in app: XCUIApplication,
+        feature: String
+    ) {
+        selectDisplayStyle(.numeric, in: app, feature: feature)
+    }
+
+    private enum DisplayStyle: String {
+        case chart
+        case numeric
+
+        var title: String {
+            switch self {
+            case .chart: "Chart"
+            case .numeric: "Numbers"
+            }
+        }
+    }
+
+    private func selectDisplayStyle(
+        _ style: DisplayStyle,
+        in app: XCUIApplication,
+        feature: String
+    ) {
+        let picker = app.radioGroups["settings.displayStyle"].firstMatch
+        XCTAssertTrue(
+            picker.waitForExistence(timeout: 3),
+            "Missing Dock display configuration for \(feature)."
+        )
+
+        let option = app.radioButtons[
+            "settings.displayStyleOption.\(style.rawValue)"
+        ].firstMatch
+        XCTAssertTrue(
+            option.waitForExistence(timeout: 3),
+            "Missing \(style.title) Dock display option for \(feature)."
+        )
+        option.click()
+
+        // Selecting an option rebuilds the section. Re-query so repeated UI
+        // runs do not retain a stale accessibility element handle.
+        let updatedPicker = app.radioGroups["settings.displayStyle"].firstMatch
+        XCTAssertTrue(updatedPicker.waitForExistence(timeout: 3))
+        XCTAssertEqual(updatedPicker.value as? String, style.title)
     }
 
     private func selectFeature(
@@ -245,10 +493,8 @@ final class DockMagicUITests: XCTestCase {
     }
 
     private func activeFeaturePicker(in app: XCUIApplication) -> XCUIElement {
-        // SwiftUI promotes the selected option's accessibility identifier to
-        // the macOS pop-up button. Its label remains stable across selection
-        // changes, so use the public control label to re-query the rebuilt view.
-        app.popUpButtons["Active Dock feature"].firstMatch
+        app.descendants(matching: .any)["settings.activeFeaturePicker"]
+            .firstMatch
     }
 
     private func sidebarRow(
@@ -288,8 +534,13 @@ final class DockMagicUITests: XCTestCase {
         sidebarRow(named: title, in: app).click()
     }
 
-    private func attachScreenshot(named name: String) {
-        let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+    private func attachScreenshot(
+        named name: String,
+        in app: XCUIApplication
+    ) {
+        let window = app.windows["DockMagic Settings"].firstMatch
+        XCTAssertTrue(window.exists, "Cannot capture a missing Settings window.")
+        let attachment = XCTAttachment(screenshot: window.screenshot())
         attachment.name = name
         attachment.lifetime = .keepAlways
         add(attachment)

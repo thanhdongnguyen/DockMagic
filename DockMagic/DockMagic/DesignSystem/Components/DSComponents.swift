@@ -10,14 +10,14 @@ struct DSIconPlate: View {
     var body: some View {
         Image(systemName: systemImage)
             .font(.system(size: 13, weight: .semibold))
-            .foregroundStyle(theme.color(for: role) ?? theme.textPrimary)
+            .foregroundStyle(theme.accentForeground(for: role))
             .frame(width: size, height: size)
             .dsSurface(
                 RoundedRectangle(
                     cornerRadius: DSRadius.control,
                     style: .continuous
                 ),
-                kind: .chrome,
+                kind: .inset,
                 role: role
             )
             .accessibilityHidden(true)
@@ -40,7 +40,11 @@ struct DSStatusBadge: View {
                 .lineLimit(1)
         }
         .font(DSTypography.metadata)
-        .foregroundStyle(theme.color(for: role) ?? theme.textSecondary)
+        .foregroundStyle(
+            role == .neutral
+                ? theme.textSecondary
+                : theme.accentForeground(for: role)
+        )
         .padding(.horizontal, 7)
         .padding(.vertical, 4)
         .dsSurface(
@@ -48,7 +52,7 @@ struct DSStatusBadge: View {
                 cornerRadius: DSRadius.control,
                 style: .continuous
             ),
-            kind: .chrome,
+            kind: .inset,
             role: role
         )
     }
@@ -64,7 +68,9 @@ struct DSMetricCard: View {
 
     var body: some View {
         let normalizedValue = normalized(value)
-        let tint = theme.color(for: tintRole) ?? theme.action
+        let tint = tintRole == .neutral
+            ? theme.actionForeground
+            : theme.accentForeground(for: tintRole)
 
         VStack(alignment: .leading, spacing: DSSpacing.standard) {
             HStack(spacing: DSSpacing.compact) {
@@ -136,10 +142,10 @@ struct DSStatusCard: View {
     @Environment(\.designTheme) private var theme
 
     var body: some View {
-        HStack(alignment: .top, spacing: DSSpacing.standard) {
+        HStack(alignment: .top, spacing: DSSpacing.medium) {
             DSIconPlate(systemImage: systemImage, role: role)
 
-            VStack(alignment: .leading, spacing: 3) {
+            VStack(alignment: .leading, spacing: DSSpacing.xSmall) {
                 Text(title)
                     .font(DSTypography.bodyEmphasis)
                     .foregroundStyle(theme.textPrimary)
@@ -152,13 +158,13 @@ struct DSStatusCard: View {
 
             Spacer(minLength: 0)
         }
-        .padding(12)
+        .padding(DSSpacing.medium)
         .dsSurface(
             RoundedRectangle(
                 cornerRadius: DSRadius.row,
                 style: .continuous
             ),
-            kind: .raised,
+            kind: .inset,
             role: role
         )
         .accessibilityElement(children: .combine)
@@ -320,8 +326,8 @@ struct DSSettingsSection<Content: View>: View {
     @Environment(\.designTheme) private var theme
 
     var body: some View {
-        VStack(alignment: .leading, spacing: DSSpacing.standard) {
-            VStack(alignment: .leading, spacing: 3) {
+        VStack(alignment: .leading, spacing: DSSpacing.large) {
+            VStack(alignment: .leading, spacing: DSSpacing.xSmall) {
                 Text(title)
                     .font(DSTypography.sectionTitle)
                     .foregroundStyle(theme.textPrimary)
@@ -334,20 +340,20 @@ struct DSSettingsSection<Content: View>: View {
                 }
             }
 
-            VStack(alignment: .leading, spacing: DSSpacing.section) {
+            VStack(alignment: .leading, spacing: DSSpacing.large) {
                 content()
             }
-            .padding(DSSpacing.panel)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .dsSurface(
-                RoundedRectangle(
-                    cornerRadius: DSRadius.row,
-                    style: .continuous
-                ),
-                kind: .raised,
-                role: role
-            )
         }
+        .padding(DSSpacing.xLarge)
         .frame(maxWidth: .infinity, alignment: .leading)
+        .dsSurface(
+            RoundedRectangle(
+                cornerRadius: DSRadius.largePanel,
+                style: .continuous
+            ),
+            kind: .raised,
+            role: role,
+            elevation: .primary
+        )
     }
 }

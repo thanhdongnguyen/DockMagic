@@ -15,7 +15,7 @@ ProjectTheme
   └─ cung cấp opaque fallback cho Reduce Transparency
 
 DockMagicThemeRoot
-  └─ cài theme và Light appearance ở scene/AppKit host boundary
+  └─ cài theme, tint và appearance đã chọn ở scene/AppKit host boundary
 ```
 
 Feature view không tạo one-off material, shadow, focus ring hoặc status color.
@@ -24,17 +24,22 @@ Màu ring/chart Dock là preference do product model sở hữu vì người dù
 
 ## 2. Appearance
 
-DockMagic hiện dùng **Light mode cố định**. `DockMagicThemeRoot` áp dụng
-`.preferredColorScheme(.light)` đúng một lần ở Settings scene và Dock
-`NSHostingView`. Không có appearance picker hay persisted System/Dark option.
+DockMagic có ba lựa chọn color scheme persist: **System, Light và Dark**.
+`DockMagicThemeRoot` áp dụng color scheme, semantic tint và surface contract ở
+Settings scene lẫn Dock `NSHostingView`. Liquid Glass là chrome mặc định của cả
+ba mode và chỉ áp dụng cho navigation/chrome; content chính giữ opaque. Trên
+macOS 14/Xcode 15.4, glass dùng material fallback; native `glassEffect` chỉ là
+nhánh availability-gated cho toolchain/macOS mới và chưa được xác minh trong
+môi trường hiện tại.
 
-Named assets vẫn cần contrast hợp lý trên opaque Light surface. Dock-specific
-track/background/outline cũng phải đọc được trên các wallpaper và Dock material
-khác nhau; bước đó cần compositor pass thật trước release.
+Named assets phải đạt contrast trên opaque Light/Dark surfaces. Dock-specific
+track/background/outline cũng cần compositor pass thật trước release.
 
 ## 3. Semantic roles
 
 - Action: `action`, `onAction`.
+- Accent foreground: các role `…Foreground` dùng cho text/icon trên content;
+  base action/status sáng dùng cho fill.
 - Status: `information`, `processing`, `warning`, `danger` và on-color tương ứng.
 - Text: `textPrimary`, `textSecondary`, `textTertiary`.
 - Structure: `focus`, `outline`, `outlineStrong`, `shadow`, `selectionFill`,
@@ -54,26 +59,26 @@ warning/danger.
 
 | Nhóm | Contract |
 | --- | --- |
-| Radius | keycap 6, control 8, inset 10, row 12, panel 16, large panel 20 pt |
-| Spacing | compact 6, standard 10, section 14, panel 16 pt |
-| Typography | panel 14 semibold, section 13 semibold, body 12, metadata 10.5, Settings title 24 bold |
-| Motion | press/focus 0.10 s, row hover 0.12 s, metric change 0.35 s |
-| Rows | minimum 46 pt, full-row content shape, independent focus/selection |
+| Radius | 8 / 12 / 16 / 24 pt, capsule động và concentric radius |
+| Spacing | 4 / 8 / 12 / 16 / 24 / 32 pt |
+| Typography | title 32, headline 20, panel 16, body/section 14, metadata 12, caption 11, metric 24 pt |
+| Motion | phản hồi 0.12–0.16 s, metric change 0.32 s; tôn trọng Reduce Motion |
+| Rows | content/action row tối thiểu 46 pt; compact sidebar row tối thiểu 30 pt; full-row content shape và independent focus/selection |
 
 Surface hierarchy là `shell → panel → raised → inset → chrome`. Nested card
 không tự tạo shadow; outer floating host mới sở hữu elevation lớn.
 
 ## 5. Settings composition
 
-- Primary window: default `980 × 720`, minimum content `860 × 620`.
-- Native `NavigationSplitView`, sidebar 190–260 pt.
+- Primary window: default `1020 × 740`, minimum content `900 × 640`.
+- Native `NavigationSplitView`, sidebar `210 / 232 / 272` pt.
 - Destinations: General, CPU & RAM, Network, Storage, Weather, Codex,
   Claude Code, About.
 - Detail content dùng `DSSettingsSection`, `DSStatusCard`, native `Picker`,
   `ColorPicker`, `Slider`, `LabeledContent` và `Button`.
 - Preview dùng chính production Dock renderer, không có renderer mô phỏng riêng.
 - Controls thay đổi preference ngay; nếu feature active, Dock update ngay.
-- Footer “Light appearance” chỉ mô tả contract, không phải control.
+- General có appearance picker; footer phản ánh mode hiện tại.
 
 ## 6. Dock composition
 
@@ -97,8 +102,8 @@ không tự tạo shadow; outer floating host mới sở hữu elevation lớn.
 - Decorative background, preview ornaments và active dots bị ẩn khỏi AX tree.
 - Sidebar row là một accessibility element, có stable identifier và value
   `Active` khi feature tương ứng đang được hiển thị.
-- Radio group bảo đảm đúng một active feature và sử dụng native keyboard/AX
-  semantics.
+- Native menu `Picker` bảo đảm đúng một active feature và giữ keyboard/AX
+  single-selection semantics.
 - Không đặt identifier ở container quá cao nếu SwiftUI có thể propagate nó
   xuống nhiều descendants.
 
@@ -107,7 +112,7 @@ không tự tạo shadow; outer floating host mới sở hữu elevation lớn.
 1. Chọn owner và semantic role trước khi viết layout.
 2. Dùng token/component hiện có; nếu thiếu, bổ sung shared primitive có state
    hover/pressed/focus/disabled/error phù hợp.
-3. Kiểm tra Light, increased contrast, Reduce Transparency, Reduce Motion,
+3. Kiểm tra Light/Dark/Liquid, increased contrast, Reduce Transparency, Reduce Motion,
    pointer, keyboard và nội dung dài.
 4. Kiểm tra AX uniqueness/hittability, không chỉ existence.
 5. Render Dock ở 32/48/64/128 pt và kiểm tra Settings runtime screenshot.

@@ -12,7 +12,7 @@ enum CodexRateLimitProviderError: LocalizedError, Equatable {
     var errorDescription: String? {
         switch self {
         case .executableNotFound:
-            "Codex CLI was not found. Choose the Codex executable in Settings."
+            "Codex CLI was not found. Install Codex CLI, then activate Codex again so DockMagic can detect it automatically."
         case let .executableNotRunnable(path):
             "Codex is not executable at \(path)."
         case let .launchFailed(message):

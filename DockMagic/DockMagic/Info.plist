@@ -27,6 +27,6 @@
 	<key>NSAccentColorName</key>
 	<string>AccentColor</string>
 	<key>NSLocationUsageDescription</key>
-	<string>DockMagic uses your current location to request local weather from Open-Meteo.</string>
+	<string>DockMagic uses your current location to show local weather and the location name in the Dock preview.</string>
 </dict>
 </plist>

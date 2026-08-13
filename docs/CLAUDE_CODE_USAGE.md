@@ -43,7 +43,10 @@ Nguồn chính thức:
 
 ## Bridge của DockMagic
 
-Người dùng bật bridge ở `Settings -> Claude Code -> Enable Bridge`. DockMagic:
+Automatic setup mặc định bật. Lần đầu người dùng chọn Claude Code làm Dock
+feature trong General, DockMagic tự cài bridge và đọc snapshot; trang
+`Settings -> Claude Code` không hiển thị connection controls và không yêu cầu
+thao tác thủ công. DockMagic:
 
 1. Backup object `statusLine` hiện có.
 2. Cài `~/.claude/dockmagic-statusline.sh` và trỏ user settings vào wrapper.
@@ -51,7 +54,7 @@ Người dùng bật bridge ở `Settings -> Claude Code -> Enable Bridge`. Dock
    tạm có permission riêng tư, rồi atomic move thành snapshot.
 4. Nếu đã có command status line, wrapper chạy lại command đó với nguyên input
    để output cũ không đổi.
-5. Disable khôi phục object cũ và xóa script, backup, snapshot.
+5. Khi bridge được gỡ, khôi phục object cũ và xóa script, backup, snapshot.
 
 Bridge không cache `cwd`, `session_id`, transcript path, model, prompt hoặc token.
 Nó không gọi model và không dùng network. Nếu `disableAllHooks` đang bật thì

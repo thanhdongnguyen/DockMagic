@@ -1,80 +1,148 @@
-# DockMagic
+<div align="center">
+  <img
+    src="DockMagic/DockMagic/Assets.xcassets/DockMagicLogo.imageset/DockMagicLogo.png"
+    alt="DockMagic logo"
+    width="180"
+  />
+  <h1>DockMagic</h1>
+  <p><strong>A live, glanceable status display for your macOS Dock.</strong></p>
+</div>
 
-DockMagic là ứng dụng macOS biến icon của chính ứng dụng trên Dock thành một
-màn hình trạng thái nhỏ, cập nhật trực tiếp. Ứng dụng không tạo status item ở
-menu bar; click icon Dock hoặc nhấn `⌘,` sẽ mở cửa sổ Settings duy nhất.
+DockMagic is a native macOS app that turns its own Dock icon into a small,
+live status display. It keeps one feature active at a time so the Dock remains
+glanceable and background work stays bounded.
 
-## Tính năng hiện tại
+DockMagic does not add a menu bar item. Click the Dock icon or press `Command-,`
+to open its single Settings window.
 
-- `CPU & RAM`: vòng ngoài là CPU toàn hệ thống, vòng trong là RAM đang dùng;
-  lấy mẫu local ở `1 Hz`.
-- `Network`: chart băng thông của primary network interface, upload ở phía trên
-  và download ở phía dưới baseline. Hai hướng dùng chung thang tuyến tính tự
-  nâng theo traffic; Dock giữ 30 mẫu gần nhất, Settings giữ 60 mẫu ở `1 Hz`.
-- `Storage`: một vòng thể hiện dung lượng đã dùng của startup volume, tính từ
-  total trừ available capacity và cập nhật local mỗi 5 giây.
-- `Weather`: nhiệt độ và biểu tượng điều kiện thời tiết được render riêng cho
-  kích thước Dock `32...128 pt`; tile lớn thêm nhiệt độ cao/thấp. DockMagic dùng
-  Current Location của macOS và gọi Open-Meteo mỗi 10 phút khi Weather active,
-  đồng thời giữ kết quả gần nhất nếu refresh lỗi.
-- `Codex`: vòng ngoài là quota 5 giờ còn lại, vòng trong là quota tuần còn lại.
-  DockMagic gọi `codex app-server --stdio` bằng Codex CLI đã cài và phiên đăng
-  nhập hiện có. Nếu tài khoản không trả về cửa sổ 5 giờ, UI chỉ hiển thị vòng
-  tuần thay vì suy đoán dữ liệu.
-- `Claude Code`: hai vòng có cùng ý nghĩa 5 giờ/tuần. DockMagic dùng contract
-  `statusLine` chính thức của Claude Code và cache local riêng object
-  `rate_limits` sau mỗi response. Bridge được bật/tắt rõ ràng trong Settings,
-  giữ nguyên command status line cũ và không gọi endpoint OAuth nội bộ.
-- `General`: chọn chính xác một tính năng được chạy và hiển thị ở Dock.
-- Mỗi renderer có appearance riêng: hai vòng cho CPU/RAM và quota, hai màu
-  series cho Network, một vòng cho Storage. Thay đổi được persist và áp dụng
-  ngay vào Dock khi tính năng đó đang active.
-- Toàn bộ Settings dùng Light appearance cố định và semantic design system.
+## Contents
 
-Màu mặc định của cả hai vòng Claude Code là coral `#D97757`, lấy trực tiếp từ
-logo Claude Code được cung cấp; người dùng vẫn có thể đổi từng vòng độc lập.
+- [Features](#features)
+- [Privacy and distribution](#privacy-and-distribution)
+- [Requirements](#requirements)
+- [Getting started](#getting-started)
+- [Build and test](#build-and-test)
+- [Project structure](#project-structure)
+- [Contributing](#contributing)
+- [Reporting bugs and security issues](#reporting-bugs-and-security-issues)
+- [License](#license)
 
-## Privacy và phân phối
+## Features
 
-DockMagic hướng tới phân phối trực tiếp, không phải Mac App Store. CPU/RAM,
-Network và Storage chỉ được xử lý trên máy; history Network chỉ sống trong bộ
-nhớ và không được persist. Weather gửi tọa độ hiện tại qua HTTPS tới Open-Meteo
-và chỉ lưu snapshot thành công cuối cùng để chịu lỗi, không lưu lịch sử vị trí.
-Người dùng cấp quyền Location trực tiếp cho DockMagic qua prompt chuẩn của macOS.
-Với Codex, DockMagic không đọc
-hay lưu token, prompt hoặc account identifier; nó chỉ đọc rate-limit response
-do Codex CLI trả về. Với Claude Code, cache
-`~/.claude/dockmagic-usage.json` chỉ chứa `rate_limits`; app không đọc
-transcript, OAuth token, API key hay Keychain.
+- **DockMagic** displays the DockMagic logo without running a metrics provider.
+- **CPU & RAM** displays system-wide CPU usage in the outer ring and used RAM
+  in the inner ring. Both values are sampled locally at `1 Hz`.
+- **Network** charts traffic for the primary network interface, with upload
+  above and download below the baseline. Both directions share a linear scale
+  that expands with traffic. The Dock keeps the latest 30 samples, while the
+  sampler keeps up to 60 in-memory samples at `1 Hz`.
+- **Storage** displays used capacity on the startup volume and refreshes locally
+  every five seconds.
+- **Weather** renders the current temperature and condition for Dock sizes from
+  `32...128 pt`; larger tiles also show the daily high and low. It uses the
+  current macOS location, refreshes from Open-Meteo every ten minutes while
+  active, reverse-geocodes the place name for the Dock preview, and retains the
+  most recent successful result if a refresh fails.
+- **Codex** displays the remaining five-hour and weekly usage windows. When
+  selected, DockMagic locates the installed Codex CLI and calls
+  `codex app-server --stdio` with the existing login. If the account does not
+  return a five-hour window, DockMagic displays only the weekly value instead
+  of inventing missing data.
+- **Claude Code** displays the same five-hour and weekly windows. DockMagic uses
+  Claude Code's official `statusLine` contract and caches only the
+  `rate_limits` object after a response. Selecting the feature installs the
+  default local bridge automatically, preserves any previous status-line
+  command, and does not call internal OAuth endpoints.
+- **General settings** select exactly one feature to run and display in the
+  Dock. CPU & RAM, Storage, Codex, and Claude Code support `Chart` and `Numbers`
+  display styles. Colors and display choices are persisted and applied to the
+  active tile immediately.
+- **Appearance** supports System, Light, and Dark. Navigation chrome uses Liquid
+  Glass where available and a material fallback on the current toolchain, while
+  primary content remains opaque.
 
-App không cần Accessibility, Screen Recording, Full Disk Access hay quyền
-administrator; riêng Weather cần Location và mạng. Trước khi phát hành cần
-Developer ID signing, Hardened Runtime, notarization, stapling và Gatekeeper
-smoke test trên máy sạch.
+The default color for both Claude Code rings is the coral `#D97757` sampled from
+the provided Claude Code logo. Users can still customize each ring separately.
 
-## Yêu cầu phát triển
+## Privacy and distribution
 
-- macOS 14.0+
-- Xcode 15.4+
+DockMagic is designed for direct distribution, not the Mac App Store.
+
+- CPU & RAM, Network, and Storage data is processed only on the Mac. Network
+  history remains in memory and is not persisted.
+- Weather sends the current coordinates to Open-Meteo over HTTPS and stores only
+  the last successful snapshot for failure recovery. It does not keep location
+  history. macOS requests Location permission through the standard system
+  prompt.
+- The Codex integration does not read or store tokens, prompts, or account
+  identifiers. It reads only the rate-limit response returned by the installed
+  Codex CLI.
+- The Claude Code cache at `~/.claude/dockmagic-usage.json` contains only
+  `rate_limits`. DockMagic does not read transcripts, OAuth tokens, API keys, or
+  Keychain data.
+
+The app does not require Accessibility, Screen Recording, Full Disk Access, or
+administrator privileges. Weather alone requires Location Services and network
+access.
+
+Production releases must use Developer ID signing, Hardened Runtime,
+notarization, stapling, and a Gatekeeper smoke test on a clean Mac. Contributions
+must not introduce Mac App Store-only packaging or capabilities unless the
+direct-distribution impact has been evaluated and documented.
+
+## Requirements
+
+- macOS 14.0 or later
+- Xcode 15.4 or later
 - Swift 5
-- Location Services và kết nối mạng chỉ cần thiết nếu dùng mặt Weather; xem
-  [contract Open-Meteo](docs/WEATHER_OPEN_METEO.md)
-- Codex CLI chỉ cần thiết nếu dùng mặt Codex
-- Claude Code CLI chỉ cần thiết nếu dùng mặt Claude Code; `rate_limits` cần
-  subscription được Claude Code hỗ trợ và một response sau khi bật bridge
+- Location Services and a network connection only when using Weather; see the
+  [Open-Meteo integration contract](docs/WEATHER_OPEN_METEO.md)
+- An installed Codex CLI only when using Codex
+- An installed Claude Code CLI only when using Claude Code; `rate_limits`
+  requires a supported subscription and at least one response after automatic
+  bridge setup
 
-Đây là Xcode project, không phải Swift Package.
+DockMagic is an Xcode project, not a Swift Package. It currently has no external
+package dependencies.
 
-## Build và chạy
+## Getting started
 
-Từ thư mục gốc:
+1. Fork the repository on GitHub, then clone your fork:
+
+   ```bash
+   git clone https://github.com/YOUR-USERNAME/dockmagic.git
+   cd dockmagic
+   git remote add upstream https://github.com/thanhdongnguyen/dockmagic.git
+   ```
+
+2. Open `DockMagic/DockMagic.xcodeproj` in Xcode.
+3. Select the `DockMagic` scheme and the **My Mac** destination.
+4. Build with `Command-B`, or use the unsigned command below for a build-only
+   verification.
+
+The Xcode project contains the maintainer's development-team setting. If Xcode
+asks for a signing identity, select your own team locally. Do not include
+personal signing changes in a pull request.
+
+## Build and test
+
+### Build and launch
+
+The helper script builds into `.derivedData`, stops an existing DockMagic
+process, and launches the Debug app using the project's current signing setup:
 
 ```bash
 ./script/build_and_run.sh
 ./script/build_and_run.sh --verify
 ```
 
-Build độc lập, không ký:
+Other supported modes are `--debug`, `--logs`, and `--telemetry`:
+
+```bash
+./script/build_and_run.sh --logs
+```
+
+For an unsigned build-only check, run:
 
 ```bash
 xcodebuild \
@@ -87,8 +155,9 @@ xcodebuild \
   build
 ```
 
-Unit tests và UI tests nên dùng derived data riêng để tránh `build.db` contention.
-Unit tests có thể build unsigned:
+### Unit tests
+
+Unit tests can use an unsigned build:
 
 ```bash
 xcodebuild \
@@ -101,8 +170,11 @@ xcodebuild \
   test
 ```
 
-UI tests trên macOS phải dùng một Apple Development signing identity hợp lệ;
-không thêm `CODE_SIGNING_ALLOWED=NO`, vì AppleSystemPolicy sẽ chặn XCUI runner:
+### UI tests
+
+macOS UI tests require a valid Apple Development signing identity. Do not add
+`CODE_SIGNING_ALLOWED=NO`; AppleSystemPolicy will otherwise block the XCUI
+runner.
 
 ```bash
 xcodebuild \
@@ -114,8 +186,143 @@ xcodebuild \
   test
 ```
 
-Xem [contract Weather Open-Meteo](docs/WEATHER_OPEN_METEO.md),
-[nghiên cứu Claude Code usage](docs/CLAUDE_CODE_USAGE.md),
-[kiến trúc](docs/ARCHITECTURE.md) và
-[design system](docs/DESIGN_SYSTEM.md) để biết ownership, data flow, trạng thái
-Codex/Claude Code, lifecycle cửa sổ và contract UI/accessibility.
+Use a separate Derived Data directory for each build or test lane. Concurrent
+commands that share one directory can contend for `build.db` and produce
+misleading failures.
+
+## Project structure
+
+| Path | Responsibility |
+| --- | --- |
+| `DockMagic/DockMagic/App` | App lifecycle and scene composition |
+| `DockMagic/DockMagic/Models` | Feature configuration and immutable snapshots |
+| `DockMagic/DockMagic/Services` | System samplers, external providers, and Dock integration |
+| `DockMagic/DockMagic/Stores` | Observable state, polling lifecycle, and persistence coordination |
+| `DockMagic/DockMagic/Views/Dock` | Size-aware Dock tile renderers |
+| `DockMagic/DockMagic/Views/Settings` | Settings navigation and feature controls |
+| `DockMagic/DockMagic/DesignSystem` | Semantic tokens and shared components |
+| `DockMagic/DockMagicTests` | Unit, rendering, privacy, and integration-contract tests |
+| `DockMagic/DockMagicUITests` | Signed end-to-end Settings tests |
+| `docs` | Architecture and feature-specific design contracts |
+| `script` | Local build and asset-generation utilities |
+
+Read the following documents before changing the corresponding subsystem:
+
+- [Architecture](docs/ARCHITECTURE.md)
+- [Design system](docs/DESIGN_SYSTEM.md)
+- [Sigma-inspired design-system mapping](docs/SIGMA_DESIGN_SYSTEM.md)
+- [Weather and Open-Meteo](docs/WEATHER_OPEN_METEO.md)
+- [Claude Code usage integration](docs/CLAUDE_CODE_USAGE.md)
+
+## Contributing
+
+Contributions are welcome. Small fixes can go directly to a pull request. Open
+an [issue](https://github.com/thanhdongnguyen/dockmagic/issues) before investing
+in a large feature, a new external service, a new entitlement, a persistence
+change, or a release/distribution change. Early discussion helps confirm that
+the proposal fits DockMagic's focused Dock-tile model and privacy boundary.
+
+### Development workflow
+
+1. Check existing issues and pull requests to avoid duplicate work.
+2. Create a focused branch from the repository's default branch:
+
+   ```bash
+   git fetch upstream
+   git switch -c feature/short-description upstream/main
+   ```
+
+3. Make one coherent change. Avoid unrelated formatting or generated-file
+   churn.
+4. Add or update tests for behavior changes. Update documentation when a user
+   flow, privacy boundary, dependency, permission, or architecture contract
+   changes.
+5. Run the relevant build and test commands from this README. Also run:
+
+   ```bash
+   git diff --check
+   ```
+
+6. Push the branch to your fork and open a pull request against `main`.
+
+### Engineering guidelines
+
+- Preserve the **single active feature** contract. Inactive providers and
+  samplers must stop rather than continue polling in the background.
+- Keep the long-lived `DockTileController` ownership model. Update its existing
+  presentation and explicitly redraw the `NSDockTile`; do not create a new
+  controller for every sample.
+- Keep UI-facing mutable state on `@MainActor`. Prefer immutable, `Sendable`
+  snapshots at concurrency boundaries and dependency injection for testable
+  providers.
+- Use public macOS APIs that support Developer ID distribution. Explain any new
+  entitlement, permission, network request, on-disk data, or third-party
+  service in both tests and documentation.
+- Keep monitoring local by default and collect only the minimum data required.
+  Never commit credentials, tokens, personal paths, transcripts, or private
+  sample payloads.
+- Use semantic colors and shared components from `DesignSystem` instead of
+  introducing one-off visual constants. Verify UI changes in System, Light, and
+  Dark appearances, at small Dock sizes, and with relevant accessibility
+  settings.
+- Preserve existing accessibility labels and identifiers. Add them for new
+  interactive controls and non-text status states.
+- Follow the existing Swift style: four-space indentation, descriptive names,
+  small focused types, and no unrelated refactors in a feature pull request.
+- Do not commit `.derivedData`, local Xcode user data, build products, logs, or
+  signing-only project changes.
+
+### Pull request checklist
+
+A pull request should include:
+
+- A concise explanation of the problem and the chosen solution.
+- The user-visible behavior and any privacy, performance, permission, or
+  distribution impact.
+- Tests added or updated, plus the exact commands run and their results.
+- Screenshots or a short recording for visible Settings or Dock changes. Include
+  the tested appearance, Dock size, and macOS version.
+- Documentation updates for changed contracts or contributor workflows.
+- A focused diff with no secrets, personal signing settings, or unrelated
+  generated changes.
+
+Not every change needs every test suite. State clearly what was and was not
+verified so reviewers can distinguish source review, unit tests, builds, UI
+tests, and manual Dock inspection.
+
+### Community expectations
+
+Be respectful, constructive, and specific. Discuss the work rather than the
+person, assume good intent, and make space for contributors with different
+levels of experience. Harassment, discrimination, and disclosure of another
+person's private information are not acceptable. A standalone
+`CODE_OF_CONDUCT.md` has not yet been published; maintainers should add one
+before growing the contributor community.
+
+## Reporting bugs and security issues
+
+Use [GitHub Issues](https://github.com/thanhdongnguyen/dockmagic/issues) for
+reproducible bugs and feature requests. A useful bug report includes:
+
+- macOS and Xcode versions;
+- Dock position, size, magnification, and appearance when visually relevant;
+- the active DockMagic feature and display style;
+- exact reproduction steps, expected behavior, and actual behavior;
+- relevant logs with tokens, usernames, coordinates, and personal paths
+  removed; and
+- screenshots or a minimal sample when appropriate.
+
+Do not publish credentials, tokens, precise location data, or an exploitable
+security report in a public issue. This repository does not yet provide a
+`SECURITY.md` or a documented private reporting address. Until one is added,
+contact the [repository owner](https://github.com/thanhdongnguyen) privately
+through an available GitHub contact method and disclose only the minimum detail
+needed to establish a secure channel.
+
+## License
+
+This repository does not currently include a software license. Until the
+maintainers add one, standard copyright restrictions apply: source availability
+alone does not grant permission to use, modify, or redistribute the code. An
+[OSI-approved license](https://opensource.org/licenses) should be selected and
+added before DockMagic is described or distributed as open-source software.

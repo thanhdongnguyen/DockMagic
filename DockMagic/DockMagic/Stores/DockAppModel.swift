@@ -17,6 +17,9 @@ final class DockAppModel {
     @ObservationIgnored
     private var isObservingPreferences = false
 
+    @ObservationIgnored
+    private var automaticClaudeSetupTask: Task<Void, Never>?
+
     init(
         preferences: DockPreferencesStore? = nil,
         metricsStore: SystemMetricsStore? = nil,
@@ -88,6 +91,8 @@ final class DockAppModel {
     func stop() {
         isRunning = false
         isObservingPreferences = false
+        automaticClaudeSetupTask?.cancel()
+        automaticClaudeSetupTask = nil
         metricsStore.stop()
         networkStore.stop()
         storageStore.stop()
@@ -105,6 +110,7 @@ final class DockAppModel {
         withObservationTracking {
             _ = preferences.activeFeature
             _ = preferences.codexExecutablePath
+            _ = preferences.automaticallyConfigureClaudeCode
         } onChange: { [weak self] in
             Task { @MainActor [weak self] in
                 guard let self, self.isRunning else {
@@ -119,6 +125,8 @@ final class DockAppModel {
     }
 
     private func applyPreferences() {
+        automaticClaudeSetupTask?.cancel()
+        automaticClaudeSetupTask = nil
         codexStore.executableOverridePath = preferences.codexExecutablePath
         switch preferences.activeFeature {
         case .dockMagic:
@@ -170,6 +178,52 @@ final class DockAppModel {
             weatherStore.stop()
             codexStore.stop()
             claudeCodeStore.start()
+            scheduleAutomaticClaudeCodeSetup()
+        }
+    }
+
+    /// Resolves the default Codex executable and reads the first usage sample.
+    /// This is safe to call repeatedly; the store coalesces concurrent reads.
+    func prepareCodexIntegration() async {
+        codexStore.executableOverridePath = preferences.codexExecutablePath
+        await codexStore.refresh()
+    }
+
+    /// Installs DockMagic's status-line bridge on first use, unless the user
+    /// explicitly disabled automatic setup, then reads the latest snapshot.
+    func prepareClaudeCodeIntegration() async {
+        guard preferences.automaticallyConfigureClaudeCode else {
+            return
+        }
+
+        if claudeCodeStore.isBridgeInstalled {
+            await claudeCodeStore.refresh()
+        } else {
+            await claudeCodeStore.installBridge()
+        }
+    }
+
+    /// A sleeping or locked Mac can miss timer delivery for background work.
+    /// Re-arm active Weather and fetch when the system or user session resumes.
+    func refreshActiveWeatherAfterResume() async {
+        guard isRunning, preferences.activeFeature == .weather else {
+            return
+        }
+
+        weatherStore.start()
+        await weatherStore.refresh()
+    }
+
+    private func scheduleAutomaticClaudeCodeSetup() {
+        guard preferences.automaticallyConfigureClaudeCode else {
+            return
+        }
+
+        automaticClaudeSetupTask = Task { @MainActor [weak self] in
+            guard let self else {
+                return
+            }
+            await self.prepareClaudeCodeIntegration()
         }
     }
 }

@@ -11,14 +11,14 @@ Settings có native `NavigationSplitView`:
 
 - `General`: chọn đúng một feature active.
 - `CPU & RAM`: preview, màu và độ rộng hai vòng.
-- `Network`: preview live, current download/upload/interface, chart 60 giây và
-  màu hai series.
+- `Network`: preview live, current download/upload/interface và màu hai series.
 - `Storage`: preview live, used/available/total và màu/độ rộng một vòng.
-- `Weather`: preview responsive, trạng thái freshness, Open-Meteo attribution
-  và hướng dẫn Location/privacy.
-- `Codex`: preview quota, trạng thái CLI, refresh, màu và độ rộng hai vòng.
-- `Claude Code`: preview quota, status line bridge, refresh, màu và độ rộng hai
-  vòng.
+- `Weather`: preview responsive có tên địa điểm, trạng thái freshness và
+  Open-Meteo attribution; không có connection hoặc Location/privacy section.
+- `Codex`: preview quota, display style, màu và độ rộng hai vòng; không có
+  connection controls.
+- `Claude Code`: preview quota, display style, màu và độ rộng hai vòng; không có
+  connection controls.
 - `About`: version, privacy và distribution.
 
 ## 2. Ownership
@@ -43,11 +43,17 @@ Settings có native `NavigationSplitView`:
 | `DockTileController` | Một `NSHostingView` lâu dài, cập nhật root view và gọi `NSDockTile.display()` |
 | `DockMetricsView` / `DockNetworkView` / `DockStorageView` / `DockWeatherView` / `CodexDockView` | Renderer thuần từ input model và appearance |
 | `SettingsView` | UI preferences; không tạo timer hay gọi Mach API |
-| `DesignSystem` / `ProjectTheme` | Tokens, components, semantic palette và Light root |
+| `DesignSystem` / `ProjectTheme` | Tokens, components, semantic palette và appearance-aware theme root |
 
 Các owner sống suốt process được tạo đúng một lần trong `AppDelegate`. Feature
 view không tạo store cục bộ, vì việc đó sẽ gây timer/polling trùng và Dock không
 đồng bộ với Settings.
+
+Design system dùng ba color scheme System/Light/Dark, tích hợp glass mặc định
+nhưng vẫn giới hạn nó ở navigation/chrome theo kiến trúc
+Canvas → Content → Navigation. Xem
+[SIGMA_DESIGN_SYSTEM.md](SIGMA_DESIGN_SYSTEM.md) để phân biệt token Sigma công
+khai với quyết định do DockMagic suy diễn, cùng contract tương thích và QA.
 
 ## 3. Lifecycle cửa sổ
 
@@ -84,8 +90,10 @@ flowchart LR
 ```
 
 Khi đổi feature, coordinator dừng provider cũ trước khi start provider mới.
-`start()`/`stop()` đều idempotent. Preference thay đổi appearance tạo một
-presentation mới và Dock controller redraw ngay, không cần đợi sample tiếp theo.
+`start()`/`stop()` đều idempotent. Khi appearance preference, effective
+Light/Dark của macOS hoặc accessibility display options đổi, Dock controller
+re-host presentation hiện tại bằng theme mới rồi redraw ngay, không cần đợi
+sample tiếp theo.
 
 ## 5. CPU và RAM
 
@@ -184,10 +192,11 @@ attribution luôn rõ, không ẩn ở cuối setup.
 
 ## 9. Codex quota
 
-Executable resolution theo thứ tự: path người dùng chọn, biến
-`CODEX_EXECUTABLE`, `PATH`, Homebrew/local candidates và các bản Node trong
-`~/.nvm/versions/node`. Khi chạy CLI, parent directory của executable được thêm
-vào `PATH` để launcher `#!/usr/bin/env node` hoạt động.
+Khi Codex được chọn trong General, executable được tự resolve theo thứ tự:
+override đã lưu nếu có, biến `CODEX_EXECUTABLE`, `PATH`, Homebrew/local
+candidates và các bản Node trong `~/.nvm/versions/node`. Khi chạy CLI, parent
+directory của executable được thêm vào `PATH` để launcher
+`#!/usr/bin/env node` hoạt động.
 
 Provider khởi chạy:
 
@@ -209,8 +218,9 @@ State contract:
 - `unavailable`: chưa từng có snapshot và CLI/protocol không dùng được.
 
 Không suy diễn quota 5 giờ khi server chỉ trả quota tuần. Với weekly-only, Dock
-render một vòng tuần ở vị trí cân bằng. Polling mặc định 5 phút, hoặc refresh
-thủ công trong Settings. DockMagic không đọc credential files.
+render một vòng tuần ở vị trí cân bằng. Polling mặc định 5 phút và bắt đầu ngay
+khi Codex được chọn; Settings không yêu cầu refresh hay chọn executable thủ
+công. DockMagic không đọc credential files.
 
 ## 10. Claude Code quota
 
@@ -225,12 +235,14 @@ rate_limits.seven_day.used_percentage
 rate_limits.seven_day.resets_at
 ```
 
-Settings chỉ cài bridge khi người dùng bấm Enable. Bridge ở
-`~/.claude/dockmagic-statusline.sh` dùng `plutil` lấy riêng `rate_limits`, ghi
-atomic vào `~/.claude/dockmagic-usage.json`, rồi chuyển nguyên input cho command
-status line cũ. Backup chỉ dùng để restore cấu hình khi Disable. Bridge không
-đọc OAuth token/Keychain, không gọi endpoint web nội bộ và không làm phát sinh
-model request.
+Automatic setup mặc định bật. Khi Claude Code được chọn làm Dock feature trong
+General, DockMagic tự cài bridge ở
+`~/.claude/dockmagic-statusline.sh`. Bridge dùng `plutil` lấy riêng
+`rate_limits`, ghi atomic vào `~/.claude/dockmagic-usage.json`, rồi chuyển
+nguyên input cho command status line cũ. Backup chỉ dùng để restore cấu hình khi
+bridge được gỡ. Trang Claude Code Settings chỉ còn preview và appearance, không
+có connection controls. Bridge không đọc OAuth token/Keychain, không gọi
+endpoint web nội bộ và không làm phát sinh model request.
 
 `rate_limits` có thể vắng trước response đầu tiên hoặc với account không được
 hỗ trợ. Cache quá 15 phút được render `stale`; thiếu bridge/cache hoặc schema
@@ -241,8 +253,8 @@ dùng cần bỏ override hoặc cấu hình wrapper tương đương ở projec
 ## 11. Dock rendering
 
 `DockTileController` cài một `NSHostingView` vào `NSApp.dockTile.contentView` và
-giữ host đó suốt vòng đời app. Nó chỉ thay `rootView` khi presentation thực sự
-đổi rồi gọi `display()` trên main actor.
+giữ host đó suốt vòng đời app. Nó thay `rootView` khi presentation đổi hoặc khi
+theme/appearance cần refresh, rồi gọi `display()` trên main actor.
 
 - CPU/Codex/Claude Code 5 giờ là vòng ngoài; RAM/Codex/Claude Code tuần là vòng
   trong. Storage dùng một vòng. Network dùng diverging chart quanh baseline;
@@ -267,8 +279,10 @@ Settings preview dùng cùng production renderer, nhưng cho phép animation ng�
 
 `UserDefaults` chỉ lưu:
 
+- appearance color scheme System/Light/Dark; glass chrome là mặc định ở cả ba;
 - feature active;
-- RGBA + stroke width cho CPU/RAM, Storage, Codex và Claude Code;
+- RGBA + stroke width + Chart/Numbers display style cho CPU/RAM, Storage,
+  Codex và Claude Code;
 - RGBA cho hai series download/upload của Network;
 - snapshot Weather thành công cuối cùng;
 - Codex executable override (nếu có).
@@ -280,7 +294,7 @@ khỏi máy. Weather cache chỉ chứa dữ liệu đã hiển thị
 HTTPS tới Open-Meteo và không được lưu thành location history. Codex app-server dùng chính phiên đăng
 nhập do Codex CLI sở hữu. Claude Code bridge
 persist snapshot usage tối thiểu vì status line chỉ giao dữ liệu theo event;
-file chỉ chứa hai cửa sổ `rate_limits` và được xóa khi Disable.
+file chỉ chứa hai cửa sổ `rate_limits` và được xóa khi bridge được gỡ.
 
 ## 13. Threading và failure containment
 
@@ -300,9 +314,11 @@ Mỗi thay đổi cần kiểm tra theo mức rủi ro:
    Weather/Open-Meteo request/decoder/WMO variants, executable resolution, timeout/cancel,
    live→stale/unavailable, lifecycle exclusivity, Mach math và Dock redraw.
 2. Renderer: Weather `32/48/64/128 pt`, Network/Storage và
-   CPU/Codex/Claude Code loading/live/weekly-only/stale/error ở nhiều tile size.
-3. UI: launch Settings Light, tám sidebar destinations, picker exclusivity,
-   Network/Storage destination, close→Dock activation→một Settings window.
+   CPU/Codex/Claude Code loading/live/weekly-only/stale/error, gồm cả Chart và
+   Numbers ở nhiều tile size.
+3. UI: launch Settings với glass chrome, ba appearance options, tám sidebar
+   destinations, active-feature icon/picker, numeric display controls,
+   close→Dock activation→một Settings window.
 4. Runtime: signed launch smoke, process sống sau khi đóng Settings.
 5. Release: Developer ID, Hardened Runtime, notarization, Gatekeeper và quan sát
    pixel thật trên Dock ở nhiều size/position.

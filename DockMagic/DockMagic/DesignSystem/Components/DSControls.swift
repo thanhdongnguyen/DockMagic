@@ -4,11 +4,10 @@ struct DSButtonStyle: ButtonStyle {
     var kind: DSButtonKind = .neutral
 
     @Environment(\.designTheme) private var theme
+    @Environment(\.dsAccessibilityOverrides) private var accessibilityOverrides
     @Environment(\.colorSchemeContrast) private var contrast
     @Environment(\.isEnabled) private var isEnabled
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.accessibilityReduceTransparency)
-    private var reduceTransparency
 
     func makeBody(configuration: Configuration) -> some View {
         let shape = RoundedRectangle(
@@ -20,26 +19,46 @@ struct DSButtonStyle: ButtonStyle {
         configuration.label
             .font(DSTypography.bodyEmphasis)
             .foregroundStyle(foreground)
-            .padding(.horizontal, 11)
-            .padding(.vertical, 6)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 8)
+            .frame(minHeight: 36)
             .background {
                 ZStack {
-                    if kind == .neutral, !reduceTransparency {
-                        shape.fill(.thinMaterial)
-                    }
-
                     shape.fill(fill)
                     shape.strokeBorder(
-                        contrast == .increased
+                        effectivelyIncreasesContrast
                             ? theme.outlineStrong
                             : theme.outline,
-                        lineWidth: contrast == .increased ? 1.5 : 1
+                        lineWidth: effectivelyIncreasesContrast ? 1.5 : 1
                     )
+
+                    shape
+                        .inset(by: 1)
+                        .strokeBorder(
+                            LinearGradient(
+                                colors: [
+                                    Color.white.opacity(
+                                        kind == .neutral ? 0.28 : 0.22
+                                    ),
+                                    Color.clear
+                                ],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            ),
+                            lineWidth: 1
+                        )
                 }
                 .allowsHitTesting(false)
                 .accessibilityHidden(true)
             }
+            .shadow(
+                color: pressed ? .clear : theme.shadow.opacity(0.42),
+                radius: kind == .neutral ? 2 : 4,
+                x: 0,
+                y: kind == .neutral ? 1 : 2
+            )
             .contentShape(shape)
+            .buttonBorderShape(.roundedRectangle(radius: DSRadius.control))
             .scaleEffect(pressed && !reduceMotion ? 0.98 : 1)
             .brightness(pressed ? -0.05 : 0)
             .opacity(isEnabled ? 1 : 0.42)
@@ -52,9 +71,7 @@ struct DSButtonStyle: ButtonStyle {
     private var fill: Color {
         switch kind {
         case .neutral:
-            reduceTransparency
-                ? theme.opaqueSurfaceChrome
-                : theme.surfaceChrome
+            theme.opaqueSurfaceRaised
         case .primary:
             theme.action
         case .destructive:
@@ -71,6 +88,10 @@ struct DSButtonStyle: ButtonStyle {
         case .destructive:
             theme.onDanger
         }
+    }
+
+    private var effectivelyIncreasesContrast: Bool {
+        accessibilityOverrides.increaseContrast ?? (contrast == .increased)
     }
 }
 
@@ -93,9 +114,11 @@ struct DSIconButtonStyle: ButtonStyle {
             .foregroundStyle(foreground)
             .frame(width: visualSize, height: visualSize)
             .background {
-                shape.fill(fill)
-                    .allowsHitTesting(false)
-                    .accessibilityHidden(true)
+                ZStack {
+                    shape.fill(fill)
+                }
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
             }
             .frame(
                 width: max(hitSize, visualSize),
@@ -113,7 +136,7 @@ struct DSIconButtonStyle: ButtonStyle {
     private var fill: Color {
         switch kind {
         case .neutral:
-            theme.surfaceChrome
+            theme.opaqueSurfaceChrome
         case .primary:
             theme.action
         case .destructive:
@@ -131,6 +154,7 @@ struct DSIconButtonStyle: ButtonStyle {
             theme.onDanger
         }
     }
+
 }
 
 private struct DSInteractiveRowModifier: ViewModifier {
@@ -140,6 +164,7 @@ private struct DSInteractiveRowModifier: ViewModifier {
 
     @State private var isHovering = false
     @Environment(\.designTheme) private var theme
+    @Environment(\.dsAccessibilityOverrides) private var accessibilityOverrides
     @Environment(\.colorSchemeContrast) private var contrast
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -166,7 +191,7 @@ private struct DSInteractiveRowModifier: ViewModifier {
                 if focused || (isEnabled && isActive) {
                     shape.strokeBorder(
                         focused ? theme.focus : theme.selectionOutline,
-                        lineWidth: contrast == .increased
+                        lineWidth: effectivelyIncreasesContrast
                             ? 2
                             : (focused ? 1.5 : 1)
                     )
@@ -180,6 +205,10 @@ private struct DSInteractiveRowModifier: ViewModifier {
                 reduceMotion ? nil : DSMotion.rowHover,
                 value: isHovering
             )
+    }
+
+    private var effectivelyIncreasesContrast: Bool {
+        accessibilityOverrides.increaseContrast ?? (contrast == .increased)
     }
 }
 

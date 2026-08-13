@@ -5,6 +5,169 @@ import XCTest
 
 final class DockMagicTests: XCTestCase {
     @MainActor
+    func testAppDelegateRedrawsDockForAppearanceAndAccessibilityChanges() async throws {
+        let suiteName = "DockMagicTests.AppDelegateAppearance.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        defaults.set(
+            DSAppearanceMode.light.rawValue,
+            forKey: DSAppearanceMode.storageKey
+        )
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let dockTile = SpyDockTile()
+        let notificationCenter = NotificationCenter()
+        let workspaceNotificationCenter = NotificationCenter()
+        let appModel = makeAppModel()
+        appModel.preferences.activeFeature = .dockMagic
+        let delegate = AppDelegate(
+            appModel: appModel,
+            settingsWindowRouter: SettingsWindowRouter(),
+            dockTile: dockTile,
+            appearanceStore: defaults,
+            notificationCenter: notificationCenter,
+            workspaceNotificationCenter: workspaceNotificationCenter
+        )
+
+        delegate.applicationDidFinishLaunching(
+            Notification(name: NSApplication.didFinishLaunchingNotification)
+        )
+
+        defaults.set(
+            DSAppearanceMode.dark.rawValue,
+            forKey: DSAppearanceMode.storageKey
+        )
+        let beforePreferenceChange = dockTile.displayCallCount
+        notificationCenter.post(
+            name: DSAppearanceMode.didChangeNotification,
+            object: DSAppearanceMode.dark
+        )
+        try await waitUntil {
+            dockTile.displayCallCount > beforePreferenceChange
+        }
+        XCTAssertGreaterThan(
+            dockTile.displayCallCount,
+            beforePreferenceChange
+        )
+
+        let beforeAccessibilityChange = dockTile.displayCallCount
+        workspaceNotificationCenter.post(
+            name: NSWorkspace.accessibilityDisplayOptionsDidChangeNotification,
+            object: nil
+        )
+        try await waitUntil {
+            dockTile.displayCallCount > beforeAccessibilityChange
+        }
+        XCTAssertGreaterThan(
+            dockTile.displayCallCount,
+            beforeAccessibilityChange
+        )
+
+        let originalAppearance = NSApplication.shared.appearance
+        defer { NSApplication.shared.appearance = originalAppearance }
+        let currentMatch = NSApplication.shared.effectiveAppearance.bestMatch(
+            from: [.aqua, .darkAqua]
+        )
+        NSApplication.shared.appearance = NSAppearance(
+            named: currentMatch == .darkAqua ? .aqua : .darkAqua
+        )
+        try await waitUntil {
+            dockTile.displayCallCount > beforeAccessibilityChange + 1
+        }
+        XCTAssertGreaterThan(
+            dockTile.displayCallCount,
+            beforeAccessibilityChange + 1,
+            "Changing the app's effective appearance should redraw the Dock."
+        )
+
+        delegate.applicationWillTerminate(
+            Notification(name: NSApplication.willTerminateNotification)
+        )
+        let afterTermination = dockTile.displayCallCount
+        notificationCenter.post(
+            name: DSAppearanceMode.didChangeNotification,
+            object: DSAppearanceMode.light
+        )
+        workspaceNotificationCenter.post(
+            name: NSWorkspace.accessibilityDisplayOptionsDidChangeNotification,
+            object: nil
+        )
+        XCTAssertEqual(dockTile.displayCallCount, afterTermination)
+    }
+
+    @MainActor
+    func testAppDelegateRefreshesActiveWeatherAfterSystemResume() async throws {
+        let suiteName = "DockMagicTests.WeatherWake.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let first = sampleWeatherSnapshot(
+            observedAt: Date(timeIntervalSince1970: 1_000),
+            fetchedAt: Date(timeIntervalSince1970: 1_000)
+        )
+        let second = sampleWeatherSnapshot(
+            condition: .rain,
+            conditionDescription: "Rain",
+            observedAt: Date(timeIntervalSince1970: 2_000),
+            fetchedAt: Date(timeIntervalSince1970: 2_000)
+        )
+        let third = sampleWeatherSnapshot(
+            condition: .clear,
+            conditionDescription: "Clear",
+            observedAt: Date(timeIntervalSince1970: 3_000),
+            fetchedAt: Date(timeIntervalSince1970: 3_000)
+        )
+        let preferences = DockPreferencesStore(defaults: defaults)
+        preferences.activeFeature = .weather
+        let weather = WeatherStore(
+            provider: ScriptedWeatherProvider([
+                .success(first),
+                .success(second),
+                .success(third)
+            ]),
+            cache: InMemoryWeatherCache(),
+            pollingInterval: .seconds(60),
+            staleAfter: 10_000,
+            now: { Date(timeIntervalSince1970: 3_000) }
+        )
+        let appModel = DockAppModel(
+            preferences: preferences,
+            weatherStore: weather
+        )
+        let workspaceNotificationCenter = NotificationCenter()
+        let delegate = AppDelegate(
+            appModel: appModel,
+            settingsWindowRouter: SettingsWindowRouter(),
+            dockTile: SpyDockTile(),
+            appearanceStore: defaults,
+            notificationCenter: NotificationCenter(),
+            workspaceNotificationCenter: workspaceNotificationCenter
+        )
+
+        delegate.applicationDidFinishLaunching(
+            Notification(name: NSApplication.didFinishLaunchingNotification)
+        )
+        try await waitUntil { weather.state == .live(first) }
+
+        workspaceNotificationCenter.post(
+            name: NSWorkspace.didWakeNotification,
+            object: nil
+        )
+        try await waitUntil { weather.state == .live(second) }
+
+        workspaceNotificationCenter.post(
+            name: NSWorkspace.sessionDidBecomeActiveNotification,
+            object: nil
+        )
+        try await waitUntil { weather.state == .live(third) }
+
+        delegate.applicationWillTerminate(
+            Notification(name: NSApplication.willTerminateNotification)
+        )
+    }
+
+    @MainActor
     func testDockReopenRoutesToSingletonSettingsWindow() {
         var didActivate = false
         var didOpen = false
@@ -78,6 +241,7 @@ final class DockMagicTests: XCTestCase {
 
         let store = DockPreferencesStore(defaults: defaults)
         XCTAssertEqual(store.activeFeature, .systemMetrics)
+        XCTAssertTrue(store.automaticallyConfigureClaudeCode)
         XCTAssertEqual(
             store.systemMetricsAppearance,
             DockFeatureDefaults.systemMetricsAppearance
@@ -96,6 +260,7 @@ final class DockMagicTests: XCTestCase {
             DockColor(red: 0.1, green: 0.2, blue: 0.3)
         )
         store.setSystemMetricsOuterWidth(0.14)
+        store.setSystemMetricsDisplayStyle(.numeric)
         store.setNetworkDownloadColor(
             DockColor(red: 0.4, green: 0.5, blue: 0.6)
         )
@@ -106,23 +271,32 @@ final class DockMagicTests: XCTestCase {
             DockColor(red: 0.3, green: 0.4, blue: 0.5)
         )
         store.setStorageWidth(0.21)
+        store.setStorageDisplayStyle(.numeric)
         store.setCodexInnerWidth(0.20)
+        store.setCodexDisplayStyle(.numeric)
         store.setClaudeCodeOuterColor(
             DockColor(red: 0.2, green: 0.3, blue: 0.4)
         )
+        store.setClaudeCodeDisplayStyle(.numeric)
         store.codexExecutablePath = " /opt/homebrew/bin/codex "
+        store.automaticallyConfigureClaudeCode = false
 
         let restored = DockPreferencesStore(defaults: defaults)
         XCTAssertEqual(restored.activeFeature, .network)
         XCTAssertEqual(restored.systemMetricsAppearance.outerColor.hex, "#1A334D")
         XCTAssertEqual(restored.systemMetricsAppearance.outerWidth, 0.14)
+        XCTAssertEqual(restored.systemMetricsAppearance.displayStyle, .numeric)
         XCTAssertEqual(restored.networkAppearance.downloadColor.hex, "#668099")
         XCTAssertEqual(restored.networkAppearance.uploadColor.hex, "#B3331A")
         XCTAssertEqual(restored.storageAppearance.color.hex, "#4D6680")
         XCTAssertEqual(restored.storageAppearance.width, 0.21)
+        XCTAssertEqual(restored.storageAppearance.displayStyle, .numeric)
         XCTAssertEqual(restored.codexAppearance.innerWidth, 0.20)
+        XCTAssertEqual(restored.codexAppearance.displayStyle, .numeric)
         XCTAssertEqual(restored.claudeCodeAppearance.outerColor.hex, "#334D66")
+        XCTAssertEqual(restored.claudeCodeAppearance.displayStyle, .numeric)
         XCTAssertEqual(restored.codexExecutablePath, "/opt/homebrew/bin/codex")
+        XCTAssertFalse(restored.automaticallyConfigureClaudeCode)
     }
 
     @MainActor
@@ -171,6 +345,7 @@ final class DockMagicTests: XCTestCase {
         defer { defaults.removePersistentDomain(forName: suiteName) }
         let store = DockPreferencesStore(defaults: defaults)
 
+        store.setSystemMetricsDisplayStyle(.numeric)
         store.setSystemMetricsInnerColor(.init(red: 1, green: 1, blue: 1))
         store.setNetworkDownloadColor(.init(red: 1, green: 1, blue: 1))
         store.setStorageWidth(0.21)
@@ -182,10 +357,9 @@ final class DockMagicTests: XCTestCase {
         store.resetCodexAppearance()
         store.resetClaudeCodeAppearance()
 
-        XCTAssertEqual(
-            store.systemMetricsAppearance,
-            DockFeatureDefaults.systemMetricsAppearance
-        )
+        var expectedSystemMetrics = DockFeatureDefaults.systemMetricsAppearance
+        expectedSystemMetrics.setDisplayStyle(.numeric)
+        XCTAssertEqual(store.systemMetricsAppearance, expectedSystemMetrics)
         XCTAssertEqual(
             store.networkAppearance,
             DockFeatureDefaults.networkAppearance
@@ -629,6 +803,31 @@ final class DockMagicTests: XCTestCase {
     }
 
     @MainActor
+    func testCodexAutomaticPreparationDetectsExecutableAndRefreshesOnFirstUse() async {
+        let suiteName = "DockMagicTests.CodexAutoDetection.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let preferences = DockPreferencesStore(defaults: defaults)
+        let snapshot = sampleCodexSnapshot()
+        let store = CodexUsageStore(
+            provider: ScriptedCodexProvider([.success(snapshot)]),
+            locator: StubCodexLocator(),
+            pollingInterval: .seconds(60)
+        )
+        let appModel = DockAppModel(
+            preferences: preferences,
+            codexStore: store
+        )
+
+        await appModel.prepareCodexIntegration()
+
+        XCTAssertNil(preferences.codexExecutablePath)
+        XCTAssertEqual(store.resolvedExecutablePath, "/usr/bin/true")
+        XCTAssertEqual(store.state, .live(snapshot))
+    }
+
+    @MainActor
     func testClaudeCodeUsageStoreReportsLiveStaleAndBridgeMissing() async {
         let now = Date(timeIntervalSince1970: 2_000)
         let freshSnapshot = sampleClaudeCodeSnapshot(
@@ -664,7 +863,42 @@ final class DockMagicTests: XCTestCase {
         guard case let .unavailable(message) = store.state else {
             return XCTFail("Expected the disabled bridge to be unavailable.")
         }
-        XCTAssertTrue(message.contains("Enable"))
+        XCTAssertTrue(message.contains("Activate Claude Code in General"))
+    }
+
+    @MainActor
+    func testClaudeCodeAutomaticSetupInstallsAndRefreshesOnFirstUse() async {
+        let suiteName = "DockMagicTests.ClaudeAutoSetup.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let preferences = DockPreferencesStore(defaults: defaults)
+        let snapshot = sampleClaudeCodeSnapshot()
+        let bridge = StubClaudeCodeBridge(installed: false)
+        let store = ClaudeCodeUsageStore(
+            provider: ScriptedClaudeCodeProvider([.success(snapshot)]),
+            bridge: bridge,
+            pollingInterval: .seconds(60)
+        )
+        let appModel = DockAppModel(
+            preferences: preferences,
+            claudeCodeStore: store
+        )
+
+        await appModel.prepareClaudeCodeIntegration()
+
+        XCTAssertTrue(bridge.installed)
+        XCTAssertEqual(bridge.installCallCount, 1)
+        XCTAssertEqual(store.state, .live(snapshot))
+
+        preferences.automaticallyConfigureClaudeCode = false
+        bridge.installed = false
+        await appModel.prepareClaudeCodeIntegration()
+        XCTAssertEqual(
+            bridge.installCallCount,
+            1,
+            "An explicit opt-out must survive future automatic preparation."
+        )
     }
 
     @MainActor
@@ -678,13 +912,16 @@ final class DockMagicTests: XCTestCase {
             coordinateProvider: FixedWeatherCoordinateProvider(
                 coordinate: WeatherCoordinate(latitude: 10.8231, longitude: 106.6297)
             ),
+            locationNameProvider: FixedWeatherLocationNameProvider(
+                locationName: "Ho Chi Minh City, Vietnam"
+            ),
             httpClient: httpClient,
             now: { fetchedAt }
         )
 
         let snapshot = try await provider.fetchWeather()
 
-        XCTAssertEqual(snapshot.location, "Current Location")
+        XCTAssertEqual(snapshot.location, "Ho Chi Minh City, Vietnam")
         XCTAssertEqual(snapshot.temperatureCelsius, 29.4, accuracy: 0.001)
         XCTAssertEqual(snapshot.feelsLikeCelsius, 32)
         XCTAssertEqual(snapshot.conditionDescription, "Partly cloudy")
@@ -718,6 +955,46 @@ final class DockMagicTests: XCTestCase {
         XCTAssertEqual(query["forecast_days"]!, "1")
         XCTAssertNil(query["apikey"] ?? nil)
         XCTAssertEqual(request.timeoutInterval, 20)
+        XCTAssertEqual(request.cachePolicy, .reloadIgnoringLocalCacheData)
+        XCTAssertEqual(
+            request.value(forHTTPHeaderField: "Cache-Control"),
+            "no-cache"
+        )
+    }
+
+    @MainActor
+    func testOpenMeteoWeatherDoesNotWaitForSlowLocationName() async throws {
+        let provider = OpenMeteoWeatherProvider(
+            coordinateProvider: FixedWeatherCoordinateProvider(
+                coordinate: WeatherCoordinate(latitude: 10.8231, longitude: 106.6297)
+            ),
+            locationNameProvider: SlowWeatherLocationNameProvider(),
+            httpClient: FixtureOpenMeteoHTTPClient(
+                statusCode: 200,
+                data: openMeteoFixture()
+            ),
+            locationNameTimeout: .milliseconds(20),
+            now: { Date(timeIntervalSince1970: 2_000) }
+        )
+
+        let snapshot = try await provider.fetchWeather()
+
+        XCTAssertEqual(snapshot.location, "Ho Chi Minh")
+    }
+
+    func testOpenMeteoSnapshotUsesTimezoneAsLocationFallback() throws {
+        let response = try JSONDecoder().decode(
+            OpenMeteoForecastResponse.self,
+            from: openMeteoFixture()
+        )
+
+        let snapshot = try OpenMeteoWeatherProvider.makeSnapshot(
+            from: response,
+            fetchedAt: Date(timeIntervalSince1970: 2_000),
+            location: "  "
+        )
+
+        XCTAssertEqual(snapshot.location, "Ho Chi Minh")
     }
 
     @MainActor
@@ -825,6 +1102,36 @@ final class DockMagicTests: XCTestCase {
         )
     }
 
+    @MainActor
+    func testWeatherStoreAutomaticallyPollsForNewSnapshots() async throws {
+        let first = sampleWeatherSnapshot(
+            observedAt: Date(timeIntervalSince1970: 1_000),
+            fetchedAt: Date(timeIntervalSince1970: 1_000)
+        )
+        let second = sampleWeatherSnapshot(
+            condition: .rain,
+            conditionDescription: "Rain",
+            observedAt: Date(timeIntervalSince1970: 2_000),
+            fetchedAt: Date(timeIntervalSince1970: 2_000)
+        )
+        let store = WeatherStore(
+            provider: ScriptedWeatherProvider([
+                .success(first),
+                .success(second)
+            ]),
+            cache: InMemoryWeatherCache(),
+            pollingInterval: .milliseconds(20),
+            staleAfter: 10_000,
+            now: { Date(timeIntervalSince1970: 2_000) }
+        )
+
+        store.start()
+        defer { store.stop() }
+
+        try await waitUntil { store.state == .live(second) }
+        XCTAssertTrue(store.isMonitoring)
+    }
+
     func testWeatherLocationAuthorizationProvidesRecoveryGuidance() {
         XCTAssertTrue(WeatherLocationAuthorization.notDetermined.allowsLocationRequest)
         XCTAssertTrue(WeatherLocationAuthorization.authorized.allowsLocationRequest)
@@ -839,17 +1146,6 @@ final class DockMagicTests: XCTestCase {
         XCTAssertTrue(
             WeatherLocationAuthorization.denied.errorDescription?
                 .contains("then refresh Weather") == true
-        )
-    }
-
-    func testWeatherLocationServicesSettingsLinkTargetsPrivacyPane() {
-        XCTAssertEqual(
-            WeatherSystemSettings.locationServicesURL.scheme,
-            "x-apple.systempreferences"
-        )
-        XCTAssertEqual(
-            WeatherSystemSettings.locationServicesURL.absoluteString,
-            "x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension?Privacy_LocationServices"
         )
     }
 
@@ -1028,11 +1324,12 @@ final class DockMagicTests: XCTestCase {
             cache: InMemoryWeatherCache(),
             pollingInterval: .seconds(60)
         )
+        let claudeCodeBridge = StubClaudeCodeBridge(installed: false)
         let claudeCode = ClaudeCodeUsageStore(
             provider: ScriptedClaudeCodeProvider([
                 .success(sampleClaudeCodeSnapshot())
             ]),
-            bridge: StubClaudeCodeBridge(installed: true),
+            bridge: claudeCodeBridge,
             pollingInterval: .seconds(60)
         )
         let appModel = DockAppModel(
@@ -1113,6 +1410,10 @@ final class DockMagicTests: XCTestCase {
         XCTAssertFalse(storage.isMonitoring)
         XCTAssertFalse(weather.isMonitoring)
         XCTAssertFalse(claudeCode.isMonitoring)
+        try await waitUntil {
+            codex.resolvedExecutablePath == "/usr/bin/true"
+                && codex.state.snapshot != nil
+        }
 
         preferences.activeFeature = .claudeCode
         try await waitUntil {
@@ -1123,8 +1424,13 @@ final class DockMagicTests: XCTestCase {
                 && !weather.isMonitoring
                 && !codex.isMonitoring
         }
+        try await waitUntil {
+            claudeCodeBridge.installed
+                && claudeCode.state.snapshot != nil
+        }
 
         XCTAssertTrue(claudeCode.isMonitoring)
+        XCTAssertEqual(claudeCodeBridge.installCallCount, 1)
         XCTAssertFalse(metrics.isMonitoring)
         XCTAssertFalse(network.isMonitoring)
         XCTAssertFalse(storage.isMonitoring)
@@ -1541,6 +1847,7 @@ final class DockMagicTests: XCTestCase {
 
     @MainActor
     func testDockTileControllerKeepsHostingViewAndRedrawsConfiguration() {
+        let appearanceDefaults = makeAppearanceDefaults(.light)
         let dockTile = SpyDockTile()
         let initial = DockTilePresentation.systemMetrics(
             snapshot: .zero,
@@ -1549,7 +1856,8 @@ final class DockMagicTests: XCTestCase {
         )
         let controller = DockTileController(
             dockTile: dockTile,
-            initialPresentation: initial
+            initialPresentation: initial,
+            appearanceStore: appearanceDefaults
         )
 
         guard let hostingView = dockTile.contentView
@@ -1559,6 +1867,7 @@ final class DockMagicTests: XCTestCase {
 
         let identity = ObjectIdentifier(hostingView)
         XCTAssertEqual(hostingView.rootView.content.presentation, initial)
+        XCTAssertEqual(controller.currentAppearanceMode, .light)
         XCTAssertEqual(dockTile.displayCallCount, 1)
 
         var appearance = DockFeatureDefaults.systemMetricsAppearance
@@ -1584,11 +1893,357 @@ final class DockMagicTests: XCTestCase {
 
         controller.update(presentation: updated)
         XCTAssertEqual(dockTile.displayCallCount, 2)
+
+        appearanceDefaults.set(
+            DSAppearanceMode.dark.rawValue,
+            forKey: DSAppearanceMode.storageKey
+        )
+        controller.updateAppearance()
+        XCTAssertEqual(dockTile.displayCallCount, 3)
+        XCTAssertEqual(controller.currentPresentation, updated)
+        XCTAssertEqual(controller.currentAppearanceMode, .dark)
+    }
+
+    func testSigmaAppearanceModesAndFoundationContracts() {
+        XCTAssertEqual(
+            DSAppearanceMode.allCases,
+            [.system, .light, .dark]
+        )
+        XCTAssertEqual(
+            DSAppearanceMode.settingsCases,
+            [.system, .light, .dark]
+        )
+        XCTAssertNil(DSAppearanceMode.system.preferredColorScheme)
+        XCTAssertEqual(DSAppearanceMode.light.preferredColorScheme, .light)
+        XCTAssertEqual(DSAppearanceMode.dark.preferredColorScheme, .dark)
+        XCTAssertTrue(DSAppearanceMode.system.usesGlassMaterials)
+        XCTAssertTrue(DSAppearanceMode.light.usesGlassMaterials)
+        XCTAssertTrue(DSAppearanceMode.dark.usesGlassMaterials)
+        XCTAssertEqual(DockDisplayStyle.allCases, [.chart, .numeric])
+
+        XCTAssertFalse(DSSurfaceKind.shell.isGlassEligible)
+        XCTAssertFalse(DSSurfaceKind.panel.isGlassEligible)
+        XCTAssertFalse(DSSurfaceKind.raised.isGlassEligible)
+        XCTAssertFalse(DSSurfaceKind.inset.isGlassEligible)
+        XCTAssertTrue(DSSurfaceKind.chrome.isGlassEligible)
+
+        XCTAssertEqual(
+            DSRadius.concentric(
+                parentRadius: DSRadius.largePanel,
+                padding: DSSpacing.small
+            ),
+            DSRadius.fixedLarge
+        )
+        XCTAssertEqual(
+            DSRadius.concentric(parentRadius: 4, padding: 8),
+            0
+        )
+        XCTAssertGreaterThan(DSElevation.primary.radius, DSElevation.secondary.radius)
+        XCTAssertGreaterThan(DSElevation.primary.yOffset, DSElevation.secondary.yOffset)
+        XCTAssertGreaterThanOrEqual(DSLayout.minimumWindowWidth, 900)
+        XCTAssertGreaterThanOrEqual(DSLayout.minimumWindowHeight, 640)
+    }
+
+    func testSigmaAppearancePreferencePersistsAndInvalidValuesFallBackSafely() {
+        let suiteName = "DockMagicTests.Appearance.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        XCTAssertEqual(DSAppearanceMode.stored(in: defaults), .system)
+
+        defaults.set(
+            DSAppearanceMode.dark.rawValue,
+            forKey: DSAppearanceMode.storageKey
+        )
+        XCTAssertEqual(DSAppearanceMode.stored(in: defaults), .dark)
+
+        defaults.set("unsupported-mode", forKey: DSAppearanceMode.storageKey)
+        XCTAssertEqual(DSAppearanceMode.stored(in: defaults), .system)
+
+        defaults.set("liquidGlass", forKey: DSAppearanceMode.storageKey)
+        XCTAssertEqual(
+            DSAppearanceMode.stored(in: defaults),
+            .system,
+            "The former standalone Liquid Glass mode should migrate to System."
+        )
     }
 
     @MainActor
-    func testLightDesignSystemRendersSettingsAndAllDockStates() async throws {
+    func testSigmaPublicPaletteAssetsMatchDocumentedValues() {
+        let expected: [
+            (name: String, light: String, dark: String, lightAlpha: CGFloat, darkAlpha: CGFloat)
+        ] = [
+            ("DSAction", "#0088FF", "#0091FF", 1, 1),
+            ("DSDanger", "#FF383C", "#FF4245", 1, 1),
+            ("DSWarning", "#FF8D28", "#FF9230", 1, 1),
+            ("DSInformation", "#00C0E8", "#3CD3FE", 1, 1),
+            ("DSProcessing", "#00C8B3", "#00DAC3", 1, 1),
+            ("DSOpaqueSurface", "#F5F4F2", "#1F1E1E", 1, 1),
+            ("DSOpaqueSurfaceRaised", "#FFFFFF", "#1F1E1E", 1, 1)
+        ]
+
+        for item in expected {
+            assertColorAsset(
+                item.name,
+                appearanceName: .aqua,
+                expectedHex: item.light,
+                expectedAlpha: item.lightAlpha
+            )
+            assertColorAsset(
+                item.name,
+                appearanceName: .darkAqua,
+                expectedHex: item.dark,
+                expectedAlpha: item.darkAlpha
+            )
+        }
+    }
+
+    @MainActor
+    func testSigmaSemanticColorPairsMeetAccessibleContrastInLightAndDark() {
+        let appearances: [(NSAppearance.Name, String)] = [
+            (.aqua, "Light"),
+            (.darkAqua, "Dark")
+        ]
+        let contentSurfaces = [
+            "DSOpaqueSurface",
+            "DSOpaqueSurfaceRaised",
+            "DSOpaqueSurfaceInset",
+            "DSOpaqueSurfaceChrome"
+        ]
+        let contentForegrounds = [
+            "DSTextPrimary",
+            "DSTextSecondary",
+            "DSTextTertiary",
+            "DSActionForeground",
+            "DSInformationForeground",
+            "DSProcessingForeground",
+            "DSWarningForeground",
+            "DSDangerForeground"
+        ]
+        let filledPairs = [
+            ("DSOnAction", "DSAction"),
+            ("DSOnInformation", "DSInformation"),
+            ("DSOnProcessing", "DSProcessing"),
+            ("DSOnWarning", "DSWarning"),
+            ("DSOnDanger", "DSDanger"),
+            ("DSOnSidebarIcon", "DSSidebarIconFill")
+        ]
+
+        for (appearanceName, appearanceLabel) in appearances {
+            guard let appearance = NSAppearance(named: appearanceName) else {
+                XCTFail("Unable to create \(appearanceLabel) appearance.")
+                continue
+            }
+
+            appearance.performAsCurrentDrawingAppearance {
+                for foregroundName in contentForegrounds {
+                    for backgroundName in contentSurfaces {
+                        assertContrast(
+                            foregroundName,
+                            on: backgroundName,
+                            minimum: 4.5,
+                            appearance: appearanceLabel
+                        )
+                    }
+                }
+
+                for backgroundName in contentSurfaces {
+                    assertContrast(
+                        "DSOutlineStrong",
+                        on: backgroundName,
+                        minimum: 3,
+                        appearance: "\(appearanceLabel) strong boundary"
+                    )
+                    assertContrast(
+                        "DSFocus",
+                        on: backgroundName,
+                        minimum: 3,
+                        appearance: "\(appearanceLabel) focus"
+                    )
+                }
+
+                for (foregroundName, backgroundName) in filledPairs {
+                    assertContrast(
+                        foregroundName,
+                        on: backgroundName,
+                        minimum: 4.5,
+                        appearance: appearanceLabel
+                    )
+                }
+
+                for backgroundName in [
+                    "DSDockBackgroundRaised",
+                    "DSDockBackgroundInset"
+                ] {
+                    assertContrast(
+                        "DSDockTrack",
+                        on: backgroundName,
+                        minimum: 3,
+                        appearance: "\(appearanceLabel) Dock"
+                    )
+                    assertContrast(
+                        "DSDockOutline",
+                        on: backgroundName,
+                        minimum: 3,
+                        appearance: "\(appearanceLabel) Dock",
+                        foregroundOpacity: 0.58
+                    )
+                }
+            }
+        }
+    }
+
+    @MainActor
+    func testNumericDockStylesRenderDistinctFromCharts() throws {
+        var numericSystemAppearance = DockFeatureDefaults.systemMetricsAppearance
+        numericSystemAppearance.setDisplayStyle(.numeric)
+        var numericStorageAppearance = DockFeatureDefaults.storageAppearance
+        numericStorageAppearance.setDisplayStyle(.numeric)
+        var numericCodexAppearance = DockFeatureDefaults.codexAppearance
+        numericCodexAppearance.setDisplayStyle(.numeric)
+        var numericClaudeAppearance = DockFeatureDefaults.claudeCodeAppearance
+        numericClaudeAppearance.setDisplayStyle(.numeric)
+
+        let snapshot = SystemMetricsSnapshot(
+            cpuUsage: 0.72,
+            memoryUsage: 0.54,
+            memoryUsedBytes: 540,
+            memoryTotalBytes: 1_000
+        )
+        let storage = StorageMetricsSnapshot(
+            volumeName: "Macintosh HD",
+            totalBytes: 1_000,
+            availableBytes: 360
+        )
+        let pairs: [(String, DockTilePresentation, DockTilePresentation)] = [
+            (
+                "CPU RAM",
+                .systemMetrics(
+                    snapshot: snapshot,
+                    appearance: DockFeatureDefaults.systemMetricsAppearance,
+                    errorDescription: nil
+                ),
+                .systemMetrics(
+                    snapshot: snapshot,
+                    appearance: numericSystemAppearance,
+                    errorDescription: nil
+                )
+            ),
+            (
+                "Storage",
+                .storage(
+                    snapshot: storage,
+                    appearance: DockFeatureDefaults.storageAppearance,
+                    errorDescription: nil
+                ),
+                .storage(
+                    snapshot: storage,
+                    appearance: numericStorageAppearance,
+                    errorDescription: nil
+                )
+            ),
+            (
+                "Codex",
+                .codex(
+                    state: .live(sampleCodexSnapshot()),
+                    appearance: DockFeatureDefaults.codexAppearance
+                ),
+                .codex(
+                    state: .live(sampleCodexSnapshot()),
+                    appearance: numericCodexAppearance
+                )
+            ),
+            (
+                "Claude Code",
+                .claudeCode(
+                    state: .live(sampleClaudeCodeSnapshot()),
+                    appearance: DockFeatureDefaults.claudeCodeAppearance
+                ),
+                .claudeCode(
+                    state: .live(sampleClaudeCodeSnapshot()),
+                    appearance: numericClaudeAppearance
+                )
+            )
+        ]
+
+        for pair in pairs {
+            let chart = try renderPNG(
+                of: DockMagicThemeRoot(
+                    content: DockTileView(
+                        presentation: pair.1,
+                        animatesChanges: false
+                    ),
+                    appearanceMode: .dark
+                ),
+                size: NSSize(width: 128, height: 128),
+                appearanceName: .darkAqua,
+                name: "Dock — \(pair.0) — Chart"
+            )
+            let numeric = try renderPNG(
+                of: DockMagicThemeRoot(
+                    content: DockTileView(
+                        presentation: pair.2,
+                        animatesChanges: false
+                    ),
+                    appearanceMode: .dark
+                ),
+                size: NSSize(width: 128, height: 128),
+                appearanceName: .darkAqua,
+                name: "Dock — \(pair.0) — Numbers"
+            )
+
+            assertPixelDifference(
+                chart,
+                numeric,
+                minimumChangedFraction: 0.08,
+                label: "\(pair.0) chart versus numbers"
+            )
+            attachPNG(chart, name: "Dock — \(pair.0) — Chart")
+            attachPNG(numeric, name: "Dock — \(pair.0) — Numbers")
+        }
+    }
+
+    @MainActor
+    func testClaudeCodeChartOmitsCentralStateIcon() throws {
+        let idle = try renderPNG(
+            of: DockMagicThemeRoot(
+                content: DockClaudeCodeView(
+                    state: .idle,
+                    appearance: DockFeatureDefaults.claudeCodeAppearance,
+                    animatesChanges: false
+                ),
+                appearanceMode: .dark
+            ),
+            size: NSSize(width: 128, height: 128),
+            appearanceName: .darkAqua,
+            name: "Claude Code — Idle — No Center Icon"
+        )
+        let unavailable = try renderPNG(
+            of: DockMagicThemeRoot(
+                content: DockClaudeCodeView(
+                    state: .unavailable(message: "Bridge unavailable"),
+                    appearance: DockFeatureDefaults.claudeCodeAppearance,
+                    animatesChanges: false
+                ),
+                appearanceMode: .dark
+            ),
+            size: NSSize(width: 128, height: 128),
+            appearanceName: .darkAqua,
+            name: "Claude Code — Unavailable — No Center Icon"
+        )
+
+        XCTAssertEqual(
+            idle,
+            unavailable,
+            "Claude Code state changes must not draw an icon in the ring center."
+        )
+        attachPNG(unavailable, name: "Claude Code — No Center Icon")
+    }
+
+    @MainActor
+    func testDesignSystemRendersAllSettingsAndDockStatesAcrossAppearances() async throws {
         let appModel = makeAppModel()
+        let appearanceDefaults = makeAppearanceDefaults(.light)
         await appModel.metricsStore.refresh()
         await appModel.networkStore.refresh()
         await appModel.networkStore.refresh()
@@ -1597,31 +2252,64 @@ final class DockMagicTests: XCTestCase {
         await appModel.codexStore.refresh()
         await appModel.claudeCodeStore.refresh()
 
-        for destination in SettingsDestination.allCases {
+        let deniedWeatherModel = makeAppModel(weatherAuthorization: .denied)
+        await deniedWeatherModel.weatherStore.refresh()
+
+        let appearanceCases: [(
+            mode: DSAppearanceMode,
+            appKit: NSAppearance.Name,
+            label: String
+        )] = [
+            (.system, .aqua, "System"),
+            (.light, .aqua, "Light"),
+            (.dark, .darkAqua, "Dark")
+        ]
+
+        for appearanceCase in appearanceCases {
+            appearanceDefaults.set(
+                appearanceCase.mode.rawValue,
+                forKey: DSAppearanceMode.storageKey
+            )
+
+            for destination in SettingsDestination.allCases {
+                try attachScreenshot(
+                    of: DockMagicThemeRoot(
+                        content: SettingsView(
+                            appModel: appModel,
+                            initialDestination: destination
+                        )
+                        .defaultAppStorage(appearanceDefaults),
+                        appearanceMode: appearanceCase.mode
+                    ),
+                    size: NSSize(width: 1_020, height: 740),
+                    appearanceName: appearanceCase.appKit,
+                    name: "Settings — \(destination.title) — \(appearanceCase.label)"
+                )
+            }
+
             try attachScreenshot(
                 of: DockMagicThemeRoot(
                     content: SettingsView(
-                        appModel: appModel,
-                        initialDestination: destination
+                        appModel: deniedWeatherModel,
+                        initialDestination: .weather
                     )
+                    .defaultAppStorage(appearanceDefaults),
+                    appearanceMode: appearanceCase.mode
                 ),
-                size: NSSize(width: 980, height: 720),
-                name: "Settings — \(destination.title) — Light"
+                size: NSSize(width: 1_020, height: 740),
+                appearanceName: appearanceCase.appKit,
+                name: "Settings — Weather Permission Denied — \(appearanceCase.label)"
             )
         }
 
-        let deniedWeatherModel = makeAppModel(weatherAuthorization: .denied)
-        await deniedWeatherModel.weatherStore.refresh()
-        try attachScreenshot(
-            of: DockMagicThemeRoot(
-                content: SettingsView(
-                    appModel: deniedWeatherModel,
-                    initialDestination: .weather
-                )
-            ),
-            size: NSSize(width: 980, height: 720),
-            name: "Settings — Weather Permission Denied — Light"
-        )
+        var numericSystemAppearance = DockFeatureDefaults.systemMetricsAppearance
+        numericSystemAppearance.setDisplayStyle(.numeric)
+        var numericStorageAppearance = DockFeatureDefaults.storageAppearance
+        numericStorageAppearance.setDisplayStyle(.numeric)
+        var numericCodexAppearance = DockFeatureDefaults.codexAppearance
+        numericCodexAppearance.setDisplayStyle(.numeric)
+        var numericClaudeCodeAppearance = DockFeatureDefaults.claudeCodeAppearance
+        numericClaudeCodeAppearance.setDisplayStyle(.numeric)
 
         let presentations: [(String, DockTilePresentation)] = [
             (
@@ -1642,9 +2330,38 @@ final class DockMagicTests: XCTestCase {
                 )
             ),
             (
+                "CPU RAM Unavailable",
+                .systemMetrics(
+                    snapshot: .zero,
+                    appearance: DockFeatureDefaults.systemMetricsAppearance,
+                    errorDescription: "Unable to sample system metrics"
+                )
+            ),
+            (
+                "CPU RAM Numbers",
+                .systemMetrics(
+                    snapshot: SystemMetricsSnapshot(
+                        cpuUsage: 0.72,
+                        memoryUsage: 0.54,
+                        memoryUsedBytes: 540,
+                        memoryTotalBytes: 1_000
+                    ),
+                    appearance: numericSystemAppearance,
+                    errorDescription: nil
+                )
+            ),
+            (
                 "Network",
                 .network(
                     history: sampleNetworkHistory(),
+                    appearance: DockFeatureDefaults.networkAppearance,
+                    errorDescription: nil
+                )
+            ),
+            (
+                "Network Waiting",
+                .network(
+                    history: [],
                     appearance: DockFeatureDefaults.networkAppearance,
                     errorDescription: nil
                 )
@@ -1670,12 +2387,40 @@ final class DockMagicTests: XCTestCase {
                 )
             ),
             (
+                "Storage Waiting",
+                .storage(
+                    snapshot: .zero,
+                    appearance: DockFeatureDefaults.storageAppearance,
+                    errorDescription: nil
+                )
+            ),
+            (
                 "Storage Unavailable",
                 .storage(
                     snapshot: .zero,
                     appearance: DockFeatureDefaults.storageAppearance,
                     errorDescription: "Capacity unavailable"
                 )
+            ),
+            (
+                "Storage Numbers",
+                .storage(
+                    snapshot: StorageMetricsSnapshot(
+                        volumeName: "Macintosh HD",
+                        totalBytes: 1_000,
+                        availableBytes: 360
+                    ),
+                    appearance: numericStorageAppearance,
+                    errorDescription: nil
+                )
+            ),
+            (
+                "Weather Idle",
+                .weather(state: .idle)
+            ),
+            (
+                "Weather Loading",
+                .weather(state: .loading)
             ),
             (
                 "Weather Clear",
@@ -1707,9 +2452,33 @@ final class DockMagicTests: XCTestCase {
                 .weather(state: .unavailable(message: "Location access denied"))
             ),
             (
+                "Codex Idle",
+                .codex(
+                    state: .idle,
+                    appearance: DockFeatureDefaults.codexAppearance
+                )
+            ),
+            (
+                "Codex Loading",
+                .codex(
+                    state: .loading,
+                    appearance: DockFeatureDefaults.codexAppearance
+                )
+            ),
+            (
                 "Codex Both Windows",
                 .codex(
                     state: .live(sampleCodexSnapshot()),
+                    appearance: DockFeatureDefaults.codexAppearance
+                )
+            ),
+            (
+                "Codex Stale",
+                .codex(
+                    state: .stale(
+                        sampleCodexSnapshot(),
+                        message: "Using cached limits"
+                    ),
                     appearance: DockFeatureDefaults.codexAppearance
                 )
             ),
@@ -1728,9 +2497,47 @@ final class DockMagicTests: XCTestCase {
                 )
             ),
             (
+                "Codex Numbers",
+                .codex(
+                    state: .live(sampleCodexSnapshot()),
+                    appearance: numericCodexAppearance
+                )
+            ),
+            (
+                "Claude Code Idle",
+                .claudeCode(
+                    state: .idle,
+                    appearance: DockFeatureDefaults.claudeCodeAppearance
+                )
+            ),
+            (
+                "Claude Code Loading",
+                .claudeCode(
+                    state: .loading,
+                    appearance: DockFeatureDefaults.claudeCodeAppearance
+                )
+            ),
+            (
                 "Claude Code Both Windows",
                 .claudeCode(
                     state: .live(sampleClaudeCodeSnapshot()),
+                    appearance: DockFeatureDefaults.claudeCodeAppearance
+                )
+            ),
+            (
+                "Claude Code Weekly Only",
+                .claudeCode(
+                    state: .live(sampleCodexSnapshot(fiveHour: false)),
+                    appearance: DockFeatureDefaults.claudeCodeAppearance
+                )
+            ),
+            (
+                "Claude Code Stale",
+                .claudeCode(
+                    state: .stale(
+                        sampleClaudeCodeSnapshot(),
+                        message: "Using cached limits"
+                    ),
                     appearance: DockFeatureDefaults.claudeCodeAppearance
                 )
             ),
@@ -1740,23 +2547,131 @@ final class DockMagicTests: XCTestCase {
                     state: .unavailable(message: "Enable the bridge"),
                     appearance: DockFeatureDefaults.claudeCodeAppearance
                 )
+            ),
+            (
+                "Claude Code Numbers",
+                .claudeCode(
+                    state: .live(sampleClaudeCodeSnapshot()),
+                    appearance: numericClaudeCodeAppearance
+                )
             )
         ]
 
-        for side in [32, 48, 64, 128] {
-            for presentation in presentations {
-                try attachScreenshot(
-                    of: DockMagicThemeRoot(
-                        content: DockTileView(
-                            presentation: presentation.1,
-                            animatesChanges: false
-                        )
-                    ),
-                    size: NSSize(width: side, height: side),
-                    name: "Dock — \(presentation.0) — \(side) pt"
-                )
+        for appearanceCase in appearanceCases {
+            for side in [32, 48, 64, 128] {
+                for presentation in presentations {
+                    try attachScreenshot(
+                        of: DockMagicThemeRoot(
+                            content: DockTileView(
+                                presentation: presentation.1,
+                                animatesChanges: false
+                            ),
+                            appearanceMode: appearanceCase.mode
+                        ),
+                        size: NSSize(width: side, height: side),
+                        appearanceName: appearanceCase.appKit,
+                        name: "Dock — \(presentation.0) — \(side) pt — \(appearanceCase.label)"
+                    )
+                }
             }
         }
+    }
+
+    @MainActor
+    func testSigmaAppearanceAndAccessibilityVariantsRenderDistinctSettings() throws {
+        let appModel = makeAppModel()
+        let size = NSSize(width: 1_020, height: 740)
+        let appearanceDefaults = makeAppearanceDefaults(.light)
+
+        let light = try renderPNG(
+            of: DockMagicThemeRoot(
+                content: SettingsView(appModel: appModel)
+                    .defaultAppStorage(appearanceDefaults),
+                appearanceMode: .light
+            ),
+            size: size,
+            appearanceName: .aqua,
+            name: "Settings — General — Light"
+        )
+        appearanceDefaults.set(
+            DSAppearanceMode.dark.rawValue,
+            forKey: DSAppearanceMode.storageKey
+        )
+        let dark = try renderPNG(
+            of: DockMagicThemeRoot(
+                content: SettingsView(appModel: appModel)
+                    .defaultAppStorage(appearanceDefaults),
+                appearanceMode: .dark
+            ),
+            size: size,
+            appearanceName: .darkAqua,
+            name: "Settings — General — Dark"
+        )
+        let reducedTransparency = try renderPNG(
+            of: DockMagicThemeRoot(
+                content: SettingsView(appModel: appModel)
+                    .defaultAppStorage(appearanceDefaults)
+                    .environment(
+                        \.dsAccessibilityOverrides,
+                        DSAccessibilityOverrides(reduceTransparency: true)
+                    ),
+                appearanceMode: .light
+            ),
+            size: size,
+            appearanceName: .aqua,
+            name: "Settings — General — Reduced Transparency"
+        )
+        let increasedContrast = try renderPNG(
+            of: DockMagicThemeRoot(
+                content: SettingsView(appModel: appModel)
+                    .defaultAppStorage(appearanceDefaults)
+                    .environment(
+                        \.dsAccessibilityOverrides,
+                        DSAccessibilityOverrides(increaseContrast: true)
+                    ),
+                appearanceMode: .light
+            ),
+            size: size,
+            appearanceName: .aqua,
+            name: "Settings — General — Increased Contrast"
+        )
+
+        let variants = [
+            ("Settings — General — Light", light),
+            ("Settings — General — Dark", dark),
+            ("Settings — General — Reduced Transparency", reducedTransparency),
+            ("Settings — General — Increased Contrast", increasedContrast)
+        ]
+        for variant in variants {
+            XCTAssertGreaterThan(
+                variant.1.count,
+                10_000,
+                "\(variant.0) should render a non-empty settings image."
+            )
+            attachPNG(variant.1, name: variant.0)
+        }
+
+        XCTAssertNotEqual(light, dark)
+        XCTAssertNotEqual(light, reducedTransparency)
+        XCTAssertNotEqual(light, increasedContrast)
+        assertPixelDifference(
+            light,
+            dark,
+            minimumChangedFraction: 0.20,
+            label: "Light versus Dark"
+        )
+        assertPixelDifference(
+            light,
+            reducedTransparency,
+            minimumChangedFraction: 0.002,
+            label: "Light Glass versus Reduce Transparency"
+        )
+        assertPixelDifference(
+            light,
+            increasedContrast,
+            minimumChangedFraction: 0.001,
+            label: "Light Glass versus Increase Contrast"
+        )
     }
 
     @MainActor
@@ -1813,6 +2728,16 @@ final class DockMagicTests: XCTestCase {
             codexStore: codex,
             claudeCodeStore: claudeCode
         )
+    }
+
+    private func makeAppearanceDefaults(
+        _ mode: DSAppearanceMode
+    ) -> UserDefaults {
+        let suiteName = "DockMagicTests.AppearanceRender.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        defaults.set(mode.rawValue, forKey: DSAppearanceMode.storageKey)
+        return defaults
     }
 
     private func sampleNetworkHistory() -> [NetworkMetricsSnapshot] {
@@ -2017,44 +2942,302 @@ final class DockMagicTests: XCTestCase {
     }
 
     @MainActor
+    private func assertColorAsset(
+        _ name: String,
+        appearanceName: NSAppearance.Name,
+        expectedHex: String,
+        expectedAlpha: CGFloat,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        guard let appearance = NSAppearance(named: appearanceName) else {
+            return XCTFail(
+                "Unable to create appearance \(appearanceName.rawValue).",
+                file: file,
+                line: line
+            )
+        }
+        guard expectedHex.hasPrefix("#"),
+              let value = UInt32(expectedHex.dropFirst(), radix: 16) else {
+            return XCTFail(
+                "Invalid expected hex \(expectedHex).",
+                file: file,
+                line: line
+            )
+        }
+
+        appearance.performAsCurrentDrawingAppearance {
+            guard let color = NSColor(
+                named: NSColor.Name(name),
+                bundle: Bundle(for: AppDelegate.self)
+            )?.usingColorSpace(.sRGB) else {
+                return XCTFail(
+                    "Missing or unresolved color asset \(name).",
+                    file: file,
+                    line: line
+                )
+            }
+
+            XCTAssertEqual(
+                color.redComponent,
+                CGFloat((value >> 16) & 0xFF) / 255,
+                accuracy: 0.002,
+                file: file,
+                line: line
+            )
+            XCTAssertEqual(
+                color.greenComponent,
+                CGFloat((value >> 8) & 0xFF) / 255,
+                accuracy: 0.002,
+                file: file,
+                line: line
+            )
+            XCTAssertEqual(
+                color.blueComponent,
+                CGFloat(value & 0xFF) / 255,
+                accuracy: 0.002,
+                file: file,
+                line: line
+            )
+            XCTAssertEqual(
+                color.alphaComponent,
+                expectedAlpha,
+                accuracy: 0.002,
+                file: file,
+                line: line
+            )
+        }
+    }
+
+    private func assertContrast(
+        _ foregroundName: String,
+        on backgroundName: String,
+        minimum: Double,
+        appearance: String,
+        foregroundOpacity: CGFloat = 1,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        let bundle = Bundle(for: AppDelegate.self)
+        guard let foreground = NSColor(
+            named: NSColor.Name(foregroundName),
+            bundle: bundle
+        ) else {
+            XCTFail(
+                "Missing color asset \(foregroundName).",
+                file: file,
+                line: line
+            )
+            return
+        }
+        guard let background = NSColor(
+            named: NSColor.Name(backgroundName),
+            bundle: bundle
+        ) else {
+            XCTFail(
+                "Missing color asset \(backgroundName).",
+                file: file,
+                line: line
+            )
+            return
+        }
+        guard let ratio = contrastRatio(
+            foreground: foreground,
+            background: background,
+            foregroundOpacity: foregroundOpacity
+        ) else {
+            XCTFail(
+                "Unable to resolve \(foregroundName) on \(backgroundName).",
+                file: file,
+                line: line
+            )
+            return
+        }
+
+        XCTAssertGreaterThanOrEqual(
+            ratio,
+            minimum,
+            "\(appearance): \(foregroundName) on \(backgroundName) is "
+                + "\(ratio.formatted(.number.precision(.fractionLength(2)))):1.",
+            file: file,
+            line: line
+        )
+    }
+
+    private func contrastRatio(
+        foreground: NSColor,
+        background: NSColor,
+        foregroundOpacity: CGFloat = 1
+    ) -> Double? {
+        guard let foreground = foreground.usingColorSpace(.sRGB),
+              let background = background.usingColorSpace(.sRGB) else {
+            return nil
+        }
+
+        let alpha = foreground.alphaComponent
+            * min(max(foregroundOpacity, 0), 1)
+        let foregroundComponents = [
+            foreground.redComponent,
+            foreground.greenComponent,
+            foreground.blueComponent
+        ]
+        let backgroundComponents = [
+            background.redComponent,
+            background.greenComponent,
+            background.blueComponent
+        ]
+        let composited = zip(foregroundComponents, backgroundComponents).map {
+            $0 * alpha + $1 * (1 - alpha)
+        }
+        let foregroundLuminance = relativeLuminance(composited)
+        let backgroundLuminance = relativeLuminance(backgroundComponents)
+        let lighter = max(foregroundLuminance, backgroundLuminance)
+        let darker = min(foregroundLuminance, backgroundLuminance)
+        return (lighter + 0.05) / (darker + 0.05)
+    }
+
+    private func relativeLuminance(_ components: [CGFloat]) -> Double {
+        let linear = components.map { component -> Double in
+            let value = Double(component)
+            return value <= 0.04045
+                ? value / 12.92
+                : pow((value + 0.055) / 1.055, 2.4)
+        }
+        return 0.2126 * linear[0]
+            + 0.7152 * linear[1]
+            + 0.0722 * linear[2]
+    }
+
+    private func assertPixelDifference(
+        _ first: Data,
+        _ second: Data,
+        minimumChangedFraction: Double,
+        label: String,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        guard let firstImage = NSBitmapImageRep(data: first),
+              let secondImage = NSBitmapImageRep(data: second),
+              firstImage.pixelsWide == secondImage.pixelsWide,
+              firstImage.pixelsHigh == secondImage.pixelsHigh else {
+            return XCTFail(
+                "Unable to compare rendered pixels for \(label).",
+                file: file,
+                line: line
+            )
+        }
+
+        var changed = 0
+        var sampled = 0
+        let sampleStep = 4
+        for y in stride(from: 0, to: firstImage.pixelsHigh, by: sampleStep) {
+            for x in stride(from: 0, to: firstImage.pixelsWide, by: sampleStep) {
+                guard let firstColor = firstImage.colorAt(x: x, y: y)?
+                    .usingColorSpace(.sRGB),
+                      let secondColor = secondImage.colorAt(x: x, y: y)?
+                    .usingColorSpace(.sRGB) else {
+                    continue
+                }
+
+                sampled += 1
+                let maximumDelta = max(
+                    abs(firstColor.redComponent - secondColor.redComponent),
+                    abs(firstColor.greenComponent - secondColor.greenComponent),
+                    abs(firstColor.blueComponent - secondColor.blueComponent),
+                    abs(firstColor.alphaComponent - secondColor.alphaComponent)
+                )
+                if maximumDelta >= 0.02 {
+                    changed += 1
+                }
+            }
+        }
+
+        guard sampled > 0 else {
+            return XCTFail(
+                "No pixels were sampled for \(label).",
+                file: file,
+                line: line
+            )
+        }
+        let fraction = Double(changed) / Double(sampled)
+        XCTAssertGreaterThanOrEqual(
+            fraction,
+            minimumChangedFraction,
+            "\(label) changed only "
+                + fraction.formatted(.percent.precision(.fractionLength(2)))
+                + " of sampled pixels.",
+            file: file,
+            line: line
+        )
+    }
+
+    @MainActor
     private func attachScreenshot<Content: View>(
         of content: Content,
         size: NSSize,
+        appearanceName: NSAppearance.Name = .aqua,
         name: String
     ) throws {
-        let hostingView = NSHostingView(rootView: content)
-        hostingView.appearance = NSAppearance(named: .aqua)
-        let window = NSWindow(
-            contentRect: NSRect(origin: .zero, size: size),
-            styleMask: [.borderless],
-            backing: .buffered,
-            defer: false
+        let data = try renderPNG(
+            of: content,
+            size: size,
+            appearanceName: appearanceName,
+            name: name
         )
-        window.appearance = NSAppearance(named: .aqua)
-        window.isReleasedWhenClosed = false
-        window.setFrameOrigin(NSPoint(x: -20_000, y: -20_000))
-        window.contentView = hostingView
+        attachPNG(data, name: name)
+    }
 
-        defer {
-            window.contentView = nil
-            window.close()
+    @MainActor
+    private func renderPNG<Content: View>(
+        of content: Content,
+        size: NSSize,
+        appearanceName: NSAppearance.Name,
+        name: String
+    ) throws -> Data {
+        try autoreleasepool {
+            let hostingView = NSHostingView(rootView: content)
+            hostingView.appearance = NSAppearance(named: appearanceName)
+            let window = NSWindow(
+                contentRect: NSRect(origin: .zero, size: size),
+                styleMask: [.borderless],
+                backing: .buffered,
+                defer: false
+            )
+            window.appearance = NSAppearance(named: appearanceName)
+            window.isReleasedWhenClosed = false
+            window.setFrameOrigin(NSPoint(x: -20_000, y: -20_000))
+            window.contentView = hostingView
+
+            defer {
+                window.contentView = nil
+                window.close()
+            }
+
+            hostingView.wantsLayer = true
+            RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.08))
+            hostingView.layoutSubtreeIfNeeded()
+            hostingView.displayIfNeeded()
+
+            guard let representation = hostingView.bitmapImageRepForCachingDisplay(
+                in: hostingView.bounds
+            ) else {
+                XCTFail("Unable to allocate bitmap for \(name).")
+                throw RenderingError.bitmapAllocationFailed
+            }
+            hostingView.cacheDisplay(in: hostingView.bounds, to: representation)
+            guard let data = representation.representation(
+                using: .png,
+                properties: [:]
+            ) else {
+                XCTFail("Unable to encode \(name).")
+                throw RenderingError.pngEncodingFailed
+            }
+
+            return data
         }
+    }
 
-        hostingView.wantsLayer = true
-        RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.08))
-        hostingView.layoutSubtreeIfNeeded()
-        hostingView.displayIfNeeded()
-
-        guard let representation = hostingView.bitmapImageRepForCachingDisplay(
-            in: hostingView.bounds
-        ) else {
-            return XCTFail("Unable to allocate bitmap for \(name).")
-        }
-        hostingView.cacheDisplay(in: hostingView.bounds, to: representation)
-        guard let data = representation.representation(using: .png, properties: [:]) else {
-            return XCTFail("Unable to encode \(name).")
-        }
-
+    private func attachPNG(_ data: Data, name: String) {
         let attachment = XCTAttachment(
             data: data,
             uniformTypeIdentifier: "public.png"
@@ -2062,6 +3245,11 @@ final class DockMagicTests: XCTestCase {
         attachment.name = name
         attachment.lifetime = .keepAlways
         add(attachment)
+    }
+
+    private enum RenderingError: Error {
+        case bitmapAllocationFailed
+        case pngEncodingFailed
     }
 }
 
@@ -2346,6 +3534,27 @@ private struct FixedWeatherCoordinateProvider: WeatherCoordinateProviding {
     }
 }
 
+private struct FixedWeatherLocationNameProvider: WeatherLocationNameProviding {
+    let locationName: String?
+
+    @MainActor
+    func locationName(for coordinate: WeatherCoordinate) async -> String? {
+        locationName
+    }
+}
+
+private struct SlowWeatherLocationNameProvider: WeatherLocationNameProviding {
+    @MainActor
+    func locationName(for coordinate: WeatherCoordinate) async -> String? {
+        do {
+            try await Task.sleep(for: .seconds(30))
+        } catch {
+            return nil
+        }
+        return "Too Late"
+    }
+}
+
 private actor FixtureOpenMeteoHTTPClient: OpenMeteoHTTPClient {
     let statusCode: Int
     let responseData: Data
@@ -2396,6 +3605,8 @@ private final class InMemoryWeatherCache: WeatherSnapshotCaching, @unchecked Sen
 @MainActor
 private final class StubClaudeCodeBridge: ClaudeCodeStatusLineBridging {
     var installed: Bool
+    private(set) var installCallCount = 0
+    private(set) var uninstallCallCount = 0
     let snapshotURL = URL(fileURLWithPath: "/tmp/dockmagic-claude-test.json")
 
     init(installed: Bool) {
@@ -2407,10 +3618,12 @@ private final class StubClaudeCodeBridge: ClaudeCodeStatusLineBridging {
     }
 
     func install() throws {
+        installCallCount += 1
         installed = true
     }
 
     func uninstall() throws {
+        uninstallCallCount += 1
         installed = false
     }
 }

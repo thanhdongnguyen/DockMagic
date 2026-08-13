@@ -1,24 +1,6 @@
 import AppKit
 import SwiftUI
 
-enum WeatherSystemSettings {
-    static let locationServicesURL = URL(
-        string: "x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension?Privacy_LocationServices"
-    )!
-    static let privacyAndSecurityURL = URL(
-        string: "x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension"
-    )!
-
-    @MainActor
-    @discardableResult
-    static func openLocationServices() -> Bool {
-        if NSWorkspace.shared.open(locationServicesURL) {
-            return true
-        }
-        return NSWorkspace.shared.open(privacyAndSecurityURL)
-    }
-}
-
 enum SettingsDestination: String, CaseIterable, Identifiable {
     case general
     case systemMetrics
@@ -119,6 +101,8 @@ struct SettingsView: View {
     let appModel: DockAppModel
 
     @State private var destination: SettingsDestination
+    @AppStorage(DSAppearanceMode.storageKey)
+    private var appearanceRawValue = DSAppearanceMode.system.rawValue
     @Environment(\.designTheme) private var theme
 
     init(
@@ -133,21 +117,28 @@ struct SettingsView: View {
         NavigationSplitView {
             sidebar
                 .navigationSplitViewColumnWidth(
-                    min: 190,
-                    ideal: 220,
-                    max: 260
+                    min: DSLayout.sidebarMinimumWidth,
+                    ideal: DSLayout.sidebarIdealWidth,
+                    max: DSLayout.sidebarMaximumWidth
                 )
         } detail: {
             detailPane
         }
         .navigationSplitViewStyle(.balanced)
-        .frame(minWidth: 860, minHeight: 620)
+        .frame(
+            minWidth: DSLayout.minimumWindowWidth,
+            minHeight: DSLayout.minimumWindowHeight
+        )
         .background(SettingsWindowTitleVisibilityBridge())
         .onChange(of: destination, initial: true) { _, newDestination in
-            guard newDestination == .weather else {
-                return
+            switch newDestination {
+            case .weather:
+                appModel.weatherStore.refreshLocationAuthorizationStatus()
+                refreshWeather()
+            case .general, .systemMetrics, .network, .storage, .codex,
+                 .claudeCode, .about:
+                break
             }
-            appModel.weatherStore.refreshLocationAuthorizationStatus()
         }
         .onReceive(
             NotificationCenter.default.publisher(
@@ -159,49 +150,68 @@ struct SettingsView: View {
     }
 
     private var sidebar: some View {
-        List {
-            Section {
-                sidebarRow(.general)
-            }
-
-            Section("Features") {
-                sidebarRow(.systemMetrics)
-                sidebarRow(.network)
-                sidebarRow(.storage)
-                sidebarRow(.weather)
-                sidebarRow(.codex)
-                sidebarRow(.claudeCode)
-            }
-
-            Section {
-                sidebarRow(.about)
-            }
-        }
-        .listStyle(.sidebar)
-        .scrollContentBackground(.hidden)
-        .background(theme.opaqueSurfaceChrome)
-        .safeAreaInset(edge: .top, spacing: 0) {
+        VStack(spacing: 0) {
             SettingsHeaderView()
-                .padding(.horizontal, DSSpacing.panel)
-                .padding(.vertical, 12)
+                .padding(DSSpacing.medium)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(.thinMaterial)
-                .overlay(alignment: .bottom) {
-                    Divider()
+                .dsSurface(
+                    RoundedRectangle(
+                        cornerRadius: DSRadius.largePanel,
+                        style: .continuous
+                    ),
+                    kind: .chrome,
+                    elevation: .primary
+                )
+                .padding(.horizontal, DSSpacing.medium)
+                .padding(.top, DSSpacing.small)
+
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: DSSpacing.xSmall) {
+                    sidebarRow(.general)
+
+                    Text("Features")
+                        .font(DSTypography.caption.weight(.semibold))
+                        .foregroundStyle(theme.textSecondary)
+                        .textCase(.uppercase)
+                        .padding(.top, DSSpacing.medium)
+                        .padding(.horizontal, DSSpacing.small)
+                        .accessibilityAddTraits(.isHeader)
+
+                    sidebarRow(.systemMetrics)
+                    sidebarRow(.network)
+                    sidebarRow(.storage)
+                    sidebarRow(.weather)
+                    sidebarRow(.codex)
+                    sidebarRow(.claudeCode)
+
+                    DSDivider()
+                        .padding(.vertical, DSSpacing.small)
+
+                    sidebarRow(.about)
                 }
-        }
-        .safeAreaInset(edge: .bottom) {
+                .padding(.horizontal, DSSpacing.medium)
+                .padding(.vertical, DSSpacing.small)
+            }
+
             HStack(spacing: DSSpacing.compact) {
-                Image(systemName: "sun.max.fill")
+                Image(systemName: appearanceMode.systemImage)
                     .accessibilityHidden(true)
-                Text("Light appearance")
+                Text("\(appearanceMode.title) appearance")
             }
             .font(DSTypography.metadata)
             .foregroundStyle(theme.textSecondary)
-            .padding(.horizontal, DSSpacing.panel)
-            .padding(.vertical, DSSpacing.standard)
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, DSSpacing.medium)
+            .padding(.vertical, DSSpacing.small)
+            .frame(maxWidth: .infinity, minHeight: 32, alignment: .leading)
+            .dsSurface(
+                Capsule(),
+                kind: .chrome,
+                elevation: .secondary
+            )
+            .padding(DSSpacing.medium)
+            .accessibilityIdentifier("settings.appearanceBadge")
         }
+        .background(theme.opaqueSurfaceChrome)
     }
 
     private func sidebarRow(_ item: SettingsDestination) -> some View {
@@ -212,18 +222,22 @@ struct SettingsView: View {
                 sidebarIcon(item)
 
                 Text(item.title)
+                    .font(DSTypography.body)
+                    .foregroundStyle(theme.textPrimary)
                     .lineLimit(1)
+                    .frame(minWidth: 104, alignment: .leading)
+                    .layoutPriority(1)
 
                 Spacer(minLength: 0)
 
                 if item.feature == appModel.preferences.activeFeature {
                     Circle()
-                        .fill(theme.processing)
+                        .fill(theme.processingForeground)
                         .frame(width: 7, height: 7)
                         .accessibilityHidden(true)
                 }
             }
-            .padding(.horizontal, 8)
+            .padding(.horizontal, DSSpacing.small)
             .frame(maxWidth: .infinity, minHeight: 30, alignment: .leading)
             .background {
                 if destination == item {
@@ -243,10 +257,6 @@ struct SettingsView: View {
             )
         }
         .buttonStyle(.plain)
-        .listRowInsets(
-            EdgeInsets(top: 1, leading: 8, bottom: 1, trailing: 8)
-        )
-        .listRowBackground(Color.clear)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(item.title)
         .accessibilityValue(
@@ -260,7 +270,9 @@ struct SettingsView: View {
 
     @ViewBuilder
     private func sidebarIcon(_ item: SettingsDestination) -> some View {
-        if item == .general {
+        if let feature = item.feature {
+            DockFeatureIcon(feature: feature, size: 22)
+        } else if item == .general {
             ZStack {
                 RoundedRectangle(
                     cornerRadius: DSRadius.keycap,
@@ -274,23 +286,10 @@ struct SettingsView: View {
             }
             .frame(width: 22, height: 22)
             .accessibilityHidden(true)
-        } else if item == .codex || item == .claudeCode {
-            Image(item == .codex ? "CodexLogo" : "ClaudeCodeLogo")
-                .resizable()
-                .scaledToFit()
-                .frame(width: 22, height: 22)
-                .accessibilityHidden(true)
         } else {
             Image(systemName: item.systemImage)
                 .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(
-                    item == .systemMetrics
-                        || item == .network
-                        || item == .storage
-                        || item == .weather
-                        ? theme.processing
-                        : theme.textSecondary
-                )
+                .foregroundStyle(theme.textSecondary)
                 .frame(width: 22, height: 22)
                 .background(
                     RoundedRectangle(
@@ -314,8 +313,8 @@ struct SettingsView: View {
                     detailHeader
                     destinationContent
                 }
-                .padding(28)
-                .frame(maxWidth: 760, alignment: .leading)
+                .padding(DSLayout.detailPadding)
+                .frame(maxWidth: DSLayout.detailMaximumWidth, alignment: .leading)
                 .frame(maxWidth: .infinity, alignment: .topLeading)
             }
         }
@@ -358,31 +357,38 @@ struct SettingsView: View {
     }
 
     private var generalContent: some View {
-        DSSettingsSection(
-            title: "Dock",
-            detail: "Choose the single feature DockMagic shows and updates in the Dock."
-        ) {
-            DSSettingsRow(
-                title: "Active Dock Feature",
-                detail: appModel.preferences.activeFeature.detail,
-                systemImage: "dock.rectangle"
+        VStack(spacing: DSSpacing.section) {
+            DSSettingsSection(
+                title: "Appearance",
+                detail: appearanceMode.detail
             ) {
-                Picker(
-                    "Active Dock feature",
-                    selection: activeFeatureBinding
-                ) {
-                    ForEach(DockFeature.allCases) { feature in
-                        Text(feature.title)
-                            .tag(feature)
+                Picker("Appearance", selection: appearanceBinding) {
+                    ForEach(DSAppearanceMode.settingsCases) { mode in
+                        Label(mode.title, systemImage: mode.systemImage)
+                            .tag(mode)
                             .accessibilityIdentifier(
-                                "settings.activeFeatureOption.\(feature.rawValue)"
+                                "settings.appearanceOption.\(mode.rawValue)"
                             )
                     }
                 }
                 .labelsHidden()
-                .pickerStyle(.menu)
-                .frame(width: 154)
-                .accessibilityIdentifier("settings.activeFeaturePicker")
+                .pickerStyle(.segmented)
+                .accessibilityLabel("Appearance")
+                .accessibilityValue(appearanceMode.title)
+                .accessibilityIdentifier("settings.appearancePicker")
+            }
+
+            DSSettingsSection(
+                title: "Dock",
+                detail: "Choose the single feature DockMagic shows and updates in the Dock."
+            ) {
+                DSSettingsRow(
+                    title: "Active Dock Feature",
+                    detail: appModel.preferences.activeFeature.detail,
+                    systemImage: "dock.rectangle"
+                ) {
+                    ActiveDockFeaturePicker(selection: activeFeatureBinding)
+                }
             }
         }
     }
@@ -414,9 +420,14 @@ struct SettingsView: View {
                 )
             }
 
+            DockDisplayStyleEditor(
+                featureTitle: "CPU & RAM",
+                selection: systemMetricsDisplayStyleBinding
+            )
+
             RingAppearanceEditor(
-                outerTitle: "CPU ring",
-                innerTitle: "RAM ring",
+                outerTitle: "CPU",
+                innerTitle: "RAM",
                 appearance: appModel.preferences.systemMetricsAppearance,
                 outerColor: systemMetricsOuterColorBinding,
                 innerColor: systemMetricsInnerColorBinding,
@@ -432,16 +443,12 @@ struct SettingsView: View {
                     systemImage: "exclamationmark.triangle.fill",
                     role: .danger
                 )
-            } else {
+            } else if appModel.metricsStore.isMonitoring {
                 DSStatusCard(
-                    title: appModel.metricsStore.isMonitoring ? "Updating every second" : "Paused while inactive",
-                    detail: appModel.metricsStore.isMonitoring
-                        ? "Only the current sample is sent to the Dock renderer."
-                        : "Select CPU & RAM in General to resume local sampling.",
-                    systemImage: appModel.metricsStore.isMonitoring
-                        ? "waveform.path.ecg"
-                        : "pause.circle",
-                    role: appModel.metricsStore.isMonitoring ? .processing : .neutral
+                    title: "Updating every second",
+                    detail: "Only the current sample is sent to the Dock renderer.",
+                    systemImage: "waveform.path.ecg",
+                    role: .processing
                 )
             }
         }
@@ -485,16 +492,6 @@ struct SettingsView: View {
                 )
             }
 
-            DSSettingsSection(
-                title: "60-second history",
-                detail: "Upload is above the baseline and download is below it. Both directions share one honest scale."
-            ) {
-                NetworkHistoryChart(
-                    history: appModel.networkStore.history,
-                    appearance: appModel.preferences.networkAppearance
-                )
-            }
-
             NetworkAppearanceEditor(
                 appearance: appModel.preferences.networkAppearance,
                 downloadColor: networkDownloadColorBinding,
@@ -509,18 +506,12 @@ struct SettingsView: View {
                     systemImage: "exclamationmark.triangle.fill",
                     role: .danger
                 )
-            } else {
+            } else if appModel.networkStore.isMonitoring {
                 DSStatusCard(
-                    title: appModel.networkStore.isMonitoring
-                        ? "Updating every second"
-                        : "Paused while inactive",
-                    detail: appModel.networkStore.isMonitoring
-                        ? "Only the primary interface is measured to avoid counting VPN and physical traffic twice."
-                        : "Select Network in General to start local throughput sampling.",
-                    systemImage: appModel.networkStore.isMonitoring
-                        ? "waveform.path.ecg"
-                        : "pause.circle",
-                    role: appModel.networkStore.isMonitoring ? .processing : .neutral
+                    title: "Updating every second",
+                    detail: "Only the primary interface is measured to avoid counting VPN and physical traffic twice.",
+                    systemImage: "waveform.path.ecg",
+                    role: .processing
                 )
             }
         }
@@ -551,7 +542,7 @@ struct SettingsView: View {
                 PreviewTextMetric(
                     title: "Available",
                     value: storageValue(appModel.storageStore.current.availableBytes),
-                    color: theme.information,
+                    color: theme.informationForeground,
                     systemImage: "internaldrive"
                 )
                 PreviewTextMetric(
@@ -562,10 +553,13 @@ struct SettingsView: View {
                 )
             }
 
+            DockDisplayStyleEditor(
+                featureTitle: "Storage",
+                selection: storageDisplayStyleBinding
+            )
+
             SingleRingAppearanceEditor(
-                title: "Ring appearance",
-                detail: "Storage uses one ring because used and available space are complementary values.",
-                colorTitle: "Storage ring",
+                colorTitle: "Storage",
                 appearance: appModel.preferences.storageAppearance,
                 color: storageColorBinding,
                 width: storageWidthBinding,
@@ -579,18 +573,12 @@ struct SettingsView: View {
                     systemImage: "exclamationmark.triangle.fill",
                     role: .danger
                 )
-            } else {
+            } else if appModel.storageStore.isMonitoring {
                 DSStatusCard(
-                    title: appModel.storageStore.isMonitoring
-                        ? "Updating every five seconds"
-                        : "Paused while inactive",
-                    detail: appModel.storageStore.isMonitoring
-                        ? "Capacity is read locally from the startup volume."
-                        : "Select Storage in General to resume local sampling.",
-                    systemImage: appModel.storageStore.isMonitoring
-                        ? "internaldrive.fill"
-                        : "pause.circle",
-                    role: appModel.storageStore.isMonitoring ? .processing : .neutral
+                    title: "Updating every five seconds",
+                    detail: "Capacity is read locally from the startup volume.",
+                    systemImage: "internaldrive.fill",
+                    role: .processing
                 )
             }
         }
@@ -621,15 +609,13 @@ struct SettingsView: View {
                 )
                 WeatherPreviewValue(
                     title: "Location",
-                    value: weatherSnapshot?.location,
+                    value: weatherLocationPreviewValue,
                     systemImage: "location"
                 )
+                .accessibilityIdentifier("settings.weather.location")
             }
 
             weatherAttribution
-
-            weatherConnectionSection
-            weatherSetupSection
         }
     }
 
@@ -641,6 +627,7 @@ struct SettingsView: View {
                 .foregroundStyle(theme.textTertiary)
 
             Link("Open-Meteo", destination: Self.weatherAttributionURL)
+                .foregroundStyle(theme.actionForeground)
                 .accessibilityLabel("Open-Meteo weather data")
                 .accessibilityIdentifier("settings.weather.attribution")
 
@@ -648,192 +635,10 @@ struct SettingsView: View {
                 .foregroundStyle(theme.textTertiary)
 
             Link("CC BY 4.0", destination: Self.weatherLicenseURL)
+                .foregroundStyle(theme.actionForeground)
         }
         .font(DSTypography.metadata)
         .padding(.horizontal, DSSpacing.compact)
-    }
-
-    private var weatherConnectionSection: some View {
-        DSSettingsSection(
-            title: "Open-Meteo connection",
-            detail: "DockMagic uses macOS Current Location, then requests the forecast directly from Open-Meteo. No Shortcut or additional app is required."
-        ) {
-            VStack(alignment: .leading, spacing: DSSpacing.standard) {
-                LabeledContent("Provider", value: "Open-Meteo Forecast API")
-                LabeledContent("Refresh interval", value: "Every 10 minutes")
-                LabeledContent("Location", value: "macOS Current Location")
-                LabeledContent(
-                    "Location access",
-                    value: weatherLocationAuthorizationLabel
-                )
-
-                HStack(spacing: DSSpacing.standard) {
-                    weatherLocationActions
-
-                    if appModel.weatherStore.isRefreshing {
-                        ProgressView()
-                            .controlSize(.small)
-                            .accessibilityLabel("Refreshing weather")
-                    }
-                }
-
-                weatherStatusCard
-            }
-        }
-    }
-
-    private var weatherSetupSection: some View {
-        DSSettingsSection(
-            title: "Location & privacy",
-            detail: "The first refresh asks for the standard macOS Location permission. DockMagic does not require an account, API key, Shortcut, or helper app."
-        ) {
-            VStack(alignment: .leading, spacing: DSSpacing.standard) {
-                setupStep(
-                    number: 1,
-                    text: "Select Weather as the active Dock feature. DockMagic immediately checks the current Location permission."
-                )
-                setupStep(
-                    number: 2,
-                    text: "If permission has not been requested, choose Allow Location & Refresh and approve the standard macOS prompt."
-                )
-                setupStep(
-                    number: 3,
-                    text: "If access was denied or Location Services is off, open Location Services, enable DockMagic, then return here. DockMagic refreshes automatically; Refresh Location & Weather is also available."
-                )
-
-                Text("For each refresh, the current coordinates are sent over HTTPS to Open-Meteo. DockMagic stores only the last successful weather snapshot for resilience, not a location history.")
-                    .font(DSTypography.metadata)
-                    .foregroundStyle(theme.textSecondary)
-            }
-        }
-    }
-
-    @ViewBuilder
-    private var weatherStatusCard: some View {
-        switch appModel.weatherStore.locationAuthorization {
-        case .notDetermined:
-            DSStatusCard(
-                title: "Location access needed",
-                detail: "Choose Allow Location & Refresh, then approve the macOS permission prompt. No coordinates are sent until permission is granted.",
-                systemImage: "location.circle",
-                role: .information
-            )
-        case .denied:
-            DSStatusCard(
-                title: "Location access is off for DockMagic",
-                detail: "Open Location Services, enable DockMagic, return to DockMagic, and refresh Weather.",
-                systemImage: "location.slash.fill",
-                role: .warning
-            )
-        case .restricted:
-            DSStatusCard(
-                title: "Location access is restricted",
-                detail: "Review Location Services in System Settings or contact the administrator of this Mac, then refresh Weather.",
-                systemImage: "lock.trianglebadge.exclamationmark.fill",
-                role: .danger
-            )
-        case .servicesDisabled:
-            DSStatusCard(
-                title: "Location Services is off",
-                detail: "Open Location Services, turn it on, enable DockMagic, then return and refresh Weather.",
-                systemImage: "location.slash.fill",
-                role: .warning
-            )
-        case .authorized:
-            weatherDataStatusCard
-        }
-    }
-
-    @ViewBuilder
-    private var weatherDataStatusCard: some View {
-        switch appModel.weatherStore.state {
-        case .idle:
-            DSStatusCard(
-                title: "Waiting for weather",
-                detail: "Refresh now or activate Weather. macOS will request Location access the first time.",
-                systemImage: "location.circle",
-                role: .neutral
-            )
-        case .loading:
-            DSStatusCard(
-                title: "Updating weather",
-                detail: "DockMagic is locating this Mac and requesting Open-Meteo.",
-                systemImage: "arrow.clockwise",
-                role: .neutral
-            )
-        case let .live(snapshot):
-            DSStatusCard(
-                title: "Weather is current",
-                detail: "\(snapshot.location) · \(snapshot.conditionDescription) · updated \(snapshot.observedAt.formatted(date: .omitted, time: .shortened)).",
-                systemImage: "checkmark.circle.fill",
-                role: .processing
-            )
-        case let .stale(_, message):
-            DSStatusCard(
-                title: "Showing last known weather",
-                detail: message,
-                systemImage: "clock.badge.exclamationmark",
-                role: .warning
-            )
-        case let .unavailable(message):
-            DSStatusCard(
-                title: "Weather unavailable",
-                detail: message,
-                systemImage: "exclamationmark.triangle.fill",
-                role: .danger
-            )
-        }
-    }
-
-    @ViewBuilder
-    private var weatherLocationActions: some View {
-        switch appModel.weatherStore.locationAuthorization {
-        case .notDetermined:
-            Button("Allow Location & Refresh") {
-                refreshWeather()
-            }
-            .buttonStyle(DSButtonStyle(kind: .primary))
-            .disabled(appModel.weatherStore.isRefreshing)
-            .accessibilityIdentifier("settings.weather.refresh")
-        case .authorized:
-            Button("Refresh Now") {
-                refreshWeather()
-            }
-            .buttonStyle(DSButtonStyle(kind: .primary))
-            .disabled(appModel.weatherStore.isRefreshing)
-            .accessibilityIdentifier("settings.weather.refresh")
-        case .denied, .restricted, .servicesDisabled:
-            Button("Open Location Services") {
-                WeatherSystemSettings.openLocationServices()
-            }
-            .buttonStyle(DSButtonStyle(kind: .primary))
-            .accessibilityIdentifier("settings.weather.openLocationSettings")
-
-            Button("Refresh Location & Weather") {
-                refreshWeather()
-            }
-            .buttonStyle(DSButtonStyle())
-            .disabled(appModel.weatherStore.isRefreshing)
-            .accessibilityIdentifier("settings.weather.refresh")
-        }
-    }
-
-    private func setupStep(number: Int, text: String) -> some View {
-        HStack(alignment: .top, spacing: DSSpacing.standard) {
-            Text("\(number)")
-                .font(DSTypography.bodyEmphasis)
-                .foregroundStyle(theme.onAction)
-                .frame(width: 24, height: 24)
-                .background(theme.action, in: Circle())
-                .accessibilityHidden(true)
-
-            Text(text)
-                .font(DSTypography.body)
-                .foregroundStyle(theme.textSecondary)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("Step \(number), \(text)")
     }
 
     private var codexContent: some View {
@@ -860,11 +665,14 @@ struct SettingsView: View {
                 )
             }
 
-            codexConnectionSection
+            DockDisplayStyleEditor(
+                featureTitle: "Codex",
+                selection: codexDisplayStyleBinding
+            )
 
             RingAppearanceEditor(
-                outerTitle: "5-hour ring",
-                innerTitle: "Weekly ring",
+                outerTitle: "5-hour",
+                innerTitle: "Weekly",
                 appearance: appModel.preferences.codexAppearance,
                 outerColor: codexOuterColorBinding,
                 innerColor: codexInnerColorBinding,
@@ -872,48 +680,6 @@ struct SettingsView: View {
                 innerWidth: codexInnerWidthBinding,
                 reset: appModel.preferences.resetCodexAppearance
             )
-        }
-    }
-
-    private var codexConnectionSection: some View {
-        DSSettingsSection(
-            title: "Codex connection",
-            detail: "DockMagic starts codex app-server directly and uses the CLI's existing authentication."
-        ) {
-            VStack(alignment: .leading, spacing: DSSpacing.standard) {
-                LabeledContent("Executable") {
-                    Text(codexExecutableLabel)
-                        .font(DSTypography.metadata)
-                        .foregroundStyle(theme.textSecondary)
-                        .lineLimit(2)
-                        .truncationMode(.middle)
-                        .help(codexExecutableLabel)
-                }
-
-                HStack(spacing: DSSpacing.standard) {
-                    Button("Detect Automatically") {
-                        appModel.preferences.codexExecutablePath = nil
-                        refreshCodex()
-                    }
-                    .buttonStyle(DSButtonStyle())
-                    .accessibilityIdentifier("settings.codex.detect")
-
-                    Button("Choose…", action: chooseCodexExecutable)
-                        .buttonStyle(DSButtonStyle())
-                        .accessibilityIdentifier("settings.codex.choose")
-
-                    Button("Refresh", action: refreshCodex)
-                        .buttonStyle(DSButtonStyle(kind: .primary))
-                        .disabled(appModel.codexStore.isRefreshing)
-                        .accessibilityIdentifier("settings.codex.refresh")
-
-                    if appModel.codexStore.isRefreshing {
-                        ProgressView()
-                            .controlSize(.small)
-                            .accessibilityLabel("Refreshing Codex usage")
-                    }
-                }
-            }
         }
     }
 
@@ -941,129 +707,20 @@ struct SettingsView: View {
                 )
             }
 
-            claudeCodeConnectionSection
+            DockDisplayStyleEditor(
+                featureTitle: "Claude Code",
+                selection: claudeCodeDisplayStyleBinding
+            )
 
             RingAppearanceEditor(
-                outerTitle: "5-hour ring",
-                innerTitle: "Weekly ring",
+                outerTitle: "5-hour",
+                innerTitle: "Weekly",
                 appearance: appModel.preferences.claudeCodeAppearance,
                 outerColor: claudeCodeOuterColorBinding,
                 innerColor: claudeCodeInnerColorBinding,
                 outerWidth: claudeCodeOuterWidthBinding,
                 innerWidth: claudeCodeInnerWidthBinding,
                 reset: appModel.preferences.resetClaudeCodeAppearance
-            )
-        }
-    }
-
-    private var claudeCodeConnectionSection: some View {
-        DSSettingsSection(
-            title: "Claude Code connection",
-            detail: "Claude Code's supported status line JSON supplies 5-hour and weekly usage after each response. DockMagic caches only the rate_limits object."
-        ) {
-            VStack(alignment: .leading, spacing: DSSpacing.standard) {
-                LabeledContent("Status line bridge") {
-                    Text(
-                        appModel.claudeCodeStore.isBridgeInstalled
-                            ? "Enabled"
-                            : "Not enabled"
-                    )
-                    .font(DSTypography.metadata)
-                    .foregroundStyle(
-                        appModel.claudeCodeStore.isBridgeInstalled
-                            ? theme.processing
-                            : theme.textSecondary
-                    )
-                }
-
-                HStack(spacing: DSSpacing.standard) {
-                    if appModel.claudeCodeStore.isBridgeInstalled {
-                        Button("Disable Bridge") {
-                            appModel.claudeCodeStore.uninstallBridge()
-                        }
-                        .buttonStyle(DSButtonStyle())
-                        .accessibilityIdentifier("settings.claudeCode.disable")
-                    } else {
-                        Button("Enable Bridge") {
-                            Task {
-                                await appModel.claudeCodeStore.installBridge()
-                            }
-                        }
-                        .buttonStyle(DSButtonStyle(kind: .primary))
-                        .accessibilityIdentifier("settings.claudeCode.enable")
-                    }
-
-                    Button("Refresh") {
-                        Task {
-                            await appModel.claudeCodeStore.refresh()
-                        }
-                    }
-                    .buttonStyle(
-                        DSButtonStyle(
-                            kind: appModel.claudeCodeStore.isBridgeInstalled
-                                ? .primary
-                                : .neutral
-                        )
-                    )
-                    .disabled(
-                        !appModel.claudeCodeStore.isBridgeInstalled
-                            || appModel.claudeCodeStore.isRefreshing
-                    )
-                    .accessibilityIdentifier("settings.claudeCode.refresh")
-
-                    if appModel.claudeCodeStore.isRefreshing {
-                        ProgressView()
-                            .controlSize(.small)
-                            .accessibilityLabel("Refreshing Claude Code usage")
-                    }
-                }
-
-                Text("After enabling, restart Claude Code if it asks you to accept status line trust, then complete one response. Existing command-based status line output is preserved and restored when the bridge is disabled.")
-                    .font(DSTypography.metadata)
-                    .foregroundStyle(theme.textSecondary)
-
-                claudeCodeStatusCard
-            }
-        }
-    }
-
-    @ViewBuilder
-    private var claudeCodeStatusCard: some View {
-        switch appModel.claudeCodeStore.state {
-        case .idle:
-            DSStatusCard(
-                title: "Waiting for Claude Code",
-                detail: "Complete a Claude Code response to create the first usage snapshot.",
-                systemImage: "clock",
-                role: .neutral
-            )
-        case .loading:
-            DSStatusCard(
-                title: "Reading usage",
-                detail: "DockMagic is checking the local rate-limit snapshot.",
-                systemImage: "ellipsis",
-                role: .neutral
-            )
-        case .live:
-            DSStatusCard(
-                title: "Usage is current",
-                detail: "Fresh Claude Code limits are available to the Dock renderer.",
-                systemImage: "checkmark.circle.fill",
-                role: .processing
-            )
-        case let .stale(_, message):
-            DSStatusCard(
-                title: "Showing last known usage",
-                detail: message,
-                systemImage: "clock.badge.exclamationmark",
-                role: .warning
-            )
-        case let .unavailable(message):
-            DSStatusCard(
-                title: "Claude Code usage unavailable",
-                detail: message,
-                systemImage: "exclamationmark.triangle.fill",
-                role: .danger
             )
         }
     }
@@ -1075,7 +732,7 @@ struct SettingsView: View {
                 detail: "A focused macOS utility that turns its own Dock icon into live information."
             ) {
                 LabeledContent("Version", value: "1.0")
-                LabeledContent("Appearance", value: "Light")
+                LabeledContent("Appearance", value: appearanceMode.title)
                 LabeledContent(
                     "Features",
                     value: "CPU & RAM, Network, Storage, Weather, Codex, Claude Code"
@@ -1096,7 +753,7 @@ struct SettingsView: View {
 
             DSSettingsSection(
                 title: "Data boundaries",
-                detail: "CPU, memory, network, and storage metrics remain local. Weather sends current coordinates to Open-Meteo; Codex uses its selected executable; Claude Code uses a local status line snapshot containing only rate_limits."
+                detail: "CPU, memory, network, and storage metrics remain local. Weather sends current coordinates to Open-Meteo; Codex uses the automatically detected CLI; Claude Code uses a local status line snapshot containing only rate_limits."
             ) {
                 Text("DockMagic stores only the last successful weather result for resilience and does not keep a location history. It does not inspect prompts, conversations, transcripts, OAuth tokens, API keys, or Keychain items. Open-Meteo data is used under CC BY 4.0.")
                     .font(DSTypography.body)
@@ -1112,9 +769,12 @@ struct SettingsView: View {
         @ViewBuilder values: @escaping () -> Values
     ) -> some View {
         DSSettingsSection(title: title, detail: detail) {
-            HStack(spacing: 24) {
+            HStack(spacing: DSSpacing.xLarge) {
                 preview()
-                    .frame(width: 152, height: 152)
+                    .frame(
+                        width: DSLayout.dockPreviewSize,
+                        height: DSLayout.dockPreviewSize
+                    )
                     .accessibilityIdentifier("settings.dockPreview")
 
                 VStack(alignment: .leading, spacing: DSSpacing.standard) {
@@ -1137,6 +797,23 @@ struct SettingsView: View {
                 destination = .weather
                 appModel.weatherStore.refreshLocationAuthorizationStatus()
                 refreshWeather()
+            }
+        )
+    }
+
+    private var appearanceMode: DSAppearanceMode {
+        DSAppearanceMode(rawValue: appearanceRawValue) ?? .system
+    }
+
+    private var appearanceBinding: Binding<DSAppearanceMode> {
+        Binding(
+            get: { appearanceMode },
+            set: { newMode in
+                appearanceRawValue = newMode.rawValue
+                NotificationCenter.default.post(
+                    name: DSAppearanceMode.didChangeNotification,
+                    object: newMode
+                )
             }
         )
     }
@@ -1169,6 +846,13 @@ struct SettingsView: View {
         )
     }
 
+    private var systemMetricsDisplayStyleBinding: Binding<DockDisplayStyle> {
+        Binding(
+            get: { appModel.preferences.systemMetricsAppearance.displayStyle },
+            set: appModel.preferences.setSystemMetricsDisplayStyle
+        )
+    }
+
     private var networkDownloadColorBinding: Binding<Color> {
         Binding(
             get: { appModel.preferences.networkAppearance.downloadColor.color },
@@ -1194,6 +878,13 @@ struct SettingsView: View {
         Binding(
             get: { appModel.preferences.storageAppearance.width },
             set: appModel.preferences.setStorageWidth
+        )
+    }
+
+    private var storageDisplayStyleBinding: Binding<DockDisplayStyle> {
+        Binding(
+            get: { appModel.preferences.storageAppearance.displayStyle },
+            set: appModel.preferences.setStorageDisplayStyle
         )
     }
 
@@ -1225,6 +916,13 @@ struct SettingsView: View {
         )
     }
 
+    private var codexDisplayStyleBinding: Binding<DockDisplayStyle> {
+        Binding(
+            get: { appModel.preferences.codexAppearance.displayStyle },
+            set: appModel.preferences.setCodexDisplayStyle
+        )
+    }
+
     private var claudeCodeOuterColorBinding: Binding<Color> {
         Binding(
             get: { appModel.preferences.claudeCodeAppearance.outerColor.color },
@@ -1250,6 +948,13 @@ struct SettingsView: View {
         Binding(
             get: { appModel.preferences.claudeCodeAppearance.innerWidth },
             set: appModel.preferences.setClaudeCodeInnerWidth
+        )
+    }
+
+    private var claudeCodeDisplayStyleBinding: Binding<DockDisplayStyle> {
+        Binding(
+            get: { appModel.preferences.claudeCodeAppearance.displayStyle },
+            set: appModel.preferences.setClaudeCodeDisplayStyle
         )
     }
 
@@ -1282,16 +987,20 @@ struct SettingsView: View {
         return "Weather is not active, so results update this preview only."
     }
 
-    private var weatherLocationAuthorizationLabel: String {
-        switch appModel.weatherStore.locationAuthorization {
+    private var weatherLocationPreviewValue: String? {
+        if let location = weatherSnapshot?.location {
+            return location
+        }
+
+        return switch appModel.weatherStore.locationAuthorization {
         case .notDetermined:
-            "Not requested"
+            "Requesting access…"
         case .authorized:
-            "Allowed"
+            appModel.weatherStore.isRefreshing ? "Locating…" : nil
         case .denied:
-            "Denied"
+            "Location access denied"
         case .restricted:
-            "Restricted"
+            "Location unavailable"
         case .servicesDisabled:
             "Location Services off"
         }
@@ -1329,16 +1038,6 @@ struct SettingsView: View {
         appModel.claudeCodeStore.state.snapshot
     }
 
-    private var codexExecutableLabel: String {
-        if let resolved = appModel.codexStore.resolvedExecutablePath {
-            return resolved
-        }
-        if let configured = appModel.preferences.codexExecutablePath {
-            return configured
-        }
-        return "Automatic detection"
-    }
-
     private var codexPreviewDetail: String {
         if appModel.preferences.activeFeature == .codex {
             return "Codex is active. Fresh values are applied to the Dock."
@@ -1351,30 +1050,6 @@ struct SettingsView: View {
             return "Claude Code is active. Fresh values are applied to the Dock."
         }
         return "Claude Code is not active, so changes update this preview only."
-    }
-
-    private func refreshCodex() {
-        Task {
-            await appModel.codexStore.refresh()
-        }
-    }
-
-    private func chooseCodexExecutable() {
-        let panel = NSOpenPanel()
-        panel.title = "Choose Codex Executable"
-        panel.message = "Choose the codex executable used for app-server usage limits."
-        panel.prompt = "Choose"
-        panel.canChooseFiles = true
-        panel.canChooseDirectories = false
-        panel.allowsMultipleSelection = false
-        panel.resolvesAliases = true
-
-        guard panel.runModal() == .OK, let url = panel.url else {
-            return
-        }
-
-        appModel.preferences.codexExecutablePath = url.path
-        refreshCodex()
     }
 
     private static let weatherAttributionURL = URL(
@@ -1390,21 +1065,226 @@ private struct SettingsHeaderView: View {
     @Environment(\.designTheme) private var theme
 
     var body: some View {
-        HStack(spacing: DSSpacing.standard) {
-            Image(nsImage: NSApplication.shared.applicationIconImage)
+        HStack(spacing: DSSpacing.medium) {
+            Image("DockMagicLogo")
                 .resizable()
                 .interpolation(.high)
-                .scaledToFit()
-                .frame(width: 28, height: 28)
+                .scaledToFill()
+                .frame(width: 44, height: 44)
+                .clipShape(
+                    RoundedRectangle(
+                        cornerRadius: DSRadius.control,
+                        style: .continuous
+                    )
+                )
+                .overlay {
+                    RoundedRectangle(
+                        cornerRadius: DSRadius.control,
+                        style: .continuous
+                    )
+                    .strokeBorder(theme.outline, lineWidth: 1)
+                }
+                .shadow(color: theme.shadow, radius: 4, y: 2)
                 .accessibilityHidden(true)
 
             Text("Settings")
-                .font(.system(size: 18, weight: .semibold))
+                .font(DSTypography.headline)
                 .foregroundStyle(theme.textPrimary)
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel("DockMagic Settings")
         .accessibilityIdentifier("settings.header")
+    }
+}
+
+private struct DockFeatureMenuLabel: View {
+    let feature: DockFeature
+
+    @ViewBuilder
+    var body: some View {
+        switch feature {
+        case .dockMagic:
+            Label(feature.title, image: "DockMagicLogo")
+        case .codex:
+            Label(feature.title, image: "CodexLogo")
+        case .claudeCode:
+            Label(feature.title, image: "ClaudeCodeLogo")
+        case .systemMetrics, .network, .storage, .weather:
+            Label(feature.title, systemImage: feature.systemImage)
+        }
+    }
+}
+
+private struct ActiveDockFeaturePicker: View {
+    @Binding var selection: DockFeature
+
+    @Environment(\.designTheme) private var theme
+
+    var body: some View {
+        ZStack {
+            selectedFeatureField
+                .accessibilityHidden(true)
+
+            // A macOS Menu rewrites complex labels into a compact AppKit
+            // pop-up title. Keep the native menu interaction in a transparent
+            // overlay so the full design-system field remains visible.
+            Menu {
+                ForEach(DockFeature.allCases) { feature in
+                    Button {
+                        selection = feature
+                    } label: {
+                        // Keep the menu icon as a direct Image inside Label.
+                        // SwiftUI can bridge this shape to NSMenuItem.image;
+                        // the richer DockFeatureIcon view is used only in the
+                        // custom selected-value field below.
+                        DockFeatureMenuLabel(feature: feature)
+                    }
+                    .accessibilityIdentifier(
+                        "settings.activeFeatureOption.\(feature.rawValue)"
+                    )
+                }
+            } label: {
+                Color.clear
+                    .frame(width: 280, height: 48)
+                    .contentShape(
+                        RoundedRectangle(
+                            cornerRadius: DSRadius.control,
+                            style: .continuous
+                        )
+                    )
+            }
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
+            .accessibilityLabel(
+                "Active Dock feature with \(selection.title) icon"
+            )
+            .accessibilityValue(selection.title)
+            .accessibilityIdentifier("settings.activeFeaturePicker")
+        }
+        .frame(width: 280, height: 48)
+        .fixedSize()
+    }
+
+    private var selectedFeatureField: some View {
+        HStack(spacing: DSSpacing.medium) {
+            ZStack {
+                RoundedRectangle(
+                    cornerRadius: DSRadius.keycap,
+                    style: .continuous
+                )
+                .fill(theme.selectionFill)
+
+                RoundedRectangle(
+                    cornerRadius: DSRadius.keycap,
+                    style: .continuous
+                )
+                .strokeBorder(theme.selectionOutline, lineWidth: 1)
+
+                DockFeatureIcon(feature: selection, size: 24)
+            }
+            .frame(width: 34, height: 34)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(selection.title)
+                    .font(DSTypography.bodyEmphasis)
+                    .foregroundStyle(theme.textPrimary)
+                    .lineLimit(1)
+
+                Text(selection.detail)
+                    .font(DSTypography.caption)
+                    .foregroundStyle(theme.textSecondary)
+                    .lineLimit(1)
+            }
+
+            Spacer(minLength: DSSpacing.small)
+
+            Image(systemName: "chevron.up.chevron.down")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(theme.textSecondary)
+        }
+        .padding(.horizontal, DSSpacing.medium)
+        .frame(width: 280, height: 48)
+        .background(
+            theme.opaqueSurfaceRaised,
+            in: RoundedRectangle(
+                cornerRadius: DSRadius.control,
+                style: .continuous
+            )
+        )
+        .overlay {
+            RoundedRectangle(
+                cornerRadius: DSRadius.control,
+                style: .continuous
+            )
+            .strokeBorder(theme.outline, lineWidth: 1)
+            .allowsHitTesting(false)
+        }
+        .shadow(color: theme.shadow.opacity(0.34), radius: 3, y: 1)
+    }
+}
+
+private struct DockFeatureIcon: View {
+    let feature: DockFeature
+    var size: CGFloat = 22
+
+    @Environment(\.designTheme) private var theme
+
+    var body: some View {
+        Group {
+            switch feature {
+            case .dockMagic:
+                Image("DockMagicLogo")
+                    .resizable()
+                    .scaledToFill()
+                    .clipShape(
+                        RoundedRectangle(
+                            cornerRadius: size * 0.28,
+                            style: .continuous
+                        )
+                    )
+            case .codex:
+                Image("CodexLogo")
+                    .resizable()
+                    .scaledToFit()
+            case .claudeCode:
+                Image("ClaudeCodeLogo")
+                    .resizable()
+                    .scaledToFit()
+            case .systemMetrics, .network, .storage, .weather:
+                Image(systemName: featureSystemImage)
+                    .font(.system(size: size * 0.58, weight: .semibold))
+                    .foregroundStyle(theme.processingForeground)
+                    .frame(width: size, height: size)
+                    .background(
+                        RoundedRectangle(
+                            cornerRadius: max(5, size * 0.32),
+                            style: .continuous
+                        )
+                        .fill(theme.surfaceChrome)
+                    )
+            }
+        }
+        .frame(width: size, height: size)
+        .accessibilityHidden(true)
+    }
+
+    private var featureSystemImage: String {
+        switch feature {
+        case .dockMagic:
+            "dock.rectangle"
+        case .systemMetrics:
+            "cpu"
+        case .network:
+            "network"
+        case .storage:
+            "internaldrive.fill"
+        case .weather:
+            "cloud.sun.fill"
+        case .codex:
+            "sparkles"
+        case .claudeCode:
+            "chevron.left.forwardslash.chevron.right"
+        }
     }
 }
 
@@ -1446,6 +1326,33 @@ private final class WindowTitleVisibilityView: NSView {
     }
 }
 
+private struct DockDisplayStyleEditor: View {
+    let featureTitle: String
+    @Binding var selection: DockDisplayStyle
+
+    var body: some View {
+        DSSettingsSection(
+            title: "Dock display",
+            detail: "Choose whether \(featureTitle) uses progress rings or direct numeric values in the Dock."
+        ) {
+            Picker("Dock display style", selection: $selection) {
+                ForEach(DockDisplayStyle.allCases) { style in
+                    Label(style.title, systemImage: style.systemImage)
+                        .tag(style)
+                        .accessibilityIdentifier(
+                            "settings.displayStyleOption.\(style.rawValue)"
+                        )
+                }
+            }
+            .labelsHidden()
+            .pickerStyle(.segmented)
+            .accessibilityLabel("\(featureTitle) Dock display style")
+            .accessibilityValue(selection.title)
+            .accessibilityIdentifier("settings.displayStyle")
+        }
+    }
+}
+
 private struct RingAppearanceEditor: View {
     let outerTitle: String
     let innerTitle: String
@@ -1460,42 +1367,58 @@ private struct RingAppearanceEditor: View {
 
     var body: some View {
         DSSettingsSection(
-            title: "Ring appearance",
-            detail: "Widths are constrained automatically so both rings stay clear at small Dock sizes."
+            title: appearance.displayStyle == .chart
+                ? "Ring appearance"
+                : "Number appearance",
+            detail: appearance.displayStyle == .chart
+                ? "Widths are constrained automatically so both rings stay clear at small Dock sizes."
+                : "The two numeric values keep the same semantic colors as their chart rings."
         ) {
             colorRow(
-                title: outerTitle,
+                title: appearanceTitle(outerTitle),
                 color: outerColor,
                 hex: appearance.outerColor.hex
             )
-            widthRow(
-                title: "\(outerTitle) width",
-                value: outerWidth,
-                range: DockRingAppearance.minimumOuterWidth
-                    ... DockRingAppearance.maximumOuterWidth
-            )
+
+            if appearance.displayStyle == .chart {
+                widthRow(
+                    title: "\(outerTitle) ring width",
+                    value: outerWidth,
+                    range: DockRingAppearance.minimumOuterWidth
+                        ... DockRingAppearance.maximumOuterWidth
+                )
+            }
 
             DSDivider()
 
             colorRow(
-                title: innerTitle,
+                title: appearanceTitle(innerTitle),
                 color: innerColor,
                 hex: appearance.innerColor.hex
             )
-            widthRow(
-                title: "\(innerTitle) width",
-                value: innerWidth,
-                range: DockRingAppearance.minimumInnerWidth
-                    ... DockRingAppearance.maximumInnerWidth
-            )
+
+            if appearance.displayStyle == .chart {
+                widthRow(
+                    title: "\(innerTitle) ring width",
+                    value: innerWidth,
+                    range: DockRingAppearance.minimumInnerWidth
+                        ... DockRingAppearance.maximumInnerWidth
+                )
+            }
 
             HStack {
                 Spacer()
-                Button("Reset Defaults", action: reset)
+                Button(action: reset) {
+                    Label("Reset Defaults", systemImage: "arrow.counterclockwise")
+                }
                     .buttonStyle(DSButtonStyle())
                     .accessibilityIdentifier("settings.rings.reset")
             }
         }
+    }
+
+    private func appearanceTitle(_ title: String) -> String {
+        "\(title) \(appearance.displayStyle == .chart ? "ring" : "value")"
     }
 
     private func colorRow(
@@ -1538,7 +1461,7 @@ private struct RingAppearanceEditor: View {
             Spacer(minLength: DSSpacing.standard)
 
             Slider(value: value, in: range)
-                .frame(maxWidth: 240)
+                .frame(maxWidth: DSLayout.sliderMaximumWidth)
                 .accessibilityLabel(title)
                 .accessibilityValue(
                     "\(Int((value.wrappedValue * 100).rounded())) percent"
@@ -1577,7 +1500,7 @@ private struct NetworkAppearanceEditor: View {
     var body: some View {
         DSSettingsSection(
             title: "Chart appearance",
-            detail: "Download and upload keep distinct colors in both the Dock and the 60-second history chart."
+            detail: "Download and upload keep distinct colors in the Dock chart and live preview."
         ) {
             colorRow(
                 title: "Download",
@@ -1597,7 +1520,9 @@ private struct NetworkAppearanceEditor: View {
 
             HStack {
                 Spacer()
-                Button("Reset Defaults", action: reset)
+                Button(action: reset) {
+                    Label("Reset Defaults", systemImage: "arrow.counterclockwise")
+                }
                     .buttonStyle(DSButtonStyle())
                     .accessibilityIdentifier("settings.network.reset")
             }
@@ -1632,8 +1557,6 @@ private struct NetworkAppearanceEditor: View {
 }
 
 private struct SingleRingAppearanceEditor: View {
-    let title: String
-    let detail: String
     let colorTitle: String
     let appearance: DockSingleRingAppearance
     let color: Binding<Color>
@@ -1643,9 +1566,18 @@ private struct SingleRingAppearanceEditor: View {
     @Environment(\.designTheme) private var theme
 
     var body: some View {
-        DSSettingsSection(title: title, detail: detail) {
+        DSSettingsSection(
+            title: appearance.displayStyle == .chart
+                ? "Ring appearance"
+                : "Number appearance",
+            detail: appearance.displayStyle == .chart
+                ? "Storage uses one ring because used and available space are complementary values."
+                : "The numeric style shows the percentage of storage currently used."
+        ) {
             HStack(spacing: DSSpacing.standard) {
-                Text(colorTitle)
+                Text(
+                    "\(colorTitle) \(appearance.displayStyle == .chart ? "ring" : "value")"
+                )
                     .font(DSTypography.body)
                     .foregroundStyle(theme.textPrimary)
 
@@ -1663,36 +1595,40 @@ private struct SingleRingAppearanceEditor: View {
             }
             .frame(minHeight: 28)
 
-            HStack(spacing: DSSpacing.standard) {
-                Text("Ring width")
-                    .font(DSTypography.body)
-                    .foregroundStyle(theme.textPrimary)
+            if appearance.displayStyle == .chart {
+                HStack(spacing: DSSpacing.standard) {
+                    Text("Ring width")
+                        .font(DSTypography.body)
+                        .foregroundStyle(theme.textPrimary)
 
-                Spacer(minLength: DSSpacing.standard)
+                    Spacer(minLength: DSSpacing.standard)
 
-                Slider(
-                    value: width,
-                    in: DockSingleRingAppearance.minimumWidth
-                        ... DockSingleRingAppearance.maximumWidth
-                )
-                .frame(maxWidth: 240)
-                .accessibilityLabel("Storage ring width")
-                .accessibilityValue(
-                    "\(Int((width.wrappedValue * 100).rounded())) percent"
-                )
-                .accessibilityIdentifier("settings.storage.width")
+                    Slider(
+                        value: width,
+                        in: DockSingleRingAppearance.minimumWidth
+                            ... DockSingleRingAppearance.maximumWidth
+                    )
+                    .frame(maxWidth: DSLayout.sliderMaximumWidth)
+                    .accessibilityLabel("Storage ring width")
+                    .accessibilityValue(
+                        "\(Int((width.wrappedValue * 100).rounded())) percent"
+                    )
+                    .accessibilityIdentifier("settings.storage.width")
 
-                Text("\(Int((width.wrappedValue * 100).rounded()))%")
-                    .font(DSTypography.keycap)
-                    .foregroundStyle(theme.textSecondary)
-                    .frame(width: 34, alignment: .trailing)
-                    .accessibilityHidden(true)
+                    Text("\(Int((width.wrappedValue * 100).rounded()))%")
+                        .font(DSTypography.keycap)
+                        .foregroundStyle(theme.textSecondary)
+                        .frame(width: 34, alignment: .trailing)
+                        .accessibilityHidden(true)
+                }
+                .frame(minHeight: 28)
             }
-            .frame(minHeight: 28)
 
             HStack {
                 Spacer()
-                Button("Reset Defaults", action: reset)
+                Button(action: reset) {
+                    Label("Reset Defaults", systemImage: "arrow.counterclockwise")
+                }
                     .buttonStyle(DSButtonStyle())
                     .accessibilityIdentifier("settings.storage.reset")
             }
@@ -1794,7 +1730,7 @@ private struct WeatherPreviewValue: View {
         HStack(spacing: DSSpacing.standard) {
             Image(systemName: systemImage)
                 .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(theme.information)
+                .foregroundStyle(theme.informationForeground)
                 .frame(width: 18)
                 .accessibilityHidden(true)
 
@@ -1806,7 +1742,11 @@ private struct WeatherPreviewValue: View {
 
             Text(value ?? "—")
                 .font(DSTypography.bodyEmphasis)
-                .foregroundStyle(value == nil ? theme.textTertiary : theme.information)
+                .foregroundStyle(
+                    value == nil
+                        ? theme.textTertiary
+                        : theme.informationForeground
+                )
                 .lineLimit(1)
                 .truncationMode(.tail)
         }

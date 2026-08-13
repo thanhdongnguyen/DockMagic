@@ -64,7 +64,7 @@ struct DockNetworkView: View {
             baseline.addLine(to: CGPoint(x: plot.maxX, y: baselineY))
             context.stroke(
                 baseline,
-                with: .color(theme.dockOutline.opacity(contrast == .increased ? 0.9 : 0.48)),
+                with: .color(theme.dockOutline.opacity(contrast == .increased ? 0.9 : 0.58)),
                 lineWidth: max(1, side * 0.012)
             )
 

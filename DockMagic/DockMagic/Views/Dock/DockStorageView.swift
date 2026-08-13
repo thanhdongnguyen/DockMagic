@@ -6,25 +6,46 @@ struct DockStorageView: View {
     let errorDescription: String?
     let animatesChanges: Bool
 
+    @ViewBuilder
     var body: some View {
-        DockRingTileView(
-            outerRing: DockRingDescriptor(
-                progress: snapshot.totalBytes > 0 ? snapshot.usage : nil,
-                color: appearance.color.color,
-                width: appearance.width,
-                usesSingleRingLayout: true
-            ),
-            innerRing: nil,
-            stateSymbol: errorDescription == nil
-                ? nil
-                : "exclamationmark.triangle.fill",
-            stateRole: errorDescription == nil ? .neutral : .danger,
-            animatesChanges: animatesChanges
-        )
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Storage usage")
-        .accessibilityValue(accessibilityValue)
-        .accessibilityIdentifier("dock.storage")
+        if appearance.displayStyle == .numeric {
+            DockNumericTileView(
+                values: [
+                    DockNumericValue(
+                        label: "USED",
+                        value: snapshot.totalBytes > 0
+                            ? snapshot.usage.formatted(
+                                .percent.precision(.fractionLength(0))
+                            )
+                            : "—",
+                        color: appearance.color.color
+                    )
+                ]
+            )
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Storage usage")
+            .accessibilityValue(accessibilityValue)
+            .accessibilityIdentifier("dock.storage")
+        } else {
+            DockRingTileView(
+                outerRing: DockRingDescriptor(
+                    progress: snapshot.totalBytes > 0 ? snapshot.usage : nil,
+                    color: appearance.color.color,
+                    width: appearance.width,
+                    usesSingleRingLayout: true
+                ),
+                innerRing: nil,
+                stateSymbol: errorDescription == nil
+                    ? nil
+                    : "exclamationmark.triangle.fill",
+                stateRole: errorDescription == nil ? .neutral : .danger,
+                animatesChanges: animatesChanges
+            )
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Storage usage")
+            .accessibilityValue(accessibilityValue)
+            .accessibilityIdentifier("dock.storage")
+        }
     }
 
     private var accessibilityValue: String {
