@@ -7,6 +7,8 @@ final class DockPreferencesStore {
     static let systemMetricsAppearanceKey = "DockMagicSystemMetricsAppearance"
     static let networkAppearanceKey = "DockMagicNetworkAppearance"
     static let storageAppearanceKey = "DockMagicStorageAppearance"
+    static let githubAppearanceKey = "DockMagicGitHubAppearance"
+    static let githubRepositoryURLKey = "DockMagicGitHubRepositoryURL"
     static let codexAppearanceKey = "DockMagicCodexAppearance"
     static let codexExecutablePathKey = "DockMagicCodexExecutablePath"
     static let claudeCodeAppearanceKey = "DockMagicClaudeCodeAppearance"
@@ -26,8 +28,22 @@ final class DockPreferencesStore {
     private(set) var systemMetricsAppearance: DockRingAppearance
     private(set) var networkAppearance: DockNetworkAppearance
     private(set) var storageAppearance: DockSingleRingAppearance
+    private(set) var githubAppearance: DockGitHubAppearance
     private(set) var codexAppearance: DockRingAppearance
     private(set) var claudeCodeAppearance: DockRingAppearance
+
+    var githubRepositoryURL: String {
+        didSet {
+            guard githubRepositoryURL != oldValue else {
+                return
+            }
+
+            defaults.set(
+                githubRepositoryURL,
+                forKey: Self.githubRepositoryURLKey
+            )
+        }
+    }
 
     var codexExecutablePath: String? {
         didSet {
@@ -86,6 +102,15 @@ final class DockPreferencesStore {
             key: Self.storageAppearanceKey,
             fallback: DockFeatureDefaults.storageAppearance
         )
+        githubAppearance = Self.decodeValue(
+            DockGitHubAppearance.self,
+            from: defaults,
+            key: Self.githubAppearanceKey,
+            fallback: DockFeatureDefaults.githubAppearance
+        )
+        githubRepositoryURL = defaults.string(
+            forKey: Self.githubRepositoryURLKey
+        ) ?? ""
         codexAppearance = Self.decodeAppearance(
             from: defaults,
             key: Self.codexAppearanceKey,
@@ -174,6 +199,28 @@ final class DockPreferencesStore {
         persistStorageAppearance()
     }
 
+    func setGitHubStarColor(_ color: DockColor) {
+        githubAppearance.starColor = color
+        persistGitHubAppearance()
+    }
+
+    func setGitHubForkColor(_ color: DockColor) {
+        githubAppearance.forkColor = color
+        persistGitHubAppearance()
+    }
+
+    func setGitHubDisplayStyle(_ value: DockDisplayStyle) {
+        githubAppearance.setDisplayStyle(value)
+        persistGitHubAppearance()
+    }
+
+    func resetGitHubAppearance() {
+        let displayStyle = githubAppearance.displayStyle
+        githubAppearance = DockFeatureDefaults.githubAppearance
+        githubAppearance.setDisplayStyle(displayStyle)
+        persistGitHubAppearance()
+    }
+
     func setCodexOuterColor(_ color: DockColor) {
         codexAppearance.outerColor = color
         persistCodexAppearance()
@@ -259,6 +306,14 @@ final class DockPreferencesStore {
             storageAppearance,
             to: defaults,
             key: Self.storageAppearanceKey
+        )
+    }
+
+    private func persistGitHubAppearance() {
+        Self.encodeValue(
+            githubAppearance,
+            to: defaults,
+            key: Self.githubAppearanceKey
         )
     }
 

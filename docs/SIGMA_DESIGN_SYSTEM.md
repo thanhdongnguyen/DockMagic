@@ -108,7 +108,7 @@ therefore **DockMagic-derived** and must not be described as exact Sigma tokens:
 | In-app type | Title `32`, headline `20`, panel `16`, section/body `14`, metadata `12`, caption `11`, rounded metric `24`. |
 | Motion | `0.12–0.16 s` feedback, `0.32 s` metric changes; remove nonessential animation with Reduce Motion. |
 | Elevation | `none`, `primary` (`10 pt`, y `5`), and `secondary` (`5 pt`, y `2`). |
-| Layout | Minimum window `900 × 640`; sidebar `210/232/272`; maximum detail width `800`; preview `152`. |
+| Layout | Minimum content `1160 × 620`; sidebar `268`; maximum detail width `900`; detail padding `52×34`; standard preview `152` (Batteries uses `320`). |
 | On-colors/outline/selection/shadow | Derived from contrast requirements and DockMagic context; no copying of hidden tokens. |
 | Text hierarchy | Retain the public neutral bases but raise runtime alpha: secondary `80% / 60%`, tertiary `75% / 50%` (Light/Dark), so small text reaches at least `4.5:1` on content surfaces. |
 | Semantic foreground | Separate accents used on content from public fills: darken foregrounds in Light and retain the bright palette in Dark; fill/on-color continues to use the public palette paired with black. |

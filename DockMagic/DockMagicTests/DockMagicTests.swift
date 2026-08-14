@@ -219,8 +219,11 @@ final class DockMagicTests: XCTestCase {
                 .network,
                 .storage,
                 .weather,
+                .batteries,
+                .github,
                 .codex,
-                .claudeCode
+                .claudeCode,
+                .searchConsole
             ]
         )
         XCTAssertEqual(DockFeature.dockMagic.title, "DockMagic")
@@ -228,8 +231,10 @@ final class DockMagicTests: XCTestCase {
         XCTAssertEqual(DockFeature.network.title, "Network")
         XCTAssertEqual(DockFeature.storage.title, "Storage")
         XCTAssertEqual(DockFeature.weather.title, "Weather")
+        XCTAssertEqual(DockFeature.github.title, "GitHub")
         XCTAssertEqual(DockFeature.codex.title, "Codex")
         XCTAssertEqual(DockFeature.claudeCode.title, "Claude Code")
+        XCTAssertEqual(DockFeature.searchConsole.title, "Search Console")
     }
 
     @MainActor
@@ -254,6 +259,11 @@ final class DockMagicTests: XCTestCase {
             store.storageAppearance,
             DockFeatureDefaults.storageAppearance
         )
+        XCTAssertEqual(
+            store.githubAppearance,
+            DockFeatureDefaults.githubAppearance
+        )
+        XCTAssertEqual(store.githubRepositoryURL, "")
 
         store.activeFeature = .network
         store.setSystemMetricsOuterColor(
@@ -272,6 +282,14 @@ final class DockMagicTests: XCTestCase {
         )
         store.setStorageWidth(0.21)
         store.setStorageDisplayStyle(.numeric)
+        store.githubRepositoryURL = "https://github.com/apple/swift"
+        store.setGitHubStarColor(
+            DockColor(red: 0.9, green: 0.6, blue: 0.2)
+        )
+        store.setGitHubForkColor(
+            DockColor(red: 0.1, green: 0.7, blue: 0.9)
+        )
+        store.setGitHubDisplayStyle(.numeric)
         store.setCodexInnerWidth(0.20)
         store.setCodexDisplayStyle(.numeric)
         store.setClaudeCodeOuterColor(
@@ -291,6 +309,13 @@ final class DockMagicTests: XCTestCase {
         XCTAssertEqual(restored.storageAppearance.color.hex, "#4D6680")
         XCTAssertEqual(restored.storageAppearance.width, 0.21)
         XCTAssertEqual(restored.storageAppearance.displayStyle, .numeric)
+        XCTAssertEqual(
+            restored.githubRepositoryURL,
+            "https://github.com/apple/swift"
+        )
+        XCTAssertEqual(restored.githubAppearance.starColor.hex, "#E69933")
+        XCTAssertEqual(restored.githubAppearance.forkColor.hex, "#1AB3E6")
+        XCTAssertEqual(restored.githubAppearance.displayStyle, .numeric)
         XCTAssertEqual(restored.codexAppearance.innerWidth, 0.20)
         XCTAssertEqual(restored.codexAppearance.displayStyle, .numeric)
         XCTAssertEqual(restored.claudeCodeAppearance.outerColor.hex, "#334D66")
@@ -338,6 +363,35 @@ final class DockMagicTests: XCTestCase {
         XCTAssertEqual(appearance.width, DockSingleRingAppearance.minimumWidth)
     }
 
+    func testGitHubRepositoryReferenceAcceptsWebAndSSHLinks() {
+        XCTAssertEqual(
+            GitHubRepositoryReference(
+                urlString: "https://github.com/apple/swift"
+            )?.fullName,
+            "apple/swift"
+        )
+        XCTAssertEqual(
+            GitHubRepositoryReference(
+                urlString: "git@github.com:thanhdongnguyen/dockmagic.git"
+            )?.webURLString,
+            "https://github.com/thanhdongnguyen/dockmagic"
+        )
+        XCTAssertNil(
+            GitHubRepositoryReference(urlString: "https://example.com/a/b")
+        )
+        XCTAssertNil(
+            GitHubRepositoryReference(
+                urlString: "https://github.com/apple/swift/issues"
+            )
+        )
+    }
+
+    func testGitHubCountFormattingStaysCompactForDockTile() {
+        XCTAssertEqual(GitHubCountFormatting.compact(824), "824")
+        XCTAssertEqual(GitHubCountFormatting.compact(12_742), "12.7K")
+        XCTAssertEqual(GitHubCountFormatting.compact(1_250_000), "1.3M")
+    }
+
     @MainActor
     func testResetRestoresAllAppearanceDefaults() {
         let suiteName = "DockMagicTests.Reset.\(UUID().uuidString)"
@@ -349,11 +403,14 @@ final class DockMagicTests: XCTestCase {
         store.setSystemMetricsInnerColor(.init(red: 1, green: 1, blue: 1))
         store.setNetworkDownloadColor(.init(red: 1, green: 1, blue: 1))
         store.setStorageWidth(0.21)
+        store.setGitHubDisplayStyle(.numeric)
+        store.setGitHubStarColor(.init(red: 1, green: 1, blue: 1))
         store.setCodexOuterWidth(0.15)
         store.setClaudeCodeInnerWidth(0.21)
         store.resetSystemMetricsAppearance()
         store.resetNetworkAppearance()
         store.resetStorageAppearance()
+        store.resetGitHubAppearance()
         store.resetCodexAppearance()
         store.resetClaudeCodeAppearance()
 
@@ -368,6 +425,9 @@ final class DockMagicTests: XCTestCase {
             store.storageAppearance,
             DockFeatureDefaults.storageAppearance
         )
+        var expectedGitHub = DockFeatureDefaults.githubAppearance
+        expectedGitHub.setDisplayStyle(.numeric)
+        XCTAssertEqual(store.githubAppearance, expectedGitHub)
         XCTAssertEqual(
             store.codexAppearance,
             DockFeatureDefaults.codexAppearance
@@ -404,6 +464,10 @@ final class DockMagicTests: XCTestCase {
             forKey: DockPreferencesStore.storageAppearanceKey
         )
         defaults.set(
+            Data("github-not-json".utf8),
+            forKey: DockPreferencesStore.githubAppearanceKey
+        )
+        defaults.set(
             Data("still-not-json".utf8),
             forKey: DockPreferencesStore.claudeCodeAppearanceKey
         )
@@ -421,6 +485,10 @@ final class DockMagicTests: XCTestCase {
         XCTAssertEqual(
             store.storageAppearance,
             DockFeatureDefaults.storageAppearance
+        )
+        XCTAssertEqual(
+            store.githubAppearance,
+            DockFeatureDefaults.githubAppearance
         )
         XCTAssertEqual(
             store.codexAppearance,
@@ -982,6 +1050,26 @@ final class DockMagicTests: XCTestCase {
         XCTAssertEqual(snapshot.location, "Ho Chi Minh")
     }
 
+    @MainActor
+    func testOpenMeteoWeatherReacquiresLocationForEveryFetch() async throws {
+        let coordinateProvider = CountingWeatherCoordinateProvider(
+            coordinate: WeatherCoordinate(latitude: 10.8231, longitude: 106.6297)
+        )
+        let provider = OpenMeteoWeatherProvider(
+            coordinateProvider: coordinateProvider,
+            httpClient: FixtureOpenMeteoHTTPClient(
+                statusCode: 200,
+                data: openMeteoFixture()
+            ),
+            now: { Date(timeIntervalSince1970: 2_000) }
+        )
+
+        _ = try await provider.fetchWeather()
+        _ = try await provider.fetchWeather()
+
+        XCTAssertEqual(coordinateProvider.requestCount, 2)
+    }
+
     func testOpenMeteoSnapshotUsesTimezoneAsLocationFallback() throws {
         let response = try JSONDecoder().decode(
             OpenMeteoForecastResponse.self,
@@ -1147,6 +1235,46 @@ final class DockMagicTests: XCTestCase {
             WeatherLocationAuthorization.denied.errorDescription?
                 .contains("then refresh Weather") == true
         )
+    }
+
+    func testHardenedRuntimeIncludesWeatherLocationEntitlement() throws {
+        let projectDirectory = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let entitlementURL = projectDirectory
+            .appendingPathComponent("DockMagic/DockMagic.entitlements")
+        let data = try Data(contentsOf: entitlementURL)
+        let entitlements = try XCTUnwrap(
+            PropertyListSerialization.propertyList(from: data, format: nil)
+                as? [String: Any]
+        )
+
+        XCTAssertEqual(
+            entitlements["com.apple.security.personal-information.location"]
+                as? Bool,
+            true
+        )
+    }
+
+    @MainActor
+    func testWeatherLocationPreviewStopsRequestingAfterRefreshEnds() async throws {
+        let provider = CancellableWeatherProvider()
+        let store = WeatherStore(
+            provider: provider,
+            authorizationProvider: MutableWeatherAuthorizationProvider(.notDetermined),
+            cache: InMemoryWeatherCache(),
+            pollingInterval: .seconds(60)
+        )
+
+        XCTAssertEqual(store.locationPreviewValue, "Location access required")
+
+        let refreshTask = Task { await store.refresh() }
+        try await waitUntil { store.isRefreshing }
+        XCTAssertEqual(store.locationPreviewValue, "Requesting access…")
+
+        store.stop()
+        await refreshTask.value
+        XCTAssertEqual(store.locationPreviewValue, "Location access required")
     }
 
     @MainActor
@@ -1941,7 +2069,7 @@ final class DockMagicTests: XCTestCase {
         XCTAssertGreaterThan(DSElevation.primary.radius, DSElevation.secondary.radius)
         XCTAssertGreaterThan(DSElevation.primary.yOffset, DSElevation.secondary.yOffset)
         XCTAssertGreaterThanOrEqual(DSLayout.minimumWindowWidth, 900)
-        XCTAssertGreaterThanOrEqual(DSLayout.minimumWindowHeight, 640)
+        XCTAssertGreaterThanOrEqual(DSLayout.minimumWindowHeight, 620)
     }
 
     func testSigmaAppearancePreferencePersistsAndInvalidValuesFallBackSafely() {
@@ -2238,6 +2366,41 @@ final class DockMagicTests: XCTestCase {
             "Claude Code state changes must not draw an icon in the ring center."
         )
         attachPNG(unavailable, name: "Claude Code — No Center Icon")
+    }
+
+    @MainActor
+    func testSearchConsoleAdaptiveFocusReferenceRender() async throws {
+        let suiteName = "DockMagicTests.SearchConsoleRender.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        defaults.set(
+            DockFeature.searchConsole.rawValue,
+            forKey: DockFeature.storageKey
+        )
+        defaults.set(
+            DSAppearanceMode.dark.rawValue,
+            forKey: DSAppearanceMode.storageKey
+        )
+        let searchConsoleStore = SearchConsoleStore.uiTestFixture()
+        await searchConsoleStore.refresh()
+        let appModel = DockAppModel(
+            preferences: DockPreferencesStore(defaults: defaults),
+            searchConsoleStore: searchConsoleStore
+        )
+
+        try attachScreenshot(
+            of: DockMagicThemeRoot(
+                content: SettingsView(
+                    appModel: appModel,
+                    initialDestination: .searchConsole
+                )
+                .defaultAppStorage(defaults),
+                appearanceMode: .dark
+            ),
+            size: NSSize(width: 1_160, height: 820),
+            appearanceName: .darkAqua,
+            name: "Settings — Search Console — Adaptive Focus Reference"
+        )
     }
 
     @MainActor
@@ -3531,6 +3694,24 @@ private struct FixedWeatherCoordinateProvider: WeatherCoordinateProviding {
     @MainActor
     func currentCoordinate() async throws -> WeatherCoordinate {
         coordinate
+    }
+}
+
+@MainActor
+private final class CountingWeatherCoordinateProvider:
+    WeatherCoordinateProviding,
+    @unchecked Sendable
+{
+    let coordinate: WeatherCoordinate
+    private(set) var requestCount = 0
+
+    init(coordinate: WeatherCoordinate) {
+        self.coordinate = coordinate
+    }
+
+    func currentCoordinate() async throws -> WeatherCoordinate {
+        requestCount += 1
+        return coordinate
     }
 }
 

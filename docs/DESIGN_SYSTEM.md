@@ -75,9 +75,12 @@ elevation.
 
 ## 5. Settings composition
 
-- Primary window: default `1020 × 740`, minimum content size `900 × 640`.
-- Native `NavigationSplitView`, sidebar `210 / 232 / 272` pt.
-- Destinations: General, CPU & RAM, Network, Storage, Weather, Codex,
+- Primary window: `1160 × 620` content plus native title-bar/capture chrome, yielding
+  an initial outer size of approximately `1160 × 724`.
+- Native `NavigationSplitView`, fixed `268` pt sidebar.
+- Detail content is capped at `900` pt with `52` pt horizontal and `34` pt
+  vertical padding.
+- Destinations: General, CPU & RAM, Network, Storage, Weather, Batteries, Codex,
   Claude Code, and About.
 - Detail content uses `DSSettingsSection`, `DSStatusCard`, and native `Picker`,
   `ColorPicker`, `Slider`, `LabeledContent`, and `Button` controls.

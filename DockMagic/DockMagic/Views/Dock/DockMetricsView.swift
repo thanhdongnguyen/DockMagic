@@ -33,6 +33,18 @@ struct DockTileView: View {
                 state: state,
                 animatesChanges: animatesChanges
             )
+        case let .batteries(snapshot, errorDescription):
+            DockBatteryView(
+                snapshot: snapshot,
+                errorDescription: errorDescription,
+                animatesChanges: animatesChanges
+            )
+        case let .github(history, appearance, errorDescription):
+            DockGitHubView(
+                history: history,
+                appearance: appearance,
+                errorDescription: errorDescription
+            )
         case let .codex(state, appearance):
             DockCodexView(
                 state: state,
@@ -44,6 +56,11 @@ struct DockTileView: View {
                 state: state,
                 appearance: appearance,
                 animatesChanges: animatesChanges
+            )
+        case let .searchConsole(state, configuration):
+            DockSearchConsoleView(
+                state: state,
+                configuration: configuration
             )
         }
     }
@@ -426,7 +443,7 @@ struct DockTileSurface<Content: View>: View {
 }
 
 struct DockNumericValue {
-    let label: String
+    let label: String?
     let value: String
     let color: Color
 }
@@ -443,18 +460,20 @@ struct DockNumericTileView: View {
             VStack(spacing: max(1, side * 0.035)) {
                 ForEach(Array(values.enumerated()), id: \.offset) { _, value in
                     HStack(alignment: .firstTextBaseline, spacing: side * 0.045) {
-                        Text(value.label)
-                            .font(
-                                .system(
-                                    size: fontSize,
-                                    weight: .bold,
-                                    design: .rounded
+                        if let label = value.label {
+                            Text(label)
+                                .font(
+                                    .system(
+                                        size: fontSize,
+                                        weight: .bold,
+                                        design: .rounded
+                                    )
                                 )
-                            )
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.65)
-                            .foregroundStyle(theme.dockOutline)
-                            .frame(width: side * 0.29, alignment: .trailing)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.65)
+                                .foregroundStyle(theme.dockOutline)
+                                .frame(width: side * 0.29, alignment: .trailing)
+                        }
 
                         Text(value.value)
                             .font(
@@ -468,7 +487,10 @@ struct DockNumericTileView: View {
                             .minimumScaleFactor(0.65)
                             .lineLimit(1)
                             .foregroundStyle(value.color)
-                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .frame(
+                                maxWidth: .infinity,
+                                alignment: value.label == nil ? .center : .leading
+                            )
                     }
                 }
             }

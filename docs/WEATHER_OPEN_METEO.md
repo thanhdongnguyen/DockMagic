@@ -69,6 +69,12 @@ setup form. Once authorized, the app makes a one-shot `requestLocation()` call
 with three-kilometer accuracy and a 20-second timeout. It does not continuously
 track location.
 
+Because DockMagic ships with Hardened Runtime, the signed app also carries the
+public `com.apple.security.personal-information.location` entitlement. This is
+required for Core Location to present the authorization prompt and is supported
+for direct Developer ID distribution; it does not require App Sandbox or Mac
+App Store distribution.
+
 Core Location reverse-geocodes the coordinates into a locality and country name
 for the `Location` row in the Weather Dock preview. If reverse geocoding does
 not return a name within three seconds, the app cancels this step and uses a

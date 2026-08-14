@@ -1,0 +1,304 @@
+{
+  "source": "/Users/dongnt/Desktop/github/dockmagic/DockMagic/DockMagic/Views/Settings/SettingsView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "Features",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 217
+        }
+      },
+      {
+        "comment": "",
+        "key": "Active",
+        "location": {
+          "startingColumn": 19,
+          "startingLine": 312
+        }
+      },
+      {
+        "comment": "",
+        "key": "",
+        "location": {
+          "startingColumn": 19,
+          "startingLine": 313
+        }
+      },
+      {
+        "comment": "",
+        "key": "%@ appearance",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 247
+        }
+      },
+      {
+        "comment": "",
+        "key": "Appearance",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 435
+        }
+      },
+      {
+        "comment": "",
+        "key": "Appearance",
+        "location": {
+          "startingColumn": 37,
+          "startingLine": 446
+        }
+      },
+      {
+        "comment": "",
+        "key": "Weather data by",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 696
+        }
+      },
+      {
+        "comment": "",
+        "key": "·",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 704
+        }
+      },
+      {
+        "comment": "",
+        "key": "Open-Meteo",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 699
+        }
+      },
+      {
+        "comment": "",
+        "key": "Open-Meteo weather data",
+        "location": {
+          "startingColumn": 37,
+          "startingLine": 701
+        }
+      },
+      {
+        "comment": "",
+        "key": "CC BY 4.0",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 707
+        }
+      },
+      {
+        "comment": "",
+        "key": "No battery devices detected",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 755
+        }
+      },
+      {
+        "comment": "",
+        "key": "Connect an accessory or open its charging case near this Mac.",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 759
+        }
+      },
+      {
+        "comment": "",
+        "key": "Version",
+        "location": {
+          "startingColumn": 32,
+          "startingLine": 894
+        }
+      },
+      {
+        "comment": "",
+        "key": "Appearance",
+        "location": {
+          "startingColumn": 32,
+          "startingLine": 895
+        }
+      },
+      {
+        "comment": "",
+        "key": "Features",
+        "location": {
+          "startingColumn": 21,
+          "startingLine": 897
+        }
+      },
+      {
+        "comment": "",
+        "key": "Battery status is read from public local macOS power-source and device-registry APIs; DockMagic does not pair with devices or retain a connection history. It stores only the last successful weather result for resilience and does not keep a location history. It does not inspect prompts, conversations, transcripts, OAuth tokens, API keys, or Keychain items. Open-Meteo data is used under CC BY 4.0.",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 918
+        }
+      },
+      {
+        "comment": "",
+        "key": "DockMagic Settings",
+        "location": {
+          "startingColumn": 29,
+          "startingLine": 1278
+        }
+      },
+      {
+        "comment": "",
+        "key": "Settings",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 1273
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld percent, %@",
+        "location": {
+          "startingColumn": 13,
+          "startingLine": 1332
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld%%",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 1312
+        }
+      },
+      {
+        "comment": "",
+        "key": "Active Dock feature with %@ icon",
+        "location": {
+          "startingColumn": 13,
+          "startingLine": 1360
+        }
+      },
+      {
+        "comment": "",
+        "key": "Selected",
+        "location": {
+          "startingColumn": 42,
+          "startingLine": 1497
+        }
+      },
+      {
+        "comment": "",
+        "key": "",
+        "location": {
+          "startingColumn": 55,
+          "startingLine": 1497
+        }
+      },
+      {
+        "comment": "",
+        "key": "Dock display style",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 1632
+        }
+      },
+      {
+        "comment": "",
+        "key": "%@ Dock display style",
+        "location": {
+          "startingColumn": 33,
+          "startingLine": 1643
+        }
+      },
+      {
+        "comment": "",
+        "key": "Reset Defaults",
+        "location": {
+          "startingColumn": 27,
+          "startingLine": 1706
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld%%",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 1767
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld percent",
+        "location": {
+          "startingColumn": 21,
+          "startingLine": 1761
+        }
+      },
+      {
+        "comment": "",
+        "key": "Reset Defaults",
+        "location": {
+          "startingColumn": 27,
+          "startingLine": 1818
+        }
+      },
+      {
+        "comment": "",
+        "key": "%@ chart color",
+        "location": {
+          "startingColumn": 37,
+          "startingLine": 1845
+        }
+      },
+      {
+        "comment": "",
+        "key": "%@ %@",
+        "location": {
+          "startingColumn": 21,
+          "startingLine": 1873
+        }
+      },
+      {
+        "comment": "",
+        "key": "Ring width",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 1894
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld%%",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 1912
+        }
+      },
+      {
+        "comment": "",
+        "key": "Storage ring width",
+        "location": {
+          "startingColumn": 41,
+          "startingLine": 1906
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld percent",
+        "location": {
+          "startingColumn": 25,
+          "startingLine": 1908
+        }
+      },
+      {
+        "comment": "",
+        "key": "Reset Defaults",
+        "location": {
+          "startingColumn": 27,
+          "startingLine": 1924
+        }
+      }
+    ]
+  },
+  "version": 1
+}

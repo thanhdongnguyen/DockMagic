@@ -29,8 +29,11 @@ final class DockMagicUITests: XCTestCase {
             "Network",
             "Storage",
             "Weather",
+            "Batteries",
+            "GitHub",
             "Codex",
             "Claude Code",
+            "Search Console",
             "About"
         ] {
             XCTAssertTrue(
@@ -140,6 +143,75 @@ final class DockMagicUITests: XCTestCase {
             in: app
         )
 
+        openSidebarDestination(named: "Batteries", in: app)
+        XCTAssertTrue(
+            app.descendants(matching: .any)["settings.batteries"]
+                .waitForExistence(timeout: 3)
+        )
+        XCTAssertTrue(app.staticTexts["Live Dock preview"].exists)
+        XCTAssertTrue(
+            app.descendants(matching: .any)[
+                "settings.batteries.dockPreview"
+            ].exists
+        )
+        for id in [
+            "ui.macbook",
+            "ui.airpods",
+            "ui.case",
+            "ui.mouse"
+        ] {
+            XCTAssertTrue(
+                app.descendants(matching: .any)[
+                    "settings.batteries.device.\(id)"
+                ].waitForExistence(timeout: 3),
+                "Missing battery device fixture: \(id)"
+            )
+        }
+        attachScreenshot(
+            named: "Settings — Batteries — Live Dock Preview",
+            in: app
+        )
+
+        openSidebarDestination(named: "GitHub", in: app)
+        XCTAssertTrue(
+            app.descendants(matching: .any)["settings.github"]
+                .waitForExistence(timeout: 3)
+        )
+        XCTAssertTrue(
+            app.descendants(matching: .any)[
+                "settings.github.dockPreview"
+            ].exists
+        )
+        XCTAssertTrue(
+            app.descendants(matching: .any)[
+                "settings.github.repositoryURL"
+            ].exists
+        )
+        XCTAssertTrue(
+            app.descendants(matching: .any)[
+                "settings.github.displayStyle"
+            ].exists
+        )
+        XCTAssertTrue(
+            app.descendants(matching: .any)[
+                "settings.github.color.stars"
+            ].exists
+        )
+        XCTAssertTrue(
+            app.descendants(matching: .any)[
+                "settings.github.color.forks"
+            ].exists
+        )
+        XCTAssertTrue(
+            app.descendants(matching: .any)[
+                "settings.github.refreshCadence"
+            ].exists
+        )
+        attachScreenshot(
+            named: "Settings — GitHub — Line Chart",
+            in: app
+        )
+
         openSidebarDestination(named: "Codex", in: app)
         XCTAssertTrue(
             app.descendants(matching: .any)["settings.codex"]
@@ -190,6 +262,33 @@ final class DockMagicUITests: XCTestCase {
             in: app
         )
 
+        openSidebarDestination(named: "Search Console", in: app)
+        XCTAssertTrue(
+            app.descendants(matching: .any)["settings.searchConsole"]
+                .waitForExistence(timeout: 3)
+        )
+        XCTAssertTrue(
+            app.descendants(matching: .any)[
+                "settings.searchConsole.dockPreview"
+            ].exists
+        )
+        XCTAssertTrue(
+            app.descendants(matching: .any)[
+                "settings.searchConsole.connection"
+            ].exists
+        )
+        XCTAssertTrue(app.staticTexts["Data source & security"].exists)
+        XCTAssertTrue(app.staticTexts["Private key in macOS Keychain"].exists)
+        XCTAssertTrue(
+            app.descendants(matching: .any)[
+                "settings.searchConsole.refresh"
+            ].exists
+        )
+        attachScreenshot(
+            named: "Settings — Search Console — Adaptive Focus",
+            in: app
+        )
+
         openSidebarDestination(named: "About", in: app)
         XCTAssertTrue(
             app.descendants(matching: .any)["settings.about"]
@@ -199,6 +298,64 @@ final class DockMagicUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Distribution"].exists)
         attachScreenshot(
             named: "Settings — About — System Glass Chrome",
+            in: app
+        )
+    }
+
+    func testGitHubConnectionShowsFetchedCountsAndRefreshControls() {
+        let app = launchApp(
+            activeFeature: "github",
+            githubRepositoryURL: "https://github.com/apple/swift"
+        )
+        XCTAssertTrue(
+            app.windows["DockMagic Settings"].waitForExistence(timeout: 5),
+            app.debugDescription
+        )
+
+        openSidebarDestination(named: "GitHub", in: app)
+
+        XCTAssertTrue(
+            app.staticTexts["Live"].waitForExistence(timeout: 5),
+            app.debugDescription
+        )
+        XCTAssertTrue(app.staticTexts["apple/swift"].exists)
+        let stars = app.descendants(matching: .any)[
+            "settings.github.metric.stars"
+        ]
+        let forks = app.descendants(matching: .any)[
+            "settings.github.metric.forks"
+        ]
+        XCTAssertEqual(stars.value as? String, "12742")
+        XCTAssertEqual(forks.value as? String, "824")
+        XCTAssertTrue(
+            app.descendants(matching: .any)[
+                "settings.github.refreshNow"
+            ].isEnabled
+        )
+        XCTAssertTrue(
+            app.descendants(matching: .any)[
+                "settings.github.repositoryDisconnect"
+            ].exists
+        )
+        XCTAssertTrue(
+            app.descendants(matching: .any)[
+                "settings.github.token"
+            ].exists
+        )
+        XCTAssertTrue(
+            app.descendants(matching: .any)[
+                "settings.github.tokenSave"
+            ].exists
+        )
+
+        app.descendants(matching: .any)[
+            "settings.github.refreshNow"
+        ].click()
+        XCTAssertTrue(
+            app.staticTexts["Live"].waitForExistence(timeout: 5)
+        )
+        attachScreenshot(
+            named: "Settings — GitHub — Connected Live Data",
             in: app
         )
     }
@@ -223,19 +380,177 @@ final class DockMagicUITests: XCTestCase {
             "Active Dock feature with CPU & RAM icon"
         )
         XCTAssertGreaterThanOrEqual(featurePicker.frame.width, 280)
+        XCTAssertTrue(
+            featurePicker.isHittable,
+            "The active Dock feature picker must receive pointer clicks."
+        )
 
-        for title in [
+        for (index, title) in [
             "DockMagic",
             "CPU & RAM",
             "Network",
             "Storage",
             "Weather",
+            "Batteries",
+            "GitHub",
             "Codex",
             "Claude Code",
+            "Search Console",
             "CPU & RAM"
-        ] {
-            selectFeature(title, in: app)
+        ].enumerated() {
+            selectFeature(
+                title,
+                in: app,
+                normalizedX: index.isMultiple(of: 2) ? 0.1 : 0.9
+            )
         }
+    }
+
+    func testSearchConsoleEveryMetricTimeRangeAndDisplayMode() {
+        let app = launchApp(appearance: "dark", activeFeature: "searchConsole")
+        XCTAssertTrue(
+            app.windows["DockMagic Settings"].waitForExistence(timeout: 5)
+        )
+        openSidebarDestination(named: "Search Console", in: app)
+        XCTAssertEqual(
+            sidebarRow(named: "Search Console", in: app).value as? String,
+            "Active"
+        )
+
+        selectSearchConsoleOption(
+            picker: "primaryMetric",
+            option: "clicks",
+            expectedValue: "Clicks",
+            in: app
+        )
+        selectSearchConsoleOption(
+            picker: "primaryMetric",
+            option: "impressions",
+            expectedValue: "Impressions",
+            in: app
+        )
+
+        for (option, title) in [
+            ("last24Hours", "24h"),
+            ("last7Days", "7d"),
+            ("last28Days", "28d"),
+            ("last3Months", "3m")
+        ] {
+            selectSearchConsoleOption(
+                picker: "timeRange",
+                option: option,
+                expectedValue: title,
+                in: app
+            )
+        }
+
+        for (option, title) in [
+            ("chart", "Chart"),
+            ("numbers", "Numbers"),
+            ("focus", "Focus")
+        ] {
+            selectSearchConsoleOption(
+                picker: "displayMode",
+                option: option,
+                expectedValue: title,
+                in: app
+            )
+            XCTAssertTrue(
+                app.descendants(matching: .any)[
+                    "settings.searchConsole.dockPreview"
+                ].exists
+            )
+        }
+
+        let refresh = app.descendants(matching: .any)[
+            "settings.searchConsole.refresh"
+        ].firstMatch
+        XCTAssertTrue(refresh.waitForExistence(timeout: 3))
+        refresh.click()
+
+        attachScreenshot(
+            named: "Settings — Search Console — All Controls Verified",
+            in: app
+        )
+    }
+
+    func testSearchConsoleSetupGuideAndPropertyControl() {
+        let app = launchApp(appearance: "dark", activeFeature: "searchConsole")
+        XCTAssertTrue(
+            app.windows["DockMagic Settings"].waitForExistence(timeout: 5)
+        )
+        openSidebarDestination(named: "Search Console", in: app)
+        var manage = app.descendants(matching: .any)[
+            "settings.searchConsole.manage"
+        ].firstMatch
+        if !manage.waitForExistence(timeout: 3) {
+            manage = app.buttons["Setup guide…"].firstMatch
+        }
+        XCTAssertTrue(
+            manage.waitForExistence(timeout: 3),
+            "Neither the connected Manage action nor disconnected setup guide was available."
+        )
+        manage.click()
+        XCTAssertTrue(
+            app.descendants(matching: .any)[
+                "settings.searchConsole.setupSteps"
+            ].waitForExistence(timeout: 3)
+        )
+        XCTAssertTrue(
+            app.descendants(matching: .any)[
+                "settings.searchConsole.guide.googleCloud"
+            ].exists
+        )
+        XCTAssertTrue(
+            app.descendants(matching: .any)[
+                "settings.searchConsole.guide.searchConsole"
+            ].exists
+        )
+        XCTAssertTrue(
+            app.descendants(matching: .any)[
+                "settings.searchConsole.property"
+            ].exists
+        )
+        app.buttons["Done"].click()
+    }
+
+    func testSearchConsoleAdaptiveFocusReferenceScreenshot() {
+        let app = launchApp(appearance: "dark", activeFeature: "searchConsole")
+        XCTAssertTrue(
+            app.windows["DockMagic Settings"].waitForExistence(timeout: 5)
+        )
+        openSidebarDestination(named: "Search Console", in: app)
+        XCTAssertTrue(app.staticTexts["Search Console"].waitForExistence(timeout: 3))
+        XCTAssertTrue(
+            app.descendants(matching: .any)[
+                "settings.searchConsole.dockPreview"
+            ].waitForExistence(timeout: 3)
+        )
+        attachScreenshot(
+            named: "Settings — Search Console — Adaptive Focus Reference",
+            in: app
+        )
+    }
+
+    func testBatteryReferenceLayoutAndActiveDockFeature() {
+        let app = launchApp(appearance: "dark", activeFeature: "batteries")
+        XCTAssertTrue(
+            app.windows["DockMagic Settings"].waitForExistence(timeout: 5)
+        )
+        openSidebarDestination(named: "Batteries", in: app)
+        XCTAssertTrue(
+            app.descendants(matching: .any)[
+                "settings.batteries.device.ui.mouse"
+            ].waitForExistence(timeout: 3)
+        )
+        XCTAssertEqual(
+            sidebarRow(named: "Batteries", in: app).value as? String,
+            "Active"
+        )
+        attachScreenshot(
+            named: "Settings — Batteries — Dark Reference",
+            in: app
+        )
     }
 
     func testGeneralAppearanceControlExposesAllSupportedModes() {
@@ -353,12 +668,17 @@ final class DockMagicUITests: XCTestCase {
 
     private func launchApp(
         appearance: String? = "system",
-        defaultsSuite: String? = nil
+        defaultsSuite: String? = nil,
+        activeFeature: String = "systemMetrics",
+        githubRepositoryURL: String? = nil
     ) -> XCUIApplication {
         let app = XCUIApplication()
+        app.launchEnvironment["DockMagicUITesting"] = "1"
         app.launchArguments += [
+            "-ApplePersistenceIgnoreState",
+            "YES",
             "-DockMagicActiveFeature",
-            "systemMetrics",
+            activeFeature,
             "-DockMagicCodexExecutablePath",
             "/usr/bin/false",
             // Keep UI automation from editing the developer account's real
@@ -377,6 +697,12 @@ final class DockMagicUITests: XCTestCase {
             app.launchEnvironment[
                 "DockMagicUITestDefaultsSuite"
             ] = defaultsSuite
+        }
+        if let githubRepositoryURL {
+            app.launchArguments += [
+                "-DockMagicGitHubRepositoryURL",
+                githubRepositoryURL
+            ]
         }
         app.launch()
         return app
@@ -443,40 +769,57 @@ final class DockMagicUITests: XCTestCase {
 
     private func selectFeature(
         _ title: String,
-        in app: XCUIApplication
+        in app: XCUIApplication,
+        normalizedX: CGFloat = 0.5
     ) {
         // SwiftUI rebuilds the General detail after the active feature changes.
         // Re-query the control so XCUI does not retain a stale element handle.
         let featurePicker = activeFeaturePicker(in: app)
         XCTAssertTrue(featurePicker.waitForExistence(timeout: 3))
-        featurePicker.click()
+        featurePicker.coordinate(
+            withNormalizedOffset: CGVector(dx: normalizedX, dy: 0.5)
+        ).click()
         let rawValues = [
             "DockMagic": "dockMagic",
             "CPU & RAM": "systemMetrics",
             "Network": "network",
             "Storage": "storage",
             "Weather": "weather",
+            "Batteries": "batteries",
+            "GitHub": "github",
             "Codex": "codex",
-            "Claude Code": "claudeCode"
+            "Claude Code": "claudeCode",
+            "Search Console": "searchConsole"
         ]
         guard let rawValue = rawValues[title] else {
             XCTFail("Unknown active feature option: \(title)")
             return
         }
-        let menuItem = app.menuItems[
+        let option = app.buttons[
             "settings.activeFeatureOption.\(rawValue)"
         ].firstMatch
         XCTAssertTrue(
-            menuItem.waitForExistence(timeout: 2),
+            option.waitForExistence(timeout: 2),
             "Missing active feature option: \(title)"
         )
-        menuItem.click()
+        XCTAssertTrue(
+            option.isHittable,
+            "Active feature option is not clickable: \(title)"
+        )
+        option.click()
 
-        if title == "Weather" {
+        if title == "Weather" || title == "Batteries" || title == "GitHub"
+            || title == "Search Console" {
+            let destination = switch title {
+            case "Weather": "weather"
+            case "Batteries": "batteries"
+            case "Search Console": "searchConsole"
+            default: "github"
+            }
             XCTAssertTrue(
-                app.descendants(matching: .any)["settings.weather"]
+                app.descendants(matching: .any)["settings.\(destination)"]
                     .waitForExistence(timeout: 3),
-                "Selecting Weather should open its permission guidance."
+                "Selecting \(title) should open its feature settings."
             )
             openSidebarDestination(named: "General", in: app)
         }
@@ -489,12 +832,16 @@ final class DockMagicUITests: XCTestCase {
             updatedFeaturePicker.waitForExistence(timeout: 3),
             "Picker did not return after selecting \(title).\n\(app.debugDescription)"
         )
+        let valueUpdated = expectation(
+            for: NSPredicate(format: "value == %@", title),
+            evaluatedWith: updatedFeaturePicker
+        )
+        wait(for: [valueUpdated], timeout: 3)
         XCTAssertEqual(updatedFeaturePicker.value as? String, title)
     }
 
     private func activeFeaturePicker(in app: XCUIApplication) -> XCUIElement {
-        app.descendants(matching: .any)["settings.activeFeaturePicker"]
-            .firstMatch
+        app.buttons["settings.activeFeaturePicker"].firstMatch
     }
 
     private func sidebarRow(
@@ -507,8 +854,11 @@ final class DockMagicUITests: XCTestCase {
             "Network": "settings.nav.network",
             "Storage": "settings.nav.storage",
             "Weather": "settings.nav.weather",
+            "Batteries": "settings.nav.batteries",
+            "GitHub": "settings.nav.github",
             "Codex": "settings.nav.codex",
             "Claude Code": "settings.nav.claudeCode",
+            "Search Console": "settings.nav.searchConsole",
             "About": "settings.nav.about"
         ]
 
@@ -532,6 +882,64 @@ final class DockMagicUITests: XCTestCase {
         // Settings content and screenshot capture can invalidate an existing
         // AX snapshot. Resolve the button again immediately before clicking.
         sidebarRow(named: title, in: app).click()
+    }
+
+    private func selectSearchConsoleOption(
+        picker: String,
+        option: String,
+        expectedValue: String,
+        in app: XCUIApplication
+    ) {
+        var pickerElement = app.radioGroups[
+            "settings.searchConsole.\(picker)"
+        ].firstMatch
+        XCTAssertTrue(
+            pickerElement.waitForExistence(timeout: 3),
+            "Missing Search Console picker: \(picker)"
+        )
+
+        let optionOrder: [String]
+        switch picker {
+        case "primaryMetric":
+            optionOrder = ["clicks", "impressions"]
+        case "timeRange":
+            optionOrder = [
+                "last24Hours", "last7Days", "last28Days", "last3Months"
+            ]
+        case "displayMode":
+            optionOrder = ["chart", "numbers", "focus"]
+        default:
+            XCTFail("Unknown Search Console picker: \(picker)")
+            return
+        }
+        guard let optionIndex = optionOrder.firstIndex(of: option) else {
+            XCTFail("Unknown Search Console option: \(option)")
+            return
+        }
+
+        // SwiftUI's segmented-control children occasionally disappear from
+        // the macOS accessibility snapshot after a refresh. Click the actual
+        // segment center through the stable radio-group frame instead.
+        pickerElement.coordinate(
+            withNormalizedOffset: CGVector(
+                dx: (CGFloat(optionIndex) + 0.5) / CGFloat(optionOrder.count),
+                dy: 0.5
+            )
+        ).click()
+
+        pickerElement = app.radioGroups[
+            "settings.searchConsole.\(picker)"
+        ].firstMatch
+        let updated = app.radioGroups[
+            "settings.searchConsole.\(picker)"
+        ].firstMatch
+        XCTAssertTrue(updated.waitForExistence(timeout: 3))
+        let valueUpdated = expectation(
+            for: NSPredicate(format: "value == %@", expectedValue),
+            evaluatedWith: pickerElement
+        )
+        wait(for: [valueUpdated], timeout: 3)
+        XCTAssertEqual(pickerElement.value as? String, expectedValue)
     }
 
     private func attachScreenshot(

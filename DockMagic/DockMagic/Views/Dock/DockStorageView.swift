@@ -12,7 +12,7 @@ struct DockStorageView: View {
             DockNumericTileView(
                 values: [
                     DockNumericValue(
-                        label: "USED",
+                        label: nil,
                         value: snapshot.totalBytes > 0
                             ? snapshot.usage.formatted(
                                 .percent.precision(.fractionLength(0))

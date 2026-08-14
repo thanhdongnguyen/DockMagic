@@ -17,6 +17,8 @@ Settings uses a native `NavigationSplitView`:
   one ring.
 - `Weather`: responsive preview with location name, freshness state, and
   Open-Meteo attribution; there is no connection or Location/privacy section.
+- `Batteries`: live 2×2 Dock preview plus the Mac and every connected accessory
+  for which macOS currently publishes battery data.
 - `Codex`: quota preview, display style, colors, and widths for the two rings;
   there are no connection controls.
 - `Claude Code`: quota preview, display style, colors, and widths for the two
@@ -37,13 +39,19 @@ Settings uses a native `NavigationSplitView`:
 | `StorageMetricsStore` / `StorageMetricsSampler` | Polls the startup volume every 5 seconds and calculates used/available/total capacity |
 | `WeatherStore` | Polls every 10 minutes, caches the snapshot, and owns live/stale/unavailable state |
 | `OpenMeteoWeatherProvider` | Obtains Core Location, calls the Forecast API, validates HTTP/JSON, and maps WMO codes |
+| `BatteryMetricsStore` | Re-enumerates live battery sources every 2 seconds and replaces disconnected devices atomically |
+| `SystemPowerSourceBatteryReader` | Reads the Mac's internal battery through public `IOPowerSources` APIs |
+| `IORegistryAccessoryBatteryReader` | Reads currently registered Bluetooth/USB accessory battery properties through public IOKit registry APIs |
+| `GitHubRepositoryStore` | Polls the selected repository every 15 minutes, owns history/error/rate-limit state, and persists the bounded cache |
+| `GitHubRepositoryAPIClient` | Calls GitHub's repository endpoint, decodes star/fork counts, and handles ETag and rate-limit headers |
+| `KeychainGitHubCredentialVault` | Stores or deletes the optional GitHub access token in macOS Keychain |
 | `CodexUsageStore` | Polling lifecycle and live/stale/unavailable state |
 | `CodexAppServerRateLimitProvider` | Resolves the CLI, communicates with `codex app-server` over JSON-RPC, and parses quotas |
 | `ClaudeCodeUsageStore` | Polls the local snapshot and owns freshness and live/stale/unavailable state |
 | `ClaudeCodeStatusLineBridge` | Installs/removes the status-line wrapper and preserves the previous configuration |
 | `ClaudeCodeStatusLineRateLimitProvider` | Reads and parses only the local `rate_limits` cache |
 | `DockTileController` | Maintains one long-lived `NSHostingView`, updates its root view, and calls `NSDockTile.display()` |
-| `DockMetricsView` / `DockNetworkView` / `DockStorageView` / `DockWeatherView` / `CodexDockView` | Pure renderers driven by input models and appearance |
+| `DockMetricsView` / `DockNetworkView` / `DockStorageView` / `DockWeatherView` / `DockBatteryView` / `DockGitHubView` / `CodexDockView` | Pure renderers driven by input models and appearance |
 | `SettingsView` | Preference UI; does not create timers or call Mach APIs |
 | `DesignSystem` / `ProjectTheme` | Tokens, components, semantic palette, and appearance-aware theme root |
 
@@ -80,12 +88,16 @@ flowchart LR
     A -->|"Network active"| R["NetworkMetricsStore 1 Hz"]
     A -->|"Storage active"| S["StorageMetricsStore 5 s"]
     A -->|"Weather active"| W["WeatherStore 10 min"]
+    A -->|"Batteries active"| B["BatteryMetricsStore 2 s"]
+    A -->|"GitHub active"| G["GitHubRepositoryStore 15 min"]
     A -->|"Codex active"| C["CodexUsageStore 5 min"]
     A -->|"Claude Code active"| L["ClaudeCodeUsageStore 15 s"]
     M --> D["DockTilePresentation"]
     R --> D
     S --> D
     W --> D
+    B --> D
+    G --> D
     C --> D
     L --> D
     P --> D
@@ -174,7 +186,10 @@ it does not scrape Weather.app or require a Shortcut or helper app.
 
 `CoreLocationWeatherCoordinateProvider` requests standard Location permission
 and makes a one-shot `requestLocation()` call with three-kilometer accuracy and
-a 20-second timeout. One HTTPS request sends the coordinates and requests the
+a 20-second timeout. The Developer ID app keeps Hardened Runtime enabled and
+signs with the public `com.apple.security.personal-information.location`
+entitlement so macOS can present the authorization prompt. One HTTPS request
+sends the coordinates and requests the
 current temperature, apparent temperature, WMO code, daylight state, daily
 high/low, and precipitation probability. The provider validates coordinates,
 HTTP status, schema, and value ranges before creating `WeatherSnapshot`.
@@ -203,7 +218,68 @@ a desktop binary must not be treated as secret. Weather Settings places
 `Open-Meteo · CC BY 4.0` directly below the production preview so attribution
 remains clear rather than being hidden at the end of setup.
 
-## 9. Codex quota
+## 9. Batteries
+
+The Mac battery is read through `IOPSCopyPowerSourcesInfo`,
+`IOPSCopyPowerSourcesList`, and `IOPSGetPowerSourceDescription`. Connected
+accessories are enumerated from active IOKit services and parsed only when a
+current battery property is present. The implementation uses public local APIs
+and does not link `BatteryCenter.framework`, invoke `ioreg` or
+`system_profiler`, initiate Bluetooth pairing, or request Bluetooth access.
+
+Accessory registry keys are driver-published rather than a single documented
+cross-device battery schema. The parser therefore normalizes known percentage,
+left/right earbud, case, charging, product-name, and device-identity variants,
+then deduplicates multiple services for the same device. Unknown hardware is
+still represented as a generic connected accessory when macOS publishes a
+battery percentage. A device that is merely paired but disconnected is not
+shown. AirPods charging-case status is intentionally transient and disappears
+when macOS stops publishing the case value.
+
+`BatteryMetricsStore` replaces the complete snapshot every two seconds. This
+gives connect, disconnect, and reconnect a bounded two-second response without
+retaining stale devices. Sleep and session-unlock notifications trigger an
+immediate re-enumeration. Settings may temporarily run the store while its
+Batteries page is visible; otherwise the store runs only when Batteries owns
+the Dock.
+
+The Dock renders at most four devices in deterministic order: Mac, earbuds,
+charging case, pointing devices/keyboards, headphones, then generic
+accessories. Layouts for one through four devices are balanced independently.
+Settings lists every current device even when more than four exist. Levels at
+50% or above are green, 20–49% are amber, and below 20% are red.
+
+These public APIs and local reads are compatible with direct Developer ID
+distribution and Hardened Runtime. No App Sandbox or Mac App Store capability
+is required. Hardware whose driver does not publish a battery value cannot be
+displayed; this is a macOS/device limitation rather than a retained stale
+state.
+
+## 10. GitHub repository metrics
+
+`GitHubRepositoryAPIClient` calls `GET /repos/{owner}/{repo}` over HTTPS and
+decodes `stargazers_count`, `forks_count`, and `full_name`. Requests include an
+explicit GitHub API version, media type, and User-Agent. The response ETag is
+sent as `If-None-Match` on later polls; `304 Not Modified` reuses the previous
+counts while recording the new sample time.
+
+`GitHubRepositoryStore` starts immediately and then polls every 15 minutes only
+while GitHub owns the Dock. Manual refresh remains available in Settings. The
+store coalesces concurrent refreshes, retains the last successful values after
+an error, and keeps at most 672 samples/seven days. On primary or secondary
+rate limiting it waits until at least the reset or retry time before another
+automatic request. Sleep and session activation trigger an immediate refresh.
+
+Public repositories need no credentials. For private repositories or a higher
+rate limit, the user may supply a personal access token with minimum read-only
+Metadata access. `KeychainGitHubCredentialVault` stores that token as a generic
+password with `kSecAttrAccessibleAfterFirstUnlock`; it is never placed in
+UserDefaults, logs, snapshots, or view state after saving. OAuth and GitHub App
+credentials are valid GitHub API mechanisms, but DockMagic's direct personal
+integration intentionally accepts a user-owned token so it does not ship a
+client secret or require an external callback service.
+
+## 11. Codex quota
 
 When Codex is selected in General, the executable is resolved automatically in
 this order: a persisted override, if present; the `CODEX_EXECUTABLE` variable;
@@ -238,7 +314,7 @@ Polling defaults to every five minutes and begins as soon as Codex is selected;
 Settings does not require a manual refresh or executable selection. DockMagic
 does not read credential files.
 
-## 10. Claude Code quota
+## 12. Claude Code quota
 
 Claude Code provides `/usage` for interactive users, but the Anthropic-documented
 automatic integration is `statusLine`. After an assistant response, Claude Code
@@ -269,7 +345,7 @@ cache, or an invalid schema, becomes `unavailable`. DockMagic does not infer
 the user-level bridge; the user must then remove the override or configure an
 equivalent wrapper in that project.
 
-## 11. Dock rendering
+## 13. Dock rendering
 
 `DockTileController` installs one `NSHostingView` into
 `NSApp.dockTile.contentView` and retains that host for the app's lifetime. It
@@ -299,7 +375,7 @@ needs refreshing, then calls `display()` on the main actor.
 The Settings preview uses the same production renderer but allows short
 animations to provide immediate interaction feedback.
 
-## 12. Persistence and privacy
+## 14. Persistence and privacy
 
 `UserDefaults` stores only:
 
@@ -309,11 +385,14 @@ animations to provide immediate interaction feedback.
 - RGBA values, stroke widths, and Chart/Numbers display styles for CPU/RAM,
   Storage, Codex, and Claude Code;
 - RGBA values for the Network download and upload series;
+- the GitHub repository URL, star/fork colors, display style, and up to seven
+  days of count/timestamp history with its ETag;
 - the last successful Weather snapshot;
 - the Codex executable override, if present.
 
-Real-time metric samples, Network history, tokens, prompts, and account metadata
-are not persisted in the app container. CPU/RAM, Network, and Storage data do
+Real-time metric samples, Network history, prompts, and account metadata are not
+persisted in the app container. The optional GitHub access token is persisted
+only in macOS Keychain. CPU/RAM, Network, and Storage data do
 not leave the Mac. The Weather cache contains only data already shown to the
 user (location label, temperature, condition, and freshness); current
 coordinates are sent to Open-Meteo over HTTPS and are not stored as location
@@ -322,7 +401,7 @@ The Claude Code bridge persists a minimal usage snapshot because the status
 line delivers data only in response to events; the file contains only the two
 `rate_limits` windows and is deleted when the bridge is removed.
 
-## 13. Threading and failure containment
+## 15. Threading and failure containment
 
 Stores, the app model, and the AppKit bridge are `@MainActor`. Mach, network,
 and file-system reads and process I/O are encapsulated behind protocols so they
@@ -333,7 +412,7 @@ loop.
 Provider or process failures must become descriptive UI states. They must not
 crash the app or leave another feature running in the background.
 
-## 14. Verification contract
+## 16. Verification contract
 
 Every change must be checked according to its risk:
 

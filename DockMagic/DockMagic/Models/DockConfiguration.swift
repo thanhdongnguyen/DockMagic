@@ -7,8 +7,11 @@ enum DockFeature: String, CaseIterable, Codable, Identifiable, Sendable {
     case network
     case storage
     case weather
+    case batteries
+    case github
     case codex
     case claudeCode
+    case searchConsole
 
     static let storageKey = "DockMagicActiveFeature"
 
@@ -26,10 +29,16 @@ enum DockFeature: String, CaseIterable, Codable, Identifiable, Sendable {
             "Storage"
         case .weather:
             "Weather"
+        case .batteries:
+            "Batteries"
+        case .github:
+            "GitHub"
         case .codex:
             "Codex"
         case .claudeCode:
             "Claude Code"
+        case .searchConsole:
+            "Search Console"
         }
     }
 
@@ -45,10 +54,16 @@ enum DockFeature: String, CaseIterable, Codable, Identifiable, Sendable {
             "Startup disk usage"
         case .weather:
             "Current conditions from Open-Meteo"
+        case .batteries:
+            "Battery levels for your Mac and connected devices"
+        case .github:
+            "Repository stars and forks"
         case .codex:
             "Remaining usage limits"
         case .claudeCode:
             "Remaining usage limits"
+        case .searchConsole:
+            "Google Search clicks and impressions"
         }
     }
 
@@ -64,10 +79,16 @@ enum DockFeature: String, CaseIterable, Codable, Identifiable, Sendable {
             "internaldrive.fill"
         case .weather:
             "cloud.sun.fill"
+        case .batteries:
+            "battery.75percent"
+        case .github:
+            "point.3.connected.trianglepath.dotted"
         case .codex:
             "sparkles"
         case .claudeCode:
             "chevron.left.forwardslash.chevron.right"
+        case .searchConsole:
+            "magnifyingglass"
         }
     }
 }
@@ -318,6 +339,26 @@ struct DockNetworkAppearance: Codable, Equatable, Sendable {
     var uploadColor: DockColor
 }
 
+struct DockGitHubAppearance: Codable, Equatable, Sendable {
+    var starColor: DockColor
+    var forkColor: DockColor
+    private(set) var displayStyle: DockDisplayStyle
+
+    init(
+        starColor: DockColor,
+        forkColor: DockColor,
+        displayStyle: DockDisplayStyle = .chart
+    ) {
+        self.starColor = starColor
+        self.forkColor = forkColor
+        self.displayStyle = displayStyle
+    }
+
+    mutating func setDisplayStyle(_ value: DockDisplayStyle) {
+        displayStyle = value
+    }
+}
+
 enum DockFeatureDefaults {
     static let systemMetricsAppearance = DockRingAppearance(
         outerColor: DockColor(red: 1, green: 0.552_941, blue: 0.156_863),
@@ -334,6 +375,11 @@ enum DockFeatureDefaults {
     static let storageAppearance = DockSingleRingAppearance(
         color: DockColor(red: 0.796_078, green: 0.188_235, blue: 0.878_431),
         width: 0.16
+    )
+
+    static let githubAppearance = DockGitHubAppearance(
+        starColor: DockColor(red: 1, green: 0.729_412, blue: 0.196_078),
+        forkColor: DockColor(red: 0.258_824, green: 0.776_471, blue: 0.968_627)
     )
 
     static let codexAppearance = DockRingAppearance(
@@ -369,6 +415,12 @@ enum DockTilePresentation: Equatable, Sendable {
         errorDescription: String?
     )
     case weather(state: WeatherState)
+    case batteries(snapshot: BatteryMetricsSnapshot, errorDescription: String?)
+    case github(
+        history: [GitHubRepositorySnapshot],
+        appearance: DockGitHubAppearance,
+        errorDescription: String?
+    )
     case codex(
         state: CodexUsageState,
         appearance: DockRingAppearance
@@ -376,5 +428,9 @@ enum DockTilePresentation: Equatable, Sendable {
     case claudeCode(
         state: ClaudeCodeUsageState,
         appearance: DockRingAppearance
+    )
+    case searchConsole(
+        state: SearchConsoleState,
+        configuration: SearchConsoleConfiguration
     )
 }

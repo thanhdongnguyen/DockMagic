@@ -47,6 +47,26 @@
 		DAA000000000000000000007 /* DockNetworkView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAB000000000000000000007 /* DockNetworkView.swift */; };
 		DAA000000000000000000008 /* DockStorageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAB000000000000000000008 /* DockStorageView.swift */; };
 		DAA000000000000000000009 /* NetworkHistoryChart.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAB000000000000000000009 /* NetworkHistoryChart.swift */; };
+		E0A000000000000000000001 /* BatteryMetricsSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0B000000000000000000001 /* BatteryMetricsSnapshot.swift */; };
+		E0A000000000000000000002 /* BatteryMetricsSampler.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0B000000000000000000002 /* BatteryMetricsSampler.swift */; };
+		E0A000000000000000000003 /* BatteryMetricsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0B000000000000000000003 /* BatteryMetricsStore.swift */; };
+		E0A000000000000000000004 /* DockBatteryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0B000000000000000000004 /* DockBatteryView.swift */; };
+		E0A000000000000000000005 /* BatteryFeatureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0B000000000000000000005 /* BatteryFeatureTests.swift */; };
+		F0A000000000000000000001 /* GitHubRepositorySnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0B000000000000000000001 /* GitHubRepositorySnapshot.swift */; };
+		F0A000000000000000000002 /* DockGitHubView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0B000000000000000000002 /* DockGitHubView.swift */; };
+		F0A000000000000000000003 /* GitHubSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0B000000000000000000003 /* GitHubSettingsView.swift */; };
+		F0A000000000000000000004 /* GitHubRepositoryAPIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0B000000000000000000004 /* GitHubRepositoryAPIClient.swift */; };
+		F0A000000000000000000005 /* GitHubCredentialVault.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0B000000000000000000005 /* GitHubCredentialVault.swift */; };
+		F0A000000000000000000006 /* GitHubRepositoryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0B000000000000000000006 /* GitHubRepositoryStore.swift */; };
+		F0A000000000000000000007 /* GitHubFeatureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0B000000000000000000007 /* GitHubFeatureTests.swift */; };
+		A1A000000000000000000001 /* SearchConsoleModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B000000000000000000001 /* SearchConsoleModels.swift */; };
+		A1A000000000000000000002 /* SearchConsoleConfigurationRecord.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B000000000000000000002 /* SearchConsoleConfigurationRecord.swift */; };
+		A1A000000000000000000003 /* SearchConsoleCredentialVault.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B000000000000000000003 /* SearchConsoleCredentialVault.swift */; };
+		A1A000000000000000000004 /* SearchConsoleAPIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B000000000000000000004 /* SearchConsoleAPIClient.swift */; };
+		A1A000000000000000000005 /* SearchConsoleStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B000000000000000000005 /* SearchConsoleStore.swift */; };
+		A1A000000000000000000006 /* DockSearchConsoleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B000000000000000000006 /* DockSearchConsoleView.swift */; };
+		A1A000000000000000000007 /* SearchConsoleSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B000000000000000000007 /* SearchConsoleSettingsView.swift */; };
+		A1A000000000000000000008 /* SearchConsoleFeatureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B000000000000000000008 /* SearchConsoleFeatureTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -112,6 +132,26 @@
 		DAB000000000000000000007 /* DockNetworkView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DockNetworkView.swift; sourceTree = "<group>"; };
 		DAB000000000000000000008 /* DockStorageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DockStorageView.swift; sourceTree = "<group>"; };
 		DAB000000000000000000009 /* NetworkHistoryChart.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkHistoryChart.swift; sourceTree = "<group>"; };
+		E0B000000000000000000001 /* BatteryMetricsSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BatteryMetricsSnapshot.swift; sourceTree = "<group>"; };
+		E0B000000000000000000002 /* BatteryMetricsSampler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BatteryMetricsSampler.swift; sourceTree = "<group>"; };
+		E0B000000000000000000003 /* BatteryMetricsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BatteryMetricsStore.swift; sourceTree = "<group>"; };
+		E0B000000000000000000004 /* DockBatteryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DockBatteryView.swift; sourceTree = "<group>"; };
+		E0B000000000000000000005 /* BatteryFeatureTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BatteryFeatureTests.swift; sourceTree = "<group>"; };
+		F0B000000000000000000001 /* GitHubRepositorySnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitHubRepositorySnapshot.swift; sourceTree = "<group>"; };
+		F0B000000000000000000002 /* DockGitHubView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DockGitHubView.swift; sourceTree = "<group>"; };
+		F0B000000000000000000003 /* GitHubSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitHubSettingsView.swift; sourceTree = "<group>"; };
+		F0B000000000000000000004 /* GitHubRepositoryAPIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitHubRepositoryAPIClient.swift; sourceTree = "<group>"; };
+		F0B000000000000000000005 /* GitHubCredentialVault.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitHubCredentialVault.swift; sourceTree = "<group>"; };
+		F0B000000000000000000006 /* GitHubRepositoryStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitHubRepositoryStore.swift; sourceTree = "<group>"; };
+		F0B000000000000000000007 /* GitHubFeatureTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitHubFeatureTests.swift; sourceTree = "<group>"; };
+		A1B000000000000000000001 /* SearchConsoleModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchConsoleModels.swift; sourceTree = "<group>"; };
+		A1B000000000000000000002 /* SearchConsoleConfigurationRecord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchConsoleConfigurationRecord.swift; sourceTree = "<group>"; };
+		A1B000000000000000000003 /* SearchConsoleCredentialVault.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchConsoleCredentialVault.swift; sourceTree = "<group>"; };
+		A1B000000000000000000004 /* SearchConsoleAPIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchConsoleAPIClient.swift; sourceTree = "<group>"; };
+		A1B000000000000000000005 /* SearchConsoleStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchConsoleStore.swift; sourceTree = "<group>"; };
+		A1B000000000000000000006 /* DockSearchConsoleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DockSearchConsoleView.swift; sourceTree = "<group>"; };
+		A1B000000000000000000007 /* SearchConsoleSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchConsoleSettingsView.swift; sourceTree = "<group>"; };
+		A1B000000000000000000008 /* SearchConsoleFeatureTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchConsoleFeatureTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -189,6 +229,9 @@
 			isa = PBXGroup;
 			children = (
 				03AB4D84301BB7FA006D74C0 /* DockMagicTests.swift */,
+				E0B000000000000000000005 /* BatteryFeatureTests.swift */,
+				F0B000000000000000000007 /* GitHubFeatureTests.swift */,
+				A1B000000000000000000008 /* SearchConsoleFeatureTests.swift */,
 			);
 			path = DockMagicTests;
 			sourceTree = "<group>";
@@ -213,7 +256,11 @@
 		D0C200000000000000000002 /* Models */ = {
 			isa = PBXGroup;
 			children = (
+				A1B000000000000000000002 /* SearchConsoleConfigurationRecord.swift */,
+				A1B000000000000000000001 /* SearchConsoleModels.swift */,
+				E0B000000000000000000001 /* BatteryMetricsSnapshot.swift */,
 				D7B000000000000000000001 /* DockConfiguration.swift */,
+				F0B000000000000000000001 /* GitHubRepositorySnapshot.swift */,
 				D7B000000000000000000002 /* CodexRateLimitSnapshot.swift */,
 				DAB000000000000000000001 /* NetworkMetricsSnapshot.swift */,
 				DAB000000000000000000002 /* StorageMetricsSnapshot.swift */,
@@ -226,9 +273,14 @@
 		D0C200000000000000000003 /* Services */ = {
 			isa = PBXGroup;
 			children = (
+				A1B000000000000000000004 /* SearchConsoleAPIClient.swift */,
+				A1B000000000000000000003 /* SearchConsoleCredentialVault.swift */,
+				E0B000000000000000000002 /* BatteryMetricsSampler.swift */,
 				D8B000000000000000000001 /* ClaudeCodeRateLimitProvider.swift */,
 				D7B000000000000000000003 /* CodexRateLimitProvider.swift */,
 				D0C100000000000000000004 /* DockTileController.swift */,
+				F0B000000000000000000005 /* GitHubCredentialVault.swift */,
+				F0B000000000000000000004 /* GitHubRepositoryAPIClient.swift */,
 				DAB000000000000000000003 /* NetworkMetricsSampler.swift */,
 				DAB000000000000000000004 /* StorageMetricsSampler.swift */,
 				D0C100000000000000000002 /* SystemMetricsSampler.swift */,
@@ -240,10 +292,13 @@
 		D0C200000000000000000004 /* Stores */ = {
 			isa = PBXGroup;
 			children = (
+				A1B000000000000000000005 /* SearchConsoleStore.swift */,
+				E0B000000000000000000003 /* BatteryMetricsStore.swift */,
 				D8B000000000000000000002 /* ClaudeCodeUsageStore.swift */,
 				D7B000000000000000000005 /* CodexUsageStore.swift */,
 				D7B000000000000000000006 /* DockAppModel.swift */,
 				D7B000000000000000000004 /* DockPreferencesStore.swift */,
+				F0B000000000000000000006 /* GitHubRepositoryStore.swift */,
 				DAB000000000000000000005 /* NetworkMetricsStore.swift */,
 				DAB000000000000000000006 /* StorageMetricsStore.swift */,
 				D0C100000000000000000003 /* SystemMetricsStore.swift */,
@@ -264,6 +319,9 @@
 		D0C200000000000000000006 /* Dock */ = {
 			isa = PBXGroup;
 			children = (
+				A1B000000000000000000006 /* DockSearchConsoleView.swift */,
+				E0B000000000000000000004 /* DockBatteryView.swift */,
+				F0B000000000000000000002 /* DockGitHubView.swift */,
 				D0C100000000000000000005 /* DockMetricsView.swift */,
 				DAB000000000000000000007 /* DockNetworkView.swift */,
 				DAB000000000000000000008 /* DockStorageView.swift */,
@@ -275,6 +333,8 @@
 		D0C200000000000000000008 /* Settings */ = {
 			isa = PBXGroup;
 			children = (
+				A1B000000000000000000007 /* SearchConsoleSettingsView.swift */,
+				F0B000000000000000000003 /* GitHubSettingsView.swift */,
 				DAB000000000000000000009 /* NetworkHistoryChart.swift */,
 				D0C100000000000000000007 /* SettingsView.swift */,
 			);
@@ -448,6 +508,13 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A1A000000000000000000001 /* SearchConsoleModels.swift in Sources */,
+				A1A000000000000000000002 /* SearchConsoleConfigurationRecord.swift in Sources */,
+				A1A000000000000000000003 /* SearchConsoleCredentialVault.swift in Sources */,
+				A1A000000000000000000004 /* SearchConsoleAPIClient.swift in Sources */,
+				A1A000000000000000000005 /* SearchConsoleStore.swift in Sources */,
+				A1A000000000000000000006 /* DockSearchConsoleView.swift in Sources */,
+				A1A000000000000000000007 /* SearchConsoleSettingsView.swift in Sources */,
 				03AB4D71301BB7F7006D74C0 /* DockMagicApp.swift in Sources */,
 				D0C000000000000000000001 /* SystemMetricsSnapshot.swift in Sources */,
 				D0C000000000000000000002 /* SystemMetricsSampler.swift in Sources */,
@@ -483,6 +550,16 @@
 				DAA000000000000000000007 /* DockNetworkView.swift in Sources */,
 				DAA000000000000000000008 /* DockStorageView.swift in Sources */,
 				DAA000000000000000000009 /* NetworkHistoryChart.swift in Sources */,
+				E0A000000000000000000001 /* BatteryMetricsSnapshot.swift in Sources */,
+				E0A000000000000000000002 /* BatteryMetricsSampler.swift in Sources */,
+				E0A000000000000000000003 /* BatteryMetricsStore.swift in Sources */,
+				E0A000000000000000000004 /* DockBatteryView.swift in Sources */,
+				F0A000000000000000000001 /* GitHubRepositorySnapshot.swift in Sources */,
+				F0A000000000000000000002 /* DockGitHubView.swift in Sources */,
+				F0A000000000000000000003 /* GitHubSettingsView.swift in Sources */,
+				F0A000000000000000000004 /* GitHubRepositoryAPIClient.swift in Sources */,
+				F0A000000000000000000005 /* GitHubCredentialVault.swift in Sources */,
+				F0A000000000000000000006 /* GitHubRepositoryStore.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -491,6 +568,9 @@
 			buildActionMask = 2147483647;
 			files = (
 				03AB4D85301BB7FA006D74C0 /* DockMagicTests.swift in Sources */,
+				E0A000000000000000000005 /* BatteryFeatureTests.swift in Sources */,
+				F0A000000000000000000007 /* GitHubFeatureTests.swift in Sources */,
+				A1A000000000000000000008 /* SearchConsoleFeatureTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

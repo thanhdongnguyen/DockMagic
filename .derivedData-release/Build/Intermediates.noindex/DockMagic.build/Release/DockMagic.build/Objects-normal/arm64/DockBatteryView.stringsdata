@@ -1,0 +1,16 @@
+{
+  "source": "/Users/dongnt/Desktop/github/dockmagic/DockMagic/DockMagic/Views/Dock/DockBatteryView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "Battery levels",
+        "location": {
+          "startingColumn": 29,
+          "startingLine": 31
+        }
+      }
+    ]
+  },
+  "version": 1
+}

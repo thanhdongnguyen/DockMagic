@@ -20,13 +20,40 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     override convenience init() {
         self.init(
-            appModel: DockAppModel(),
+            appModel: Self.makeAppModel(),
             settingsWindowRouter: SettingsWindowRouter(),
             dockTile: NSApplication.shared.dockTile,
             appearanceStore: DockMagicRuntimeDefaults.current,
             notificationCenter: .default,
             workspaceNotificationCenter: NSWorkspace.shared.notificationCenter
         )
+    }
+
+    private static func makeAppModel(
+        environment: [String: String] = ProcessInfo.processInfo.environment
+    ) -> DockAppModel {
+        guard environment["DockMagicUITesting"] != "1" else {
+            return DockAppModel(
+                weatherStore: WeatherStore(
+                    provider: DockMagicUITestWeatherProvider(),
+                    authorizationProvider: DockMagicUITestWeatherAuthorizationProvider(),
+                    cache: DockMagicUITestWeatherCache()
+                ),
+                batteryStore: BatteryMetricsStore(
+                    sampler: DockMagicUITestBatterySampler(),
+                    samplingInterval: .seconds(60)
+                ),
+                githubStore: GitHubRepositoryStore(
+                    api: DockMagicUITestGitHubProvider(),
+                    vault: InMemoryGitHubCredentialVault(),
+                    cache: InMemoryGitHubRepositoryHistoryCache(),
+                    pollingInterval: 60
+                ),
+                searchConsoleStore: SearchConsoleStore.uiTestFixture()
+            )
+        }
+
+        return DockAppModel()
     }
 
     init(
@@ -161,6 +188,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         ) { [weak self] _ in
             Task { @MainActor [weak self] in
                 await self?.appModel.refreshActiveWeatherAfterResume()
+                await self?.appModel.refreshActiveBatteriesAfterResume()
+                await self?.appModel.refreshActiveGitHubAfterResume()
             }
         }
         workspaceSessionActiveObserver = workspaceNotificationCenter.addObserver(
@@ -170,8 +199,118 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         ) { [weak self] _ in
             Task { @MainActor [weak self] in
                 await self?.appModel.refreshActiveWeatherAfterResume()
+                await self?.appModel.refreshActiveBatteriesAfterResume()
+                await self?.appModel.refreshActiveGitHubAfterResume()
             }
         }
+    }
+}
+
+private struct DockMagicUITestWeatherProvider: WeatherSnapshotProviding {
+    func fetchWeather() async throws -> WeatherSnapshot {
+        let now = Date()
+        return WeatherSnapshot(
+            location: "Ho Chi Minh City, Vietnam",
+            temperatureCelsius: 29,
+            feelsLikeCelsius: 32,
+            conditionDescription: "Partly cloudy",
+            condition: .partlyCloudy,
+            highCelsius: 33,
+            lowCelsius: 26,
+            precipitationChance: 0.2,
+            isDaylight: true,
+            observedAt: now,
+            fetchedAt: now
+        )
+    }
+}
+
+private struct DockMagicUITestWeatherAuthorizationProvider:
+    WeatherLocationAuthorizationProviding
+{
+    @MainActor
+    func weatherLocationAuthorization() -> WeatherLocationAuthorization {
+        .authorized
+    }
+}
+
+private struct DockMagicUITestWeatherCache: WeatherSnapshotCaching {
+    func load() -> WeatherSnapshot? {
+        nil
+    }
+
+    func save(_ snapshot: WeatherSnapshot) {}
+}
+
+private struct DockMagicUITestBatterySampler: BatteryMetricsSampling {
+    func sample() async throws -> BatteryMetricsSnapshot {
+        let now = Date()
+        return BatteryMetricsSnapshot(
+            devices: [
+                BatteryDeviceSnapshot(
+                    id: "ui.macbook",
+                    name: "MacBook Pro",
+                    kind: .macBook,
+                    level: 0.74,
+                    isCharging: true,
+                    observedAt: now
+                ),
+                BatteryDeviceSnapshot(
+                    id: "ui.airpods",
+                    name: "AirPods Pro",
+                    kind: .airPods,
+                    level: 0.81,
+                    isCharging: true,
+                    detail: "Connected",
+                    observedAt: now
+                ),
+                BatteryDeviceSnapshot(
+                    id: "ui.case",
+                    name: "Charging Case",
+                    kind: .chargingCase,
+                    level: 0.62,
+                    detail: "Updated just now",
+                    observedAt: now
+                ),
+                BatteryDeviceSnapshot(
+                    id: "ui.mouse",
+                    name: "Magic Mouse",
+                    kind: .magicMouse,
+                    level: 0.39,
+                    observedAt: now
+                )
+            ],
+            sampledAt: now
+        )
+    }
+}
+
+private struct DockMagicUITestGitHubProvider:
+    GitHubRepositoryAPIProviding
+{
+    func fetchRepository(
+        _ reference: GitHubRepositoryReference,
+        accessToken: String?,
+        etag: String?
+    ) async throws -> GitHubRepositoryFetchResult {
+        let rateLimit = GitHubRateLimit(
+            limit: accessToken == nil ? 60 : 5_000,
+            remaining: accessToken == nil ? 59 : 4_999,
+            resetAt: Date().addingTimeInterval(60 * 60)
+        )
+        if etag != nil {
+            return .notModified(etag: "\"dockmagic-ui-test\"", rateLimit: rateLimit)
+        }
+        return .modified(
+            snapshot: GitHubRepositorySnapshot(
+                repository: reference.fullName,
+                stars: 12_742,
+                forks: 824,
+                fetchedAt: Date()
+            ),
+            etag: "\"dockmagic-ui-test\"",
+            rateLimit: rateLimit
+        )
     }
 }
 
@@ -190,7 +329,7 @@ struct DockMagicApp: App {
                 windowRouter: appDelegate.settingsWindowRouter
             )
         }
-        .defaultSize(width: 1_020, height: 740)
+        .defaultSize(width: 1_160, height: 620)
         .windowResizability(.contentMinSize)
         .handlesExternalEvents(matching: [SettingsWindowRouter.sceneID])
         .commands {

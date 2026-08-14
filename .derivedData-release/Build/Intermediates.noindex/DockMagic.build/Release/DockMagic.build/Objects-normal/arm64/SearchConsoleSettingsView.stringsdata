@@ -1,0 +1,192 @@
+{
+  "source": "/Users/dongnt/Desktop/github/dockmagic/DockMagic/DockMagic/Views/Settings/SearchConsoleSettingsView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "Service account could not be connected",
+        "location": {
+          "startingColumn": 13,
+          "startingLine": 40
+        }
+      },
+      {
+        "comment": "",
+        "key": "OK",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 46
+        }
+      },
+      {
+        "comment": "",
+        "key": "Manage…",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 82
+        }
+      },
+      {
+        "comment": "",
+        "key": "Live Dock preview",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 97
+        }
+      },
+      {
+        "comment": "",
+        "key": "Refresh Search Console now",
+        "location": {
+          "startingColumn": 45,
+          "startingLine": 150
+        }
+      },
+      {
+        "comment": "",
+        "key": "Data source & security",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 167
+        }
+      },
+      {
+        "comment": "",
+        "key": "Replace JSON Key…",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 191
+        }
+      },
+      {
+        "comment": "",
+        "key": "Recent data may be preliminary and subject to change as Google finalizes results.",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 208
+        }
+      },
+      {
+        "comment": "",
+        "key": "Connect Google Search Console",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 229
+        }
+      },
+      {
+        "comment": "",
+        "key": "Import a service-account JSON key to show clicks and impressions in the Dock.",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 232
+        }
+      },
+      {
+        "comment": "",
+        "key": "Connect Service Account…",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 241
+        }
+      },
+      {
+        "comment": "",
+        "key": "Setup guide…",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 244
+        }
+      },
+      {
+        "comment": "",
+        "key": "Choose JSON Key…",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 430
+        }
+      },
+      {
+        "comment": "",
+        "key": "Done",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 365
+        }
+      },
+      {
+        "comment": "",
+        "key": "Search Console connection",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 357
+        }
+      },
+      {
+        "comment": "",
+        "key": "Create the JSON key in Google Cloud, then grant its email access to your Search Console property.",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 360
+        }
+      },
+      {
+        "comment": "",
+        "key": "Open Google Cloud IAM",
+        "location": {
+          "startingColumn": 21,
+          "startingLine": 373
+        }
+      },
+      {
+        "comment": "",
+        "key": "Open Search Console",
+        "location": {
+          "startingColumn": 21,
+          "startingLine": 378
+        }
+      },
+      {
+        "comment": "",
+        "key": "Connected account",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 388
+        }
+      },
+      {
+        "comment": "",
+        "key": "Property",
+        "location": {
+          "startingColumn": 25,
+          "startingLine": 397
+        }
+      },
+      {
+        "comment": "",
+        "key": "Replace JSON Key…",
+        "location": {
+          "startingColumn": 32,
+          "startingLine": 415
+        }
+      },
+      {
+        "comment": "",
+        "key": "Disconnect",
+        "location": {
+          "startingColumn": 32,
+          "startingLine": 417
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 464
+        }
+      }
+    ]
+  },
+  "version": 1
+}

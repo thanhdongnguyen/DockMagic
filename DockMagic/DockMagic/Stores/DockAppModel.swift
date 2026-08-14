@@ -9,8 +9,11 @@ final class DockAppModel {
     let networkStore: NetworkMetricsStore
     let storageStore: StorageMetricsStore
     let weatherStore: WeatherStore
+    let batteryStore: BatteryMetricsStore
+    let githubStore: GitHubRepositoryStore
     let codexStore: CodexUsageStore
     let claudeCodeStore: ClaudeCodeUsageStore
+    let searchConsoleStore: SearchConsoleStore
 
     private(set) var isRunning = false
 
@@ -26,8 +29,11 @@ final class DockAppModel {
         networkStore: NetworkMetricsStore? = nil,
         storageStore: StorageMetricsStore? = nil,
         weatherStore: WeatherStore? = nil,
+        batteryStore: BatteryMetricsStore? = nil,
+        githubStore: GitHubRepositoryStore? = nil,
         codexStore: CodexUsageStore? = nil,
-        claudeCodeStore: ClaudeCodeUsageStore? = nil
+        claudeCodeStore: ClaudeCodeUsageStore? = nil,
+        searchConsoleStore: SearchConsoleStore? = nil
     ) {
         let preferences = preferences ?? DockPreferencesStore()
         self.preferences = preferences
@@ -35,10 +41,16 @@ final class DockAppModel {
         self.networkStore = networkStore ?? NetworkMetricsStore()
         self.storageStore = storageStore ?? StorageMetricsStore()
         self.weatherStore = weatherStore ?? WeatherStore()
+        self.batteryStore = batteryStore ?? BatteryMetricsStore()
+        self.githubStore = githubStore ?? GitHubRepositoryStore()
         self.codexStore = codexStore ?? CodexUsageStore(
             executableOverridePath: preferences.codexExecutablePath
         )
         self.claudeCodeStore = claudeCodeStore ?? ClaudeCodeUsageStore()
+        self.searchConsoleStore = searchConsoleStore ?? SearchConsoleStore()
+        self.githubStore.configure(
+            repositoryURL: preferences.githubRepositoryURL
+        )
     }
 
     var dockPresentation: DockTilePresentation {
@@ -65,6 +77,17 @@ final class DockAppModel {
             )
         case .weather:
             .weather(state: weatherStore.state)
+        case .batteries:
+            .batteries(
+                snapshot: batteryStore.current,
+                errorDescription: batteryStore.lastErrorDescription
+            )
+        case .github:
+            .github(
+                history: githubStore.history,
+                appearance: preferences.githubAppearance,
+                errorDescription: githubStore.lastErrorDescription
+            )
         case .codex:
             .codex(
                 state: codexStore.state,
@@ -74,6 +97,11 @@ final class DockAppModel {
             .claudeCode(
                 state: claudeCodeStore.state,
                 appearance: preferences.claudeCodeAppearance
+            )
+        case .searchConsole:
+            .searchConsole(
+                state: searchConsoleStore.state,
+                configuration: searchConsoleStore.configuration
             )
         }
     }
@@ -97,8 +125,11 @@ final class DockAppModel {
         networkStore.stop()
         storageStore.stop()
         weatherStore.stop()
+        batteryStore.stop()
+        githubStore.stop()
         codexStore.stop()
         claudeCodeStore.stop()
+        searchConsoleStore.stop()
     }
 
     private func observePreferences() {
@@ -109,6 +140,7 @@ final class DockAppModel {
         isObservingPreferences = true
         withObservationTracking {
             _ = preferences.activeFeature
+            _ = preferences.githubRepositoryURL
             _ = preferences.codexExecutablePath
             _ = preferences.automaticallyConfigureClaudeCode
         } onChange: { [weak self] in
@@ -128,34 +160,49 @@ final class DockAppModel {
         automaticClaudeSetupTask?.cancel()
         automaticClaudeSetupTask = nil
         codexStore.executableOverridePath = preferences.codexExecutablePath
+        githubStore.configure(
+            repositoryURL: preferences.githubRepositoryURL
+        )
         switch preferences.activeFeature {
         case .dockMagic:
             metricsStore.stop()
             networkStore.stop()
             storageStore.stop()
             weatherStore.stop()
+            batteryStore.stop()
+            githubStore.pause()
             codexStore.stop()
             claudeCodeStore.stop()
+            searchConsoleStore.stop()
         case .systemMetrics:
             networkStore.stop()
             storageStore.stop()
             weatherStore.stop()
+            batteryStore.stop()
+            githubStore.pause()
             codexStore.stop()
             claudeCodeStore.stop()
+            searchConsoleStore.stop()
             metricsStore.start()
         case .network:
             metricsStore.stop()
             storageStore.stop()
             weatherStore.stop()
+            batteryStore.stop()
+            githubStore.pause()
             codexStore.stop()
             claudeCodeStore.stop()
+            searchConsoleStore.stop()
             networkStore.start()
         case .storage:
             metricsStore.stop()
             networkStore.stop()
             weatherStore.stop()
+            batteryStore.stop()
+            githubStore.pause()
             codexStore.stop()
             claudeCodeStore.stop()
+            searchConsoleStore.stop()
             storageStore.start()
         case .weather:
             metricsStore.stop()
@@ -163,22 +210,61 @@ final class DockAppModel {
             storageStore.stop()
             codexStore.stop()
             claudeCodeStore.stop()
+            batteryStore.stop()
+            githubStore.pause()
+            searchConsoleStore.stop()
             weatherStore.start()
+        case .batteries:
+            metricsStore.stop()
+            networkStore.stop()
+            storageStore.stop()
+            weatherStore.stop()
+            codexStore.stop()
+            claudeCodeStore.stop()
+            searchConsoleStore.stop()
+            githubStore.pause()
+            batteryStore.start()
+        case .github:
+            metricsStore.stop()
+            networkStore.stop()
+            storageStore.stop()
+            weatherStore.stop()
+            batteryStore.stop()
+            codexStore.stop()
+            claudeCodeStore.stop()
+            searchConsoleStore.stop()
+            githubStore.start()
         case .codex:
             metricsStore.stop()
             networkStore.stop()
             storageStore.stop()
             weatherStore.stop()
+            batteryStore.stop()
+            githubStore.pause()
             claudeCodeStore.stop()
+            searchConsoleStore.stop()
             codexStore.start()
         case .claudeCode:
             metricsStore.stop()
             networkStore.stop()
             storageStore.stop()
             weatherStore.stop()
+            batteryStore.stop()
+            githubStore.pause()
             codexStore.stop()
+            searchConsoleStore.stop()
             claudeCodeStore.start()
             scheduleAutomaticClaudeCodeSetup()
+        case .searchConsole:
+            metricsStore.stop()
+            networkStore.stop()
+            storageStore.stop()
+            weatherStore.stop()
+            batteryStore.stop()
+            githubStore.pause()
+            codexStore.stop()
+            claudeCodeStore.stop()
+            searchConsoleStore.start()
         }
     }
 
@@ -203,6 +289,30 @@ final class DockAppModel {
         }
     }
 
+    /// Saves a canonical GitHub repository URL and verifies it immediately.
+    func connectGitHubRepository(_ repositoryURL: String) async {
+        guard let reference = GitHubRepositoryReference(urlString: repositoryURL) else {
+            githubStore.configure(repositoryURL: repositoryURL)
+            return
+        }
+
+        preferences.githubRepositoryURL = reference.webURLString
+        applyPreferences()
+        await githubStore.refresh()
+    }
+
+    func disconnectGitHubRepository() {
+        preferences.githubRepositoryURL = ""
+        applyPreferences()
+    }
+
+    func refreshGitHubRepository() async {
+        githubStore.configure(
+            repositoryURL: preferences.githubRepositoryURL
+        )
+        await githubStore.refresh()
+    }
+
     /// A sleeping or locked Mac can miss timer delivery for background work.
     /// Re-arm active Weather and fetch when the system or user session resumes.
     func refreshActiveWeatherAfterResume() async {
@@ -212,6 +322,26 @@ final class DockAppModel {
 
         weatherStore.start()
         await weatherStore.refresh()
+    }
+
+    /// Re-enumerates live power sources after sleep, unlock, and device churn.
+    func refreshActiveBatteriesAfterResume() async {
+        guard isRunning, preferences.activeFeature == .batteries else {
+            return
+        }
+
+        batteryStore.start()
+        await batteryStore.refresh()
+    }
+
+    /// Re-arms polling after macOS sleep and immediately refreshes GitHub.
+    func refreshActiveGitHubAfterResume() async {
+        guard isRunning, preferences.activeFeature == .github else {
+            return
+        }
+
+        githubStore.start()
+        await githubStore.refresh()
     }
 
     private func scheduleAutomaticClaudeCodeSetup() {

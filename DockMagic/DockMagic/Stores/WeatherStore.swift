@@ -76,6 +76,25 @@ final class WeatherStore {
     @ObservationIgnored
     private var activeRefreshID: UUID?
 
+    var locationPreviewValue: String? {
+        if let location = state.snapshot?.location {
+            return location
+        }
+
+        return switch locationAuthorization {
+        case .notDetermined:
+            isRefreshing ? "Requesting access…" : "Location access required"
+        case .authorized:
+            isRefreshing ? "Locating…" : nil
+        case .denied:
+            "Location access denied"
+        case .restricted:
+            "Location unavailable"
+        case .servicesDisabled:
+            "Location Services off"
+        }
+    }
+
     init(
         provider: (any WeatherSnapshotProviding)? = nil,
         authorizationProvider: (any WeatherLocationAuthorizationProviding)? = nil,

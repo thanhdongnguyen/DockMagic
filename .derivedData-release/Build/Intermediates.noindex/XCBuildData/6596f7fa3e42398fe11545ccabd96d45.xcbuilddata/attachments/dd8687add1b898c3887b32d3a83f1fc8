@@ -1,0 +1,261 @@
+{
+  "" : {
+    "const-values" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/DockMagic-primary.swiftconstvalues",
+    "dependencies" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/DockMagic-primary.d",
+    "diagnostics" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/DockMagic-primary.dia",
+    "emit-module-dependencies" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/DockMagic-primary-emit-module.d",
+    "emit-module-diagnostics" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/DockMagic-primary-emit-module.dia",
+    "pch" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/DockMagic-primary-Bridging-header.pch",
+    "swift-dependencies" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/DockMagic-primary.swiftdeps"
+  },
+  "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/DerivedSources/GeneratedAssetSymbols.swift" : {
+    "index-unit-output-path" : "/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/GeneratedAssetSymbols.o",
+    "llvm-bc" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/GeneratedAssetSymbols.bc",
+    "object" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/GeneratedAssetSymbols.o"
+  },
+  "/Users/dongnt/Desktop/github/dockmagic/DockMagic/DockMagic/App/DockMagicApp.swift" : {
+    "index-unit-output-path" : "/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/DockMagicApp.o",
+    "llvm-bc" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/DockMagicApp.bc",
+    "object" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/DockMagicApp.o"
+  },
+  "/Users/dongnt/Desktop/github/dockmagic/DockMagic/DockMagic/DesignSystem/Components/DSComponents.swift" : {
+    "index-unit-output-path" : "/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/DSComponents.o",
+    "llvm-bc" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/DSComponents.bc",
+    "object" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/DSComponents.o"
+  },
+  "/Users/dongnt/Desktop/github/dockmagic/DockMagic/DockMagic/DesignSystem/Components/DSControls.swift" : {
+    "index-unit-output-path" : "/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/DSControls.o",
+    "llvm-bc" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/DSControls.bc",
+    "object" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/DSControls.o"
+  },
+  "/Users/dongnt/Desktop/github/dockmagic/DockMagic/DockMagic/DesignSystem/Components/DSSurface.swift" : {
+    "index-unit-output-path" : "/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/DSSurface.o",
+    "llvm-bc" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/DSSurface.bc",
+    "object" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/DSSurface.o"
+  },
+  "/Users/dongnt/Desktop/github/dockmagic/DockMagic/DockMagic/DesignSystem/Foundation/DesignTheme.swift" : {
+    "index-unit-output-path" : "/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/DesignTheme.o",
+    "llvm-bc" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/DesignTheme.bc",
+    "object" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/DesignTheme.o"
+  },
+  "/Users/dongnt/Desktop/github/dockmagic/DockMagic/DockMagic/DesignSystem/Foundation/DesignTokens.swift" : {
+    "index-unit-output-path" : "/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/DesignTokens.o",
+    "llvm-bc" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/DesignTokens.bc",
+    "object" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/DesignTokens.o"
+  },
+  "/Users/dongnt/Desktop/github/dockmagic/DockMagic/DockMagic/Models/BatteryMetricsSnapshot.swift" : {
+    "index-unit-output-path" : "/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/BatteryMetricsSnapshot.o",
+    "llvm-bc" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/BatteryMetricsSnapshot.bc",
+    "object" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/BatteryMetricsSnapshot.o"
+  },
+  "/Users/dongnt/Desktop/github/dockmagic/DockMagic/DockMagic/Models/CodexRateLimitSnapshot.swift" : {
+    "index-unit-output-path" : "/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/CodexRateLimitSnapshot.o",
+    "llvm-bc" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/CodexRateLimitSnapshot.bc",
+    "object" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/CodexRateLimitSnapshot.o"
+  },
+  "/Users/dongnt/Desktop/github/dockmagic/DockMagic/DockMagic/Models/DockConfiguration.swift" : {
+    "index-unit-output-path" : "/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/DockConfiguration.o",
+    "llvm-bc" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/DockConfiguration.bc",
+    "object" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/DockConfiguration.o"
+  },
+  "/Users/dongnt/Desktop/github/dockmagic/DockMagic/DockMagic/Models/GitHubRepositorySnapshot.swift" : {
+    "index-unit-output-path" : "/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/GitHubRepositorySnapshot.o",
+    "llvm-bc" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/GitHubRepositorySnapshot.bc",
+    "object" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/GitHubRepositorySnapshot.o"
+  },
+  "/Users/dongnt/Desktop/github/dockmagic/DockMagic/DockMagic/Models/NetworkMetricsSnapshot.swift" : {
+    "index-unit-output-path" : "/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/NetworkMetricsSnapshot.o",
+    "llvm-bc" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/NetworkMetricsSnapshot.bc",
+    "object" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/NetworkMetricsSnapshot.o"
+  },
+  "/Users/dongnt/Desktop/github/dockmagic/DockMagic/DockMagic/Models/SearchConsoleConfigurationRecord.swift" : {
+    "index-unit-output-path" : "/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/SearchConsoleConfigurationRecord.o",
+    "llvm-bc" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/SearchConsoleConfigurationRecord.bc",
+    "object" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/SearchConsoleConfigurationRecord.o"
+  },
+  "/Users/dongnt/Desktop/github/dockmagic/DockMagic/DockMagic/Models/SearchConsoleModels.swift" : {
+    "index-unit-output-path" : "/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/SearchConsoleModels.o",
+    "llvm-bc" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/SearchConsoleModels.bc",
+    "object" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/SearchConsoleModels.o"
+  },
+  "/Users/dongnt/Desktop/github/dockmagic/DockMagic/DockMagic/Models/StorageMetricsSnapshot.swift" : {
+    "index-unit-output-path" : "/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/StorageMetricsSnapshot.o",
+    "llvm-bc" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/StorageMetricsSnapshot.bc",
+    "object" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/StorageMetricsSnapshot.o"
+  },
+  "/Users/dongnt/Desktop/github/dockmagic/DockMagic/DockMagic/Models/SystemMetricsSnapshot.swift" : {
+    "index-unit-output-path" : "/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/SystemMetricsSnapshot.o",
+    "llvm-bc" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/SystemMetricsSnapshot.bc",
+    "object" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/SystemMetricsSnapshot.o"
+  },
+  "/Users/dongnt/Desktop/github/dockmagic/DockMagic/DockMagic/Models/WeatherSnapshot.swift" : {
+    "index-unit-output-path" : "/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/WeatherSnapshot.o",
+    "llvm-bc" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/WeatherSnapshot.bc",
+    "object" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/WeatherSnapshot.o"
+  },
+  "/Users/dongnt/Desktop/github/dockmagic/DockMagic/DockMagic/Services/BatteryMetricsSampler.swift" : {
+    "index-unit-output-path" : "/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/BatteryMetricsSampler.o",
+    "llvm-bc" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/BatteryMetricsSampler.bc",
+    "object" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/BatteryMetricsSampler.o"
+  },
+  "/Users/dongnt/Desktop/github/dockmagic/DockMagic/DockMagic/Services/ClaudeCodeRateLimitProvider.swift" : {
+    "index-unit-output-path" : "/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/ClaudeCodeRateLimitProvider.o",
+    "llvm-bc" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/ClaudeCodeRateLimitProvider.bc",
+    "object" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/ClaudeCodeRateLimitProvider.o"
+  },
+  "/Users/dongnt/Desktop/github/dockmagic/DockMagic/DockMagic/Services/CodexRateLimitProvider.swift" : {
+    "index-unit-output-path" : "/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/CodexRateLimitProvider.o",
+    "llvm-bc" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/CodexRateLimitProvider.bc",
+    "object" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/CodexRateLimitProvider.o"
+  },
+  "/Users/dongnt/Desktop/github/dockmagic/DockMagic/DockMagic/Services/DockTileController.swift" : {
+    "index-unit-output-path" : "/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/DockTileController.o",
+    "llvm-bc" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/DockTileController.bc",
+    "object" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/DockTileController.o"
+  },
+  "/Users/dongnt/Desktop/github/dockmagic/DockMagic/DockMagic/Services/NetworkMetricsSampler.swift" : {
+    "index-unit-output-path" : "/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/NetworkMetricsSampler.o",
+    "llvm-bc" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/NetworkMetricsSampler.bc",
+    "object" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/NetworkMetricsSampler.o"
+  },
+  "/Users/dongnt/Desktop/github/dockmagic/DockMagic/DockMagic/Services/OpenMeteoWeatherProvider.swift" : {
+    "index-unit-output-path" : "/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/OpenMeteoWeatherProvider.o",
+    "llvm-bc" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/OpenMeteoWeatherProvider.bc",
+    "object" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/OpenMeteoWeatherProvider.o"
+  },
+  "/Users/dongnt/Desktop/github/dockmagic/DockMagic/DockMagic/Services/SearchConsoleAPIClient.swift" : {
+    "index-unit-output-path" : "/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/SearchConsoleAPIClient.o",
+    "llvm-bc" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/SearchConsoleAPIClient.bc",
+    "object" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/SearchConsoleAPIClient.o"
+  },
+  "/Users/dongnt/Desktop/github/dockmagic/DockMagic/DockMagic/Services/SearchConsoleCredentialVault.swift" : {
+    "index-unit-output-path" : "/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/SearchConsoleCredentialVault.o",
+    "llvm-bc" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/SearchConsoleCredentialVault.bc",
+    "object" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/SearchConsoleCredentialVault.o"
+  },
+  "/Users/dongnt/Desktop/github/dockmagic/DockMagic/DockMagic/Services/StorageMetricsSampler.swift" : {
+    "index-unit-output-path" : "/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/StorageMetricsSampler.o",
+    "llvm-bc" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/StorageMetricsSampler.bc",
+    "object" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/StorageMetricsSampler.o"
+  },
+  "/Users/dongnt/Desktop/github/dockmagic/DockMagic/DockMagic/Services/SystemMetricsSampler.swift" : {
+    "index-unit-output-path" : "/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/SystemMetricsSampler.o",
+    "llvm-bc" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/SystemMetricsSampler.bc",
+    "object" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/SystemMetricsSampler.o"
+  },
+  "/Users/dongnt/Desktop/github/dockmagic/DockMagic/DockMagic/Stores/BatteryMetricsStore.swift" : {
+    "index-unit-output-path" : "/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/BatteryMetricsStore.o",
+    "llvm-bc" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/BatteryMetricsStore.bc",
+    "object" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/BatteryMetricsStore.o"
+  },
+  "/Users/dongnt/Desktop/github/dockmagic/DockMagic/DockMagic/Stores/ClaudeCodeUsageStore.swift" : {
+    "index-unit-output-path" : "/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/ClaudeCodeUsageStore.o",
+    "llvm-bc" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/ClaudeCodeUsageStore.bc",
+    "object" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/ClaudeCodeUsageStore.o"
+  },
+  "/Users/dongnt/Desktop/github/dockmagic/DockMagic/DockMagic/Stores/CodexUsageStore.swift" : {
+    "index-unit-output-path" : "/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/CodexUsageStore.o",
+    "llvm-bc" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/CodexUsageStore.bc",
+    "object" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/CodexUsageStore.o"
+  },
+  "/Users/dongnt/Desktop/github/dockmagic/DockMagic/DockMagic/Stores/DockAppModel.swift" : {
+    "index-unit-output-path" : "/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/DockAppModel.o",
+    "llvm-bc" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/DockAppModel.bc",
+    "object" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/DockAppModel.o"
+  },
+  "/Users/dongnt/Desktop/github/dockmagic/DockMagic/DockMagic/Stores/DockPreferencesStore.swift" : {
+    "index-unit-output-path" : "/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/DockPreferencesStore.o",
+    "llvm-bc" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/DockPreferencesStore.bc",
+    "object" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/DockPreferencesStore.o"
+  },
+  "/Users/dongnt/Desktop/github/dockmagic/DockMagic/DockMagic/Stores/NetworkMetricsStore.swift" : {
+    "index-unit-output-path" : "/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/NetworkMetricsStore.o",
+    "llvm-bc" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/NetworkMetricsStore.bc",
+    "object" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/NetworkMetricsStore.o"
+  },
+  "/Users/dongnt/Desktop/github/dockmagic/DockMagic/DockMagic/Stores/SearchConsoleStore.swift" : {
+    "index-unit-output-path" : "/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/SearchConsoleStore.o",
+    "llvm-bc" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/SearchConsoleStore.bc",
+    "object" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/SearchConsoleStore.o"
+  },
+  "/Users/dongnt/Desktop/github/dockmagic/DockMagic/DockMagic/Stores/StorageMetricsStore.swift" : {
+    "index-unit-output-path" : "/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/StorageMetricsStore.o",
+    "llvm-bc" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/StorageMetricsStore.bc",
+    "object" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/StorageMetricsStore.o"
+  },
+  "/Users/dongnt/Desktop/github/dockmagic/DockMagic/DockMagic/Stores/SystemMetricsStore.swift" : {
+    "index-unit-output-path" : "/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/SystemMetricsStore.o",
+    "llvm-bc" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/SystemMetricsStore.bc",
+    "object" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/SystemMetricsStore.o"
+  },
+  "/Users/dongnt/Desktop/github/dockmagic/DockMagic/DockMagic/Stores/WeatherStore.swift" : {
+    "index-unit-output-path" : "/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/WeatherStore.o",
+    "llvm-bc" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/WeatherStore.bc",
+    "object" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/WeatherStore.o"
+  },
+  "/Users/dongnt/Desktop/github/dockmagic/DockMagic/DockMagic/Support/ProjectTheme.swift" : {
+    "index-unit-output-path" : "/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/ProjectTheme.o",
+    "llvm-bc" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/ProjectTheme.bc",
+    "object" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/ProjectTheme.o"
+  },
+  "/Users/dongnt/Desktop/github/dockmagic/DockMagic/DockMagic/Support/SettingsWindowRouter.swift" : {
+    "index-unit-output-path" : "/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/SettingsWindowRouter.o",
+    "llvm-bc" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/SettingsWindowRouter.bc",
+    "object" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/SettingsWindowRouter.o"
+  },
+  "/Users/dongnt/Desktop/github/dockmagic/DockMagic/DockMagic/Views/Dock/DockBatteryView.swift" : {
+    "index-unit-output-path" : "/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/DockBatteryView.o",
+    "llvm-bc" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/DockBatteryView.bc",
+    "object" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/DockBatteryView.o"
+  },
+  "/Users/dongnt/Desktop/github/dockmagic/DockMagic/DockMagic/Views/Dock/DockGitHubView.swift" : {
+    "index-unit-output-path" : "/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/DockGitHubView.o",
+    "llvm-bc" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/DockGitHubView.bc",
+    "object" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/DockGitHubView.o"
+  },
+  "/Users/dongnt/Desktop/github/dockmagic/DockMagic/DockMagic/Views/Dock/DockMetricsView.swift" : {
+    "index-unit-output-path" : "/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/DockMetricsView.o",
+    "llvm-bc" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/DockMetricsView.bc",
+    "object" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/DockMetricsView.o"
+  },
+  "/Users/dongnt/Desktop/github/dockmagic/DockMagic/DockMagic/Views/Dock/DockNetworkView.swift" : {
+    "index-unit-output-path" : "/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/DockNetworkView.o",
+    "llvm-bc" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/DockNetworkView.bc",
+    "object" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/DockNetworkView.o"
+  },
+  "/Users/dongnt/Desktop/github/dockmagic/DockMagic/DockMagic/Views/Dock/DockSearchConsoleView.swift" : {
+    "index-unit-output-path" : "/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/DockSearchConsoleView.o",
+    "llvm-bc" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/DockSearchConsoleView.bc",
+    "object" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/DockSearchConsoleView.o"
+  },
+  "/Users/dongnt/Desktop/github/dockmagic/DockMagic/DockMagic/Views/Dock/DockStorageView.swift" : {
+    "index-unit-output-path" : "/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/DockStorageView.o",
+    "llvm-bc" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/DockStorageView.bc",
+    "object" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/DockStorageView.o"
+  },
+  "/Users/dongnt/Desktop/github/dockmagic/DockMagic/DockMagic/Views/Dock/DockWeatherView.swift" : {
+    "index-unit-output-path" : "/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/DockWeatherView.o",
+    "llvm-bc" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/DockWeatherView.bc",
+    "object" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/DockWeatherView.o"
+  },
+  "/Users/dongnt/Desktop/github/dockmagic/DockMagic/DockMagic/Views/Settings/GitHubSettingsView.swift" : {
+    "index-unit-output-path" : "/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/GitHubSettingsView.o",
+    "llvm-bc" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/GitHubSettingsView.bc",
+    "object" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/GitHubSettingsView.o"
+  },
+  "/Users/dongnt/Desktop/github/dockmagic/DockMagic/DockMagic/Views/Settings/NetworkHistoryChart.swift" : {
+    "index-unit-output-path" : "/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/NetworkHistoryChart.o",
+    "llvm-bc" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/NetworkHistoryChart.bc",
+    "object" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/NetworkHistoryChart.o"
+  },
+  "/Users/dongnt/Desktop/github/dockmagic/DockMagic/DockMagic/Views/Settings/SearchConsoleSettingsView.swift" : {
+    "index-unit-output-path" : "/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/SearchConsoleSettingsView.o",
+    "llvm-bc" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/SearchConsoleSettingsView.bc",
+    "object" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/SearchConsoleSettingsView.o"
+  },
+  "/Users/dongnt/Desktop/github/dockmagic/DockMagic/DockMagic/Views/Settings/SettingsView.swift" : {
+    "index-unit-output-path" : "/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/SettingsView.o",
+    "llvm-bc" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/SettingsView.bc",
+    "object" : "/Users/dongnt/Desktop/github/dockmagic/.derivedData-release/Build/Intermediates.noindex/DockMagic.build/Release/DockMagic.build/Objects-normal/arm64/SettingsView.o"
+  }
+}

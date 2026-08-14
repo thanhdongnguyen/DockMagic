@@ -7,8 +7,11 @@ enum SettingsDestination: String, CaseIterable, Identifiable {
     case network
     case storage
     case weather
+    case batteries
+    case github
     case codex
     case claudeCode
+    case searchConsole
     case about
 
     var id: Self { self }
@@ -25,10 +28,16 @@ enum SettingsDestination: String, CaseIterable, Identifiable {
             "Storage"
         case .weather:
             "Weather"
+        case .batteries:
+            "Batteries"
+        case .github:
+            "GitHub"
         case .codex:
             "Codex"
         case .claudeCode:
             "Claude Code"
+        case .searchConsole:
+            "Search Console"
         case .about:
             "About"
         }
@@ -46,10 +55,16 @@ enum SettingsDestination: String, CaseIterable, Identifiable {
             "Monitor usage on the startup disk."
         case .weather:
             "Show current conditions supplied by Open-Meteo."
+        case .batteries:
+            "Monitor your Mac and connected devices."
+        case .github:
+            "Track repository stars and forks in the Dock."
         case .codex:
             "Show remaining 5-hour and weekly Codex limits."
         case .claudeCode:
             "Show remaining 5-hour and weekly Claude Code limits."
+        case .searchConsole:
+            "A focused view of your Google Search performance."
         case .about:
             "Version, privacy, and distribution details."
         }
@@ -67,10 +82,16 @@ enum SettingsDestination: String, CaseIterable, Identifiable {
             "internaldrive.fill"
         case .weather:
             "cloud.sun.fill"
+        case .batteries:
+            "battery.75percent"
+        case .github:
+            "point.3.connected.trianglepath.dotted"
         case .codex:
             "sparkles"
         case .claudeCode:
             "chevron.left.forwardslash.chevron.right"
+        case .searchConsole:
+            "magnifyingglass"
         case .about:
             "info.circle"
         }
@@ -88,10 +109,16 @@ enum SettingsDestination: String, CaseIterable, Identifiable {
             .storage
         case .weather:
             .weather
+        case .batteries:
+            .batteries
+        case .github:
+            .github
         case .codex:
             .codex
         case .claudeCode:
             .claudeCode
+        case .searchConsole:
+            .searchConsole
         }
     }
 }
@@ -135,9 +162,27 @@ struct SettingsView: View {
             case .weather:
                 appModel.weatherStore.refreshLocationAuthorizationStatus()
                 refreshWeather()
+            case .batteries:
+                appModel.batteryStore.start()
+            case .searchConsole:
+                appModel.searchConsoleStore.start()
             case .general, .systemMetrics, .network, .storage, .codex,
-                 .claudeCode, .about:
+                 .claudeCode, .github, .about:
+                if appModel.preferences.activeFeature != .batteries {
+                    appModel.batteryStore.stop()
+                }
+                if appModel.preferences.activeFeature != .searchConsole {
+                    appModel.searchConsoleStore.stop()
+                }
                 break
+            }
+        }
+        .onDisappear {
+            if appModel.preferences.activeFeature != .batteries {
+                appModel.batteryStore.stop()
+            }
+            if appModel.preferences.activeFeature != .searchConsole {
+                appModel.searchConsoleStore.stop()
             }
         }
         .onReceive(
@@ -181,8 +226,11 @@ struct SettingsView: View {
                     sidebarRow(.network)
                     sidebarRow(.storage)
                     sidebarRow(.weather)
+                    sidebarRow(.batteries)
+                    sidebarRow(.github)
                     sidebarRow(.codex)
                     sidebarRow(.claudeCode)
+                    sidebarRow(.searchConsole)
 
                     DSDivider()
                         .padding(.vertical, DSSpacing.small)
@@ -313,12 +361,28 @@ struct SettingsView: View {
                     detailHeader
                     destinationContent
                 }
-                .padding(DSLayout.detailPadding)
-                .frame(maxWidth: DSLayout.detailMaximumWidth, alignment: .leading)
+                .padding(.horizontal, detailHorizontalPadding)
+                .padding(.vertical, detailVerticalPadding)
+                .frame(maxWidth: detailMaximumWidth, alignment: .leading)
                 .frame(maxWidth: .infinity, alignment: .topLeading)
             }
         }
         .accessibilityIdentifier("settings.\(destination.rawValue)")
+    }
+
+    // The selected Search Console reference uses a wider, denser analytics
+    // canvas than the other Settings destinations. Keep that layout local so
+    // existing feature screens retain their established geometry.
+    private var detailHorizontalPadding: CGFloat {
+        destination == .searchConsole ? 24 : DSLayout.detailHorizontalPadding
+    }
+
+    private var detailVerticalPadding: CGFloat {
+        destination == .searchConsole ? 8 : DSLayout.detailVerticalPadding
+    }
+
+    private var detailMaximumWidth: CGFloat {
+        destination == .searchConsole ? 1_100 : DSLayout.detailMaximumWidth
     }
 
     private var detailHeader: some View {
@@ -331,7 +395,7 @@ struct SettingsView: View {
                 .font(DSTypography.body)
                 .foregroundStyle(theme.textSecondary)
         }
-        .padding(.bottom, DSSpacing.compact)
+        .padding(.bottom, DSSpacing.large)
     }
 
     @ViewBuilder
@@ -347,10 +411,16 @@ struct SettingsView: View {
             storageContent
         case .weather:
             weatherContent
+        case .batteries:
+            batteriesContent
+        case .github:
+            githubContent
         case .codex:
             codexContent
         case .claudeCode:
             claudeCodeContent
+        case .searchConsole:
+            searchConsoleContent
         case .about:
             aboutContent
         }
@@ -641,6 +711,77 @@ struct SettingsView: View {
         .padding(.horizontal, DSSpacing.compact)
     }
 
+    private var batteriesContent: some View {
+        VStack(spacing: DSSpacing.section) {
+            DSSettingsSection(
+                title: "Live Dock preview",
+                detail: "See how battery status appears in your Dock."
+            ) {
+                HStack(alignment: .center, spacing: DSSpacing.xLarge) {
+                    DockBatteryView(
+                        snapshot: appModel.batteryStore.current,
+                        errorDescription: appModel.batteryStore.lastErrorDescription,
+                        animatesChanges: true
+                    )
+                    .frame(width: 320, height: 320)
+                    .accessibilityIdentifier("settings.batteries.dockPreview")
+
+                    batteryDeviceList
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .frame(minHeight: 320)
+                .padding(.vertical, DSSpacing.small)
+            }
+
+            if let error = appModel.batteryStore.lastErrorDescription {
+                DSStatusCard(
+                    title: "Battery monitoring unavailable",
+                    detail: error,
+                    systemImage: "exclamationmark.triangle.fill",
+                    role: .danger
+                )
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var batteryDeviceList: some View {
+        if appModel.batteryStore.current.devices.isEmpty {
+            VStack(alignment: .leading, spacing: DSSpacing.small) {
+                Image(systemName: "battery.0percent")
+                    .font(.system(size: 28, weight: .medium))
+                    .foregroundStyle(theme.textTertiary)
+
+                Text("No battery devices detected")
+                    .font(DSTypography.bodyEmphasis)
+                    .foregroundStyle(theme.textPrimary)
+
+                Text("Connect an accessory or open its charging case near this Mac.")
+                    .font(DSTypography.metadata)
+                    .foregroundStyle(theme.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(maxWidth: .infinity, minHeight: 180, alignment: .leading)
+            .accessibilityIdentifier("settings.batteries.empty")
+        } else {
+            VStack(spacing: 0) {
+                ForEach(
+                    Array(appModel.batteryStore.current.devices.enumerated()),
+                    id: \.element.id
+                ) { index, device in
+                    BatteryDeviceStatusRow(device: device)
+                        .accessibilityIdentifier(
+                            "settings.batteries.device.\(device.id)"
+                        )
+
+                    if index < appModel.batteryStore.current.devices.count - 1 {
+                        DSDivider()
+                    }
+                }
+            }
+        }
+    }
+
     private var codexContent: some View {
         VStack(spacing: DSSpacing.section) {
             featurePreviewSection(
@@ -681,6 +822,28 @@ struct SettingsView: View {
                 reset: appModel.preferences.resetCodexAppearance
             )
         }
+    }
+
+    private var githubContent: some View {
+        GitHubSettingsView(
+            store: appModel.githubStore,
+            savedRepositoryURL: appModel.preferences.githubRepositoryURL,
+            isActive: appModel.preferences.activeFeature == .github,
+            appearance: appModel.preferences.githubAppearance,
+            displayStyle: githubDisplayStyleBinding,
+            starColor: githubStarColorBinding,
+            forkColor: githubForkColorBinding,
+            resetAppearance: appModel.preferences.resetGitHubAppearance,
+            connectRepository: appModel.connectGitHubRepository,
+            disconnectRepository: appModel.disconnectGitHubRepository
+        )
+    }
+
+    private var searchConsoleContent: some View {
+        SearchConsoleSettingsView(
+            store: appModel.searchConsoleStore,
+            isActive: appModel.preferences.activeFeature == .searchConsole
+        )
     }
 
     private var claudeCodeContent: some View {
@@ -735,7 +898,7 @@ struct SettingsView: View {
                 LabeledContent("Appearance", value: appearanceMode.title)
                 LabeledContent(
                     "Features",
-                    value: "CPU & RAM, Network, Storage, Weather, Codex, Claude Code"
+                    value: "CPU & RAM, Network, Storage, Weather, Batteries, GitHub, Codex, Claude Code"
                 )
             }
 
@@ -753,9 +916,9 @@ struct SettingsView: View {
 
             DSSettingsSection(
                 title: "Data boundaries",
-                detail: "CPU, memory, network, and storage metrics remain local. Weather sends current coordinates to Open-Meteo; Codex uses the automatically detected CLI; Claude Code uses a local status line snapshot containing only rate_limits."
+                detail: "CPU, memory, network, storage, and battery metrics remain local. GitHub receives the configured repository path every 15 minutes while active; Weather sends current coordinates to Open-Meteo; Codex uses the automatically detected CLI; Claude Code uses a local status line snapshot containing only rate_limits."
             ) {
-                Text("DockMagic stores only the last successful weather result for resilience and does not keep a location history. It does not inspect prompts, conversations, transcripts, OAuth tokens, API keys, or Keychain items. Open-Meteo data is used under CC BY 4.0.")
+                Text("Battery status is read from public local macOS power-source and device-registry APIs; DockMagic does not pair with devices or retain a connection history. It stores only the last successful weather result and up to seven days of GitHub count history. An optional GitHub token is kept only in macOS Keychain. DockMagic does not inspect prompts, conversations, transcripts, or Claude Code OAuth tokens. Open-Meteo data is used under CC BY 4.0.")
                     .font(DSTypography.body)
                     .foregroundStyle(theme.textSecondary)
             }
@@ -790,13 +953,23 @@ struct SettingsView: View {
             get: { appModel.preferences.activeFeature },
             set: { feature in
                 appModel.preferences.activeFeature = feature
-                guard feature == .weather else {
-                    return
+                switch feature {
+                case .weather:
+                    destination = .weather
+                    appModel.weatherStore.refreshLocationAuthorizationStatus()
+                    refreshWeather()
+                case .batteries:
+                    destination = .batteries
+                    appModel.batteryStore.start()
+                case .github:
+                    destination = .github
+                case .searchConsole:
+                    destination = .searchConsole
+                    appModel.searchConsoleStore.start()
+                case .dockMagic, .systemMetrics, .network, .storage, .codex,
+                     .claudeCode:
+                    break
                 }
-
-                destination = .weather
-                appModel.weatherStore.refreshLocationAuthorizationStatus()
-                refreshWeather()
             }
         )
     }
@@ -885,6 +1058,27 @@ struct SettingsView: View {
         Binding(
             get: { appModel.preferences.storageAppearance.displayStyle },
             set: appModel.preferences.setStorageDisplayStyle
+        )
+    }
+
+    private var githubStarColorBinding: Binding<Color> {
+        Binding(
+            get: { appModel.preferences.githubAppearance.starColor.color },
+            set: { appModel.preferences.setGitHubStarColor(DockColor($0)) }
+        )
+    }
+
+    private var githubForkColorBinding: Binding<Color> {
+        Binding(
+            get: { appModel.preferences.githubAppearance.forkColor.color },
+            set: { appModel.preferences.setGitHubForkColor(DockColor($0)) }
+        )
+    }
+
+    private var githubDisplayStyleBinding: Binding<DockDisplayStyle> {
+        Binding(
+            get: { appModel.preferences.githubAppearance.displayStyle },
+            set: appModel.preferences.setGitHubDisplayStyle
         )
     }
 
@@ -988,22 +1182,7 @@ struct SettingsView: View {
     }
 
     private var weatherLocationPreviewValue: String? {
-        if let location = weatherSnapshot?.location {
-            return location
-        }
-
-        return switch appModel.weatherStore.locationAuthorization {
-        case .notDetermined:
-            "Requesting access…"
-        case .authorized:
-            appModel.weatherStore.isRefreshing ? "Locating…" : nil
-        case .denied:
-            "Location access denied"
-        case .restricted:
-            "Location unavailable"
-        case .servicesDisabled:
-            "Location Services off"
-        }
+        appModel.weatherStore.locationPreviewValue
     }
 
     private func refreshWeather() {
@@ -1097,72 +1276,108 @@ private struct SettingsHeaderView: View {
     }
 }
 
-private struct DockFeatureMenuLabel: View {
-    let feature: DockFeature
+private struct BatteryDeviceStatusRow: View {
+    let device: BatteryDeviceSnapshot
 
-    @ViewBuilder
+    @Environment(\.designTheme) private var theme
+
     var body: some View {
-        switch feature {
-        case .dockMagic:
-            Label(feature.title, image: "DockMagicLogo")
-        case .codex:
-            Label(feature.title, image: "CodexLogo")
-        case .claudeCode:
-            Label(feature.title, image: "ClaudeCodeLogo")
-        case .systemMetrics, .network, .storage, .weather:
-            Label(feature.title, systemImage: feature.systemImage)
+        HStack(spacing: DSSpacing.medium) {
+            BatteryDeviceGlyph(
+                kind: device.kind,
+                color: theme.textPrimary,
+                size: 32
+            )
+            .frame(width: 64, height: 64)
+            .dsSurface(
+                RoundedRectangle(
+                    cornerRadius: DSRadius.control,
+                    style: .continuous
+                ),
+                kind: .inset
+            )
+
+            Text(device.name)
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(theme.textPrimary)
+                .lineLimit(1)
+
+            Spacer(minLength: DSSpacing.small)
+
+            VStack(alignment: .trailing, spacing: 3) {
+                Text("\(device.percentage)%")
+                    .font(.system(size: 20, weight: .bold, design: .rounded))
+                    .monospacedDigit()
+                    .foregroundStyle(
+                        BatteryLevelStyle.foreground(
+                            for: device.level,
+                            theme: theme
+                        )
+                    )
+
+                Text(device.detail)
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(theme.textSecondary)
+                    .lineLimit(1)
+            }
         }
+        .frame(maxWidth: .infinity, minHeight: 88, alignment: .leading)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(device.name)
+        .accessibilityValue(
+            "\(device.percentage) percent, \(device.detail)"
+        )
     }
 }
 
 private struct ActiveDockFeaturePicker: View {
     @Binding var selection: DockFeature
 
+    @State private var isChoosingFeature = false
     @Environment(\.designTheme) private var theme
 
     var body: some View {
-        ZStack {
+        Button {
+            isChoosingFeature.toggle()
+        } label: {
             selectedFeatureField
-                .accessibilityHidden(true)
-
-            // A macOS Menu rewrites complex labels into a compact AppKit
-            // pop-up title. Keep the native menu interaction in a transparent
-            // overlay so the full design-system field remains visible.
-            Menu {
-                ForEach(DockFeature.allCases) { feature in
-                    Button {
-                        selection = feature
-                    } label: {
-                        // Keep the menu icon as a direct Image inside Label.
-                        // SwiftUI can bridge this shape to NSMenuItem.image;
-                        // the richer DockFeatureIcon view is used only in the
-                        // custom selected-value field below.
-                        DockFeatureMenuLabel(feature: feature)
-                    }
-                    .accessibilityIdentifier(
-                        "settings.activeFeatureOption.\(feature.rawValue)"
-                    )
-                }
-            } label: {
-                Color.clear
-                    .frame(width: 280, height: 48)
-                    .contentShape(
-                        RoundedRectangle(
-                            cornerRadius: DSRadius.control,
-                            style: .continuous
-                        )
-                    )
-            }
-            .menuStyle(.borderlessButton)
-            .menuIndicator(.hidden)
-            .accessibilityLabel(
-                "Active Dock feature with \(selection.title) icon"
-            )
-            .accessibilityValue(selection.title)
-            .accessibilityIdentifier("settings.activeFeaturePicker")
         }
+        .buttonStyle(.plain)
+        .contentShape(
+            RoundedRectangle(
+                cornerRadius: DSRadius.control,
+                style: .continuous
+            )
+        )
+        .popover(isPresented: $isChoosingFeature, arrowEdge: .bottom) {
+            featureOptions
+        }
+        .accessibilityLabel(
+            "Active Dock feature with \(selection.title) icon"
+        )
+        .accessibilityValue(selection.title)
+        .accessibilityIdentifier("settings.activeFeaturePicker")
         .frame(width: 280, height: 48)
         .fixedSize()
+    }
+
+    private var featureOptions: some View {
+        VStack(spacing: DSSpacing.xSmall) {
+            ForEach(DockFeature.allCases) { feature in
+                ActiveDockFeatureOption(
+                    feature: feature,
+                    isSelected: selection == feature
+                ) {
+                    selection = feature
+                    isChoosingFeature = false
+                }
+                .accessibilityIdentifier(
+                    "settings.activeFeatureOption.\(feature.rawValue)"
+                )
+            }
+        }
+        .padding(DSSpacing.small)
+        .background(theme.opaqueSurfaceRaised)
     }
 
     private var selectedFeatureField: some View {
@@ -1223,6 +1438,62 @@ private struct ActiveDockFeaturePicker: View {
     }
 }
 
+private struct ActiveDockFeatureOption: View {
+    let feature: DockFeature
+    let isSelected: Bool
+    let action: () -> Void
+
+    @Environment(\.designTheme) private var theme
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: DSSpacing.standard) {
+                DockFeatureIcon(feature: feature, size: 22)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(feature.title)
+                        .font(DSTypography.bodyEmphasis)
+                        .foregroundStyle(theme.textPrimary)
+
+                    Text(feature.detail)
+                        .font(DSTypography.caption)
+                        .foregroundStyle(theme.textSecondary)
+                        .lineLimit(1)
+                }
+
+                Spacer(minLength: DSSpacing.small)
+
+                if isSelected {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(theme.action)
+                        .accessibilityHidden(true)
+                }
+            }
+            .padding(.horizontal, DSSpacing.standard)
+            .frame(width: 280, height: 44, alignment: .leading)
+            .background {
+                if isSelected {
+                    RoundedRectangle(
+                        cornerRadius: DSRadius.control,
+                        style: .continuous
+                    )
+                    .fill(theme.selectionFill)
+                }
+            }
+            .contentShape(
+                RoundedRectangle(
+                    cornerRadius: DSRadius.control,
+                    style: .continuous
+                )
+            )
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(feature.title)
+        .accessibilityValue(isSelected ? "Selected" : "")
+    }
+}
+
 private struct DockFeatureIcon: View {
     let feature: DockFeature
     var size: CGFloat = 22
@@ -1250,7 +1521,20 @@ private struct DockFeatureIcon: View {
                 Image("ClaudeCodeLogo")
                     .resizable()
                     .scaledToFit()
-            case .systemMetrics, .network, .storage, .weather:
+            case .batteries:
+                Image(systemName: featureSystemImage)
+                    .font(.system(size: size * 0.58, weight: .semibold))
+                    .foregroundStyle(BatteryLevelStyle.healthy)
+                    .frame(width: size, height: size)
+                    .background(
+                        RoundedRectangle(
+                            cornerRadius: max(5, size * 0.32),
+                            style: .continuous
+                        )
+                        .fill(theme.surfaceChrome)
+                    )
+            case .systemMetrics, .network, .storage, .weather, .github,
+                 .searchConsole:
                 Image(systemName: featureSystemImage)
                     .font(.system(size: size * 0.58, weight: .semibold))
                     .foregroundStyle(theme.processingForeground)
@@ -1280,10 +1564,16 @@ private struct DockFeatureIcon: View {
             "internaldrive.fill"
         case .weather:
             "cloud.sun.fill"
+        case .batteries:
+            "battery.75percent"
+        case .github:
+            "point.3.connected.trianglepath.dotted"
         case .codex:
             "sparkles"
         case .claudeCode:
             "chevron.left.forwardslash.chevron.right"
+        case .searchConsole:
+            "magnifyingglass"
         }
     }
 }

@@ -1,0 +1,32 @@
+{
+  "source": "/Users/dongnt/Desktop/github/dockmagic/DockMagic/DockMagic/Views/Dock/DockMetricsView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "DockMagic",
+        "location": {
+          "startingColumn": 29,
+          "startingLine": 92
+        }
+      },
+      {
+        "comment": "",
+        "key": "System usage",
+        "location": {
+          "startingColumn": 33,
+          "startingLine": 133
+        }
+      },
+      {
+        "comment": "",
+        "key": "System usage",
+        "location": {
+          "startingColumn": 33,
+          "startingLine": 155
+        }
+      }
+    ]
+  },
+  "version": 1
+}

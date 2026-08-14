@@ -121,13 +121,16 @@ enum DSMotion {
 }
 
 enum DSLayout {
-    static let minimumWindowWidth: CGFloat = 900
-    static let minimumWindowHeight: CGFloat = 640
-    static let sidebarMinimumWidth: CGFloat = 210
-    static let sidebarIdealWidth: CGFloat = 232
-    static let sidebarMaximumWidth: CGFloat = 272
-    static let detailMaximumWidth: CGFloat = 800
-    static let detailPadding: CGFloat = 32
+    static let minimumWindowWidth: CGFloat = 1_160
+    // Native title-bar and window-capture chrome add about 104 pt in total,
+    // producing the 1,160 x 724 reference window at the default size.
+    static let minimumWindowHeight: CGFloat = 620
+    static let sidebarMinimumWidth: CGFloat = 268
+    static let sidebarIdealWidth: CGFloat = 268
+    static let sidebarMaximumWidth: CGFloat = 268
+    static let detailMaximumWidth: CGFloat = 900
+    static let detailHorizontalPadding: CGFloat = 52
+    static let detailVerticalPadding: CGFloat = 34
     static let dockPreviewSize: CGFloat = 152
     static let compactControlWidth: CGFloat = 176
     static let sliderMaximumWidth: CGFloat = 260

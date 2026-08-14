@@ -185,6 +185,8 @@ final class CoreLocationWeatherCoordinateProvider: NSObject,
     private let timeout: Duration
     private var continuation: CheckedContinuation<WeatherCoordinate, Error>?
     private var timeoutTask: Task<Void, Never>?
+    private var didRequestAuthorization = false
+    private var didRequestLocation = false
 
     override init() {
         manager = CLLocationManager()
@@ -232,6 +234,8 @@ final class CoreLocationWeatherCoordinateProvider: NSObject,
         return try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { continuation in
                 self.continuation = continuation
+                didRequestAuthorization = false
+                didRequestLocation = false
                 timeoutTask = Task { @MainActor [weak self] in
                     guard let self else {
                         return
@@ -313,8 +317,16 @@ final class CoreLocationWeatherCoordinateProvider: NSObject,
     private func beginLocationRequest() {
         switch manager.authorizationStatus {
         case .notDetermined:
+            guard !didRequestAuthorization else {
+                return
+            }
+            didRequestAuthorization = true
             manager.requestWhenInUseAuthorization()
         case .authorizedAlways, .authorizedWhenInUse:
+            guard !didRequestLocation else {
+                return
+            }
+            didRequestLocation = true
             manager.requestLocation()
         case .denied, .restricted:
             finish(.failure(OpenMeteoWeatherError.locationPermissionDenied))
@@ -330,6 +342,8 @@ final class CoreLocationWeatherCoordinateProvider: NSObject,
         self.continuation = nil
         timeoutTask?.cancel()
         timeoutTask = nil
+        didRequestAuthorization = false
+        didRequestLocation = false
         manager.stopUpdatingLocation()
         continuation.resume(with: result)
     }

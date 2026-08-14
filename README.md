@@ -93,6 +93,11 @@ Click any screenshot to view it at full resolution.
   current macOS location, refreshes from Open-Meteo every ten minutes while
   active, reverse-geocodes the place name for the Dock preview, and retains the
   most recent successful result if a refresh fails.
+- **GitHub** displays repository stars and forks as a compact line chart or
+  numeric tile. It refreshes the active repository every 15 minutes, retains up
+  to seven days of count history, and uses conditional ETag requests. Public
+  repositories work without authentication; an optional fine-grained personal
+  access token enables private repositories and a higher rate limit.
 - **Codex** displays the remaining five-hour and weekly usage windows. When
   selected, DockMagic locates the installed Codex CLI and calls
   `codex app-server --stdio` with the existing login. If the account does not
@@ -104,9 +109,9 @@ Click any screenshot to view it at full resolution.
   default local bridge automatically, preserves any previous status-line
   command, and does not call internal OAuth endpoints.
 - **General settings** select exactly one feature to run and display in the
-  Dock. CPU & RAM, Storage, Codex, and Claude Code support `Chart` and `Numbers`
-  display styles. Colors and display choices are persisted and applied to the
-  active tile immediately.
+  Dock. CPU & RAM, Storage, GitHub, Codex, and Claude Code support `Chart` and
+  `Numbers` display styles. Colors and display choices are persisted and
+  applied to the active tile immediately.
 - **Appearance** supports System, Light, and Dark. Navigation chrome uses Liquid
   Glass where available and a material fallback on the current toolchain, while
   primary content remains opaque.
@@ -124,12 +129,18 @@ DockMagic is designed for direct distribution, not the Mac App Store.
   the last successful snapshot for failure recovery. It does not keep location
   history. macOS requests Location permission through the standard system
   prompt.
+- GitHub receives the configured `owner/repository` path over HTTPS every 15
+  minutes while the feature is active. DockMagic stores only count snapshots,
+  timestamps, and the response ETag for up to seven days. An optional access
+  token is stored only in macOS Keychain and is never written to preferences or
+  history.
 - The Codex integration does not read or store tokens, prompts, or account
   identifiers. It reads only the rate-limit response returned by the installed
   Codex CLI.
 - The Claude Code cache at `~/.claude/dockmagic-usage.json` contains only
-  `rate_limits`. DockMagic does not read transcripts, OAuth tokens, API keys, or
-  Keychain data.
+  `rate_limits`. DockMagic does not read transcripts or Claude Code OAuth
+  tokens. The only Keychain secret managed by the GitHub feature is the
+  optional token entered by the user.
 
 The app does not require Accessibility, Screen Recording, Full Disk Access, or
 administrator privileges. Weather alone requires Location Services and network
@@ -147,6 +158,8 @@ direct-distribution impact has been evaluated and documented.
 - Swift 5
 - Location Services and a network connection only when using Weather; see the
   [Open-Meteo integration contract](docs/WEATHER_OPEN_METEO.md)
+- A network connection when using GitHub; a token is optional for public
+  repositories and required for private repositories
 - An installed Codex CLI only when using Codex
 - An installed Claude Code CLI only when using Claude Code; `rate_limits`
   requires a supported subscription and at least one response after automatic
