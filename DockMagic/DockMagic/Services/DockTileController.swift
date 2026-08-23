@@ -1,11 +1,18 @@
 import AppKit
-import SwiftUI
+
+@MainActor
+protocol ApplicationIconDisplaying: AnyObject {
+    var applicationIconImage: NSImage! { get set }
+}
+
+extension NSApplication: ApplicationIconDisplaying {}
 
 @MainActor
 final class DockTileController {
     private let dockTile: NSDockTile
+    private let application: any ApplicationIconDisplaying
     private let appearanceStore: UserDefaults
-    private let hostingView: NSHostingView<DockMagicThemeRoot<DockTileView>>
+    private let iconRenderer = DockApplicationIconRenderer()
 
     private(set) var currentPresentation: DockTilePresentation
     private(set) var currentAppearanceMode: DSAppearanceMode
@@ -13,6 +20,7 @@ final class DockTileController {
     convenience init(initialPresentation: DockTilePresentation) {
         self.init(
             dockTile: NSApplication.shared.dockTile,
+            application: NSApplication.shared,
             initialPresentation: initialPresentation,
             appearanceStore: DockMagicRuntimeDefaults.current
         )
@@ -20,31 +28,21 @@ final class DockTileController {
 
     init(
         dockTile: NSDockTile,
+        application: (any ApplicationIconDisplaying)? = nil,
         initialPresentation: DockTilePresentation,
         appearanceStore: UserDefaults = DockMagicRuntimeDefaults.current
     ) {
         self.dockTile = dockTile
+        self.application = application ?? NSApplication.shared
         self.appearanceStore = appearanceStore
         currentPresentation = initialPresentation
         currentAppearanceMode = DSAppearanceMode.stored(in: appearanceStore)
 
-        let hostingView = NSHostingView(
-            rootView: DockMagicThemeRoot(
-                content: DockTileView(
-                    presentation: initialPresentation,
-                    animatesChanges: false
-                ),
-                appearanceMode: currentAppearanceMode
-            )
-        )
-        hostingView.frame = NSRect(origin: .zero, size: dockTile.size)
-        hostingView.autoresizingMask = [.width, .height]
-        hostingView.wantsLayer = true
-        hostingView.layer?.backgroundColor = NSColor.clear.cgColor
-        self.hostingView = hostingView
-
-        dockTile.contentView = hostingView
-        dockTile.display()
+        // Use one canonical application icon for both the Dock and Command-Tab.
+        // A custom Dock content view is flattened to the Dock backing-store
+        // size, while DockIconRenderingRules preserves a 1024-pixel source.
+        dockTile.contentView = nil
+        render()
     }
 
     func update(presentation: DockTilePresentation) {
@@ -62,16 +60,12 @@ final class DockTileController {
     }
 
     private func render() {
-        hostingView.rootView = DockMagicThemeRoot(
-            content: DockTileView(
-                presentation: currentPresentation,
-                animatesChanges: false
-            ),
+        if let image = iconRenderer.render(
+            presentation: currentPresentation,
             appearanceMode: currentAppearanceMode
-        )
-        hostingView.frame = NSRect(origin: .zero, size: dockTile.size)
-        hostingView.needsLayout = true
-        hostingView.needsDisplay = true
+        ) {
+            application.applicationIconImage = image
+        }
         dockTile.display()
     }
 }

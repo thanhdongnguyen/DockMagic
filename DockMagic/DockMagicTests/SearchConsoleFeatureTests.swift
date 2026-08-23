@@ -1,4 +1,5 @@
 import Foundation
+import Security
 import SwiftData
 import XCTest
 @testable import DockMagic
@@ -45,56 +46,108 @@ final class SearchConsoleFeatureTests: XCTestCase {
         XCTAssertEqual(SearchConsoleCountFormatting.compact(1_250_000), "1.3M")
     }
 
-    func testImportStoresOnlyPrivateKeyInVaultAndPersistsConfiguration() async throws {
+    func testImportStoresCompleteJSONInSwiftDataAndReloadsConfiguration() async throws {
         let container = SearchConsoleStore.inMemoryContainer()
-        let vault = SearchConsoleTestVault()
         let api = SearchConsoleTestAPI()
         let store = SearchConsoleStore(
             modelContainer: container,
-            api: api,
-            vault: vault
+            api: api
         )
+        let json = serviceAccountJSON()
 
-        try await store.importServiceAccountJSON(serviceAccountJSON())
+        try await store.importServiceAccountJSON(json)
 
         XCTAssertTrue(store.configuration.isConnected)
         XCTAssertEqual(store.configuration.selectedProperty, "sc-domain:example.com")
         XCTAssertEqual(store.availableSites.count, 2)
+        XCTAssertEqual(store.credentials.count, 1)
+        XCTAssertTrue(store.credentials[0].isActive)
         XCTAssertNotNil(store.state.snapshot)
-        XCTAssertEqual(
-            vault.value(for: "service-account.key-123"),
-            "-----BEGIN PRIVATE KEY-----\nZmFrZQ==\n-----END PRIVATE KEY-----"
-        )
 
-        let records = try ModelContext(container).fetch(
+        let configurationRecords = try ModelContext(container).fetch(
             FetchDescriptor<SearchConsoleConfigurationRecord>()
         )
-        XCTAssertEqual(records.count, 1)
-        XCTAssertEqual(records[0].projectID, "dockmagic-tests")
-        XCTAssertEqual(records[0].privateKeyID, "key-123")
+        XCTAssertEqual(configurationRecords.count, 1)
         XCTAssertEqual(
-            records[0].credentialReference,
-            "service-account.key-123"
+            configurationRecords[0].activeCredentialIdentifier,
+            store.credentials[0].id
         )
-        XCTAssertNotNil(records[0].cachedSnapshotData)
+        XCTAssertNil(configurationRecords[0].credentialReference)
+
+        let credentialRecords = try ModelContext(container).fetch(
+            FetchDescriptor<SearchConsoleCredentialRecord>()
+        )
+        XCTAssertEqual(credentialRecords.count, 1)
+        XCTAssertEqual(credentialRecords[0].projectID, "dockmagic-tests")
+        XCTAssertEqual(credentialRecords[0].privateKeyID, "key-123")
+        XCTAssertEqual(credentialRecords[0].serviceAccountJSONData, json)
+        XCTAssertNotNil(credentialRecords[0].cachedSnapshotData)
 
         let reloaded = SearchConsoleStore(
             modelContainer: container,
-            api: api,
-            vault: vault
+            api: api
         )
         XCTAssertEqual(reloaded.configuration, store.configuration)
+        XCTAssertEqual(reloaded.credentials, store.credentials)
         XCTAssertNotNil(reloaded.state.snapshot)
+    }
+
+    func testImportAcceptsGoogleStylePKCS8KeyThroughOAuthAndRefresh() async throws {
+        SearchConsoleURLProtocolStub.reset()
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [SearchConsoleURLProtocolStub.self]
+        let generatedKey = try googleStylePKCS8Key()
+        let container = SearchConsoleStore.inMemoryContainer()
+        let store = SearchConsoleStore(
+            modelContainer: container,
+            api: SearchConsoleAPIClient(
+                session: URLSession(configuration: configuration)
+            )
+        )
+        let json = serviceAccountJSON(
+            privateKeyID: "generated-key",
+            privateKey: generatedKey.pem
+        )
+
+        try await store.importServiceAccountJSON(json)
+
+        XCTAssertTrue(store.configuration.isConnected)
+        XCTAssertEqual(store.configuration.selectedProperty, "sc-domain:example.com")
+        XCTAssertEqual(store.availableSites.map(\.siteURL), ["sc-domain:example.com"])
+        XCTAssertNotNil(store.state.snapshot)
+        let storedCredential = try XCTUnwrap(
+            ModelContext(container).fetch(
+                FetchDescriptor<SearchConsoleCredentialRecord>()
+            ).first
+        )
+        XCTAssertEqual(storedCredential.serviceAccountJSONData, json)
+        XCTAssertEqual(
+            SearchConsoleURLProtocolStub.requests.filter {
+                $0.url?.host == "oauth2.googleapis.com"
+            }.count,
+            1,
+            "Import and refresh should share the access token."
+        )
+        XCTAssertEqual(
+            SearchConsoleURLProtocolStub.requests.filter {
+                $0.url?.path.hasSuffix("/sites") == true
+            }.count,
+            1
+        )
+        XCTAssertEqual(
+            SearchConsoleURLProtocolStub.requests.filter {
+                $0.url?.path.hasSuffix("/searchAnalytics/query") == true
+            }.count,
+            1
+        )
     }
 
     func testEveryMetricRangeAndDisplayModePersistsThroughSwiftData() {
         let container = SearchConsoleStore.inMemoryContainer()
-        let vault = SearchConsoleTestVault()
         let api = SearchConsoleTestAPI()
         let store = SearchConsoleStore(
             modelContainer: container,
-            api: api,
-            vault: vault
+            api: api
         )
 
         for metric in SearchConsoleMetric.allCases {
@@ -106,8 +159,7 @@ final class SearchConsoleFeatureTests: XCTestCase {
 
                     let reloaded = SearchConsoleStore(
                         modelContainer: container,
-                        api: api,
-                        vault: vault
+                        api: api
                     )
                     XCTAssertEqual(reloaded.configuration.primaryMetric, metric)
                     XCTAssertEqual(reloaded.configuration.timeRange, range)
@@ -121,8 +173,7 @@ final class SearchConsoleFeatureTests: XCTestCase {
         let api = SearchConsoleTestAPI()
         let store = SearchConsoleStore(
             modelContainer: SearchConsoleStore.inMemoryContainer(),
-            api: api,
-            vault: SearchConsoleTestVault()
+            api: api
         )
         try await store.importServiceAccountJSON(serviceAccountJSON())
         let previous = try XCTUnwrap(store.state.snapshot)
@@ -141,24 +192,65 @@ final class SearchConsoleFeatureTests: XCTestCase {
         XCTAssertTrue(message.contains("Permission denied"))
     }
 
-    func testDisconnectDeletesVaultSecretAndSwiftDataRecord() async throws {
+    func testMultipleJSONKeysCanBeSelectedAndRemovedIndependently() async throws {
         let container = SearchConsoleStore.inMemoryContainer()
-        let vault = SearchConsoleTestVault()
         let store = SearchConsoleStore(
             modelContainer: container,
-            api: SearchConsoleTestAPI(),
-            vault: vault
+            api: SearchConsoleTestAPI()
         )
         try await store.importServiceAccountJSON(serviceAccountJSON())
+        let firstID = try XCTUnwrap(store.credentials.first?.id)
+        store.setPrimaryMetric(.impressions)
+        store.setTimeRange(.last28Days)
 
-        try store.disconnect()
+        try await store.importServiceAccountJSON(
+            serviceAccountJSON(
+                projectID: "secondary-project",
+                privateKeyID: "key-456",
+                clientEmail: "analytics@secondary-project.iam.gserviceaccount.com"
+            )
+        )
 
+        XCTAssertEqual(store.credentials.count, 2)
+        XCTAssertEqual(
+            store.credentials.first(where: \.isActive)?.privateKeyID,
+            "key-456"
+        )
+        XCTAssertEqual(store.configuration.metadata?.projectID, "secondary-project")
+        XCTAssertEqual(store.configuration.primaryMetric, .impressions)
+        XCTAssertEqual(store.configuration.timeRange, .last28Days)
+
+        await store.selectCredential(firstID)
+
+        XCTAssertEqual(store.configuration.metadata?.privateKeyID, "key-123")
+        XCTAssertEqual(
+            store.credentials.first(where: \.isActive)?.id,
+            firstID
+        )
+        let secondaryID = try XCTUnwrap(
+            store.credentials.first { $0.privateKeyID == "key-456" }?.id
+        )
+        try await store.removeCredential(secondaryID)
+
+        XCTAssertEqual(store.credentials.count, 1)
+        XCTAssertEqual(store.credentials[0].id, firstID)
+        XCTAssertTrue(store.configuration.isConnected)
+
+        try await store.removeCredential(firstID)
+
+        XCTAssertTrue(store.credentials.isEmpty)
         XCTAssertEqual(store.state, .disconnected)
-        XCTAssertNil(vault.value(for: "service-account.key-123"))
         XCTAssertTrue(
             try ModelContext(container).fetch(
-                FetchDescriptor<SearchConsoleConfigurationRecord>()
+                FetchDescriptor<SearchConsoleCredentialRecord>()
             ).isEmpty
+        )
+        XCTAssertEqual(
+            try ModelContext(container).fetch(
+                FetchDescriptor<SearchConsoleConfigurationRecord>()
+            ).count,
+            1,
+            "Display preferences remain after the last JSON key is removed."
         )
     }
 
@@ -252,6 +344,66 @@ final class SearchConsoleFeatureTests: XCTestCase {
         XCTAssertEqual(json["rowLimit"] as? Int, 25_000)
     }
 
+    func testAPIClientSignsGoogleStylePKCS8PrivateKey() async throws {
+        SearchConsoleURLProtocolStub.reset()
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [SearchConsoleURLProtocolStub.self]
+        let client = SearchConsoleAPIClient(
+            session: URLSession(configuration: configuration)
+        )
+        let generatedKey = try googleStylePKCS8Key()
+        let metadata = SearchConsoleServiceAccountMetadata(
+            projectID: "dockmagic-tests",
+            privateKeyID: "generated-key",
+            clientEmail: "dockmagic@dockmagic-tests.iam.gserviceaccount.com",
+            tokenURI: URL(string: "https://oauth2.googleapis.com/token")!
+        )
+
+        let sites = try await client.sites(
+            metadata: metadata,
+            privateKey: generatedKey.pem
+        )
+        XCTAssertEqual(sites.map(\.siteURL), ["sc-domain:example.com"])
+
+        let tokenRequest = try XCTUnwrap(
+            SearchConsoleURLProtocolStub.requests.first {
+                $0.url?.host == "oauth2.googleapis.com"
+            }
+        )
+        let body = try XCTUnwrap(tokenRequest.httpBody)
+        var components = URLComponents()
+        components.percentEncodedQuery = String(decoding: body, as: UTF8.self)
+        let assertion = try XCTUnwrap(
+            components.queryItems?.first { $0.name == "assertion" }?.value
+        )
+        let segments = assertion.split(separator: ".")
+        XCTAssertEqual(segments.count, 3)
+
+        let message = Data("\(segments[0]).\(segments[1])".utf8)
+        let signature = try XCTUnwrap(base64URLDecoded(segments[2]))
+        var verificationError: Unmanaged<CFError>?
+        let isValid = SecKeyVerifySignature(
+            generatedKey.publicKey,
+            .rsaSignatureMessagePKCS1v15SHA256,
+            message as CFData,
+            signature as CFData,
+            &verificationError
+        )
+        XCTAssertTrue(
+            isValid,
+            verificationError?.takeRetainedValue().localizedDescription
+                ?? "The generated JWT signature was invalid."
+        )
+
+        let claimsData = try XCTUnwrap(base64URLDecoded(segments[1]))
+        let claims = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: claimsData) as? [String: Any]
+        )
+        XCTAssertEqual(claims["iss"] as? String, metadata.clientEmail)
+        XCTAssertEqual(claims["scope"] as? String, SearchConsoleAPIClient.readOnlyScope)
+        XCTAssertEqual(claims["aud"] as? String, metadata.tokenURI.absoluteString)
+    }
+
     func testAPIClientMapsEveryConfiguredTimeRangeToGoogleQuery() async throws {
         SearchConsoleURLProtocolStub.reset()
         let configuration = URLSessionConfiguration.ephemeral
@@ -311,38 +463,106 @@ final class SearchConsoleFeatureTests: XCTestCase {
     }
 
     private func serviceAccountJSON(
-        type: String = "service_account"
+        type: String = "service_account",
+        projectID: String = "dockmagic-tests",
+        privateKeyID: String = "key-123",
+        clientEmail: String = "dockmagic@dockmagic-tests.iam.gserviceaccount.com",
+        privateKey: String =
+            "-----BEGIN PRIVATE KEY-----\nZmFrZQ==\n-----END PRIVATE KEY-----"
     ) -> Data {
         try! JSONSerialization.data(withJSONObject: [
             "type": type,
-            "project_id": "dockmagic-tests",
-            "private_key_id": "key-123",
-            "private_key": "-----BEGIN PRIVATE KEY-----\nZmFrZQ==\n-----END PRIVATE KEY-----",
-            "client_email": "dockmagic@dockmagic-tests.iam.gserviceaccount.com",
+            "project_id": projectID,
+            "private_key_id": privateKeyID,
+            "private_key": privateKey,
+            "client_email": clientEmail,
             "token_uri": "https://oauth2.googleapis.com/token"
         ])
     }
-}
 
-private final class SearchConsoleTestVault:
-    SearchConsoleCredentialVault, @unchecked Sendable {
-    private let lock = NSLock()
-    private var storage: [String: String] = [:]
+    private func googleStylePKCS8Key() throws -> (pem: String, publicKey: SecKey) {
+        let attributes: [CFString: Any] = [
+            kSecAttrKeyType: kSecAttrKeyTypeRSA,
+            kSecAttrKeySizeInBits: 2_048
+        ]
+        var creationError: Unmanaged<CFError>?
+        let privateKey = try XCTUnwrap(
+            SecKeyCreateRandomKey(attributes as CFDictionary, &creationError),
+            creationError?.takeRetainedValue().localizedDescription
+                ?? "Could not generate an RSA test key."
+        )
+        let publicKey = try XCTUnwrap(SecKeyCopyPublicKey(privateKey))
 
-    func store(privateKey: String, reference: String) throws {
-        lock.withLock { storage[reference] = privateKey }
+        var exportError: Unmanaged<CFError>?
+        let pkcs1 = try XCTUnwrap(
+            SecKeyCopyExternalRepresentation(privateKey, &exportError) as Data?,
+            exportError?.takeRetainedValue().localizedDescription
+                ?? "Could not export the RSA test key."
+        )
+        let algorithmIdentifier = der(
+            tag: 0x30,
+            content: joined([
+                der(
+                    tag: 0x06,
+                    content: Data([
+                        0x2A, 0x86, 0x48, 0x86, 0xF7, 0x0D,
+                        0x01, 0x01, 0x01
+                    ])
+                ),
+                der(tag: 0x05, content: Data())
+            ])
+        )
+        let pkcs8 = der(
+            tag: 0x30,
+            content: joined([
+                der(tag: 0x02, content: Data([0x00])),
+                algorithmIdentifier,
+                der(tag: 0x04, content: pkcs1)
+            ])
+        )
+        let base64 = pkcs8.base64EncodedString()
+        let lines = stride(from: 0, to: base64.count, by: 64).map { offset in
+            let start = base64.index(base64.startIndex, offsetBy: offset)
+            let end = base64.index(
+                start,
+                offsetBy: min(64, base64.distance(from: start, to: base64.endIndex))
+            )
+            return String(base64[start..<end])
+        }
+        let pem = ["-----BEGIN PRIVATE KEY-----"]
+            + lines
+            + ["-----END PRIVATE KEY-----"]
+        return (pem.joined(separator: "\n"), publicKey)
     }
 
-    func load(reference: String) throws -> String? {
-        lock.withLock { storage[reference] }
+    private func der(tag: UInt8, content: Data) -> Data {
+        var encoded = Data([tag])
+        encoded.append(derLength(content.count))
+        encoded.append(content)
+        return encoded
     }
 
-    func delete(reference: String) throws {
-        _ = lock.withLock { storage.removeValue(forKey: reference) }
+    private func derLength(_ length: Int) -> Data {
+        if length < 0x80 { return Data([UInt8(length)]) }
+        var remaining = length
+        var bytes: [UInt8] = []
+        while remaining > 0 {
+            bytes.insert(UInt8(remaining & 0xFF), at: 0)
+            remaining >>= 8
+        }
+        return Data([0x80 | UInt8(bytes.count)] + bytes)
     }
 
-    func value(for reference: String) -> String? {
-        lock.withLock { storage[reference] }
+    private func joined(_ values: [Data]) -> Data {
+        values.reduce(into: Data()) { $0.append($1) }
+    }
+
+    private func base64URLDecoded(_ value: Substring) -> Data? {
+        var base64 = value
+            .replacingOccurrences(of: "-", with: "+")
+            .replacingOccurrences(of: "_", with: "/")
+        base64.append(String(repeating: "=", count: (4 - base64.count % 4) % 4))
+        return Data(base64Encoded: base64)
     }
 }
 

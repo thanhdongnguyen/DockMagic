@@ -184,13 +184,23 @@ struct SearchConsoleSite: Codable, Equatable, Identifiable, Sendable {
     var id: String { siteURL }
 }
 
+struct SearchConsoleCredential: Equatable, Identifiable, Sendable {
+    let id: String
+    let projectID: String
+    let privateKeyID: String
+    let clientEmail: String
+    let selectedProperty: String
+    let createdAt: Date
+    let isActive: Bool
+}
+
 struct SearchConsoleConfiguration: Equatable, Sendable {
     var metadata: SearchConsoleServiceAccountMetadata?
     var selectedProperty: String
     var primaryMetric: SearchConsoleMetric
     var timeRange: SearchConsoleTimeRange
     var displayMode: SearchConsoleDisplayMode
-    var credentialReference: String?
+    var credentialIdentifier: String?
 
     static let defaultValue = SearchConsoleConfiguration(
         metadata: nil,
@@ -198,11 +208,11 @@ struct SearchConsoleConfiguration: Equatable, Sendable {
         primaryMetric: .clicks,
         timeRange: .last7Days,
         displayMode: .focus,
-        credentialReference: nil
+        credentialIdentifier: nil
     )
 
     var isConnected: Bool {
-        metadata != nil && credentialReference != nil && !selectedProperty.isEmpty
+        metadata != nil && credentialIdentifier != nil && !selectedProperty.isEmpty
     }
 }
 
@@ -222,7 +232,7 @@ enum SearchConsoleConfigurationError: LocalizedError, Equatable {
         case .invalidTokenEndpoint:
             "The JSON contains an unsupported OAuth token endpoint."
         case .missingPrivateKey:
-            "The private key is unavailable in macOS Keychain. Replace the JSON key."
+            "The private key is unavailable in SwiftData. Reimport the JSON key."
         case .noAccessibleProperties:
             "This service account cannot access any Search Console properties yet."
         }

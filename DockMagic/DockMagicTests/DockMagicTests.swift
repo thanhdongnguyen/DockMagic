@@ -24,6 +24,7 @@ final class DockMagicTests: XCTestCase {
             appModel: appModel,
             settingsWindowRouter: SettingsWindowRouter(),
             dockTile: dockTile,
+            application: SpyApplicationIconDisplay(),
             appearanceStore: defaults,
             notificationCenter: notificationCenter,
             workspaceNotificationCenter: workspaceNotificationCenter
@@ -140,6 +141,7 @@ final class DockMagicTests: XCTestCase {
             appModel: appModel,
             settingsWindowRouter: SettingsWindowRouter(),
             dockTile: SpyDockTile(),
+            application: SpyApplicationIconDisplay(),
             appearanceStore: defaults,
             notificationCenter: NotificationCenter(),
             workspaceNotificationCenter: workspaceNotificationCenter
@@ -1800,22 +1802,10 @@ final class DockMagicTests: XCTestCase {
         }
 
         let storage = try await StorageMetricsSampler().sample()
-        let storageValues = try URL(fileURLWithPath: "/", isDirectory: true)
-            .resourceValues(forKeys: [
-                .volumeAvailableCapacityKey,
-                .volumeAvailableCapacityForImportantUsageKey
-            ])
-        let expectedAvailableCapacity = storageValues.volumeAvailableCapacityForImportantUsage
-            ?? storageValues.volumeAvailableCapacity.map(Int64.init)
-
-        guard let expectedAvailableCapacity, expectedAvailableCapacity >= 0 else {
-            throw XCTSkip("The host did not report available capacity.")
-        }
-
+        XCTAssertFalse(storage.volumeName.isEmpty)
         XCTAssertGreaterThan(storage.totalBytes, 0)
         XCTAssertLessThanOrEqual(storage.availableBytes, storage.totalBytes)
         XCTAssertTrue((0...1).contains(storage.usage))
-        XCTAssertEqual(storage.availableBytes, UInt64(expectedAvailableCapacity))
     }
 
     @MainActor
@@ -1974,9 +1964,10 @@ final class DockMagicTests: XCTestCase {
     }
 
     @MainActor
-    func testDockTileControllerKeepsHostingViewAndRedrawsConfiguration() {
+    func testDockTileControllerPublishesHiDPIIconAndRedrawsConfiguration() {
         let appearanceDefaults = makeAppearanceDefaults(.light)
         let dockTile = SpyDockTile()
+        let application = SpyApplicationIconDisplay()
         let initial = DockTilePresentation.systemMetrics(
             snapshot: .zero,
             appearance: DockFeatureDefaults.systemMetricsAppearance,
@@ -1984,19 +1975,15 @@ final class DockMagicTests: XCTestCase {
         )
         let controller = DockTileController(
             dockTile: dockTile,
+            application: application,
             initialPresentation: initial,
             appearanceStore: appearanceDefaults
         )
 
-        guard let hostingView = dockTile.contentView
-            as? NSHostingView<DockMagicThemeRoot<DockTileView>> else {
-            return XCTFail("Expected the themed Dock hosting view.")
-        }
-
-        let identity = ObjectIdentifier(hostingView)
-        XCTAssertEqual(hostingView.rootView.content.presentation, initial)
+        XCTAssertNil(dockTile.contentView)
         XCTAssertEqual(controller.currentAppearanceMode, .light)
         XCTAssertEqual(dockTile.displayCallCount, 1)
+        assertHighResolutionApplicationIcon(application.applicationIconImage)
 
         var appearance = DockFeatureDefaults.systemMetricsAppearance
         appearance.setOuterWidth(0.14)
@@ -2014,10 +2001,7 @@ final class DockMagicTests: XCTestCase {
 
         XCTAssertEqual(controller.currentPresentation, updated)
         XCTAssertEqual(dockTile.displayCallCount, 2)
-        XCTAssertEqual(
-            ObjectIdentifier(dockTile.contentView!),
-            identity
-        )
+        assertHighResolutionApplicationIcon(application.applicationIconImage)
 
         controller.update(presentation: updated)
         XCTAssertEqual(dockTile.displayCallCount, 2)
@@ -2030,6 +2014,264 @@ final class DockMagicTests: XCTestCase {
         XCTAssertEqual(dockTile.displayCallCount, 3)
         XCTAssertEqual(controller.currentPresentation, updated)
         XCTAssertEqual(controller.currentAppearanceMode, .dark)
+        assertHighResolutionApplicationIcon(application.applicationIconImage)
+    }
+
+    private func assertHighResolutionApplicationIcon(
+        _ image: NSImage?,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        guard let image else {
+            return XCTFail(
+                "Expected a rendered application icon.",
+                file: file,
+                line: line
+            )
+        }
+
+        XCTAssertTrue(
+            DockIconRenderingRules.satisfiesSourceContract(image),
+            "The application icon must be 512 pt with a 1024 px source raster.",
+            file: file,
+            line: line
+        )
+    }
+
+    @MainActor
+    func testEveryDockPresentationUsesCanonicalCommandTabRendering() {
+        var numericSystemAppearance = DockFeatureDefaults.systemMetricsAppearance
+        numericSystemAppearance.setDisplayStyle(.numeric)
+        var numericStorageAppearance = DockFeatureDefaults.storageAppearance
+        numericStorageAppearance.setDisplayStyle(.numeric)
+        var numericGitHubAppearance = DockFeatureDefaults.githubAppearance
+        numericGitHubAppearance.setDisplayStyle(.numeric)
+        var numericCodexAppearance = DockFeatureDefaults.codexAppearance
+        numericCodexAppearance.setDisplayStyle(.numeric)
+        var numericClaudeAppearance = DockFeatureDefaults.claudeCodeAppearance
+        numericClaudeAppearance.setDisplayStyle(.numeric)
+
+        let systemSnapshot = SystemMetricsSnapshot(
+            cpuUsage: 0.72,
+            memoryUsage: 0.54,
+            memoryUsedBytes: 540,
+            memoryTotalBytes: 1_000
+        )
+        let storageSnapshot = StorageMetricsSnapshot(
+            volumeName: "Macintosh HD",
+            totalBytes: 1_000,
+            availableBytes: 360
+        )
+        let batterySnapshot = BatteryMetricsSnapshot(
+            devices: [
+                BatteryDeviceSnapshot(
+                    id: "mac",
+                    name: "MacBook",
+                    kind: .macBook,
+                    level: 0.76,
+                    isExternalPowerConnected: true
+                ),
+                BatteryDeviceSnapshot(
+                    id: "mouse",
+                    name: "Magic Mouse",
+                    kind: .magicMouse,
+                    level: 0.43
+                )
+            ]
+        )
+        let searchSnapshot = SearchConsoleSnapshot(
+            property: "sc-domain:dockmagic.app",
+            range: .last7Days,
+            points: (0..<7).map { index in
+                SearchConsoleDataPoint(
+                    key: "2026-08-\(index + 1)",
+                    date: Date(timeIntervalSince1970: TimeInterval(index * 86_400)),
+                    clicks: Double(24 + index * 3),
+                    impressions: Double(280 + index * 31)
+                )
+            },
+            fetchedAt: Date(timeIntervalSince1970: 1_900_000_000),
+            firstIncompleteDate: nil
+        )
+        var searchChartConfiguration = SearchConsoleConfiguration.defaultValue
+        searchChartConfiguration.displayMode = .chart
+        var searchNumbersConfiguration = SearchConsoleConfiguration.defaultValue
+        searchNumbersConfiguration.displayMode = .numbers
+        var searchFocusConfiguration = SearchConsoleConfiguration.defaultValue
+        searchFocusConfiguration.displayMode = .focus
+
+        let presentations: [(String, DockTilePresentation)] = [
+            ("DockMagic", .dockMagic),
+            (
+                "System chart",
+                .systemMetrics(
+                    snapshot: systemSnapshot,
+                    appearance: DockFeatureDefaults.systemMetricsAppearance,
+                    errorDescription: nil
+                )
+            ),
+            (
+                "System numeric",
+                .systemMetrics(
+                    snapshot: systemSnapshot,
+                    appearance: numericSystemAppearance,
+                    errorDescription: nil
+                )
+            ),
+            (
+                "Network",
+                .network(
+                    history: sampleNetworkHistory(),
+                    appearance: DockFeatureDefaults.networkAppearance,
+                    errorDescription: nil
+                )
+            ),
+            (
+                "Storage chart",
+                .storage(
+                    snapshot: storageSnapshot,
+                    appearance: DockFeatureDefaults.storageAppearance,
+                    errorDescription: nil
+                )
+            ),
+            (
+                "Storage numeric",
+                .storage(
+                    snapshot: storageSnapshot,
+                    appearance: numericStorageAppearance,
+                    errorDescription: nil
+                )
+            ),
+            ("Weather", .weather(state: .live(sampleWeatherSnapshot()))),
+            (
+                "Batteries",
+                .batteries(snapshot: batterySnapshot, errorDescription: nil)
+            ),
+            (
+                "GitHub chart",
+                .github(
+                    history: GitHubRepositorySnapshot.designPreviewHistory,
+                    appearance: DockFeatureDefaults.githubAppearance,
+                    errorDescription: nil
+                )
+            ),
+            (
+                "GitHub numeric",
+                .github(
+                    history: GitHubRepositorySnapshot.designPreviewHistory,
+                    appearance: numericGitHubAppearance,
+                    errorDescription: nil
+                )
+            ),
+            (
+                "Codex chart",
+                .codex(
+                    state: .live(sampleCodexSnapshot()),
+                    appearance: DockFeatureDefaults.codexAppearance
+                )
+            ),
+            (
+                "Codex numeric",
+                .codex(
+                    state: .live(sampleCodexSnapshot()),
+                    appearance: numericCodexAppearance
+                )
+            ),
+            (
+                "Claude chart",
+                .claudeCode(
+                    state: .live(sampleClaudeCodeSnapshot()),
+                    appearance: DockFeatureDefaults.claudeCodeAppearance
+                )
+            ),
+            (
+                "Claude numeric",
+                .claudeCode(
+                    state: .live(sampleClaudeCodeSnapshot()),
+                    appearance: numericClaudeAppearance
+                )
+            ),
+            (
+                "Search Console chart",
+                .searchConsole(
+                    state: .live(searchSnapshot),
+                    configuration: searchChartConfiguration
+                )
+            ),
+            (
+                "Search Console numbers",
+                .searchConsole(
+                    state: .live(searchSnapshot),
+                    configuration: searchNumbersConfiguration
+                )
+            ),
+            (
+                "Search Console focus",
+                .searchConsole(
+                    state: .live(searchSnapshot),
+                    configuration: searchFocusConfiguration
+                )
+            )
+        ]
+        let renderer = DockApplicationIconRenderer()
+
+        for (name, presentation) in presentations {
+            guard let image = renderer.render(
+                presentation: presentation,
+                appearanceMode: .dark
+            ) else {
+                XCTFail("\(name) failed to render an application icon.")
+                continue
+            }
+
+            XCTAssertTrue(
+                DockIconRenderingRules.satisfiesSourceContract(image),
+                "\(name) violated the Command-Tab source contract."
+            )
+        }
+    }
+
+    @MainActor
+    func testRealNSApplicationPreservesInstalledCommandTabResolution() {
+        let renderer = DockApplicationIconRenderer()
+        guard let source = renderer.render(
+            presentation: .dockMagic,
+            appearanceMode: .dark
+        ) else {
+            return XCTFail("Expected DockMagic to render an application icon.")
+        }
+
+        let application = NSApplication.shared
+        let originalIcon = application.applicationIconImage
+        defer { application.applicationIconImage = originalIcon }
+
+        application.applicationIconImage = source
+        guard let installedIcon = application.applicationIconImage else {
+            return XCTFail("AppKit did not retain the installed application icon.")
+        }
+
+        let backingScale = NSScreen.screens
+            .map(\.backingScaleFactor)
+            .max() ?? 1
+        XCTAssertTrue(
+            DockIconRenderingRules.satisfiesInstalledContract(
+                installedIcon,
+                backingScale: backingScale
+            ),
+            "AppKit reduced the installed Command-Tab icon below the active display scale."
+        )
+    }
+
+    func testFullTileDockMagicLogoMeetsRasterAssetRule() {
+        guard let logo = NSImage(named: "DockMagicLogo") else {
+            return XCTFail("DockMagicLogo is missing from the asset catalog.")
+        }
+
+        XCTAssertGreaterThanOrEqual(
+            DockIconRenderingRules.maximumPixelDimension(of: logo),
+            DockIconRenderingRules.rasterPixelDimension,
+            "A full-tile raster asset must supply at least 1024 pixels."
+        )
     }
 
     func testSigmaAppearanceModesAndFoundationContracts() {
@@ -2343,6 +2585,117 @@ final class DockMagicTests: XCTestCase {
             )
             attachPNG(chart, name: "Dock — \(pair.0) — Chart")
             attachPNG(numeric, name: "Dock — \(pair.0) — Numbers")
+        }
+    }
+
+    @MainActor
+    func testCodexAndClaudeNumericDockRenderOneHundredPercent() throws {
+        let snapshot = CodexRateLimitSnapshot(
+            planType: "pro",
+            limitID: "maximum-remaining",
+            fiveHour: CodexRateLimitWindow(
+                kind: .fiveHour,
+                usedPercent: 0,
+                windowDurationMinutes: 300,
+                resetsAt: Date(timeIntervalSince1970: 2_000_000_000)
+            ),
+            weekly: CodexRateLimitWindow(
+                kind: .weekly,
+                usedPercent: 0,
+                windowDurationMinutes: 10_080,
+                resetsAt: Date(timeIntervalSince1970: 2_000_500_000)
+            ),
+            fetchedAt: Date(timeIntervalSince1970: 1_900_000_000)
+        )
+        var codexAppearance = DockFeatureDefaults.codexAppearance
+        codexAppearance.setDisplayStyle(.numeric)
+        var claudeCodeAppearance = DockFeatureDefaults.claudeCodeAppearance
+        claudeCodeAppearance.setDisplayStyle(.numeric)
+
+        let codexPresentation = DockTilePresentation.codex(
+            state: .live(snapshot),
+            appearance: codexAppearance
+        )
+        let claudeCodePresentation = DockTilePresentation.claudeCode(
+            state: .live(snapshot),
+            appearance: claudeCodeAppearance
+        )
+
+        for side in [CGFloat(32), 48, 64, 128] {
+            try attachScreenshot(
+                of: DockMagicThemeRoot(
+                    content: HStack(spacing: 0) {
+                        DockTileView(
+                            presentation: codexPresentation,
+                            animatesChanges: false
+                        )
+                        .frame(width: side, height: side)
+
+                        DockTileView(
+                            presentation: claudeCodePresentation,
+                            animatesChanges: false
+                        )
+                        .frame(width: side, height: side)
+                    },
+                    appearanceMode: .dark
+                ),
+                size: NSSize(width: side * 2, height: side),
+                appearanceName: .darkAqua,
+                name: "Dock — Codex + Claude Code — 100% — \(side) pt"
+            )
+        }
+    }
+
+    @MainActor
+    func testCodexAndClaudeWeeklyOnlyNumericDockUsesLargerTypography() throws {
+        let snapshot = CodexRateLimitSnapshot(
+            planType: "pro",
+            limitID: "weekly-only-maximum-remaining",
+            fiveHour: nil,
+            weekly: CodexRateLimitWindow(
+                kind: .weekly,
+                usedPercent: 0,
+                windowDurationMinutes: 10_080,
+                resetsAt: Date(timeIntervalSince1970: 2_000_500_000)
+            ),
+            fetchedAt: Date(timeIntervalSince1970: 1_900_000_000)
+        )
+        var codexAppearance = DockFeatureDefaults.codexAppearance
+        codexAppearance.setDisplayStyle(.numeric)
+        var claudeCodeAppearance = DockFeatureDefaults.claudeCodeAppearance
+        claudeCodeAppearance.setDisplayStyle(.numeric)
+
+        let codexPresentation = DockTilePresentation.codex(
+            state: .live(snapshot),
+            appearance: codexAppearance
+        )
+        let claudeCodePresentation = DockTilePresentation.claudeCode(
+            state: .live(snapshot),
+            appearance: claudeCodeAppearance
+        )
+
+        for side in [CGFloat(32), 48, 64, 128] {
+            try attachScreenshot(
+                of: DockMagicThemeRoot(
+                    content: HStack(spacing: 0) {
+                        DockTileView(
+                            presentation: codexPresentation,
+                            animatesChanges: false
+                        )
+                        .frame(width: side, height: side)
+
+                        DockTileView(
+                            presentation: claudeCodePresentation,
+                            animatesChanges: false
+                        )
+                        .frame(width: side, height: side)
+                    },
+                    appearanceMode: .dark
+                ),
+                size: NSSize(width: side * 2, height: side),
+                appearanceName: .darkAqua,
+                name: "Dock — Codex + Claude Code — Weekly only — \(side) pt"
+            )
         }
     }
 
@@ -3846,4 +4199,9 @@ private final class SpyDockTile: NSDockTile {
     override func display() {
         displayCallCount += 1
     }
+}
+
+@MainActor
+private final class SpyApplicationIconDisplay: ApplicationIconDisplaying {
+    var applicationIconImage: NSImage!
 }

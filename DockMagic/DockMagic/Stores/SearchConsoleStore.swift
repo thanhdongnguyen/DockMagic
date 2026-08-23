@@ -9,6 +9,7 @@ final class SearchConsoleStore {
     static let refreshIntervalSeconds: TimeInterval = 300
 
     private(set) var configuration: SearchConsoleConfiguration
+    private(set) var credentials: [SearchConsoleCredential]
     private(set) var state: SearchConsoleState
     private(set) var availableSites: [SearchConsoleSite] = []
     private(set) var isRefreshing = false
@@ -21,41 +22,57 @@ final class SearchConsoleStore {
     @ObservationIgnored
     private let api: any SearchConsoleAPIProviding
     @ObservationIgnored
-    private let vault: any SearchConsoleCredentialVault
-    @ObservationIgnored
     private let clock = ContinuousClock()
     @ObservationIgnored
     private var refreshTask: Task<Void, Never>?
     @ObservationIgnored
-    private var configurationRecord: SearchConsoleConfigurationRecord?
+    private var configurationRecord: SearchConsoleConfigurationRecord
+    @ObservationIgnored
+    private var credentialRecords: [SearchConsoleCredentialRecord]
 
     init(
         modelContainer: ModelContainer? = nil,
-        api: any SearchConsoleAPIProviding = SearchConsoleAPIClient(),
-        vault: any SearchConsoleCredentialVault =
-            KeychainSearchConsoleCredentialVault()
+        api: any SearchConsoleAPIProviding = SearchConsoleAPIClient()
     ) {
         let container = modelContainer ?? Self.makeDefaultContainer()
-        self.modelContainer = container
-        self.context = ModelContext(container)
-        self.api = api
-        self.vault = vault
-
-        let record = try? context.fetch(
+        let context = ModelContext(container)
+        let storedConfiguration = try? context.fetch(
             FetchDescriptor<SearchConsoleConfigurationRecord>()
         ).first
-        configurationRecord = record
-        let loadedConfiguration = record?.configuration ?? .defaultValue
-        configuration = loadedConfiguration
-        if let data = record?.cachedSnapshotData,
-           let snapshot = try? JSONDecoder().decode(
-               SearchConsoleSnapshot.self,
-               from: data
-           ) {
-            state = .stale(snapshot, message: "Refreshing cached Search Console data…")
-        } else {
-            state = loadedConfiguration.isConnected ? .loading(nil) : .disconnected
+        let configurationRecord = storedConfiguration
+            ?? SearchConsoleConfigurationRecord()
+        if storedConfiguration == nil {
+            context.insert(configurationRecord)
         }
+
+        let descriptor = FetchDescriptor<SearchConsoleCredentialRecord>(
+            sortBy: [SortDescriptor(\SearchConsoleCredentialRecord.createdAt)]
+        )
+        let credentialRecords = (try? context.fetch(descriptor)) ?? []
+        let activeRecord = credentialRecords.first {
+            $0.identifier == configurationRecord.activeCredentialIdentifier
+        } ?? credentialRecords.first
+        if configurationRecord.activeCredentialIdentifier != activeRecord?.identifier {
+            configurationRecord.activeCredentialIdentifier = activeRecord?.identifier
+        }
+
+        self.modelContainer = container
+        self.context = context
+        self.api = api
+        self.configurationRecord = configurationRecord
+        self.credentialRecords = credentialRecords
+        self.configuration = configurationRecord.configuration(
+            credential: activeRecord
+        )
+        self.credentials = credentialRecords.map {
+            $0.summary(isActive: $0.identifier == activeRecord?.identifier)
+        }
+        self.state = Self.initialState(
+            credential: activeRecord,
+            isConnected: activeRecord != nil
+        )
+
+        try? context.save()
     }
 
     deinit {
@@ -87,10 +104,11 @@ final class SearchConsoleStore {
     }
 
     func refresh() async {
-        guard !isRefreshing, configuration.isConnected,
-              let metadata = configuration.metadata,
-              let reference = configuration.credentialReference else {
-            if !configuration.isConnected { state = .disconnected }
+        guard !isRefreshing,
+              let record = activeCredentialRecord,
+              let account = record.serviceAccount,
+              !record.selectedProperty.isEmpty else {
+            if activeCredentialRecord == nil { state = .disconnected }
             return
         }
 
@@ -100,18 +118,15 @@ final class SearchConsoleStore {
         defer { isRefreshing = false }
 
         do {
-            guard let privateKey = try vault.load(reference: reference) else {
-                throw SearchConsoleConfigurationError.missingPrivateKey
-            }
             let snapshot = try await api.performance(
-                property: configuration.selectedProperty,
+                property: record.selectedProperty,
                 range: configuration.timeRange,
-                metadata: metadata,
-                privateKey: privateKey,
+                metadata: account.metadata,
+                privateKey: account.privateKey,
                 now: .now
             )
             state = .live(snapshot)
-            persist(snapshot: snapshot)
+            persist(snapshot: snapshot, for: record)
         } catch {
             if let previous {
                 state = .stale(previous, message: error.localizedDescription)
@@ -123,57 +138,115 @@ final class SearchConsoleStore {
 
     func importServiceAccountJSON(_ data: Data) async throws {
         let account = try SearchConsoleServiceAccountFile(data: data)
-        let newReference = "service-account.\(account.privateKeyID)"
-        let oldReference = configuration.credentialReference
-        let oldPrivateKey = try oldReference.flatMap { try vault.load(reference: $0) }
+        let sites = try await api.sites(
+            metadata: account.metadata,
+            privateKey: account.privateKey
+        )
+        guard !sites.isEmpty else {
+            throw SearchConsoleConfigurationError.noAccessibleProperties
+        }
 
-        try vault.store(privateKey: account.privateKey, reference: newReference)
-        do {
-            let sites = try await api.sites(
-                metadata: account.metadata,
-                privateKey: account.privateKey
+        let existing = credentialRecords.first {
+            $0.privateKeyID == account.privateKeyID
+                && $0.clientEmail == account.clientEmail
+        }
+        let preferredProperty = existing?.selectedProperty ?? ""
+        let selectedProperty = sites.contains {
+            $0.siteURL == preferredProperty
+        } ? preferredProperty : sites[0].siteURL
+
+        let record: SearchConsoleCredentialRecord
+        if let existing {
+            existing.update(
+                serviceAccountJSONData: data,
+                account: account,
+                selectedProperty: selectedProperty
             )
-            guard !sites.isEmpty else {
-                throw SearchConsoleConfigurationError.noAccessibleProperties
-            }
+            record = existing
+        } else {
+            record = SearchConsoleCredentialRecord(
+                serviceAccountJSONData: data,
+                account: account,
+                selectedProperty: selectedProperty
+            )
+            context.insert(record)
+            credentialRecords.append(record)
+            credentialRecords.sort { $0.createdAt < $1.createdAt }
+        }
 
-            var updated = configuration
-            updated.metadata = account.metadata
-            updated.credentialReference = newReference
-            if !sites.contains(where: { $0.siteURL == updated.selectedProperty }) {
-                updated.selectedProperty = sites[0].siteURL
-            }
-            configuration = updated
-            availableSites = sites
-            persistConfiguration()
+        configurationRecord.activeCredentialIdentifier = record.identifier
+        clearLegacyCredentialFields()
+        configuration = configurationRecord.configuration(credential: record)
+        availableSites = sites
+        state = Self.initialState(credential: record, isConnected: true)
+        syncCredentialSummaries()
+        try context.save()
+        await refresh()
+    }
 
-            if let oldReference, oldReference != newReference {
-                try? vault.delete(reference: oldReference)
-            }
+    func selectCredential(_ identifier: String) async {
+        guard configurationRecord.activeCredentialIdentifier != identifier,
+              let record = credentialRecords.first(where: {
+                  $0.identifier == identifier
+              }) else {
+            return
+        }
+
+        configurationRecord.activeCredentialIdentifier = identifier
+        configurationRecord.updatedAt = .now
+        configuration = configurationRecord.configuration(credential: record)
+        availableSites = []
+        state = Self.initialState(credential: record, isConnected: true)
+        syncCredentialSummaries()
+        try? context.save()
+        await reloadSites()
+        await refresh()
+    }
+
+    func removeCredential(_ identifier: String) async throws {
+        guard let index = credentialRecords.firstIndex(where: {
+            $0.identifier == identifier
+        }) else {
+            return
+        }
+
+        let wasActive = configurationRecord.activeCredentialIdentifier == identifier
+        let record = credentialRecords.remove(at: index)
+        context.delete(record)
+
+        if wasActive {
+            let replacement = credentialRecords.first
+            configurationRecord.activeCredentialIdentifier = replacement?.identifier
+            configurationRecord.updatedAt = .now
+            configuration = configurationRecord.configuration(
+                credential: replacement
+            )
+            availableSites = []
+            state = Self.initialState(
+                credential: replacement,
+                isConnected: replacement != nil
+            )
+        }
+
+        syncCredentialSummaries()
+        try context.save()
+
+        if wasActive, activeCredentialRecord != nil {
+            await reloadSites()
             await refresh()
-        } catch {
-            if newReference == oldReference, let oldPrivateKey {
-                try? vault.store(privateKey: oldPrivateKey, reference: newReference)
-            } else {
-                try? vault.delete(reference: newReference)
-            }
-            throw error
         }
     }
 
     func reloadSites() async {
-        guard let metadata = configuration.metadata,
-              let reference = configuration.credentialReference else {
+        guard let record = activeCredentialRecord,
+              let account = record.serviceAccount else {
             availableSites = []
             return
         }
         do {
-            guard let privateKey = try vault.load(reference: reference) else {
-                throw SearchConsoleConfigurationError.missingPrivateKey
-            }
             availableSites = try await api.sites(
-                metadata: metadata,
-                privateKey: privateKey
+                metadata: account.metadata,
+                privateKey: account.privateKey
             )
         } catch {
             if let snapshot = state.snapshot {
@@ -182,21 +255,6 @@ final class SearchConsoleStore {
                 state = .unavailable(error.localizedDescription)
             }
         }
-    }
-
-    func disconnect() throws {
-        stop()
-        if let reference = configuration.credentialReference {
-            try vault.delete(reference: reference)
-        }
-        if let record = configurationRecord {
-            context.delete(record)
-            try context.save()
-        }
-        configurationRecord = nil
-        configuration = .defaultValue
-        availableSites = []
-        state = .disconnected
     }
 
     func setPrimaryMetric(_ metric: SearchConsoleMetric) {
@@ -219,39 +277,86 @@ final class SearchConsoleStore {
     }
 
     func setSelectedProperty(_ property: String) {
-        guard configuration.selectedProperty != property else { return }
+        guard let record = activeCredentialRecord,
+              record.selectedProperty != property else {
+            return
+        }
+        record.selectedProperty = property
+        record.updatedAt = .now
         configuration.selectedProperty = property
-        persistConfiguration()
+        syncCredentialSummaries()
+        try? context.save()
         Task { await refresh() }
     }
 
-    private func persistConfiguration() {
-        let record: SearchConsoleConfigurationRecord
-        if let configurationRecord {
-            record = configurationRecord
-        } else {
-            record = SearchConsoleConfigurationRecord()
-            context.insert(record)
-            configurationRecord = record
+    private var activeCredentialRecord: SearchConsoleCredentialRecord? {
+        credentialRecords.first {
+            $0.identifier == configurationRecord.activeCredentialIdentifier
         }
-        record.update(from: configuration)
+    }
+
+    private func persistConfiguration() {
+        configurationRecord.updatePreferences(from: configuration)
         try? context.save()
     }
 
-    private func persist(snapshot: SearchConsoleSnapshot) {
+    private func persist(
+        snapshot: SearchConsoleSnapshot,
+        for record: SearchConsoleCredentialRecord
+    ) {
         persistConfiguration()
-        configurationRecord?.cachedSnapshotData = try? JSONEncoder().encode(snapshot)
-        configurationRecord?.updatedAt = .now
+        record.cachedSnapshotData = try? JSONEncoder().encode(snapshot)
+        record.updatedAt = .now
+        syncCredentialSummaries()
         try? context.save()
+    }
+
+    private func syncCredentialSummaries() {
+        let activeIdentifier = configurationRecord.activeCredentialIdentifier
+        credentials = credentialRecords.map {
+            $0.summary(isActive: $0.identifier == activeIdentifier)
+        }
+    }
+
+    private func clearLegacyCredentialFields() {
+        configurationRecord.projectID = ""
+        configurationRecord.privateKeyID = ""
+        configurationRecord.clientEmail = ""
+        configurationRecord.tokenURI = "https://oauth2.googleapis.com/token"
+        configurationRecord.selectedProperty = ""
+        configurationRecord.credentialReference = nil
+        configurationRecord.cachedSnapshotData = nil
+        configurationRecord.updatedAt = .now
+    }
+
+    private static func initialState(
+        credential: SearchConsoleCredentialRecord?,
+        isConnected: Bool
+    ) -> SearchConsoleState {
+        if let data = credential?.cachedSnapshotData,
+           let snapshot = try? JSONDecoder().decode(
+               SearchConsoleSnapshot.self,
+               from: data
+           ) {
+            return .stale(
+                snapshot,
+                message: "Refreshing cached Search Console data…"
+            )
+        }
+        return isConnected ? .loading(nil) : .disconnected
     }
 
     private static func makeDefaultContainer() -> ModelContainer {
         do {
-            return try ModelContainer(for: SearchConsoleConfigurationRecord.self)
+            return try ModelContainer(
+                for: SearchConsoleConfigurationRecord.self,
+                SearchConsoleCredentialRecord.self
+            )
         } catch {
             let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
             return try! ModelContainer(
                 for: SearchConsoleConfigurationRecord.self,
+                SearchConsoleCredentialRecord.self,
                 configurations: configuration
             )
         }
@@ -260,54 +365,100 @@ final class SearchConsoleStore {
     static func inMemoryContainer() -> ModelContainer {
         try! ModelContainer(
             for: SearchConsoleConfigurationRecord.self,
+            SearchConsoleCredentialRecord.self,
             configurations: ModelConfiguration(isStoredInMemoryOnly: true)
         )
     }
 
     static func uiTestFixture() -> SearchConsoleStore {
-        let vault = InMemorySearchConsoleCredentialVault()
-        let reference = "service-account.ui-test"
-        try? vault.store(privateKey: "fixture-private-key", reference: reference)
         let container = inMemoryContainer()
         let context = ModelContext(container)
-        let record = SearchConsoleConfigurationRecord(
-            projectID: "dockmagic-ui-tests",
-            privateKeyID: "ui-test",
-            clientEmail: "dockmagic@seo-metrics.iam.gserviceaccount.com",
+        let primaryData = fixtureServiceAccountJSON(
+            projectID: "seo-metrics",
+            privateKeyID: "ui-test-primary",
+            clientEmail: "dockmagic@seo-metrics.iam.gserviceaccount.com"
+        )
+        let secondaryData = fixtureServiceAccountJSON(
+            projectID: "marketing-reports",
+            privateKeyID: "ui-test-secondary",
+            clientEmail: "analytics@marketing-reports.iam.gserviceaccount.com"
+        )
+        let primaryAccount = try! SearchConsoleServiceAccountFile(
+            data: primaryData
+        )
+        let secondaryAccount = try! SearchConsoleServiceAccountFile(
+            data: secondaryData
+        )
+        let primary = SearchConsoleCredentialRecord(
+            serviceAccountJSONData: primaryData,
+            account: primaryAccount,
             selectedProperty: "sc-domain:example.com",
-            credentialReference: reference
+            cachedSnapshotData: try? JSONEncoder().encode(
+                SearchConsoleFixtureAPI.snapshot
+            ),
+            createdAt: Date(timeIntervalSince1970: 1)
         )
-        record.cachedSnapshotData = try? JSONEncoder().encode(
-            SearchConsoleFixtureAPI.snapshot
+        let secondary = SearchConsoleCredentialRecord(
+            serviceAccountJSONData: secondaryData,
+            account: secondaryAccount,
+            selectedProperty: "https://www.example.com/",
+            createdAt: Date(timeIntervalSince1970: 2)
         )
-        context.insert(record)
+        let configuration = SearchConsoleConfigurationRecord(
+            activeCredentialIdentifier: primary.identifier
+        )
+        context.insert(configuration)
+        context.insert(primary)
+        context.insert(secondary)
         try? context.save()
         return SearchConsoleStore(
             modelContainer: container,
-            api: SearchConsoleFixtureAPI(),
-            vault: vault
+            api: SearchConsoleFixtureAPI()
         )
+    }
+
+    private static func fixtureServiceAccountJSON(
+        projectID: String,
+        privateKeyID: String,
+        clientEmail: String
+    ) -> Data {
+        try! JSONSerialization.data(withJSONObject: [
+            "type": "service_account",
+            "project_id": projectID,
+            "private_key_id": privateKeyID,
+            "private_key": "-----BEGIN PRIVATE KEY-----\nfixture\n-----END PRIVATE KEY-----",
+            "client_email": clientEmail,
+            "token_uri": "https://oauth2.googleapis.com/token"
+        ])
     }
 }
 
 struct SearchConsoleFixtureAPI: SearchConsoleAPIProviding {
     static let sites = [
-        SearchConsoleSite(siteURL: "sc-domain:example.com", permissionLevel: "siteFullUser"),
-        SearchConsoleSite(siteURL: "https://www.example.com/", permissionLevel: "siteFullUser")
+        SearchConsoleSite(
+            siteURL: "sc-domain:example.com",
+            permissionLevel: "siteFullUser"
+        ),
+        SearchConsoleSite(
+            siteURL: "https://www.example.com/",
+            permissionLevel: "siteFullUser"
+        )
     ]
 
     static let snapshot: SearchConsoleSnapshot = {
         let calendar = Calendar(identifier: .gregorian)
         let start = calendar.date(byAdding: .day, value: -6, to: .now) ?? .now
-        // A realistic seven-day shape with the same 2.4K / 184K totals used
-        // by the selected Adaptive Focus reference.
         let clicks = [340, 400, 310, 420, 210, 450, 270]
         let impressions = [24_000, 28_000, 23_000, 29_000, 18_000, 38_000, 24_000]
         return SearchConsoleSnapshot(
             property: "sc-domain:example.com",
             range: .last7Days,
             points: clicks.indices.map { index in
-                let date = calendar.date(byAdding: .day, value: index, to: start) ?? start
+                let date = calendar.date(
+                    byAdding: .day,
+                    value: index,
+                    to: start
+                ) ?? start
                 return SearchConsoleDataPoint(
                     key: date.formatted(.iso8601.year().month().day()),
                     date: date,

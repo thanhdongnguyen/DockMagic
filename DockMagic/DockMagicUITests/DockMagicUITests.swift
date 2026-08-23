@@ -278,8 +278,8 @@ final class DockMagicUITests: XCTestCase {
                 "settings.searchConsole.connection"
             ].exists
         )
-        XCTAssertTrue(app.staticTexts["Data source & security"].exists)
-        XCTAssertTrue(app.staticTexts["Private key in macOS Keychain"].exists)
+        XCTAssertTrue(app.staticTexts["Data source & storage"].exists)
+        XCTAssertTrue(app.staticTexts["Complete JSON files in SwiftData"].exists)
         XCTAssertTrue(
             app.descendants(matching: .any)[
                 "settings.searchConsole.refresh"
@@ -500,8 +500,75 @@ final class DockMagicUITests: XCTestCase {
         manage.click()
         XCTAssertTrue(
             app.descendants(matching: .any)[
-                "settings.searchConsole.setupSteps"
+                "settings.searchConsole.credentialList"
             ].waitForExistence(timeout: 3)
+        )
+        XCTAssertTrue(
+            app.descendants(matching: .any)[
+                "settings.searchConsole.credential.ui-test-primary"
+            ].exists
+        )
+        XCTAssertTrue(
+            app.descendants(matching: .any)[
+                "settings.searchConsole.credential.ui-test-secondary"
+            ].exists
+        )
+        let secondaryUse = app.descendants(matching: .any)[
+            "settings.searchConsole.credential.use.ui-test-secondary"
+        ].firstMatch
+        XCTAssertTrue(secondaryUse.exists)
+        XCTAssertTrue(
+            app.descendants(matching: .any)[
+                "settings.searchConsole.sheetImport"
+            ].exists
+        )
+        secondaryUse.click()
+        let primaryUse = app.descendants(matching: .any)[
+            "settings.searchConsole.credential.use.ui-test-primary"
+        ].firstMatch
+        XCTAssertTrue(
+            primaryUse.waitForExistence(timeout: 3),
+            "Selecting the secondary key did not update the active key."
+        )
+        XCTAssertFalse(secondaryUse.exists)
+
+        let removePrimary = app.descendants(matching: .any)[
+            "settings.searchConsole.credential.remove.ui-test-primary"
+        ].firstMatch
+        XCTAssertTrue(removePrimary.exists)
+        removePrimary.click()
+        let cancelRemoval = app.sheets.buttons["Cancel"].firstMatch
+        XCTAssertTrue(cancelRemoval.waitForExistence(timeout: 3))
+        cancelRemoval.click()
+        XCTAssertTrue(primaryUse.exists)
+        let setupGuide = app.descendants(matching: .any)[
+            "settings.searchConsole.setupGuide"
+        ].firstMatch
+        XCTAssertTrue(setupGuide.exists)
+        attachScreenshot(
+            named: "Settings — Search Console — JSON Key Manager",
+            in: app
+        )
+        let sheetScrollView = app.scrollViews.firstMatch
+        XCTAssertTrue(sheetScrollView.exists)
+        sheetScrollView.scroll(byDeltaX: 0, deltaY: -600)
+        for step in 1...5 {
+            XCTAssertTrue(
+                app.descendants(matching: .any)[
+                    "settings.searchConsole.setupStep.\(step)"
+                ].exists,
+                "Missing Search Console setup step \(step)."
+            )
+        }
+        XCTAssertTrue(
+            app.descendants(matching: .any)[
+                "settings.searchConsole.dataDelayNote"
+            ].exists
+        )
+        XCTAssertTrue(
+            app.descendants(matching: .any)[
+                "settings.searchConsole.guide.api"
+            ].exists
         )
         XCTAssertTrue(
             app.descendants(matching: .any)[
@@ -518,7 +585,16 @@ final class DockMagicUITests: XCTestCase {
                 "settings.searchConsole.property"
             ].exists
         )
-        app.buttons["Done"].click()
+        attachScreenshot(
+            named: "Settings — Search Console — Setup Guide",
+            in: app
+        )
+        XCTAssertFalse(app.buttons["Done"].exists)
+        let close = app.descendants(matching: .any)[
+            "settings.searchConsole.sheetClose"
+        ].firstMatch
+        XCTAssertTrue(close.exists)
+        close.click()
     }
 
     func testSearchConsoleAdaptiveFocusReferenceScreenshot() {

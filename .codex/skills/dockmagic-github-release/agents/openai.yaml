@@ -1,0 +1,4 @@
+interface:
+  display_name: "DockMagic GitHub Release"
+  short_description: "Build and publish verified DockMagic releases"
+  default_prompt: "Use $dockmagic-github-release to prepare and publish a new DockMagic GitHub release."

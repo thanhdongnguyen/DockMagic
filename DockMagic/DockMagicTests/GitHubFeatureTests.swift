@@ -283,7 +283,8 @@ final class GitHubFeatureTests: XCTestCase {
         let store = GitHubRepositoryStore(
             api: api,
             vault: InMemoryGitHubCredentialVault(),
-            cache: InMemoryGitHubRepositoryHistoryCache()
+            cache: InMemoryGitHubRepositoryHistoryCache(),
+            now: { Date(timeIntervalSince1970: 1_786_600_100) }
         )
         store.configure(repositoryURL: reference.webURLString)
 
@@ -312,7 +313,8 @@ final class GitHubFeatureTests: XCTestCase {
             api: api,
             vault: InMemoryGitHubCredentialVault(),
             cache: InMemoryGitHubRepositoryHistoryCache(),
-            pollingInterval: 0.03
+            pollingInterval: 0.03,
+            now: { Date(timeIntervalSince1970: 1_786_600_100) }
         )
         store.configure(repositoryURL: reference.webURLString)
         store.start()
@@ -435,7 +437,8 @@ final class GitHubFeatureTests: XCTestCase {
             api: api,
             vault: InMemoryGitHubCredentialVault(),
             cache: InMemoryGitHubRepositoryHistoryCache(),
-            pollingInterval: 900
+            pollingInterval: 900,
+            now: { Date(timeIntervalSince1970: 1_786_600_100) }
         )
         let appModel = DockAppModel(
             preferences: preferences,

@@ -39,9 +39,63 @@ enum SearchConsoleAPIError: LocalizedError, Equatable {
     }
 }
 
+private struct SearchConsoleDERReader {
+    let data: Data
+    private(set) var offset = 0
+
+    var isAtEnd: Bool { offset == data.count }
+
+    mutating func read(tag expectedTag: UInt8) throws -> Data {
+        guard offset < data.count, data[offset] == expectedTag else {
+            throw SearchConsoleAPIError.invalidPrivateKey
+        }
+        offset += 1
+
+        let length = try readLength()
+        guard length <= data.count - offset else {
+            throw SearchConsoleAPIError.invalidPrivateKey
+        }
+
+        let value = data.subdata(in: offset..<(offset + length))
+        offset += length
+        return value
+    }
+
+    private mutating func readLength() throws -> Int {
+        guard offset < data.count else {
+            throw SearchConsoleAPIError.invalidPrivateKey
+        }
+
+        let first = Int(data[offset])
+        offset += 1
+        if first & 0x80 == 0 { return first }
+
+        let byteCount = first & 0x7F
+        guard byteCount > 0,
+              byteCount <= MemoryLayout<Int>.size,
+              byteCount <= data.count - offset else {
+            throw SearchConsoleAPIError.invalidPrivateKey
+        }
+
+        var length = 0
+        for _ in 0..<byteCount {
+            guard length <= (Int.max >> 8) else {
+                throw SearchConsoleAPIError.invalidPrivateKey
+            }
+            length = (length << 8) | Int(data[offset])
+            offset += 1
+        }
+        return length
+    }
+}
+
 actor SearchConsoleAPIClient: SearchConsoleAPIProviding {
     static let readOnlyScope =
         "https://www.googleapis.com/auth/webmasters.readonly"
+
+    private static let rsaEncryptionOID = Data([
+        0x2A, 0x86, 0x48, 0x86, 0xF7, 0x0D, 0x01, 0x01, 0x01
+    ])
 
     private struct CachedToken {
         let value: String
@@ -279,16 +333,17 @@ actor SearchConsoleAPIClient: SearchConsoleAPIProviding {
             .replacingOccurrences(of: "-----END PRIVATE KEY-----", with: "")
             .components(separatedBy: .whitespacesAndNewlines)
             .joined()
-        guard let data = Data(base64Encoded: base64) else {
+        guard let pkcs8Data = Data(base64Encoded: base64) else {
             throw SearchConsoleAPIError.invalidPrivateKey
         }
+        let rsaPrivateKeyData = try Self.unwrapPKCS8PrivateKey(pkcs8Data)
         let attributes: [CFString: Any] = [
             kSecAttrKeyType: kSecAttrKeyTypeRSA,
             kSecAttrKeyClass: kSecAttrKeyClassPrivate
         ]
         var error: Unmanaged<CFError>?
         guard let key = SecKeyCreateWithData(
-            data as CFData,
+            rsaPrivateKeyData as CFData,
             attributes as CFDictionary,
             &error
         ) else {
@@ -298,6 +353,40 @@ actor SearchConsoleAPIClient: SearchConsoleAPIProviding {
             )
         }
         return key
+    }
+
+    private static func unwrapPKCS8PrivateKey(_ data: Data) throws -> Data {
+        var root = SearchConsoleDERReader(data: data)
+        let privateKeyInfo = try root.read(tag: 0x30)
+        guard root.isAtEnd else {
+            throw SearchConsoleAPIError.invalidPrivateKey
+        }
+
+        var fields = SearchConsoleDERReader(data: privateKeyInfo)
+        let version = try fields.read(tag: 0x02)
+        guard version == Data([0x00]) || version == Data([0x01]) else {
+            throw SearchConsoleAPIError.invalidPrivateKey
+        }
+
+        let algorithmIdentifier = try fields.read(tag: 0x30)
+        var algorithm = SearchConsoleDERReader(data: algorithmIdentifier)
+        guard try algorithm.read(tag: 0x06) == rsaEncryptionOID else {
+            throw SearchConsoleAPIError.invalidPrivateKey
+        }
+        if !algorithm.isAtEnd {
+            guard try algorithm.read(tag: 0x05).isEmpty,
+                  algorithm.isAtEnd else {
+                throw SearchConsoleAPIError.invalidPrivateKey
+            }
+        }
+
+        let rsaPrivateKey = try fields.read(tag: 0x04)
+        var rsa = SearchConsoleDERReader(data: rsaPrivateKey)
+        _ = try rsa.read(tag: 0x30)
+        guard rsa.isAtEnd else {
+            throw SearchConsoleAPIError.invalidPrivateKey
+        }
+        return rsaPrivateKey
     }
 
     private func analyticsBody(

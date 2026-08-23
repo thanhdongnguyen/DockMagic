@@ -61,12 +61,12 @@
 		F0A000000000000000000007 /* GitHubFeatureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0B000000000000000000007 /* GitHubFeatureTests.swift */; };
 		A1A000000000000000000001 /* SearchConsoleModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B000000000000000000001 /* SearchConsoleModels.swift */; };
 		A1A000000000000000000002 /* SearchConsoleConfigurationRecord.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B000000000000000000002 /* SearchConsoleConfigurationRecord.swift */; };
-		A1A000000000000000000003 /* SearchConsoleCredentialVault.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B000000000000000000003 /* SearchConsoleCredentialVault.swift */; };
 		A1A000000000000000000004 /* SearchConsoleAPIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B000000000000000000004 /* SearchConsoleAPIClient.swift */; };
 		A1A000000000000000000005 /* SearchConsoleStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B000000000000000000005 /* SearchConsoleStore.swift */; };
 		A1A000000000000000000006 /* DockSearchConsoleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B000000000000000000006 /* DockSearchConsoleView.swift */; };
 		A1A000000000000000000007 /* SearchConsoleSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B000000000000000000007 /* SearchConsoleSettingsView.swift */; };
 		A1A000000000000000000008 /* SearchConsoleFeatureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B000000000000000000008 /* SearchConsoleFeatureTests.swift */; };
+		B2A000000000000000000001 /* DockIconRenderingRules.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2B000000000000000000001 /* DockIconRenderingRules.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -146,12 +146,12 @@
 		F0B000000000000000000007 /* GitHubFeatureTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitHubFeatureTests.swift; sourceTree = "<group>"; };
 		A1B000000000000000000001 /* SearchConsoleModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchConsoleModels.swift; sourceTree = "<group>"; };
 		A1B000000000000000000002 /* SearchConsoleConfigurationRecord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchConsoleConfigurationRecord.swift; sourceTree = "<group>"; };
-		A1B000000000000000000003 /* SearchConsoleCredentialVault.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchConsoleCredentialVault.swift; sourceTree = "<group>"; };
 		A1B000000000000000000004 /* SearchConsoleAPIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchConsoleAPIClient.swift; sourceTree = "<group>"; };
 		A1B000000000000000000005 /* SearchConsoleStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchConsoleStore.swift; sourceTree = "<group>"; };
 		A1B000000000000000000006 /* DockSearchConsoleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DockSearchConsoleView.swift; sourceTree = "<group>"; };
 		A1B000000000000000000007 /* SearchConsoleSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchConsoleSettingsView.swift; sourceTree = "<group>"; };
 		A1B000000000000000000008 /* SearchConsoleFeatureTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchConsoleFeatureTests.swift; sourceTree = "<group>"; };
+		B2B000000000000000000001 /* DockIconRenderingRules.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DockIconRenderingRules.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -273,8 +273,8 @@
 		D0C200000000000000000003 /* Services */ = {
 			isa = PBXGroup;
 			children = (
+				B2B000000000000000000001 /* DockIconRenderingRules.swift */,
 				A1B000000000000000000004 /* SearchConsoleAPIClient.swift */,
-				A1B000000000000000000003 /* SearchConsoleCredentialVault.swift */,
 				E0B000000000000000000002 /* BatteryMetricsSampler.swift */,
 				D8B000000000000000000001 /* ClaudeCodeRateLimitProvider.swift */,
 				D7B000000000000000000003 /* CodexRateLimitProvider.swift */,
@@ -508,9 +508,9 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B2A000000000000000000001 /* DockIconRenderingRules.swift in Sources */,
 				A1A000000000000000000001 /* SearchConsoleModels.swift in Sources */,
 				A1A000000000000000000002 /* SearchConsoleConfigurationRecord.swift in Sources */,
-				A1A000000000000000000003 /* SearchConsoleCredentialVault.swift in Sources */,
 				A1A000000000000000000004 /* SearchConsoleAPIClient.swift in Sources */,
 				A1A000000000000000000005 /* SearchConsoleStore.swift in Sources */,
 				A1A000000000000000000006 /* DockSearchConsoleView.swift in Sources */,
@@ -725,7 +725,7 @@
 				CODE_SIGN_ENTITLEMENTS = DockMagic/DockMagic.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_ASSET_PATHS = "\"DockMagic/Preview Content\"";
 				DEVELOPMENT_TEAM = S35WXF7W5L;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -738,7 +738,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 0.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.hypevibe.DockMagic;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -754,7 +754,7 @@
 				CODE_SIGN_ENTITLEMENTS = DockMagic/DockMagic.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_ASSET_PATHS = "\"DockMagic/Preview Content\"";
 				DEVELOPMENT_TEAM = S35WXF7W5L;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -767,7 +767,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 0.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.hypevibe.DockMagic;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -781,11 +781,11 @@
 				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = S35WXF7W5L;
 				GENERATE_INFOPLIST_FILE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 0.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.hypevibe.DockMagicTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
@@ -800,11 +800,11 @@
 				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = S35WXF7W5L;
 				GENERATE_INFOPLIST_FILE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 0.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.hypevibe.DockMagicTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
@@ -818,10 +818,10 @@
 			buildSettings = {
 				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = S35WXF7W5L;
 				GENERATE_INFOPLIST_FILE = YES;
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 0.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.hypevibe.DockMagicUITests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
@@ -835,10 +835,10 @@
 			buildSettings = {
 				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = S35WXF7W5L;
 				GENERATE_INFOPLIST_FILE = YES;
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 0.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.hypevibe.DockMagicUITests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;

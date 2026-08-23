@@ -77,6 +77,10 @@ struct SearchConsoleSettingsView: View {
                 .foregroundStyle(theme.textSecondary)
                 .lineLimit(1)
 
+            Text("\(store.credentials.count) JSON \(store.credentials.count == 1 ? "key" : "keys")")
+                .font(DSTypography.metadata)
+                .foregroundStyle(theme.textTertiary)
+
             Spacer(minLength: DSSpacing.medium)
 
             Button("Manage…") { showsManageSheet = true }
@@ -164,13 +168,19 @@ struct SearchConsoleSettingsView: View {
 
     private var dataSource: some View {
         VStack(alignment: .leading, spacing: DSSpacing.large) {
-            Text("Data source & security")
-                .font(DSTypography.sectionTitle)
-                .foregroundStyle(theme.textPrimary)
+            HStack(spacing: DSSpacing.medium) {
+                Text("Data source & storage")
+                    .font(DSTypography.sectionTitle)
+                    .foregroundStyle(theme.textPrimary)
+                Spacer()
+                Button("Manage JSON Keys…") { showsManageSheet = true }
+                    .buttonStyle(DSButtonStyle())
+                    .accessibilityIdentifier("settings.searchConsole.manageKeys")
+            }
 
             dataRow(
-                title: "Service account JSON",
-                value: "Connected",
+                title: "JSON keys",
+                value: "\(store.credentials.count) saved",
                 valueColor: Color(red: 0.32, green: 0.82, blue: 0.46)
             )
             DSDivider()
@@ -182,16 +192,9 @@ struct SearchConsoleSettingsView: View {
             DSDivider()
             dataRow(
                 title: "Credential storage",
-                value: "Private key in macOS Keychain",
+                value: "Complete JSON files in SwiftData",
                 valueColor: theme.textSecondary
             )
-
-            HStack {
-                Spacer()
-                Button("Replace JSON Key…") { importsJSON = true }
-                    .buttonStyle(DSButtonStyle())
-                    .accessibilityIdentifier("settings.searchConsole.replaceKey")
-            }
         }
         .padding(DSSpacing.xLarge)
         .dsSurface(
@@ -229,17 +232,19 @@ struct SearchConsoleSettingsView: View {
                     Text("Connect Google Search Console")
                         .font(DSTypography.headline)
                         .foregroundStyle(theme.textPrimary)
-                    Text("Import a service-account JSON key to show clicks and impressions in the Dock.")
+                    Text("Complete the setup below, then import a service-account JSON key to show clicks and impressions in the Dock.")
                         .font(DSTypography.body)
                         .foregroundStyle(theme.textSecondary)
                 }
+
+                Spacer(minLength: DSSpacing.large)
+
+                Button("Add JSON Key…") { importsJSON = true }
+                    .buttonStyle(DSButtonStyle(kind: .primary))
+                    .accessibilityIdentifier("settings.searchConsole.import")
             }
 
             SearchConsoleSetupSteps()
-
-            Button("Connect Service Account…") { importsJSON = true }
-                .buttonStyle(DSButtonStyle(kind: .primary))
-                .accessibilityIdentifier("settings.searchConsole.import")
         }
         .padding(DSSpacing.xLarge)
         .dsSurface(
@@ -342,52 +347,272 @@ private struct SearchConsoleConnectionSheet: View {
     let importJSON: () -> Void
     let dismiss: () -> Void
 
-    @State private var disconnectError: String?
+    @State private var credentialPendingRemoval: SearchConsoleCredential?
+    @State private var operationError: String?
     @Environment(\.designTheme) private var theme
 
     var body: some View {
-        VStack(alignment: .leading, spacing: DSSpacing.xLarge) {
-            HStack {
+        sheetContent
+            .alert(
+                "Remove JSON key?",
+                isPresented: removalAlertIsPresented,
+                presenting: credentialPendingRemoval,
+                actions: removalAlertActions,
+                message: removalAlertMessage
+            )
+    }
+
+    private var sheetContent: some View {
+        VStack(spacing: 0) {
+            sheetHeader
+            DSDivider()
+            ScrollView {
+                VStack(alignment: .leading, spacing: DSSpacing.section) {
+                    credentialSection
+                    setupGuide
+                    if let operationError {
+                        Text(operationError)
+                            .font(DSTypography.metadata)
+                            .foregroundStyle(theme.dangerForeground)
+                    }
+                }
+                .padding(DSSpacing.xxLarge)
+            }
+        }
+        .frame(width: 760, height: 680)
+        .background(theme.opaqueSurface)
+        .task { if store.configuration.isConnected { await store.reloadSites() } }
+    }
+
+    private var sheetHeader: some View {
+        HStack(alignment: .top, spacing: DSSpacing.large) {
+            VStack(alignment: .leading, spacing: DSSpacing.xSmall) {
+                Text("Search Console connection")
+                    .font(DSTypography.headline)
+                    .foregroundStyle(theme.textPrimary)
+                Text("Add, select, and remove the service-account JSON keys available to DockMagic.")
+                    .font(DSTypography.body)
+                    .foregroundStyle(theme.textSecondary)
+            }
+            Spacer()
+            Button(action: dismiss) {
+                Image(systemName: "xmark")
+            }
+            .buttonStyle(DSIconButtonStyle(visualSize: 28, hitSize: 36))
+            .keyboardShortcut(.cancelAction)
+            .accessibilityLabel("Close")
+            .accessibilityIdentifier("settings.searchConsole.sheetClose")
+        }
+        .padding(.horizontal, DSSpacing.xxLarge)
+        .padding(.vertical, DSSpacing.xLarge)
+    }
+
+    private var credentialSection: some View {
+        VStack(alignment: .leading, spacing: DSSpacing.large) {
+            HStack(alignment: .center, spacing: DSSpacing.large) {
                 VStack(alignment: .leading, spacing: DSSpacing.xSmall) {
-                    Text("Search Console connection")
-                        .font(DSTypography.headline)
+                    Text("JSON keys")
+                        .font(DSTypography.sectionTitle)
                         .foregroundStyle(theme.textPrimary)
-                    Text("Create the JSON key in Google Cloud, then grant its email access to your Search Console property.")
-                        .font(DSTypography.body)
+                    Text(credentialCountSummary)
+                        .font(DSTypography.metadata)
                         .foregroundStyle(theme.textSecondary)
                 }
                 Spacer()
-                Button("Done", action: dismiss)
+                Button("Add JSON Key…", action: importJSON)
                     .buttonStyle(DSButtonStyle(kind: .primary))
+                    .accessibilityIdentifier("settings.searchConsole.sheetImport")
             }
 
+            if store.credentials.isEmpty {
+                emptyCredentialState
+            } else {
+                credentialList
+            }
+        }
+        .padding(DSSpacing.xLarge)
+        .dsSurface(
+            RoundedRectangle(
+                cornerRadius: DSRadius.largePanel,
+                style: .continuous
+            ),
+            kind: .raised,
+            elevation: .primary
+        )
+    }
+
+    private var credentialList: some View {
+        VStack(spacing: DSSpacing.small) {
+            ForEach(store.credentials) { credential in
+                credentialRow(credential)
+            }
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("settings.searchConsole.credentialList")
+    }
+
+    private var setupGuide: some View {
+        VStack(alignment: .leading, spacing: DSSpacing.large) {
+            VStack(alignment: .leading, spacing: DSSpacing.xSmall) {
+                Text("Setup guide")
+                    .font(DSTypography.sectionTitle)
+                    .foregroundStyle(theme.textPrimary)
+                Text("Google Cloud and Search Console access steps")
+                    .font(DSTypography.metadata)
+                    .foregroundStyle(theme.textSecondary)
+            }
             SearchConsoleSetupSteps()
+        }
+        .padding(DSSpacing.xLarge)
+        .dsSurface(
+            RoundedRectangle(
+                cornerRadius: DSRadius.largePanel,
+                style: .continuous
+            ),
+            kind: .raised,
+            elevation: .secondary
+        )
+        .accessibilityIdentifier("settings.searchConsole.setupGuide")
+    }
 
-            HStack(spacing: DSSpacing.medium) {
-                Link(
-                    "Open Google Cloud IAM",
-                    destination: URL(string: "https://console.cloud.google.com/iam-admin/serviceaccounts")!
-                )
-                .accessibilityIdentifier("settings.searchConsole.guide.googleCloud")
-                Link(
-                    "Open Search Console",
-                    destination: URL(string: "https://search.google.com/search-console")!
-                )
-                .accessibilityIdentifier("settings.searchConsole.guide.searchConsole")
+    private var credentialCountSummary: String {
+        let noun = store.credentials.count == 1 ? "key" : "keys"
+        return "\(store.credentials.count) \(noun) stored locally in SwiftData"
+    }
+
+    private var removalAlertIsPresented: Binding<Bool> {
+        Binding(
+            get: { credentialPendingRemoval != nil },
+            set: { if !$0 { credentialPendingRemoval = nil } }
+        )
+    }
+
+    @ViewBuilder
+    private func removalAlertActions(
+        _ credential: SearchConsoleCredential
+    ) -> some View {
+        Button("Remove", role: .destructive) {
+            remove(credential)
+        }
+        Button("Cancel", role: .cancel) {
+            credentialPendingRemoval = nil
+        }
+    }
+
+    private func removalAlertMessage(
+        _ credential: SearchConsoleCredential
+    ) -> Text {
+        Text("DockMagic will remove \(credential.clientEmail) and its complete JSON data from SwiftData.")
+    }
+
+    private func remove(_ credential: SearchConsoleCredential) {
+        Task {
+            do {
+                try await store.removeCredential(credential.id)
+            } catch {
+                operationError = error.localizedDescription
             }
-            .font(DSTypography.bodyEmphasis)
+            credentialPendingRemoval = nil
+        }
+    }
 
-            if store.configuration.isConnected {
-                DSDivider()
-                VStack(alignment: .leading, spacing: DSSpacing.medium) {
-                    Text("Connected account")
-                        .font(DSTypography.sectionTitle)
-                        .foregroundStyle(theme.textPrimary)
-                    Text(store.configuration.metadata?.clientEmail ?? "")
-                        .font(DSTypography.body)
-                        .textSelection(.enabled)
+    private var emptyCredentialState: some View {
+        HStack(spacing: DSSpacing.medium) {
+            Image(systemName: "key.horizontal")
+                .font(.system(size: 20, weight: .medium))
+                .foregroundStyle(theme.textTertiary)
+            VStack(alignment: .leading, spacing: DSSpacing.xSmall) {
+                Text("No JSON keys yet")
+                    .font(DSTypography.bodyEmphasis)
+                    .foregroundStyle(theme.textPrimary)
+                Text("Add a service-account JSON file to connect a property.")
+                    .font(DSTypography.metadata)
+                    .foregroundStyle(theme.textSecondary)
+            }
+            Spacer()
+        }
+        .padding(DSSpacing.large)
+        .dsSurface(
+            RoundedRectangle(cornerRadius: DSRadius.control, style: .continuous),
+            kind: .inset,
+            elevation: .secondary
+        )
+    }
+
+    private func credentialRow(
+        _ credential: SearchConsoleCredential
+    ) -> some View {
+        VStack(alignment: .leading, spacing: DSSpacing.medium) {
+            HStack(spacing: DSSpacing.medium) {
+                ZStack {
+                    RoundedRectangle(
+                        cornerRadius: DSRadius.control,
+                        style: .continuous
+                    )
+                    .fill(
+                        credential.isActive
+                            ? theme.action.opacity(0.18)
+                            : theme.surfaceRaised
+                    )
+                    Image(systemName: "key.horizontal.fill")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(
+                            credential.isActive
+                                ? theme.actionForeground
+                                : theme.textSecondary
+                        )
+                }
+                .frame(width: 38, height: 38)
+
+                VStack(alignment: .leading, spacing: DSSpacing.xSmall) {
+                    HStack(spacing: DSSpacing.small) {
+                        Text(credential.clientEmail)
+                            .font(DSTypography.bodyEmphasis)
+                            .foregroundStyle(theme.textPrimary)
+                            .lineLimit(1)
+                        if credential.isActive {
+                            Label("Active", systemImage: "checkmark.circle.fill")
+                                .font(DSTypography.metadata)
+                                .foregroundStyle(theme.processingForeground)
+                        }
+                    }
+                    Text("Project: \(credential.projectID)  ·  Key: \(credential.privateKeyID)")
+                        .font(DSTypography.metadata)
                         .foregroundStyle(theme.textSecondary)
+                        .lineLimit(1)
+                }
 
+                Spacer(minLength: DSSpacing.medium)
+
+                if !credential.isActive {
+                    Button("Use") {
+                        Task { await store.selectCredential(credential.id) }
+                    }
+                    .buttonStyle(DSButtonStyle())
+                    .accessibilityIdentifier(
+                        "settings.searchConsole.credential.use.\(credential.privateKeyID)"
+                    )
+                }
+
+                Button {
+                    credentialPendingRemoval = credential
+                } label: {
+                    Image(systemName: "trash")
+                }
+                .buttonStyle(DSIconButtonStyle(visualSize: 26, hitSize: 34))
+                .accessibilityLabel("Remove \(credential.clientEmail)")
+                .accessibilityIdentifier(
+                    "settings.searchConsole.credential.remove.\(credential.privateKeyID)"
+                )
+            }
+
+            if credential.isActive {
+                DSDivider()
+                HStack(spacing: DSSpacing.large) {
+                    Text("Property")
+                        .font(DSTypography.bodyEmphasis)
+                        .foregroundStyle(theme.textPrimary)
+                    Spacer(minLength: DSSpacing.large)
                     Picker(
                         "Property",
                         selection: Binding(
@@ -404,40 +629,22 @@ private struct SearchConsoleConnectionSheet: View {
                             }
                         }
                     }
+                    .labelsHidden()
+                    .frame(maxWidth: 360)
                     .accessibilityIdentifier("settings.searchConsole.property")
-
-                    HStack {
-                        Button("Replace JSON Key…", action: importJSON)
-                            .buttonStyle(DSButtonStyle())
-                        Button("Disconnect", role: .destructive) {
-                            do {
-                                try store.disconnect()
-                                dismiss()
-                            } catch {
-                                disconnectError = error.localizedDescription
-                            }
-                        }
-                        .buttonStyle(DSButtonStyle(kind: .destructive))
-                        Spacer()
-                    }
                 }
-            } else {
-                Button("Choose JSON Key…", action: importJSON)
-                    .buttonStyle(DSButtonStyle(kind: .primary))
-                    .accessibilityIdentifier("settings.searchConsole.sheetImport")
-            }
-
-            if let disconnectError {
-                Text(disconnectError)
-                    .font(DSTypography.metadata)
-                    .foregroundStyle(theme.dangerForeground)
             }
         }
-        .padding(DSSpacing.xxLarge)
-        .frame(width: 650)
-        .frame(minHeight: 560, alignment: .topLeading)
-        .background(theme.opaqueSurface)
-        .task { if store.configuration.isConnected { await store.reloadSites() } }
+        .padding(DSSpacing.large)
+        .dsSurface(
+            RoundedRectangle(cornerRadius: DSRadius.panel, style: .continuous),
+            kind: credential.isActive ? .chrome : .inset,
+            elevation: credential.isActive ? .primary : .secondary
+        )
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier(
+            "settings.searchConsole.credential.\(credential.privateKeyID)"
+        )
     }
 }
 
@@ -446,26 +653,93 @@ private struct SearchConsoleSetupSteps: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: DSSpacing.medium) {
-            step(1, "Enable the Google Search Console API in your Google Cloud project.")
-            step(2, "Open IAM & Admin → Service Accounts, create or select an account, then open Keys → Add key → Create new key → JSON.")
-            step(3, "In Search Console open Settings → Users and permissions → Add user. Add the service-account email with Full permission.")
-            step(4, "Import the downloaded JSON file here. DockMagic keeps its private key in macOS Keychain; SwiftData stores only non-secret settings and cached metrics.")
+            step(
+                1,
+                title: "Verify your website property",
+                detail: "Open Search Console, add or select your website, and complete ownership verification. Your Google account must be a property Owner to add users.",
+                linkTitle: "Open Search Console",
+                linkDestination: URL(string: "https://search.google.com/search-console")!,
+                linkID: "settings.searchConsole.guide.searchConsole"
+            )
+            step(
+                2,
+                title: "Enable the Search Console API",
+                detail: "In the Google Cloud project that owns the service account, open APIs & Services → Library, search for “Google Search Console API,” then click Enable.",
+                linkTitle: "Enable API",
+                linkDestination: URL(string: "https://console.cloud.google.com/apis/library/searchconsole.googleapis.com")!,
+                linkID: "settings.searchConsole.guide.api"
+            )
+            step(
+                3,
+                title: "Create and download the JSON key",
+                detail: "Open IAM & Admin → Service Accounts, create or select the account, then open Keys → Add key → Create new key → JSON. Keep the downloaded file private.",
+                linkTitle: "Service accounts",
+                linkDestination: URL(string: "https://console.cloud.google.com/iam-admin/serviceaccounts")!,
+                linkID: "settings.searchConsole.guide.googleCloud"
+            )
+            step(
+                4,
+                title: "Grant the service account access",
+                detail: "Copy client_email from the JSON. In Search Console, select the property, then open Settings at the bottom left → Users and permissions → Add user. Paste the email, choose Restricted, and click Add."
+            )
+            step(
+                5,
+                title: "Connect DockMagic",
+                detail: "Return here, click Add JSON Key…, and choose the JSON file. DockMagic stores the complete key in SwiftData on this Mac and requests Search Console data with read-only access."
+            )
+
+            Label {
+                Text("Search Console collects data automatically—no tracking script is required. New data usually appears after 2–3 days, and a new property can take up to a week.")
+            } icon: {
+                Image(systemName: "info.circle")
+                    .accessibilityHidden(true)
+            }
+            .font(DSTypography.metadata)
+            .foregroundStyle(theme.textSecondary)
+            .fixedSize(horizontal: false, vertical: true)
+            .accessibilityIdentifier("settings.searchConsole.dataDelayNote")
         }
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("settings.searchConsole.setupSteps")
     }
 
-    private func step(_ number: Int, _ text: String) -> some View {
+    private func step(
+        _ number: Int,
+        title: String,
+        detail: String,
+        linkTitle: String? = nil,
+        linkDestination: URL? = nil,
+        linkID: String? = nil
+    ) -> some View {
         HStack(alignment: .top, spacing: DSSpacing.medium) {
             Text("\(number)")
                 .font(DSTypography.metadata.weight(.bold))
                 .foregroundStyle(theme.onAction)
                 .frame(width: 23, height: 23)
                 .background(Circle().fill(theme.action))
-            Text(text)
-                .font(DSTypography.body)
-                .foregroundStyle(theme.textSecondary)
-                .fixedSize(horizontal: false, vertical: true)
+
+            VStack(alignment: .leading, spacing: DSSpacing.xSmall) {
+                HStack(alignment: .firstTextBaseline, spacing: DSSpacing.medium) {
+                    Text(title)
+                        .font(DSTypography.bodyEmphasis)
+                        .foregroundStyle(theme.textPrimary)
+
+                    Spacer(minLength: DSSpacing.medium)
+
+                    if let linkTitle, let linkDestination, let linkID {
+                        Link(linkTitle, destination: linkDestination)
+                            .font(DSTypography.metadata.weight(.semibold))
+                            .accessibilityIdentifier(linkID)
+                    }
+                }
+                Text(detail)
+                    .font(DSTypography.body)
+                    .foregroundStyle(theme.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("settings.searchConsole.setupStep.\(number)")
     }
 }
 

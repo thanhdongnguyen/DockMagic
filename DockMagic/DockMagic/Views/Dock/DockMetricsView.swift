@@ -212,7 +212,7 @@ private struct DockUsageLimitView: View {
     @ViewBuilder
     var body: some View {
         if appearance.displayStyle == .numeric {
-            DockNumericTileView(values: numericValues)
+            DockUsageNumericTileView(values: numericValues)
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel(accessibilityLabel)
                 .accessibilityValue(accessibilityValue)
@@ -446,6 +446,59 @@ struct DockNumericValue {
     let label: String?
     let value: String
     let color: Color
+}
+
+private struct DockUsageNumericTileView: View {
+    let values: [DockNumericValue]
+
+    @Environment(\.designTheme) private var theme
+
+    var body: some View {
+        DockTileSurface { side in
+            let usesSingleValueLayout = values.count == 1
+            // A weekly-only tile can use the full vertical space. Two-window
+            // tiles stay compact enough for `5H 100%` and `7D 100%` to fit.
+            let fontSize = side * (usesSingleValueLayout ? 0.20 : 0.17)
+            let horizontalPadding = side * (usesSingleValueLayout ? 0.04 : 0.06)
+
+            VStack(spacing: max(1, side * 0.03)) {
+                ForEach(Array(values.enumerated()), id: \.offset) { _, value in
+                    if let label = value.label {
+                        (
+                            Text(label)
+                                .foregroundColor(theme.dockOutline)
+                            + Text(" \(value.value)")
+                                .foregroundColor(value.color)
+                        )
+                        .font(
+                            .system(
+                                size: fontSize,
+                                weight: .bold,
+                                design: .rounded
+                            )
+                        )
+                        .monospacedDigit()
+                        .lineLimit(1)
+                    } else {
+                        Text(value.value)
+                            .font(
+                                .system(
+                                    size: fontSize,
+                                    weight: .bold,
+                                    design: .rounded
+                                )
+                            )
+                            .monospacedDigit()
+                            .lineLimit(1)
+                            .foregroundColor(value.color)
+                    }
+                }
+            }
+            .fixedSize(horizontal: true, vertical: false)
+            .frame(maxWidth: .infinity)
+            .padding(.horizontal, horizontalPadding)
+        }
+    }
 }
 
 struct DockNumericTileView: View {

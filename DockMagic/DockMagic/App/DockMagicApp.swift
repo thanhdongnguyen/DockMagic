@@ -8,6 +8,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let settingsWindowRouter: SettingsWindowRouter
 
     private let dockTile: NSDockTile
+    private let application: any ApplicationIconDisplaying
     private let appearanceStore: UserDefaults
     private let notificationCenter: NotificationCenter
     private let workspaceNotificationCenter: NotificationCenter
@@ -23,6 +24,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             appModel: Self.makeAppModel(),
             settingsWindowRouter: SettingsWindowRouter(),
             dockTile: NSApplication.shared.dockTile,
+            application: NSApplication.shared,
             appearanceStore: DockMagicRuntimeDefaults.current,
             notificationCenter: .default,
             workspaceNotificationCenter: NSWorkspace.shared.notificationCenter
@@ -60,6 +62,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         appModel: DockAppModel,
         settingsWindowRouter: SettingsWindowRouter,
         dockTile: NSDockTile? = nil,
+        application: (any ApplicationIconDisplaying)? = nil,
         appearanceStore: UserDefaults = DockMagicRuntimeDefaults.current,
         notificationCenter: NotificationCenter = .default,
         workspaceNotificationCenter: NotificationCenter = NSWorkspace.shared.notificationCenter
@@ -67,6 +70,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         self.appModel = appModel
         self.settingsWindowRouter = settingsWindowRouter
         self.dockTile = dockTile ?? NSApplication.shared.dockTile
+        self.application = application ?? NSApplication.shared
         self.appearanceStore = appearanceStore
         self.notificationCenter = notificationCenter
         self.workspaceNotificationCenter = workspaceNotificationCenter
@@ -77,6 +81,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApplication.shared.setActivationPolicy(.regular)
         dockTileController = DockTileController(
             dockTile: dockTile,
+            application: application,
             initialPresentation: appModel.dockPresentation,
             appearanceStore: appearanceStore
         )
