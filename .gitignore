@@ -32,7 +32,7 @@ playground.xcworkspace
 # .swiftpm
 
 .build/
-.derivedData/
+.derivedData*/
 
 # CocoaPods
 #

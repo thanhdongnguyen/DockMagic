@@ -1,2 +1,0 @@
-Target dependency graph (1 target)
-Target 'DockMagic' in project 'DockMagic' (no dependencies)
