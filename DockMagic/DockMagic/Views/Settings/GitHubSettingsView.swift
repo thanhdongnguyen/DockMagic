@@ -1,5 +1,6 @@
 import SwiftUI
 
+@MainActor
 struct GitHubSettingsView: View {
     let store: GitHubRepositoryStore
     let savedRepositoryURL: String
@@ -10,12 +11,9 @@ struct GitHubSettingsView: View {
     let forkColor: Binding<Color>
     let resetAppearance: () -> Void
     let connectRepository: (String) async -> Void
-    let disconnectRepository: () -> Void
 
     @Environment(\.designTheme) private var theme
     @State private var repositoryURL: String
-    @State private var accessToken = ""
-    @State private var credentialActionError: String?
 
     init(
         store: GitHubRepositoryStore,
@@ -26,8 +24,7 @@ struct GitHubSettingsView: View {
         starColor: Binding<Color>,
         forkColor: Binding<Color>,
         resetAppearance: @escaping () -> Void,
-        connectRepository: @escaping (String) async -> Void,
-        disconnectRepository: @escaping () -> Void
+        connectRepository: @escaping (String) async -> Void
     ) {
         self.store = store
         self.savedRepositoryURL = savedRepositoryURL
@@ -38,7 +35,6 @@ struct GitHubSettingsView: View {
         self.forkColor = forkColor
         self.resetAppearance = resetAppearance
         self.connectRepository = connectRepository
-        self.disconnectRepository = disconnectRepository
         _repositoryURL = State(initialValue: savedRepositoryURL)
     }
 
@@ -46,10 +42,8 @@ struct GitHubSettingsView: View {
         VStack(spacing: DSSpacing.section) {
             dockPreviewSection
             repositorySection
-            authenticationSection
             displaySection
             appearanceSection
-            refreshStatus
         }
     }
 
@@ -146,171 +140,17 @@ struct GitHubSettingsView: View {
                 role: repositoryFieldRole
             )
 
-            repositoryStatus
-
-            HStack(spacing: DSSpacing.standard) {
-                Button {
-                    Task { await connectRepository(repositoryURL) }
-                } label: {
-                    Label(
-                        savedRepositoryReference == nil
-                            ? "Connect Repository"
-                            : "Apply Repository",
-                        systemImage: "link.badge.plus"
-                    )
-                }
-                .buttonStyle(DSButtonStyle(kind: .primary))
-                .disabled(repositoryReference == nil || store.isRefreshing)
-                .accessibilityIdentifier("settings.github.repositoryConnect")
-
-                Button {
-                    Task { await store.refresh() }
-                } label: {
-                    Label(
-                        store.isRefreshing ? "Refreshing…" : "Refresh Now",
-                        systemImage: "arrow.clockwise"
-                    )
-                }
-                .buttonStyle(DSButtonStyle())
-                .disabled(savedRepositoryReference == nil || store.isRefreshing)
-                .accessibilityIdentifier("settings.github.refreshNow")
-
-                Spacer()
-
-                if savedRepositoryReference != nil {
-                    Button("Disconnect", role: .destructive) {
-                        disconnectRepository()
-                        repositoryURL = ""
-                    }
-                    .buttonStyle(DSButtonStyle(kind: .destructive))
-                    .accessibilityIdentifier("settings.github.repositoryDisconnect")
-                }
+            Button {
+                Task { await connectRepository(repositoryURL) }
+            } label: {
+                Label("Apply Repository", systemImage: "link.badge.plus")
             }
+            .buttonStyle(DSButtonStyle(kind: .primary))
+            .disabled(repositoryReference == nil || store.isRefreshing)
+            .accessibilityIdentifier("settings.github.repositoryConnect")
         }
         .onChange(of: savedRepositoryURL) { _, newValue in
             repositoryURL = newValue
-        }
-    }
-
-    @ViewBuilder
-    private var repositoryStatus: some View {
-        if repositoryURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            HStack(spacing: DSSpacing.compact) {
-                Image(systemName: "info.circle")
-                    .accessibilityHidden(true)
-
-                Text("Public repositories work without a GitHub token.")
-            }
-            .font(DSTypography.metadata)
-            .foregroundStyle(theme.textSecondary)
-            .accessibilityIdentifier("settings.github.repositoryHint")
-        } else if let repositoryReference {
-            DSStatusCard(
-                title: repositoryReference.fullName,
-                detail: repositoryReference == savedRepositoryReference
-                    ? repositoryConnectionDetail
-                    : "Valid link · Select Apply Repository to start fetching data.",
-                systemImage: "checkmark.circle.fill",
-                role: .processing
-            )
-            .accessibilityIdentifier("settings.github.repositoryValid")
-        } else {
-            DSStatusCard(
-                title: "Enter a GitHub repository link",
-                detail: "Use https://github.com/owner/repository or a GitHub SSH URL.",
-                systemImage: "exclamationmark.triangle.fill",
-                role: .warning
-            )
-            .accessibilityIdentifier("settings.github.repositoryInvalid")
-        }
-    }
-
-    private var authenticationSection: some View {
-        DSSettingsSection(
-            title: "Authentication",
-            detail: "Optional for public repositories. Add a fine-grained personal access token for private repositories and a higher API limit. The token stays in macOS Keychain."
-        ) {
-            if store.hasAccessToken {
-                DSStatusCard(
-                    title: "Access token saved",
-                    detail: "Authenticated GitHub requests are enabled. The token is never stored in preferences or history.",
-                    systemImage: "key.fill",
-                    role: .processing
-                )
-                .accessibilityIdentifier("settings.github.tokenSaved")
-
-                HStack {
-                    Spacer()
-                    Button("Remove Token", role: .destructive) {
-                        do {
-                            try store.removeAccessToken()
-                            credentialActionError = nil
-                            Task { await store.refresh() }
-                        } catch {
-                            credentialActionError = error.localizedDescription
-                        }
-                    }
-                    .buttonStyle(DSButtonStyle(kind: .destructive))
-                    .accessibilityIdentifier("settings.github.tokenRemove")
-                }
-            } else {
-                HStack(spacing: DSSpacing.standard) {
-                    Image(systemName: "key")
-                        .foregroundStyle(theme.textSecondary)
-                        .accessibilityHidden(true)
-
-                    SecureField("github_pat_… or ghp_…", text: $accessToken)
-                        .textFieldStyle(.plain)
-                        .font(DSTypography.body)
-                        .accessibilityLabel("GitHub access token")
-                        .accessibilityIdentifier("settings.github.token")
-                }
-                .padding(.horizontal, DSSpacing.standard)
-                .frame(minHeight: 38)
-                .dsSurface(
-                    RoundedRectangle(
-                        cornerRadius: DSRadius.control,
-                        style: .continuous
-                    ),
-                    kind: .inset
-                )
-
-                HStack {
-                    Text("Use minimum read-only Metadata access for the selected repository.")
-                        .font(DSTypography.metadata)
-                        .foregroundStyle(theme.textSecondary)
-
-                    Spacer()
-
-                    Button("Save to Keychain") {
-                        do {
-                            try store.saveAccessToken(accessToken)
-                            accessToken = ""
-                            credentialActionError = nil
-                            Task { await store.refresh() }
-                        } catch {
-                            credentialActionError = error.localizedDescription
-                        }
-                    }
-                    .buttonStyle(DSButtonStyle(kind: .primary))
-                    .disabled(
-                        accessToken.trimmingCharacters(
-                            in: .whitespacesAndNewlines
-                        ).isEmpty
-                    )
-                    .accessibilityIdentifier("settings.github.tokenSave")
-                }
-            }
-
-            if let error = credentialActionError
-                ?? store.credentialErrorDescription {
-                DSStatusCard(
-                    title: "Keychain error",
-                    detail: error,
-                    systemImage: "exclamationmark.triangle.fill",
-                    role: .danger
-                )
-            }
         }
     }
 
@@ -377,18 +217,6 @@ struct GitHubSettingsView: View {
                 .accessibilityIdentifier("settings.github.appearanceReset")
             }
         }
-    }
-
-    private var refreshStatus: some View {
-        DSStatusCard(
-            title: refreshTitle,
-            detail: refreshDetail,
-            systemImage: "clock.arrow.circlepath",
-            role: store.lastErrorDescription == nil
-                ? (isActive ? .processing : .information)
-                : .warning
-        )
-        .accessibilityIdentifier("settings.github.refreshCadence")
     }
 
     private func colorRow(
@@ -487,37 +315,6 @@ struct GitHubSettingsView: View {
         }
     }
 
-    private var repositoryConnectionDetail: String {
-        guard let latest = store.history.last else {
-            return store.isRefreshing
-                ? "Connecting to GitHub…"
-                : "Connected · Waiting for the first update"
-        }
-        return "Connected · Last updated \(latest.fetchedAt.formatted(date: .omitted, time: .shortened))"
-    }
-
-    private var refreshTitle: String {
-        if store.isRefreshing {
-            return "Refreshing GitHub now"
-        }
-        if let rateLimit = store.rateLimit {
-            return "Updates every 15 minutes · \(rateLimit.remaining)/\(rateLimit.limit) requests left"
-        }
-        return "Updates every 15 minutes"
-    }
-
-    private var refreshDetail: String {
-        if let error = store.lastErrorDescription {
-            return error
-        }
-        if isActive, let nextRefreshAt = store.nextRefreshAt {
-            return "Next automatic update \(nextRefreshAt.formatted(date: .omitted, time: .shortened))."
-        }
-        if isActive {
-            return "GitHub metadata refreshes automatically while this is the active Dock feature."
-        }
-        return "Automatic updates pause until GitHub is selected as the active Dock feature. Refresh Now remains available."
-    }
 }
 
 private struct GitHubPreviewMetric: View {

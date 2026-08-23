@@ -834,8 +834,7 @@ struct SettingsView: View {
             starColor: githubStarColorBinding,
             forkColor: githubForkColorBinding,
             resetAppearance: appModel.preferences.resetGitHubAppearance,
-            connectRepository: appModel.connectGitHubRepository,
-            disconnectRepository: appModel.disconnectGitHubRepository
+            connectRepository: appModel.connectGitHubRepository
         )
     }
 
@@ -1521,6 +1520,34 @@ private struct DockFeatureIcon: View {
                 Image("ClaudeCodeLogo")
                     .resizable()
                     .scaledToFit()
+            case .github:
+                ZStack {
+                    Circle()
+                        .fill(.white)
+
+                    Image("GitHubLogo")
+                        .renderingMode(.original)
+                        .resizable()
+                        .scaledToFit()
+                }
+            case .searchConsole:
+                Image("GoogleSearchConsoleLogo")
+                    .renderingMode(.original)
+                    .resizable()
+                    .scaledToFit()
+            case .weather:
+                if let weatherApplicationIcon = Self.weatherApplicationIcon {
+                    Image(nsImage: weatherApplicationIcon)
+                        .renderingMode(.original)
+                        .resizable()
+                        .interpolation(.high)
+                        .scaledToFit()
+                } else {
+                    Image(systemName: featureSystemImage)
+                        .symbolRenderingMode(.multicolor)
+                        .font(.system(size: size * 0.58, weight: .semibold))
+                        .frame(width: size, height: size)
+                }
             case .batteries:
                 Image(systemName: featureSystemImage)
                     .font(.system(size: size * 0.58, weight: .semibold))
@@ -1533,8 +1560,7 @@ private struct DockFeatureIcon: View {
                         )
                         .fill(theme.surfaceChrome)
                     )
-            case .systemMetrics, .network, .storage, .weather, .github,
-                 .searchConsole:
+            case .systemMetrics, .network, .storage:
                 Image(systemName: featureSystemImage)
                     .font(.system(size: size * 0.58, weight: .semibold))
                     .foregroundStyle(theme.processingForeground)
@@ -1551,6 +1577,18 @@ private struct DockFeatureIcon: View {
         .frame(width: size, height: size)
         .accessibilityHidden(true)
     }
+
+    private static let weatherApplicationIcon: NSImage? = {
+        guard let applicationURL = NSWorkspace.shared.urlForApplication(
+            withBundleIdentifier: "com.apple.weather"
+        ) else {
+            return nil
+        }
+
+        let icon = NSWorkspace.shared.icon(forFile: applicationURL.path)
+        icon.isTemplate = false
+        return icon
+    }()
 
     private var featureSystemImage: String {
         switch feature {

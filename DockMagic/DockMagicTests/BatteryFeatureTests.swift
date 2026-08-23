@@ -4,6 +4,83 @@ import XCTest
 @testable import DockMagic
 
 final class BatteryFeatureTests: XCTestCase {
+    func testMacPowerIndicatorFollowsExternalPowerConnection() {
+        let now = Date(timeIntervalSince1970: 500)
+        let connected = BatteryDeviceSnapshot(
+            id: "mac",
+            name: "MacBook Pro",
+            kind: .macBook,
+            level: 1,
+            isCharging: false,
+            isExternalPowerConnected: true,
+            observedAt: now
+        )
+        let disconnected = BatteryDeviceSnapshot(
+            id: "mac",
+            name: "MacBook Pro",
+            kind: .macBook,
+            level: 1,
+            isCharging: false,
+            isExternalPowerConnected: false,
+            observedAt: now
+        )
+
+        XCTAssertTrue(connected.showsPowerIndicator)
+        XCTAssertFalse(disconnected.showsPowerIndicator)
+    }
+
+    func testSystemPowerSourceReaderRecognizesOnlyACPowerAsConnected() {
+        XCTAssertTrue(
+            SystemPowerSourceBatteryReader.isExternalPowerConnected(
+                powerSourceState: "AC Power"
+            )
+        )
+        XCTAssertFalse(
+            SystemPowerSourceBatteryReader.isExternalPowerConnected(
+                powerSourceState: "Battery Power"
+            )
+        )
+        XCTAssertFalse(
+            SystemPowerSourceBatteryReader.isExternalPowerConnected(
+                powerSourceState: nil
+            )
+        )
+    }
+
+    @MainActor
+    func testDockBatteryTileRendersExternalPowerIndicator() throws {
+        let now = Date(timeIntervalSince1970: 750)
+        let connected = BatteryDeviceSnapshot(
+            id: "mac",
+            name: "MacBook Pro",
+            kind: .macBook,
+            level: 1,
+            isCharging: false,
+            isExternalPowerConnected: true,
+            observedAt: now
+        )
+        let disconnected = BatteryDeviceSnapshot(
+            id: "mac",
+            name: "MacBook Pro",
+            kind: .macBook,
+            level: 1,
+            isCharging: false,
+            isExternalPowerConnected: false,
+            observedAt: now
+        )
+
+        let connectedPNG = try renderDockPNG(
+            snapshot: BatteryMetricsSnapshot(devices: [connected], sampledAt: now),
+            side: 64
+        )
+        let disconnectedPNG = try renderDockPNG(
+            snapshot: BatteryMetricsSnapshot(devices: [disconnected], sampledAt: now),
+            side: 64
+        )
+
+        XCTAssertNotEqual(connectedPNG, disconnectedPNG)
+    }
+
     func testSnapshotNormalizesSortsAndLimitsDockDevices() {
         let now = Date(timeIntervalSince1970: 1_000)
         let snapshot = BatteryMetricsSnapshot(

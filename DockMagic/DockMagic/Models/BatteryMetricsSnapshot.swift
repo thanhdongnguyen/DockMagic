@@ -59,6 +59,7 @@ struct BatteryDeviceSnapshot: Identifiable, Equatable, Sendable {
     let kind: BatteryDeviceKind
     let level: Double
     let isCharging: Bool
+    let isExternalPowerConnected: Bool
     let detail: String
     let observedAt: Date
 
@@ -68,6 +69,7 @@ struct BatteryDeviceSnapshot: Identifiable, Equatable, Sendable {
         kind: BatteryDeviceKind,
         level: Double,
         isCharging: Bool = false,
+        isExternalPowerConnected: Bool = false,
         detail: String? = nil,
         observedAt: Date = Date()
     ) {
@@ -76,12 +78,17 @@ struct BatteryDeviceSnapshot: Identifiable, Equatable, Sendable {
         self.kind = kind
         self.level = Self.normalized(level)
         self.isCharging = isCharging
+        self.isExternalPowerConnected = isExternalPowerConnected
         self.detail = detail ?? (isCharging ? "Charging" : "Connected")
         self.observedAt = observedAt
     }
 
     var percentage: Int {
         Int((level * 100).rounded())
+    }
+
+    var showsPowerIndicator: Bool {
+        kind == .macBook ? isExternalPowerConnected : isCharging
     }
 
     private static func normalized(_ value: Double) -> Double {

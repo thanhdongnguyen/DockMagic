@@ -237,14 +237,9 @@ struct SearchConsoleSettingsView: View {
 
             SearchConsoleSetupSteps()
 
-            HStack {
-                Button("Connect Service Account…") { importsJSON = true }
-                    .buttonStyle(DSButtonStyle(kind: .primary))
-                    .accessibilityIdentifier("settings.searchConsole.import")
-                Button("Setup guide…") { showsManageSheet = true }
-                    .buttonStyle(DSButtonStyle())
-                    .accessibilityIdentifier("settings.searchConsole.guide")
-            }
+            Button("Connect Service Account…") { importsJSON = true }
+                .buttonStyle(DSButtonStyle(kind: .primary))
+                .accessibilityIdentifier("settings.searchConsole.import")
         }
         .padding(DSSpacing.xLarge)
         .dsSurface(

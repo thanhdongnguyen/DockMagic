@@ -234,7 +234,7 @@ private struct GitHubNumericTile: View {
 
     var body: some View {
         DockTileSurface { side in
-            VStack(spacing: max(2, side * 0.055)) {
+            VStack(spacing: max(2, side * 0.04)) {
                 metricRow(
                     systemImage: "star.fill",
                     value: snapshot.map { GitHubCountFormatting.compact($0.stars) } ?? "—",
@@ -249,7 +249,7 @@ private struct GitHubNumericTile: View {
                     side: side
                 )
             }
-            .padding(.horizontal, side * 0.10)
+            .padding(.horizontal, side * 0.03)
             .overlay(alignment: .topTrailing) {
                 if errorDescription != nil {
                     Image(systemName: "exclamationmark.triangle.fill")
@@ -258,7 +258,8 @@ private struct GitHubNumericTile: View {
                         .accessibilityHidden(true)
                 }
             }
-            .padding(side * 0.07)
+            .padding(.vertical, side * 0.06)
+            .padding(.horizontal, side * 0.04)
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("GitHub repository counts")
@@ -272,19 +273,21 @@ private struct GitHubNumericTile: View {
         color: Color,
         side: CGFloat
     ) -> some View {
-        HStack(spacing: side * 0.055) {
+        HStack(spacing: side * 0.045) {
             Image(systemName: systemImage)
-                .font(.system(size: max(8, side * 0.13), weight: .bold))
+                .font(.system(size: max(9, side * 0.18), weight: .bold))
                 .foregroundStyle(color)
-                .frame(width: side * 0.16)
+                .frame(width: side * 0.20)
 
             Text(value)
-                .font(.system(size: max(10, side * 0.205), weight: .bold, design: .rounded))
+                .font(.system(size: max(12, side * 0.28), weight: .bold, design: .rounded))
                 .monospacedDigit()
-                .minimumScaleFactor(0.62)
+                .minimumScaleFactor(0.55)
+                .allowsTightening(true)
                 .lineLimit(1)
                 .foregroundStyle(color)
                 .frame(maxWidth: .infinity, alignment: .leading)
+                .layoutPriority(1)
         }
     }
 

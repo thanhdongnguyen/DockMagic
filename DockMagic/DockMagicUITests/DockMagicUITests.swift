@@ -202,11 +202,12 @@ final class DockMagicUITests: XCTestCase {
                 "settings.github.color.forks"
             ].exists
         )
-        XCTAssertTrue(
+        XCTAssertFalse(
             app.descendants(matching: .any)[
                 "settings.github.refreshCadence"
             ].exists
         )
+        XCTAssertFalse(app.staticTexts["Authentication"].exists)
         attachScreenshot(
             named: "Settings — GitHub — Line Chart",
             in: app
@@ -302,7 +303,7 @@ final class DockMagicUITests: XCTestCase {
         )
     }
 
-    func testGitHubConnectionShowsFetchedCountsAndRefreshControls() {
+    func testGitHubConnectionShowsFetchedCountsAndApplyControl() {
         let app = launchApp(
             activeFeature: "github",
             githubRepositoryURL: "https://github.com/apple/swift"
@@ -329,33 +330,42 @@ final class DockMagicUITests: XCTestCase {
         XCTAssertEqual(forks.value as? String, "824")
         XCTAssertTrue(
             app.descendants(matching: .any)[
-                "settings.github.refreshNow"
+                "settings.github.repositoryConnect"
             ].isEnabled
         )
-        XCTAssertTrue(
+        XCTAssertFalse(
+            app.descendants(matching: .any)[
+                "settings.github.repositoryValid"
+            ].exists
+        )
+        XCTAssertFalse(
+            app.descendants(matching: .any)[
+                "settings.github.refreshNow"
+            ].exists
+        )
+        XCTAssertFalse(
             app.descendants(matching: .any)[
                 "settings.github.repositoryDisconnect"
             ].exists
         )
-        XCTAssertTrue(
+        XCTAssertFalse(
             app.descendants(matching: .any)[
                 "settings.github.token"
             ].exists
         )
-        XCTAssertTrue(
+        XCTAssertFalse(
             app.descendants(matching: .any)[
                 "settings.github.tokenSave"
             ].exists
         )
-
-        app.descendants(matching: .any)[
-            "settings.github.refreshNow"
-        ].click()
-        XCTAssertTrue(
-            app.staticTexts["Live"].waitForExistence(timeout: 5)
+        XCTAssertFalse(
+            app.descendants(matching: .any)[
+                "settings.github.refreshCadence"
+            ].exists
         )
+
         attachScreenshot(
-            named: "Settings — GitHub — Connected Live Data",
+            named: "Settings — GitHub — Apply Only",
             in: app
         )
     }
@@ -474,21 +484,18 @@ final class DockMagicUITests: XCTestCase {
         )
     }
 
-    func testSearchConsoleSetupGuideAndPropertyControl() {
+    func testSearchConsoleManageSheetAndPropertyControl() {
         let app = launchApp(appearance: "dark", activeFeature: "searchConsole")
         XCTAssertTrue(
             app.windows["DockMagic Settings"].waitForExistence(timeout: 5)
         )
         openSidebarDestination(named: "Search Console", in: app)
-        var manage = app.descendants(matching: .any)[
+        let manage = app.descendants(matching: .any)[
             "settings.searchConsole.manage"
         ].firstMatch
-        if !manage.waitForExistence(timeout: 3) {
-            manage = app.buttons["Setup guide…"].firstMatch
-        }
         XCTAssertTrue(
             manage.waitForExistence(timeout: 3),
-            "Neither the connected Manage action nor disconnected setup guide was available."
+            "The connected Search Console Manage action was unavailable."
         )
         manage.click()
         XCTAssertTrue(

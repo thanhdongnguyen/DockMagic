@@ -72,12 +72,19 @@ struct SystemPowerSourceBatteryReader: BatteryDeviceReading {
                     kind: .macBook,
                     level: current / maximum,
                     isCharging: description[kIOPSIsChargingKey] as? Bool ?? false,
+                    isExternalPowerConnected: Self.isExternalPowerConnected(
+                        powerSourceState: description[kIOPSPowerSourceStateKey] as? String
+                    ),
                     observedAt: observedAt
                 )
             ]
         }
 
         return []
+    }
+
+    static func isExternalPowerConnected(powerSourceState: String?) -> Bool {
+        powerSourceState == kIOPSACPowerValue
     }
 
     private static func number(_ value: Any?) -> Double? {

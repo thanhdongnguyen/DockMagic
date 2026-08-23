@@ -199,7 +199,7 @@ private struct BatteryRing: View {
                 size: diameter * 0.34
             )
 
-            if device.isCharging {
+            if device.showsPowerIndicator {
                 Image(systemName: "bolt.fill")
                     .font(.system(size: diameter * 0.22, weight: .black))
                     .foregroundStyle(tint)

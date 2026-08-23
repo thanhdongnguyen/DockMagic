@@ -2227,6 +2227,8 @@ final class DockMagicTests: XCTestCase {
         numericSystemAppearance.setDisplayStyle(.numeric)
         var numericStorageAppearance = DockFeatureDefaults.storageAppearance
         numericStorageAppearance.setDisplayStyle(.numeric)
+        var numericGitHubAppearance = DockFeatureDefaults.githubAppearance
+        numericGitHubAppearance.setDisplayStyle(.numeric)
         var numericCodexAppearance = DockFeatureDefaults.codexAppearance
         numericCodexAppearance.setDisplayStyle(.numeric)
         var numericClaudeAppearance = DockFeatureDefaults.claudeCodeAppearance
@@ -2267,6 +2269,19 @@ final class DockMagicTests: XCTestCase {
                 .storage(
                     snapshot: storage,
                     appearance: numericStorageAppearance,
+                    errorDescription: nil
+                )
+            ),
+            (
+                "GitHub",
+                .github(
+                    history: GitHubRepositorySnapshot.designPreviewHistory,
+                    appearance: DockFeatureDefaults.githubAppearance,
+                    errorDescription: nil
+                ),
+                .github(
+                    history: GitHubRepositorySnapshot.designPreviewHistory,
+                    appearance: numericGitHubAppearance,
                     errorDescription: nil
                 )
             ),
