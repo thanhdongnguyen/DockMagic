@@ -67,14 +67,29 @@ final class DockMagicUITests: XCTestCase {
         )
         selectDisplayStyle(.chart, in: app, feature: "CPU & RAM")
         XCTAssertTrue(app.staticTexts["Ring appearance"].exists)
-        XCTAssertGreaterThanOrEqual(app.colorWells.count, 2)
+        XCTAssertTrue(
+            app.descendants(matching: .any)["settings.ringColor.cpu.ring"]
+                .exists
+        )
+        XCTAssertTrue(
+            app.descendants(matching: .any)["settings.ringColor.ram.ring"]
+                .exists
+        )
         XCTAssertGreaterThanOrEqual(app.sliders.count, 2)
         selectNumericDisplay(in: app, feature: "CPU & RAM")
         XCTAssertTrue(app.staticTexts["Number appearance"].exists)
         XCTAssertTrue(
             app.descendants(matching: .any)["settings.dockPreview"].exists
         )
-        XCTAssertGreaterThanOrEqual(app.colorWells.count, 2)
+        XCTAssertTrue(
+            app.descendants(matching: .any)["settings.ringColor.cpu.value"]
+                .exists
+        )
+        XCTAssertTrue(
+            app.descendants(matching: .any)["settings.ringColor.ram.value"]
+                .exists
+        )
+        XCTAssertEqual(app.colorWells.count, 0)
         XCTAssertEqual(app.sliders.count, 0)
         attachScreenshot(
             named: "Settings — CPU RAM — Numeric",
@@ -232,6 +247,14 @@ final class DockMagicUITests: XCTestCase {
         selectDisplayStyle(.chart, in: app, feature: "Codex")
         selectNumericDisplay(in: app, feature: "Codex")
         XCTAssertTrue(app.staticTexts["Number appearance"].exists)
+        XCTAssertTrue(
+            app.descendants(matching: .any)["settings.ringColor.5.hour.value"]
+                .exists
+        )
+        XCTAssertTrue(
+            app.descendants(matching: .any)["settings.ringColor.weekly.value"]
+                .exists
+        )
         attachScreenshot(
             named: "Settings — Codex — Numeric",
             in: app
@@ -258,6 +281,14 @@ final class DockMagicUITests: XCTestCase {
         selectDisplayStyle(.chart, in: app, feature: "Claude Code")
         selectNumericDisplay(in: app, feature: "Claude Code")
         XCTAssertTrue(app.staticTexts["Number appearance"].exists)
+        XCTAssertTrue(
+            app.descendants(matching: .any)["settings.ringColor.5.hour.value"]
+                .exists
+        )
+        XCTAssertTrue(
+            app.descendants(matching: .any)["settings.ringColor.weekly.value"]
+                .exists
+        )
         attachScreenshot(
             named: "Settings — Claude Code — Numeric",
             in: app
@@ -300,6 +331,77 @@ final class DockMagicUITests: XCTestCase {
         attachScreenshot(
             named: "Settings — About — System Glass Chrome",
             in: app
+        )
+    }
+
+    func testInlineColorPaletteSelectsAndPersistsWithoutOpeningPanel() {
+        let suiteName = "DockMagicUITests.ColorPalette.\(UUID().uuidString)"
+        let isolatedDefaults = UserDefaults(suiteName: suiteName)!
+        isolatedDefaults.removePersistentDomain(forName: suiteName)
+        defer {
+            XCUIApplication().terminate()
+            isolatedDefaults.removePersistentDomain(forName: suiteName)
+        }
+
+        let app = launchApp(defaultsSuite: suiteName)
+        XCTAssertTrue(
+            app.windows["DockMagic Settings"].waitForExistence(timeout: 5),
+            app.debugDescription
+        )
+
+        openSidebarDestination(named: "CPU & RAM", in: app)
+        selectNumericDisplay(in: app, feature: "CPU & RAM")
+
+        let palette = app.descendants(matching: .any)[
+            "settings.ringColor.cpu.value"
+        ]
+        XCTAssertTrue(palette.waitForExistence(timeout: 3))
+        XCTAssertEqual(
+            palette.label,
+            "CPU value, selected #FF8D28"
+        )
+
+        let orange = app.buttons[
+            "settings.ringColor.cpu.value.orange"
+        ]
+        XCTAssertTrue(orange.waitForExistence(timeout: 3))
+        XCTAssertEqual(orange.value as? String, "#FF8D28")
+
+        let purple = app.buttons[
+            "settings.ringColor.cpu.value.purple"
+        ]
+        XCTAssertTrue(purple.waitForExistence(timeout: 3))
+        XCTAssertTrue(purple.isHittable)
+        purple.click()
+
+        XCTAssertEqual(purple.value as? String, "#CB30E0")
+        XCTAssertEqual(app.windows.count, 1)
+        XCTAssertEqual(
+            app.descendants(matching: .any)[
+                "settings.ringColor.cpu.value"
+            ].label,
+            "CPU value, selected #CB30E0"
+        )
+
+        app.terminate()
+        let relaunched = launchApp(defaultsSuite: suiteName)
+        XCTAssertTrue(
+            relaunched.windows["DockMagic Settings"]
+                .waitForExistence(timeout: 5)
+        )
+        openSidebarDestination(named: "CPU & RAM", in: relaunched)
+        selectNumericDisplay(in: relaunched, feature: "CPU & RAM")
+
+        let persistedPurple = relaunched.buttons[
+            "settings.ringColor.cpu.value.purple"
+        ]
+        XCTAssertTrue(persistedPurple.waitForExistence(timeout: 3))
+        XCTAssertEqual(persistedPurple.value as? String, "#CB30E0")
+        XCTAssertEqual(
+            relaunched.descendants(matching: .any)[
+                "settings.ringColor.cpu.value"
+            ].label,
+            "CPU value, selected #CB30E0"
         )
     }
 
@@ -484,7 +586,20 @@ final class DockMagicUITests: XCTestCase {
         )
     }
 
-    func testSearchConsoleManageSheetAndPropertyControl() {
+    func testSearchConsoleManageSheetAndPropertyControl() throws {
+        let importedKeyURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("dockmagic-search-console-ui-import.json")
+        let importedKeyData = try JSONSerialization.data(withJSONObject: [
+            "type": "service_account",
+            "project_id": "ui-import-project",
+            "private_key_id": "ui-import-third",
+            "private_key": "-----BEGIN PRIVATE KEY-----\nfixture\n-----END PRIVATE KEY-----",
+            "client_email": "imported@ui-import-project.iam.gserviceaccount.com",
+            "token_uri": "https://oauth2.googleapis.com/token"
+        ])
+        try importedKeyData.write(to: importedKeyURL, options: .atomic)
+        defer { try? FileManager.default.removeItem(at: importedKeyURL) }
+
         let app = launchApp(appearance: "dark", activeFeature: "searchConsole")
         XCTAssertTrue(
             app.windows["DockMagic Settings"].waitForExistence(timeout: 5)
@@ -517,12 +632,54 @@ final class DockMagicUITests: XCTestCase {
             "settings.searchConsole.credential.use.ui-test-secondary"
         ].firstMatch
         XCTAssertTrue(secondaryUse.exists)
+        let sheetImport = app.buttons[
+            "settings.searchConsole.sheetImport"
+        ].firstMatch
+        XCTAssertTrue(sheetImport.exists)
+        XCTAssertTrue(
+            sheetImport.isHittable,
+            "The JSON key import action should be available inside Management."
+        )
+        sheetImport.click()
+        let openImport = app.buttons["Open"].firstMatch
+        XCTAssertTrue(
+            openImport.waitForExistence(timeout: 3),
+            "Add JSON Key should present the macOS file importer above Management.\n\(app.debugDescription)"
+        )
+        app.typeKey("G", modifierFlags: [.command, .shift])
+        let pathField = app.textFields["PathTextField"].firstMatch
+        XCTAssertTrue(
+            pathField.waitForExistence(timeout: 3),
+            "The file importer should support direct keyboard path navigation."
+        )
+        pathField.click()
+        pathField.typeKey("a", modifierFlags: .command)
+        pathField.typeText(importedKeyURL.path)
+        app.typeKey(.return, modifierFlags: [])
+        let confirmImport = app.buttons["Open"].firstMatch
+        XCTAssertTrue(confirmImport.waitForExistence(timeout: 3))
+        XCTAssertTrue(confirmImport.isEnabled)
+        confirmImport.click()
         XCTAssertTrue(
             app.descendants(matching: .any)[
-                "settings.searchConsole.sheetImport"
-            ].exists
+                "settings.searchConsole.credential.ui-import-third"
+            ].waitForExistence(timeout: 3),
+            "The selected JSON file should be imported into Management."
         )
-        secondaryUse.click()
+        let credentialSummary = app.staticTexts[
+            "settings.searchConsole.credentialSummary"
+        ].firstMatch
+        XCTAssertTrue(credentialSummary.waitForExistence(timeout: 3))
+        XCTAssertEqual(
+            credentialSummary.label,
+            "3 keys stored locally in SwiftData",
+            "A successful import should update the stored-key summary."
+        )
+        let updatedSecondaryUse = app.descendants(matching: .any)[
+            "settings.searchConsole.credential.use.ui-test-secondary"
+        ].firstMatch
+        XCTAssertTrue(updatedSecondaryUse.waitForExistence(timeout: 3))
+        updatedSecondaryUse.click()
         let primaryUse = app.descendants(matching: .any)[
             "settings.searchConsole.credential.use.ui-test-primary"
         ].firstMatch
@@ -530,7 +687,41 @@ final class DockMagicUITests: XCTestCase {
             primaryUse.waitForExistence(timeout: 3),
             "Selecting the secondary key did not update the active key."
         )
-        XCTAssertFalse(secondaryUse.exists)
+        XCTAssertFalse(updatedSecondaryUse.exists)
+
+        let propertyPicker = app.buttons[
+            "settings.searchConsole.property"
+        ].firstMatch
+        XCTAssertTrue(
+            propertyPicker.waitForExistence(timeout: 3),
+            "The active key should expose the design-system Property selector."
+        )
+        XCTAssertEqual(
+            propertyPicker.value as? String,
+            "https://www.example.com/"
+        )
+        propertyPicker.click()
+        let domainProperty = app.buttons[
+            "settings.searchConsole.property.option.sc-domain:example.com"
+        ].firstMatch
+        XCTAssertTrue(
+            domainProperty.waitForExistence(timeout: 3),
+            "The Property selector should expose every accessible property."
+        )
+        XCTAssertTrue(domainProperty.isHittable)
+        domainProperty.click()
+        let updatedPropertyPicker = app.buttons[
+            "settings.searchConsole.property"
+        ].firstMatch
+        let propertyUpdated = expectation(
+            for: NSPredicate(format: "value == %@", "sc-domain:example.com"),
+            evaluatedWith: updatedPropertyPicker
+        )
+        wait(for: [propertyUpdated], timeout: 3)
+        XCTAssertEqual(
+            updatedPropertyPicker.value as? String,
+            "sc-domain:example.com"
+        )
 
         let removePrimary = app.descendants(matching: .any)[
             "settings.searchConsole.credential.remove.ui-test-primary"
@@ -828,26 +1019,65 @@ final class DockMagicUITests: XCTestCase {
         in app: XCUIApplication,
         feature: String
     ) {
+        let scrollIdentifiers = [
+            "CPU & RAM": "settings.systemMetrics",
+            "Storage": "settings.storage",
+            "Codex": "settings.codex",
+            "Claude Code": "settings.claudeCode"
+        ]
+        if let scrollIdentifier = scrollIdentifiers[feature] {
+            let detailScrollView = app.scrollViews[scrollIdentifier].firstMatch
+            if detailScrollView.exists {
+                detailScrollView.scroll(byDeltaX: 0, deltaY: 1_000)
+            }
+        }
+
         let picker = app.radioGroups["settings.displayStyle"].firstMatch
         XCTAssertTrue(
             picker.waitForExistence(timeout: 3),
             "Missing Dock display configuration for \(feature)."
         )
 
-        let option = app.radioButtons[
-            "settings.displayStyleOption.\(style.rawValue)"
-        ].firstMatch
-        XCTAssertTrue(
-            option.waitForExistence(timeout: 3),
-            "Missing \(style.title) Dock display option for \(feature)."
-        )
+        let optionIdentifier = "settings.displayStyleOption.\(style.rawValue)"
+        guard let option = waitForHittableRadioButton(
+            identifiedBy: optionIdentifier,
+            in: app,
+            timeout: 3
+        ) else {
+            XCTFail(
+                "Missing clickable \(style.title) Dock display option for \(feature)."
+            )
+            return
+        }
         option.click()
 
-        // Selecting an option rebuilds the section. Re-query so repeated UI
-        // runs do not retain a stale accessibility element handle.
-        let updatedPicker = app.radioGroups["settings.displayStyle"].firstMatch
-        XCTAssertTrue(updatedPicker.waitForExistence(timeout: 3))
-        XCTAssertEqual(updatedPicker.value as? String, style.title)
+        // Selecting an option rebuilds the section, so verify the resulting
+        // controls rather than retaining a transient accessibility handle.
+        let resultingSectionTitle = style == .chart
+            ? "Ring appearance"
+            : "Number appearance"
+        XCTAssertTrue(
+            app.staticTexts[resultingSectionTitle].waitForExistence(timeout: 3),
+            "Selecting \(style.title) did not update \(feature)."
+        )
+    }
+
+    private func waitForHittableRadioButton(
+        identifiedBy identifier: String,
+        in app: XCUIApplication,
+        timeout: TimeInterval
+    ) -> XCUIElement? {
+        let deadline = Date().addingTimeInterval(timeout)
+        repeat {
+            let matches = app.radioButtons.matching(
+                NSPredicate(format: "identifier == %@", identifier)
+            ).allElementsBoundByIndex
+            if let option = matches.first(where: { $0.exists && $0.isHittable }) {
+                return option
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.05))
+        } while Date() < deadline
+        return nil
     }
 
     private func selectFeature(

@@ -213,7 +213,7 @@ struct CodexAppServerRateLimitProvider: CodexRateLimitProviding {
                 break
             }
             output.append(chunk)
-            if CodexRateLimitParser.containsRateLimitResponse(output) {
+            if CodexRateLimitParser.containsCompleteUsageResponse(output) {
                 break
             }
         }
@@ -228,7 +228,8 @@ struct CodexAppServerRateLimitProvider: CodexRateLimitProviding {
             throw CancellationError()
         }
 
-        if timeoutState.didTimeOut {
+        if timeoutState.didTimeOut,
+           !CodexRateLimitParser.containsRateLimitResponse(output) {
             throw CodexRateLimitProviderError.timedOut
         }
 
@@ -259,6 +260,11 @@ struct CodexAppServerRateLimitProvider: CodexRateLimitProviding {
                 "id": 2,
                 "method": "account/rateLimits/read",
                 "params": NSNull()
+            ],
+            [
+                "id": 3,
+                "method": "account/usage/read",
+                "params": NSNull()
             ]
         ]
 
@@ -275,6 +281,15 @@ struct CodexAppServerRateLimitProvider: CodexRateLimitProviding {
 
 enum CodexRateLimitParser {
     static func containsRateLimitResponse(_ data: Data) -> Bool {
+        containsResponse(id: 2, in: data)
+    }
+
+    static func containsCompleteUsageResponse(_ data: Data) -> Bool {
+        containsResponse(id: 2, in: data)
+            && containsResponse(id: 3, in: data)
+    }
+
+    private static func containsResponse(id: Int, in data: Data) -> Bool {
         data.split(separator: 0x0A).contains { line in
             guard
                 let object = try? JSONSerialization.jsonObject(with: Data(line)),
@@ -282,7 +297,7 @@ enum CodexRateLimitParser {
             else {
                 return false
             }
-            return (dictionary["id"] as? NSNumber)?.intValue == 2
+            return (dictionary["id"] as? NSNumber)?.intValue == id
         }
     }
 
@@ -331,11 +346,91 @@ enum CodexRateLimitParser {
                 limitID: aggregate["limitId"] as? String,
                 fiveHour: fiveHour,
                 weekly: weekly,
+                tokenUsage: parseTokenUsage(from: lines),
                 fetchedAt: fetchedAt
             )
         }
 
         throw CodexRateLimitProviderError.invalidResponse
+    }
+
+    private static func parseTokenUsage(
+        from lines: [Data.SubSequence]
+    ) -> CodexAccountTokenUsage? {
+        for line in lines {
+            guard
+                let object = try? JSONSerialization.jsonObject(with: Data(line)),
+                let dictionary = object as? [String: Any],
+                (dictionary["id"] as? NSNumber)?.intValue == 3,
+                dictionary["error"] == nil,
+                let result = dictionary["result"] as? [String: Any],
+                let summary = result["summary"] as? [String: Any]
+            else {
+                continue
+            }
+
+            let buckets = (result["dailyUsageBuckets"] as? [[String: Any]])?
+                .compactMap(parseDailyUsageBucket)
+                .sorted { $0.startDate < $1.startDate }
+                ?? []
+
+            return CodexAccountTokenUsage(
+                lifetimeTokens: int64(summary["lifetimeTokens"]),
+                peakDailyTokens: int64(summary["peakDailyTokens"]),
+                currentStreakDays: int64(summary["currentStreakDays"]),
+                longestStreakDays: int64(summary["longestStreakDays"]),
+                longestRunningTurnSeconds: int64(
+                    summary["longestRunningTurnSec"]
+                ),
+                dailyUsageBuckets: buckets
+            )
+        }
+
+        return nil
+    }
+
+    private static func parseDailyUsageBucket(
+        _ dictionary: [String: Any]
+    ) -> CodexTokenUsageDailyBucket? {
+        guard
+            let startDate = dictionary["startDate"] as? String,
+            let date = usageDate(from: startDate),
+            let tokens = int64(dictionary["tokens"])
+        else {
+            return nil
+        }
+
+        return CodexTokenUsageDailyBucket(startDate: date, tokens: tokens)
+    }
+
+    private static func usageDate(from value: String) -> Date? {
+        let components = value.split(separator: "-")
+        guard
+            components.count == 3,
+            let year = Int(components[0]),
+            let month = Int(components[1]),
+            let day = Int(components[2])
+        else {
+            return nil
+        }
+
+        // App Server returns a calendar day, not an instant. Resolving it at
+        // local noon keeps the chart label on that same day across time zones.
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = .current
+        return calendar.date(
+            from: DateComponents(
+                timeZone: calendar.timeZone,
+                year: year,
+                month: month,
+                day: day,
+                hour: 12
+            )
+        )
+    }
+
+    private static func int64(_ value: Any?) -> Int64? {
+        (value as? NSNumber)?.int64Value
     }
 
     private static func aggregateRateLimits(

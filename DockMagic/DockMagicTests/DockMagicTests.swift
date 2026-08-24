@@ -4,6 +4,31 @@ import XCTest
 @testable import DockMagic
 
 final class DockMagicTests: XCTestCase {
+    func testRendererColorPaletteContainsEveryFeatureDefault() {
+        let options = ProjectTheme.rendererColorOptions
+        let paletteHexes = Set(options.map(\.hex))
+        let defaultHexes = [
+            DockFeatureDefaults.systemMetricsAppearance.outerColor.hex,
+            DockFeatureDefaults.systemMetricsAppearance.innerColor.hex,
+            DockFeatureDefaults.networkAppearance.downloadColor.hex,
+            DockFeatureDefaults.networkAppearance.uploadColor.hex,
+            DockFeatureDefaults.storageAppearance.color.hex,
+            DockFeatureDefaults.githubAppearance.starColor.hex,
+            DockFeatureDefaults.githubAppearance.forkColor.hex,
+            DockFeatureDefaults.codexAppearance.outerColor.hex,
+            DockFeatureDefaults.codexAppearance.innerColor.hex,
+            DockFeatureDefaults.claudeCodeAppearance.outerColor.hex,
+            DockFeatureDefaults.claudeCodeAppearance.innerColor.hex
+        ]
+
+        XCTAssertEqual(Set(options.map(\.id)).count, options.count)
+        XCTAssertEqual(paletteHexes.count, options.count)
+        XCTAssertTrue(
+            Set(defaultHexes).isSubset(of: paletteHexes),
+            "Every feature default must have a selected inline swatch."
+        )
+    }
+
     @MainActor
     func testAppDelegateRedrawsDockForAppearanceAndAccessibilityChanges() async throws {
         let suiteName = "DockMagicTests.AppDelegateAppearance.\(UUID().uuidString)"
@@ -249,6 +274,7 @@ final class DockMagicTests: XCTestCase {
         let store = DockPreferencesStore(defaults: defaults)
         XCTAssertEqual(store.activeFeature, .systemMetrics)
         XCTAssertTrue(store.automaticallyConfigureClaudeCode)
+        XCTAssertFalse(store.isDockHoverDashboardEnabled)
         XCTAssertEqual(
             store.systemMetricsAppearance,
             DockFeatureDefaults.systemMetricsAppearance
@@ -300,6 +326,7 @@ final class DockMagicTests: XCTestCase {
         store.setClaudeCodeDisplayStyle(.numeric)
         store.codexExecutablePath = " /opt/homebrew/bin/codex "
         store.automaticallyConfigureClaudeCode = false
+        store.isDockHoverDashboardEnabled = true
 
         let restored = DockPreferencesStore(defaults: defaults)
         XCTAssertEqual(restored.activeFeature, .network)
@@ -324,6 +351,58 @@ final class DockMagicTests: XCTestCase {
         XCTAssertEqual(restored.claudeCodeAppearance.displayStyle, .numeric)
         XCTAssertEqual(restored.codexExecutablePath, "/opt/homebrew/bin/codex")
         XCTAssertFalse(restored.automaticallyConfigureClaudeCode)
+        XCTAssertTrue(restored.isDockHoverDashboardEnabled)
+    }
+
+    @MainActor
+    func testDockHoverPermissionWaitsForUserAndRecoversAfterGrant() {
+        let authorizer = StubDockHoverAccessibilityAuthorizer()
+        let controller = DockHoverPermissionController(
+            authorizer: authorizer
+        )
+
+        controller.synchronize(isEnabled: true)
+        XCTAssertEqual(controller.state, .needsPermission)
+
+        controller.requestAccess()
+        XCTAssertEqual(authorizer.promptCount, 1)
+        XCTAssertEqual(controller.state, .awaitingUserAction)
+
+        authorizer.trusted = true
+        controller.refresh()
+        XCTAssertEqual(controller.state, .authorized)
+
+        controller.synchronize(isEnabled: false)
+        XCTAssertEqual(controller.state, .disabled)
+        controller.stop()
+    }
+
+    func testDockHoverPanelPlacementStaysInsideVisibleScreen() {
+        let visibleFrame = CGRect(x: 0, y: 0, width: 1_440, height: 900)
+        let centered = DockHoverPanelPlacement.frame(
+            iconFrame: CGRect(x: 688, y: 0, width: 64, height: 64),
+            pointerEdge: .bottom,
+            visibleFrame: visibleFrame
+        )
+        XCTAssertEqual(centered.midX, 720, accuracy: 0.001)
+        XCTAssertEqual(centered.minY, 88, accuracy: 0.001)
+
+        let rightEdge = DockHoverPanelPlacement.frame(
+            iconFrame: CGRect(x: 1_400, y: 0, width: 40, height: 40),
+            pointerEdge: .bottom,
+            visibleFrame: visibleFrame
+        )
+        XCTAssertLessThanOrEqual(rightEdge.maxX, 1_432)
+        XCTAssertGreaterThanOrEqual(rightEdge.minX, 8)
+
+        let sideDock = DockHoverPanelPlacement.frame(
+            iconFrame: CGRect(x: 0, y: 400, width: 64, height: 64),
+            pointerEdge: .left,
+            visibleFrame: visibleFrame
+        )
+        XCTAssertEqual(sideDock.minX, 78, accuracy: 0.001)
+        XCTAssertGreaterThanOrEqual(sideDock.minY, 8)
+        XCTAssertLessThanOrEqual(sideDock.maxY, 892)
     }
 
     @MainActor
@@ -646,6 +725,59 @@ final class DockMagicTests: XCTestCase {
         XCTAssertEqual(snapshot.fiveHour?.remainingFraction, 0.75)
         XCTAssertEqual(snapshot.weekly?.remainingFraction, 0.40)
         XCTAssertEqual(snapshot.fetchedAt, fetchedAt)
+    }
+
+    func testCodexParserMapsAccountTokenUsageAndSevenDailyBuckets() throws {
+        let rateLimits = codexResponse(
+            fallback: rateLimitBucket(
+                limitID: "codex",
+                primaryDuration: 300,
+                primaryUsed: 26,
+                secondaryDuration: 10_080,
+                secondaryUsed: 59
+            )
+        )
+        let usage = codexTokenUsageResponse(
+            lifetimeTokens: 18_400_000,
+            dailyTokens: [980_000, 1_320_000, 1_560_000, 1_210_000,
+                          1_010_000, 730_000, 1_280_000]
+        )
+
+        XCTAssertTrue(
+            CodexRateLimitParser.containsCompleteUsageResponse(
+                rateLimits + usage
+            )
+        )
+
+        let snapshot = try CodexRateLimitParser.parseJSONLines(
+            rateLimits + usage
+        )
+        XCTAssertEqual(snapshot.tokenUsage?.lifetimeTokens, 18_400_000)
+        XCTAssertEqual(snapshot.tokenUsage?.peakDailyTokens, 1_560_000)
+        XCTAssertEqual(snapshot.tokenUsage?.currentStreakDays, 7)
+        XCTAssertEqual(snapshot.tokenUsage?.longestStreakDays, 28)
+        XCTAssertEqual(
+            snapshot.tokenUsage?.longestRunningTurnSeconds,
+            1_460
+        )
+        XCTAssertEqual(snapshot.tokenUsage?.dailyUsageBuckets.count, 7)
+        XCTAssertEqual(snapshot.tokenUsage?.latestDailyTokens, 1_280_000)
+    }
+
+    func testCodexParserKeepsRateLimitsWhenAccountUsageIsUnsupported() throws {
+        let response = codexResponse(
+            fallback: rateLimitBucket(
+                limitID: "codex",
+                primaryDuration: 300,
+                primaryUsed: 20
+            )
+        ) + Data(
+            "{\"id\":3,\"error\":{\"message\":\"method not found\"}}\n".utf8
+        )
+
+        let snapshot = try CodexRateLimitParser.parseJSONLines(response)
+        XCTAssertEqual(snapshot.fiveHour?.remainingFraction, 0.8)
+        XCTAssertNil(snapshot.tokenUsage)
     }
 
     func testCodexParserSupportsWeeklyOnlyWithoutInventingFiveHour() throws {
@@ -2647,6 +2779,43 @@ final class DockMagicTests: XCTestCase {
     }
 
     @MainActor
+    func testCodexHoverDashboardOptionTwoReferenceRender() async throws {
+        let suiteName = "DockMagicTests.CodexHoverRender.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        defaults.set(
+            DockFeature.codex.rawValue,
+            forKey: DockFeature.storageKey
+        )
+
+        let codexStore = CodexUsageStore(
+            provider: ScriptedCodexProvider([
+                .success(.hoverDesignPreview)
+            ]),
+            locator: StubCodexLocator(),
+            pollingInterval: .seconds(60)
+        )
+        await codexStore.refresh()
+        let appModel = DockAppModel(
+            preferences: DockPreferencesStore(defaults: defaults),
+            codexStore: codexStore
+        )
+
+        let data = try renderPNG(
+            of: DockHoverDashboardRoot(
+                appModel: appModel,
+                pointerEdge: .bottom
+            ),
+            size: NSSize(width: 360, height: 224),
+            appearanceName: .darkAqua,
+            name: "Codex Hover — Option 2"
+        )
+        XCTAssertGreaterThan(data.count, 12_000)
+        attachPNG(data, name: "Codex Hover — Option 2")
+    }
+
+    @MainActor
     func testCodexAndClaudeWeeklyOnlyNumericDockUsesLargerTypography() throws {
         let snapshot = CodexRateLimitSnapshot(
             planType: "pro",
@@ -2772,7 +2941,7 @@ final class DockMagicTests: XCTestCase {
     }
 
     @MainActor
-    func testDesignSystemRendersAllSettingsAndDockStatesAcrossAppearances() async throws {
+    func testDesignSystemRendersAllSettingsAcrossAppearances() async throws {
         let appModel = makeAppModel()
         let appearanceDefaults = makeAppearanceDefaults(.light)
         await appModel.metricsStore.refresh()
@@ -2814,7 +2983,8 @@ final class DockMagicTests: XCTestCase {
                     ),
                     size: NSSize(width: 1_020, height: 740),
                     appearanceName: appearanceCase.appKit,
-                    name: "Settings — \(destination.title) — \(appearanceCase.label)"
+                    name: "Settings — \(destination.title) — \(appearanceCase.label)",
+                    attachmentLifetime: .deleteOnSuccess
                 )
             }
 
@@ -2829,9 +2999,45 @@ final class DockMagicTests: XCTestCase {
                 ),
                 size: NSSize(width: 1_020, height: 740),
                 appearanceName: appearanceCase.appKit,
-                name: "Settings — Weather Permission Denied — \(appearanceCase.label)"
+                name: "Settings — Weather Permission Denied — \(appearanceCase.label)",
+                attachmentLifetime: .deleteOnSuccess
             )
         }
+    }
+
+    @MainActor
+    func testDesignSystemRendersAllDockStatesInSystemAppearance() throws {
+        try attachAllDockStateScreenshots(
+            mode: .system,
+            appKitAppearance: .aqua,
+            label: "System"
+        )
+    }
+
+    @MainActor
+    func testDesignSystemRendersAllDockStatesInLightAppearance() throws {
+        try attachAllDockStateScreenshots(
+            mode: .light,
+            appKitAppearance: .aqua,
+            label: "Light"
+        )
+    }
+
+    @MainActor
+    func testDesignSystemRendersAllDockStatesInDarkAppearance() throws {
+        try attachAllDockStateScreenshots(
+            mode: .dark,
+            appKitAppearance: .darkAqua,
+            label: "Dark"
+        )
+    }
+
+    @MainActor
+    private func attachAllDockStateScreenshots(
+        mode: DSAppearanceMode,
+        appKitAppearance: NSAppearance.Name,
+        label: String
+    ) throws {
 
         var numericSystemAppearance = DockFeatureDefaults.systemMetricsAppearance
         numericSystemAppearance.setDisplayStyle(.numeric)
@@ -3088,22 +3294,21 @@ final class DockMagicTests: XCTestCase {
             )
         ]
 
-        for appearanceCase in appearanceCases {
-            for side in [32, 48, 64, 128] {
-                for presentation in presentations {
-                    try attachScreenshot(
-                        of: DockMagicThemeRoot(
-                            content: DockTileView(
-                                presentation: presentation.1,
-                                animatesChanges: false
-                            ),
-                            appearanceMode: appearanceCase.mode
+        for side in [32, 48, 64, 128] {
+            for presentation in presentations {
+                try attachScreenshot(
+                    of: DockMagicThemeRoot(
+                        content: DockTileView(
+                            presentation: presentation.1,
+                            animatesChanges: false
                         ),
-                        size: NSSize(width: side, height: side),
-                        appearanceName: appearanceCase.appKit,
-                        name: "Dock — \(presentation.0) — \(side) pt — \(appearanceCase.label)"
-                    )
-                }
+                        appearanceMode: mode
+                    ),
+                    size: NSSize(width: side, height: side),
+                    appearanceName: appKitAppearance,
+                    name: "Dock — \(presentation.0) — \(side) pt — \(label)",
+                    attachmentLifetime: .deleteOnSuccess
+                )
             }
         }
     }
@@ -3430,6 +3635,49 @@ final class DockMagicTests: XCTestCase {
         return data + Data([0x0A])
     }
 
+    private func codexTokenUsageResponse(
+        lifetimeTokens: Int64,
+        dailyTokens: [Int64]
+    ) -> Data {
+        let calendar = Calendar(identifier: .gregorian)
+        let startDate = calendar.date(from: DateComponents(
+            year: 2026,
+            month: 8,
+            day: 18
+        ))!
+        let formatter = DateFormatter()
+        formatter.calendar = calendar
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        formatter.dateFormat = "yyyy-MM-dd"
+
+        let response: [String: Any] = [
+            "id": 3,
+            "result": [
+                "summary": [
+                    "lifetimeTokens": lifetimeTokens,
+                    "peakDailyTokens": dailyTokens.max() ?? 0,
+                    "currentStreakDays": 7,
+                    "longestStreakDays": 28,
+                    "longestRunningTurnSec": 1_460
+                ],
+                "dailyUsageBuckets": dailyTokens.enumerated().map {
+                    index, tokens in
+                    [
+                        "startDate": formatter.string(from: calendar.date(
+                            byAdding: .day,
+                            value: index,
+                            to: startDate
+                        )!),
+                        "tokens": tokens
+                    ] as [String: Any]
+                }
+            ]
+        ]
+        let data = try! JSONSerialization.data(withJSONObject: response)
+        return data + Data([0x0A])
+    }
+
     private func rateLimitBucket(
         limitID: String,
         primaryDuration: Int,
@@ -3707,7 +3955,8 @@ final class DockMagicTests: XCTestCase {
         of content: Content,
         size: NSSize,
         appearanceName: NSAppearance.Name = .aqua,
-        name: String
+        name: String,
+        attachmentLifetime: XCTAttachment.Lifetime = .keepAlways
     ) throws {
         let data = try renderPNG(
             of: content,
@@ -3715,7 +3964,7 @@ final class DockMagicTests: XCTestCase {
             appearanceName: appearanceName,
             name: name
         )
-        attachPNG(data, name: name)
+        attachPNG(data, name: name, lifetime: attachmentLifetime)
     }
 
     @MainActor
@@ -3768,13 +4017,17 @@ final class DockMagicTests: XCTestCase {
         }
     }
 
-    private func attachPNG(_ data: Data, name: String) {
+    private func attachPNG(
+        _ data: Data,
+        name: String,
+        lifetime: XCTAttachment.Lifetime = .keepAlways
+    ) {
         let attachment = XCTAttachment(
             data: data,
             uniformTypeIdentifier: "public.png"
         )
         attachment.name = name
-        attachment.lifetime = .keepAlways
+        attachment.lifetime = lifetime
         add(attachment)
     }
 
@@ -3941,6 +4194,24 @@ private actor ScriptedCodexProvider: CodexRateLimitProviding {
             throw CodexRateLimitProviderError.invalidResponse
         }
         return try results.removeFirst().get()
+    }
+}
+
+@MainActor
+private final class StubDockHoverAccessibilityAuthorizer:
+    DockHoverAccessibilityAuthorizing
+{
+    var trusted = false
+    var promptResult = false
+    private(set) var promptCount = 0
+
+    func isTrusted() -> Bool {
+        trusted
+    }
+
+    func requestTrustPrompt() -> Bool {
+        promptCount += 1
+        return promptResult
     }
 }
 

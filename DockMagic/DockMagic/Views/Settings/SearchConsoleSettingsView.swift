@@ -31,7 +31,6 @@ struct SearchConsoleSettingsView: View {
         .sheet(isPresented: $showsManageSheet) {
             SearchConsoleConnectionSheet(
                 store: store,
-                importJSON: { importsJSON = true },
                 dismiss: { showsManageSheet = false }
             )
             .environment(\.designTheme, theme)
@@ -344,15 +343,21 @@ struct SearchConsoleSettingsView: View {
 
 private struct SearchConsoleConnectionSheet: View {
     let store: SearchConsoleStore
-    let importJSON: () -> Void
     let dismiss: () -> Void
 
+    @State private var importsJSON = false
     @State private var credentialPendingRemoval: SearchConsoleCredential?
     @State private var operationError: String?
     @Environment(\.designTheme) private var theme
 
     var body: some View {
         sheetContent
+            .fileImporter(
+                isPresented: $importsJSON,
+                allowedContentTypes: [.json],
+                allowsMultipleSelection: false,
+                onCompletion: importJSON
+            )
             .alert(
                 "Remove JSON key?",
                 isPresented: removalAlertIsPresented,
@@ -360,6 +365,14 @@ private struct SearchConsoleConnectionSheet: View {
                 actions: removalAlertActions,
                 message: removalAlertMessage
             )
+            .alert(
+                "Service account could not be connected",
+                isPresented: operationAlertIsPresented
+            ) {
+                Button("OK", role: .cancel) { operationError = nil }
+            } message: {
+                Text(operationError ?? "Unknown error")
+            }
     }
 
     private var sheetContent: some View {
@@ -417,9 +430,12 @@ private struct SearchConsoleConnectionSheet: View {
                     Text(credentialCountSummary)
                         .font(DSTypography.metadata)
                         .foregroundStyle(theme.textSecondary)
+                        .accessibilityIdentifier(
+                            "settings.searchConsole.credentialSummary"
+                        )
                 }
                 Spacer()
-                Button("Add JSON Key…", action: importJSON)
+                Button("Add JSON Key…") { importsJSON = true }
                     .buttonStyle(DSButtonStyle(kind: .primary))
                     .accessibilityIdentifier("settings.searchConsole.sheetImport")
             }
@@ -487,6 +503,13 @@ private struct SearchConsoleConnectionSheet: View {
         )
     }
 
+    private var operationAlertIsPresented: Binding<Bool> {
+        Binding(
+            get: { operationError != nil },
+            set: { if !$0 { operationError = nil } }
+        )
+    }
+
     @ViewBuilder
     private func removalAlertActions(
         _ credential: SearchConsoleCredential
@@ -513,6 +536,23 @@ private struct SearchConsoleConnectionSheet: View {
                 operationError = error.localizedDescription
             }
             credentialPendingRemoval = nil
+        }
+    }
+
+    private func importJSON(_ result: Result<[URL], Error>) {
+        Task {
+            do {
+                let url = try result.get().first
+                    .unwrap(or: CocoaError(.fileNoSuchFile))
+                let accessed = url.startAccessingSecurityScopedResource()
+                defer { if accessed { url.stopAccessingSecurityScopedResource() } }
+                let data = try Data(contentsOf: url)
+                try await store.importServiceAccountJSON(data)
+            } catch let error as CocoaError where error.code == .userCancelled {
+                return
+            } catch {
+                operationError = error.localizedDescription
+            }
         }
     }
 
@@ -608,30 +648,16 @@ private struct SearchConsoleConnectionSheet: View {
 
             if credential.isActive {
                 DSDivider()
-                HStack(spacing: DSSpacing.large) {
-                    Text("Property")
-                        .font(DSTypography.bodyEmphasis)
-                        .foregroundStyle(theme.textPrimary)
-                    Spacer(minLength: DSSpacing.large)
-                    Picker(
-                        "Property",
-                        selection: Binding(
-                            get: { store.configuration.selectedProperty },
-                            set: store.setSelectedProperty
-                        )
-                    ) {
-                        if store.availableSites.isEmpty {
-                            Text(store.configuration.selectedProperty)
-                                .tag(store.configuration.selectedProperty)
-                        } else {
-                            ForEach(store.availableSites) { site in
-                                Text(site.siteURL).tag(site.siteURL)
-                            }
-                        }
-                    }
-                    .labelsHidden()
-                    .frame(maxWidth: 360)
-                    .accessibilityIdentifier("settings.searchConsole.property")
+                DSSettingsRow(
+                    title: "Property",
+                    detail: "Search Console data source used by this JSON key.",
+                    systemImage: "globe"
+                ) {
+                    SearchConsolePropertyPicker(
+                        sites: store.availableSites,
+                        selectedProperty: store.configuration.selectedProperty,
+                        select: store.setSelectedProperty
+                    )
                 }
             }
         }
@@ -645,6 +671,120 @@ private struct SearchConsoleConnectionSheet: View {
         .accessibilityIdentifier(
             "settings.searchConsole.credential.\(credential.privateKeyID)"
         )
+    }
+}
+
+private struct SearchConsolePropertyPicker: View {
+    let sites: [SearchConsoleSite]
+    let selectedProperty: String
+    let select: (String) -> Void
+
+    @State private var isChoosingProperty = false
+    @Environment(\.designTheme) private var theme
+
+    var body: some View {
+        Button {
+            isChoosingProperty.toggle()
+        } label: {
+            selectionField
+        }
+        .buttonStyle(.plain)
+        .contentShape(
+            RoundedRectangle(
+                cornerRadius: DSRadius.control,
+                style: .continuous
+            )
+        )
+        .disabled(sites.isEmpty)
+        .popover(isPresented: $isChoosingProperty, arrowEdge: .bottom) {
+            propertyOptions
+        }
+        .accessibilityLabel("Search Console property")
+        .accessibilityValue(selectedProperty)
+        .accessibilityIdentifier("settings.searchConsole.property")
+        .help(
+            sites.isEmpty
+                ? "Loading accessible Search Console properties…"
+                : "Choose the Search Console property used by this key"
+        )
+    }
+
+    private var selectionField: some View {
+        HStack(spacing: DSSpacing.medium) {
+            Text(selectedProperty.isEmpty ? "No property available" : selectedProperty)
+                .font(DSTypography.bodyEmphasis)
+                .foregroundStyle(
+                    selectedProperty.isEmpty
+                        ? theme.textTertiary
+                        : theme.textPrimary
+                )
+                .lineLimit(1)
+                .truncationMode(.middle)
+
+            Spacer(minLength: DSSpacing.small)
+
+            Image(systemName: "chevron.up.chevron.down")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(theme.textSecondary)
+                .accessibilityHidden(true)
+        }
+        .padding(.horizontal, DSSpacing.medium)
+        .frame(width: 360, height: 42)
+        .dsSurface(
+            RoundedRectangle(
+                cornerRadius: DSRadius.control,
+                style: .continuous
+            ),
+            kind: .inset,
+            elevation: .secondary
+        )
+    }
+
+    private var propertyOptions: some View {
+        VStack(alignment: .leading, spacing: DSSpacing.small) {
+            VStack(alignment: .leading, spacing: DSSpacing.xSmall) {
+                Text("Search Console property")
+                    .font(DSTypography.sectionTitle)
+                    .foregroundStyle(theme.textPrimary)
+                Text("Choose the property whose clicks and impressions appear in the Dock.")
+                    .font(DSTypography.metadata)
+                    .foregroundStyle(theme.textSecondary)
+            }
+            .padding(.horizontal, DSSpacing.small)
+            .padding(.top, DSSpacing.small)
+
+            ForEach(sites) { site in
+                DSActionRow(
+                    title: site.siteURL,
+                    systemImage: "globe",
+                    detail: permissionTitle(for: site.permissionLevel),
+                    isSelected: site.siteURL == selectedProperty,
+                    accessibilityIdentifier:
+                        "settings.searchConsole.property.option.\(site.siteURL)"
+                ) {
+                    select(site.siteURL)
+                    isChoosingProperty = false
+                }
+            }
+        }
+        .padding(DSSpacing.small)
+        .frame(width: 430)
+        .background(theme.opaqueSurfaceRaised)
+    }
+
+    private func permissionTitle(for permissionLevel: String) -> String {
+        switch permissionLevel {
+        case "siteOwner":
+            "Owner"
+        case "siteFullUser":
+            "Full user"
+        case "siteRestrictedUser":
+            "Restricted user"
+        case "unverifiedUser":
+            "Unverified user"
+        default:
+            permissionLevel
+        }
     }
 }
 

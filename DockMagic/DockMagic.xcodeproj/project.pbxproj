@@ -67,6 +67,8 @@
 		A1A000000000000000000007 /* SearchConsoleSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B000000000000000000007 /* SearchConsoleSettingsView.swift */; };
 		A1A000000000000000000008 /* SearchConsoleFeatureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B000000000000000000008 /* SearchConsoleFeatureTests.swift */; };
 		B2A000000000000000000001 /* DockIconRenderingRules.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2B000000000000000000001 /* DockIconRenderingRules.swift */; };
+		C3A000000000000000000001 /* DockHoverCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3B000000000000000000001 /* DockHoverCoordinator.swift */; };
+		C3A000000000000000000002 /* CodexHoverDashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3B000000000000000000002 /* CodexHoverDashboardView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -152,6 +154,8 @@
 		A1B000000000000000000007 /* SearchConsoleSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchConsoleSettingsView.swift; sourceTree = "<group>"; };
 		A1B000000000000000000008 /* SearchConsoleFeatureTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchConsoleFeatureTests.swift; sourceTree = "<group>"; };
 		B2B000000000000000000001 /* DockIconRenderingRules.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DockIconRenderingRules.swift; sourceTree = "<group>"; };
+		C3B000000000000000000001 /* DockHoverCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DockHoverCoordinator.swift; sourceTree = "<group>"; };
+		C3B000000000000000000002 /* CodexHoverDashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexHoverDashboardView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -273,6 +277,7 @@
 		D0C200000000000000000003 /* Services */ = {
 			isa = PBXGroup;
 			children = (
+				C3B000000000000000000001 /* DockHoverCoordinator.swift */,
 				B2B000000000000000000001 /* DockIconRenderingRules.swift */,
 				A1B000000000000000000004 /* SearchConsoleAPIClient.swift */,
 				E0B000000000000000000002 /* BatteryMetricsSampler.swift */,
@@ -311,6 +316,7 @@
 			isa = PBXGroup;
 			children = (
 				D0C200000000000000000006 /* Dock */,
+				C3C000000000000000000001 /* Hover */,
 				D0C200000000000000000008 /* Settings */,
 			);
 			path = Views;
@@ -339,6 +345,14 @@
 				D0C100000000000000000007 /* SettingsView.swift */,
 			);
 			path = Settings;
+			sourceTree = "<group>";
+		};
+		C3C000000000000000000001 /* Hover */ = {
+			isa = PBXGroup;
+			children = (
+				C3B000000000000000000002 /* CodexHoverDashboardView.swift */,
+			);
+			path = Hover;
 			sourceTree = "<group>";
 		};
 		D5C000000000000000000001 /* DesignSystem */ = {
@@ -508,6 +522,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C3A000000000000000000001 /* DockHoverCoordinator.swift in Sources */,
+				C3A000000000000000000002 /* CodexHoverDashboardView.swift in Sources */,
 				B2A000000000000000000001 /* DockIconRenderingRules.swift in Sources */,
 				A1A000000000000000000001 /* SearchConsoleModels.swift in Sources */,
 				A1A000000000000000000002 /* SearchConsoleConfigurationRecord.swift in Sources */,

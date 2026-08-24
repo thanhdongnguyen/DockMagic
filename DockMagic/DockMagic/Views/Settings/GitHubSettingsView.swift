@@ -239,19 +239,15 @@ struct GitHubSettingsView: View {
 
             Spacer(minLength: DSSpacing.standard)
 
-            Text(hex)
-                .font(DSTypography.keycap)
-                .foregroundStyle(theme.textSecondary)
-
-            ColorPicker(title, selection: color, supportsOpacity: false)
-                .labelsHidden()
-                .accessibilityLabel("\(title) color")
-                .accessibilityValue(hex)
-                .accessibilityIdentifier(
-                    "settings.github.color.\(identifier)"
-                )
+            DSColorPalettePicker(
+                selection: color,
+                selectionHex: hex,
+                options: ProjectTheme.rendererColorOptions,
+                accessibilityLabel: "\(title) color",
+                identifier: "settings.github.color.\(identifier)"
+            )
         }
-        .frame(minHeight: 28)
+        .frame(minHeight: 40)
     }
 
     private var repositoryReference: GitHubRepositoryReference? {

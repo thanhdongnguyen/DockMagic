@@ -14,6 +14,8 @@ final class DockPreferencesStore {
     static let claudeCodeAppearanceKey = "DockMagicClaudeCodeAppearance"
     static let automaticallyConfigureClaudeCodeKey =
         "DockMagicAutomaticallyConfigureClaudeCode"
+    static let dockHoverDashboardEnabledKey =
+        "DockMagicDockHoverDashboardEnabled"
 
     var activeFeature: DockFeature {
         didSet {
@@ -77,6 +79,18 @@ final class DockPreferencesStore {
         }
     }
 
+    var isDockHoverDashboardEnabled: Bool {
+        didSet {
+            guard isDockHoverDashboardEnabled != oldValue else {
+                return
+            }
+            defaults.set(
+                isDockHoverDashboardEnabled,
+                forKey: Self.dockHoverDashboardEnabledKey
+            )
+        }
+    }
+
     @ObservationIgnored
     private let defaults: UserDefaults
 
@@ -128,6 +142,10 @@ final class DockPreferencesStore {
             defaults.object(
                 forKey: Self.automaticallyConfigureClaudeCodeKey
             ) as? Bool ?? true
+        isDockHoverDashboardEnabled =
+            defaults.object(
+                forKey: Self.dockHoverDashboardEnabledKey
+            ) as? Bool ?? false
     }
 
     func setSystemMetricsOuterColor(_ color: DockColor) {

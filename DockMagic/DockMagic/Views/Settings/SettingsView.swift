@@ -60,7 +60,7 @@ enum SettingsDestination: String, CaseIterable, Identifiable {
         case .github:
             "Track repository stars and forks in the Dock."
         case .codex:
-            "Show remaining 5-hour and weekly Codex limits."
+            "Show Codex rate limits and aggregate token usage."
         case .claudeCode:
             "Show remaining 5-hour and weekly Claude Code limits."
         case .searchConsole:
@@ -126,6 +126,7 @@ enum SettingsDestination: String, CaseIterable, Identifiable {
 @MainActor
 struct SettingsView: View {
     let appModel: DockAppModel
+    let dockHoverPermissionController: DockHoverPermissionController?
 
     @State private var destination: SettingsDestination
     @AppStorage(DSAppearanceMode.storageKey)
@@ -134,9 +135,11 @@ struct SettingsView: View {
 
     init(
         appModel: DockAppModel,
+        dockHoverPermissionController: DockHoverPermissionController? = nil,
         initialDestination: SettingsDestination = .general
     ) {
         self.appModel = appModel
+        self.dockHoverPermissionController = dockHoverPermissionController
         _destination = State(initialValue: initialDestination)
     }
 
@@ -191,6 +194,7 @@ struct SettingsView: View {
             )
         ) { _ in
             refreshWeatherAfterReturningFromSystemSettings()
+            dockHoverPermissionController?.refresh()
         }
     }
 
@@ -460,6 +464,82 @@ struct SettingsView: View {
                     ActiveDockFeaturePicker(selection: activeFeatureBinding)
                 }
             }
+
+            DSSettingsSection(
+                title: "Dock hover dashboard",
+                detail: "Show a read-only dashboard above DockMagic when its Dock icon is hovered. Codex includes rate limits and a seven-day token chart."
+            ) {
+                VStack(spacing: DSSpacing.standard) {
+                    DSSettingsRow(
+                        title: "Show dashboard on Dock hover",
+                        detail: "Off by default. Requires Accessibility to detect only DockMagic's own Dock item and position."
+                    ) {
+                        Toggle(
+                            "Show dashboard on Dock hover",
+                            isOn: dockHoverEnabledBinding
+                        )
+                        .labelsHidden()
+                        .toggleStyle(.switch)
+                        .accessibilityIdentifier("settings.dockHover.toggle")
+                    }
+
+                    if appModel.preferences.isDockHoverDashboardEnabled {
+                        DSDivider()
+
+                        HStack(alignment: .top, spacing: DSSpacing.medium) {
+                            DSIconPlate(
+                                systemImage: dockHoverPermissionSystemImage,
+                                role: dockHoverPermissionRole
+                            )
+
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(dockHoverPermissionState.title)
+                                    .font(DSTypography.bodyEmphasis)
+                                    .foregroundStyle(theme.textPrimary)
+
+                                Text(dockHoverPermissionState.detail)
+                                    .font(DSTypography.metadata)
+                                    .foregroundStyle(theme.textSecondary)
+                                    .fixedSize(horizontal: false, vertical: true)
+
+                                dockHoverPermissionActions
+                                    .padding(.top, DSSpacing.xSmall)
+                            }
+
+                            Spacer(minLength: 0)
+                        }
+                        .accessibilityIdentifier("settings.dockHover.permission")
+                    }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var dockHoverPermissionActions: some View {
+        switch dockHoverPermissionState {
+        case .disabled, .authorized:
+            EmptyView()
+        case .needsPermission:
+            Button("Allow Accessibility…") {
+                dockHoverPermissionController?.requestAccess()
+            }
+            .buttonStyle(DSButtonStyle(kind: .primary))
+            .disabled(dockHoverPermissionController == nil)
+            .accessibilityIdentifier("settings.dockHover.allow")
+        case .awaitingUserAction:
+            HStack(spacing: DSSpacing.compact) {
+                Button("Open System Settings") {
+                    dockHoverPermissionController?.openAccessibilitySettings()
+                }
+                .buttonStyle(DSButtonStyle(kind: .primary))
+
+                Button("Check Again") {
+                    dockHoverPermissionController?.refresh()
+                }
+                .buttonStyle(DSButtonStyle())
+            }
+            .accessibilityIdentifier("settings.dockHover.awaitingActions")
         }
     }
 
@@ -915,9 +995,9 @@ struct SettingsView: View {
 
             DSSettingsSection(
                 title: "Data boundaries",
-                detail: "CPU, memory, network, storage, and battery metrics remain local. GitHub receives the configured repository path every 15 minutes while active; Weather sends current coordinates to Open-Meteo; Codex uses the automatically detected CLI; Claude Code uses a local status line snapshot containing only rate_limits."
+                detail: "CPU, memory, network, storage, and battery metrics remain local. GitHub receives the configured repository path every 15 minutes while active; Weather sends current coordinates to Open-Meteo; Codex uses the automatically detected CLI for rate limits and aggregate account token totals; Claude Code uses a local status line snapshot containing only rate_limits."
             ) {
-                Text("Battery status is read from public local macOS power-source and device-registry APIs; DockMagic does not pair with devices or retain a connection history. It stores only the last successful weather result and up to seven days of GitHub count history. An optional GitHub token is kept only in macOS Keychain. DockMagic does not inspect prompts, conversations, transcripts, or Claude Code OAuth tokens. Open-Meteo data is used under CC BY 4.0.")
+                Text("Battery status is read from public local macOS power-source and device-registry APIs; DockMagic does not pair with devices or retain a connection history. It stores only the last successful weather result and up to seven days of GitHub count history. An optional GitHub token is kept only in macOS Keychain. DockMagic reads Codex's aggregate daily and lifetime token counts, but does not inspect prompts, conversations, transcripts, or Claude Code OAuth tokens. Open-Meteo data is used under CC BY 4.0.")
                     .font(DSTypography.body)
                     .foregroundStyle(theme.textSecondary)
             }
@@ -971,6 +1051,46 @@ struct SettingsView: View {
                 }
             }
         )
+    }
+
+    private var dockHoverEnabledBinding: Binding<Bool> {
+        Binding(
+            get: { appModel.preferences.isDockHoverDashboardEnabled },
+            set: { appModel.preferences.isDockHoverDashboardEnabled = $0 }
+        )
+    }
+
+    private var dockHoverPermissionState: DockHoverPermissionState {
+        dockHoverPermissionController?.state
+            ?? (appModel.preferences.isDockHoverDashboardEnabled
+                ? .needsPermission
+                : .disabled)
+    }
+
+    private var dockHoverPermissionRole: DSSemanticRole {
+        switch dockHoverPermissionState {
+        case .disabled:
+            .neutral
+        case .needsPermission:
+            .warning
+        case .awaitingUserAction:
+            .information
+        case .authorized:
+            .processing
+        }
+    }
+
+    private var dockHoverPermissionSystemImage: String {
+        switch dockHoverPermissionState {
+        case .disabled:
+            "eye.slash"
+        case .needsPermission:
+            "accessibility"
+        case .awaitingUserAction:
+            "clock.badge.questionmark"
+        case .authorized:
+            "checkmark.shield.fill"
+        }
     }
 
     private var appearanceMode: DSAppearanceMode {
@@ -1761,19 +1881,15 @@ private struct RingAppearanceEditor: View {
 
             Spacer(minLength: DSSpacing.standard)
 
-            Text(hex)
-                .font(DSTypography.keycap)
-                .foregroundStyle(theme.textSecondary)
-
-            ColorPicker(title, selection: color, supportsOpacity: false)
-                .labelsHidden()
-                .accessibilityLabel(title)
-                .accessibilityValue(hex)
-                .accessibilityIdentifier(
-                    "settings.ringColor.\(controlIdentifier(for: title))"
-                )
+            DSColorPalettePicker(
+                selection: color,
+                selectionHex: hex,
+                options: ProjectTheme.rendererColorOptions,
+                accessibilityLabel: title,
+                identifier: "settings.ringColor.\(controlIdentifier(for: title))"
+            )
         }
-        .frame(minHeight: 28)
+        .frame(minHeight: 40)
     }
 
     private func widthRow(
@@ -1870,17 +1986,15 @@ private struct NetworkAppearanceEditor: View {
 
             Spacer(minLength: DSSpacing.standard)
 
-            Text(hex)
-                .font(DSTypography.keycap)
-                .foregroundStyle(theme.textSecondary)
-
-            ColorPicker(title, selection: color, supportsOpacity: false)
-                .labelsHidden()
-                .accessibilityLabel("\(title) chart color")
-                .accessibilityValue(hex)
-                .accessibilityIdentifier("settings.network.color.\(identifier)")
+            DSColorPalettePicker(
+                selection: color,
+                selectionHex: hex,
+                options: ProjectTheme.rendererColorOptions,
+                accessibilityLabel: "\(title) chart color",
+                identifier: "settings.network.color.\(identifier)"
+            )
         }
-        .frame(minHeight: 28)
+        .frame(minHeight: 40)
     }
 }
 
@@ -1911,17 +2025,15 @@ private struct SingleRingAppearanceEditor: View {
 
                 Spacer(minLength: DSSpacing.standard)
 
-                Text(appearance.color.hex)
-                    .font(DSTypography.keycap)
-                    .foregroundStyle(theme.textSecondary)
-
-                ColorPicker(colorTitle, selection: color, supportsOpacity: false)
-                    .labelsHidden()
-                    .accessibilityLabel(colorTitle)
-                    .accessibilityValue(appearance.color.hex)
-                    .accessibilityIdentifier("settings.storage.color")
+                DSColorPalettePicker(
+                    selection: color,
+                    selectionHex: appearance.color.hex,
+                    options: ProjectTheme.rendererColorOptions,
+                    accessibilityLabel: colorTitle,
+                    identifier: "settings.storage.color"
+                )
             }
-            .frame(minHeight: 28)
+            .frame(minHeight: 40)
 
             if appearance.displayStyle == .chart {
                 HStack(spacing: DSSpacing.standard) {

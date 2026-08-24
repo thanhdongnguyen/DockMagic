@@ -6,6 +6,7 @@ import SwiftUI
 final class AppDelegate: NSObject, NSApplicationDelegate {
     let appModel: DockAppModel
     let settingsWindowRouter: SettingsWindowRouter
+    let dockHoverPermissionController: DockHoverPermissionController
 
     private let dockTile: NSDockTile
     private let application: any ApplicationIconDisplaying
@@ -13,6 +14,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let notificationCenter: NotificationCenter
     private let workspaceNotificationCenter: NotificationCenter
     private var dockTileController: DockTileController?
+    private var dockHoverCoordinator: DockHoverCoordinator?
     private var appearanceObserver: NSObjectProtocol?
     private var accessibilityDisplayObserver: NSObjectProtocol?
     private var workspaceWakeObserver: NSObjectProtocol?
@@ -36,6 +38,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     ) -> DockAppModel {
         guard environment["DockMagicUITesting"] != "1" else {
             return DockAppModel(
+                preferences: DockPreferencesStore(
+                    defaults: DockMagicRuntimeDefaults.current
+                ),
                 weatherStore: WeatherStore(
                     provider: DockMagicUITestWeatherProvider(),
                     authorizationProvider: DockMagicUITestWeatherAuthorizationProvider(),
@@ -65,10 +70,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         application: (any ApplicationIconDisplaying)? = nil,
         appearanceStore: UserDefaults = DockMagicRuntimeDefaults.current,
         notificationCenter: NotificationCenter = .default,
-        workspaceNotificationCenter: NotificationCenter = NSWorkspace.shared.notificationCenter
+        workspaceNotificationCenter: NotificationCenter = NSWorkspace.shared.notificationCenter,
+        dockHoverPermissionController: DockHoverPermissionController? = nil
     ) {
         self.appModel = appModel
         self.settingsWindowRouter = settingsWindowRouter
+        self.dockHoverPermissionController = dockHoverPermissionController
+            ?? DockHoverPermissionController()
         self.dockTile = dockTile ?? NSApplication.shared.dockTile
         self.application = application ?? NSApplication.shared
         self.appearanceStore = appearanceStore
@@ -91,6 +99,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         observeSystemResume()
         observeDockPresentation()
         appModel.start()
+        dockHoverCoordinator = DockHoverCoordinator(
+            appModel: appModel,
+            permissionController: dockHoverPermissionController
+        )
+        dockHoverCoordinator?.start()
+    }
+
+    func applicationDidBecomeActive(_ notification: Notification) {
+        dockHoverCoordinator?.applicationDidBecomeActive()
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(
@@ -108,6 +125,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        dockHoverCoordinator?.stop()
         appModel.stop()
         if let appearanceObserver {
             notificationCenter.removeObserver(appearanceObserver)
@@ -130,6 +148,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         workspaceWakeObserver = nil
         workspaceSessionActiveObserver = nil
         effectiveAppearanceObservation = nil
+        dockHoverCoordinator = nil
         dockTileController = nil
     }
 
@@ -331,6 +350,8 @@ struct DockMagicApp: App {
         ) {
             SettingsSceneRoot(
                 appModel: appDelegate.appModel,
+                dockHoverPermissionController:
+                    appDelegate.dockHoverPermissionController,
                 windowRouter: appDelegate.settingsWindowRouter
             )
         }
@@ -352,13 +373,17 @@ struct DockMagicApp: App {
 
 private struct SettingsSceneRoot: View {
     let appModel: DockAppModel
+    let dockHoverPermissionController: DockHoverPermissionController
     let windowRouter: SettingsWindowRouter
 
     @Environment(\.openWindow) private var openWindow
 
     var body: some View {
         DockMagicThemeRoot(
-            content: SettingsView(appModel: appModel)
+            content: SettingsView(
+                appModel: appModel,
+                dockHoverPermissionController: dockHoverPermissionController
+            )
         )
         .defaultAppStorage(DockMagicRuntimeDefaults.current)
         .onAppear {

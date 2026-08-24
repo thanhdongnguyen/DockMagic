@@ -16,12 +16,49 @@ struct CodexRateLimitWindow: Codable, Equatable, Sendable {
     }
 }
 
+struct CodexTokenUsageDailyBucket: Codable, Equatable, Identifiable, Sendable {
+    let startDate: Date
+    let tokens: Int64
+
+    var id: Date { startDate }
+}
+
+struct CodexAccountTokenUsage: Codable, Equatable, Sendable {
+    let lifetimeTokens: Int64?
+    let peakDailyTokens: Int64?
+    let currentStreakDays: Int64?
+    let longestStreakDays: Int64?
+    let longestRunningTurnSeconds: Int64?
+    let dailyUsageBuckets: [CodexTokenUsageDailyBucket]
+
+    var latestDailyTokens: Int64? {
+        dailyUsageBuckets.last?.tokens
+    }
+}
+
 struct CodexRateLimitSnapshot: Codable, Equatable, Sendable {
     let planType: String?
     let limitID: String?
     let fiveHour: CodexRateLimitWindow?
     let weekly: CodexRateLimitWindow?
+    let tokenUsage: CodexAccountTokenUsage?
     let fetchedAt: Date
+
+    init(
+        planType: String?,
+        limitID: String?,
+        fiveHour: CodexRateLimitWindow?,
+        weekly: CodexRateLimitWindow?,
+        tokenUsage: CodexAccountTokenUsage? = nil,
+        fetchedAt: Date
+    ) {
+        self.planType = planType
+        self.limitID = limitID
+        self.fiveHour = fiveHour
+        self.weekly = weekly
+        self.tokenUsage = tokenUsage
+        self.fetchedAt = fetchedAt
+    }
 
     var hasSupportedWindow: Bool {
         fiveHour != nil || weekly != nil

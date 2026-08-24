@@ -45,6 +45,84 @@ enum ProjectTheme {
         sidebarIconFill: Color("DSSidebarIconFill"),
         onSidebarIcon: Color("DSOnSidebarIcon")
     )
+
+    /// Product-owned renderer colors offered by the inline Settings palette.
+    /// The values include every existing feature default so Reset Defaults
+    /// always restores a visibly selected swatch.
+    static let rendererColorOptions: [DSColorSwatchOption] = [
+        .init(
+            id: "orange",
+            title: "Orange",
+            color: Color(red: 1, green: 0.552_941, blue: 0.156_863),
+            hex: "#FF8D28"
+        ),
+        .init(
+            id: "cyan",
+            title: "Cyan",
+            color: Color(red: 0, green: 0.752_941, blue: 0.909_804),
+            hex: "#00C0E8"
+        ),
+        .init(
+            id: "blue",
+            title: "Blue",
+            color: Color(red: 0, green: 0.533_333, blue: 1),
+            hex: "#0088FF"
+        ),
+        .init(
+            id: "indigo",
+            title: "Indigo",
+            color: Color(red: 0.380_392, green: 0.333_333, blue: 0.960_784),
+            hex: "#6155F5"
+        ),
+        .init(
+            id: "purple",
+            title: "Purple",
+            color: Color(red: 0.796_078, green: 0.188_235, blue: 0.878_431),
+            hex: "#CB30E0"
+        ),
+        .init(
+            id: "pink",
+            title: "Pink",
+            color: Color(red: 1, green: 0.176_471, blue: 0.333_333),
+            hex: "#FF2D55"
+        ),
+        .init(
+            id: "green",
+            title: "Green",
+            color: Color(red: 0.203_922, green: 0.780_392, blue: 0.349_020),
+            hex: "#34C759"
+        ),
+        .init(
+            id: "red",
+            title: "Red",
+            color: Color(red: 1, green: 0.219_608, blue: 0.235_294),
+            hex: "#FF383C"
+        ),
+        .init(
+            id: "yellow",
+            title: "Yellow",
+            color: Color(red: 1, green: 0.729_412, blue: 0.196_078),
+            hex: "#FFBA32"
+        ),
+        .init(
+            id: "sky",
+            title: "Sky",
+            color: Color(red: 0.258_824, green: 0.776_471, blue: 0.968_627),
+            hex: "#42C6F7"
+        ),
+        .init(
+            id: "mint",
+            title: "Mint",
+            color: Color(red: 0, green: 0.784_314, blue: 0.701_961),
+            hex: "#00C8B3"
+        ),
+        .init(
+            id: "clay",
+            title: "Clay",
+            color: Color(red: 217 / 255, green: 119 / 255, blue: 87 / 255),
+            hex: "#D97757"
+        )
+    ]
 }
 
 private struct DesignThemeKey: EnvironmentKey {
