@@ -19,6 +19,10 @@
 		D0C000000000000000000004 /* DockTileController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0C100000000000000000004 /* DockTileController.swift */; };
 		D0C000000000000000000005 /* DockMetricsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0C100000000000000000005 /* DockMetricsView.swift */; };
 		D0C000000000000000000007 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0C100000000000000000007 /* SettingsView.swift */; };
+		D0C000000000000000000008 /* ProcessMetricsSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0C100000000000000000008 /* ProcessMetricsSnapshot.swift */; };
+		D0C000000000000000000009 /* ProcessMetricsSampler.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0C100000000000000000009 /* ProcessMetricsSampler.swift */; };
+		D0C000000000000000000010 /* SystemMetricsHoverDashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0C100000000000000000010 /* SystemMetricsHoverDashboardView.swift */; };
+		D0C000000000000000000011 /* SystemMetricsFeatureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0C100000000000000000011 /* SystemMetricsFeatureTests.swift */; };
 		D5A000000000000000000001 /* DesignTokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5B000000000000000000001 /* DesignTokens.swift */; };
 		D5A000000000000000000002 /* DesignTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5B000000000000000000002 /* DesignTheme.swift */; };
 		D5A000000000000000000003 /* DSSurface.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5B000000000000000000003 /* DSSurface.swift */; };
@@ -59,6 +63,8 @@
 		F0A000000000000000000005 /* GitHubCredentialVault.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0B000000000000000000005 /* GitHubCredentialVault.swift */; };
 		F0A000000000000000000006 /* GitHubRepositoryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0B000000000000000000006 /* GitHubRepositoryStore.swift */; };
 		F0A000000000000000000007 /* GitHubFeatureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0B000000000000000000007 /* GitHubFeatureTests.swift */; };
+		F1A000000000000000000001 /* LaunchAtLoginController.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1B000000000000000000001 /* LaunchAtLoginController.swift */; };
+		F1A000000000000000000002 /* LaunchAtLoginControllerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1B000000000000000000002 /* LaunchAtLoginControllerTests.swift */; };
 		A1A000000000000000000001 /* SearchConsoleModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B000000000000000000001 /* SearchConsoleModels.swift */; };
 		A1A000000000000000000002 /* SearchConsoleConfigurationRecord.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B000000000000000000002 /* SearchConsoleConfigurationRecord.swift */; };
 		A1A000000000000000000004 /* SearchConsoleAPIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B000000000000000000004 /* SearchConsoleAPIClient.swift */; };
@@ -69,6 +75,7 @@
 		B2A000000000000000000001 /* DockIconRenderingRules.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2B000000000000000000001 /* DockIconRenderingRules.swift */; };
 		C3A000000000000000000001 /* DockHoverCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3B000000000000000000001 /* DockHoverCoordinator.swift */; };
 		C3A000000000000000000002 /* CodexHoverDashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3B000000000000000000002 /* CodexHoverDashboardView.swift */; };
+		C3A000000000000000000003 /* ClaudeCodeHoverDashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3B000000000000000000003 /* ClaudeCodeHoverDashboardView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -106,6 +113,10 @@
 		D0C100000000000000000004 /* DockTileController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DockTileController.swift; sourceTree = "<group>"; };
 		D0C100000000000000000005 /* DockMetricsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DockMetricsView.swift; sourceTree = "<group>"; };
 		D0C100000000000000000007 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		D0C100000000000000000008 /* ProcessMetricsSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProcessMetricsSnapshot.swift; sourceTree = "<group>"; };
+		D0C100000000000000000009 /* ProcessMetricsSampler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProcessMetricsSampler.swift; sourceTree = "<group>"; };
+		D0C100000000000000000010 /* SystemMetricsHoverDashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemMetricsHoverDashboardView.swift; sourceTree = "<group>"; };
+		D0C100000000000000000011 /* SystemMetricsFeatureTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemMetricsFeatureTests.swift; sourceTree = "<group>"; };
 		D5B000000000000000000001 /* DesignTokens.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignTokens.swift; sourceTree = "<group>"; };
 		D5B000000000000000000002 /* DesignTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignTheme.swift; sourceTree = "<group>"; };
 		D5B000000000000000000003 /* DSSurface.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DSSurface.swift; sourceTree = "<group>"; };
@@ -146,6 +157,8 @@
 		F0B000000000000000000005 /* GitHubCredentialVault.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitHubCredentialVault.swift; sourceTree = "<group>"; };
 		F0B000000000000000000006 /* GitHubRepositoryStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitHubRepositoryStore.swift; sourceTree = "<group>"; };
 		F0B000000000000000000007 /* GitHubFeatureTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitHubFeatureTests.swift; sourceTree = "<group>"; };
+		F1B000000000000000000001 /* LaunchAtLoginController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchAtLoginController.swift; sourceTree = "<group>"; };
+		F1B000000000000000000002 /* LaunchAtLoginControllerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchAtLoginControllerTests.swift; sourceTree = "<group>"; };
 		A1B000000000000000000001 /* SearchConsoleModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchConsoleModels.swift; sourceTree = "<group>"; };
 		A1B000000000000000000002 /* SearchConsoleConfigurationRecord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchConsoleConfigurationRecord.swift; sourceTree = "<group>"; };
 		A1B000000000000000000004 /* SearchConsoleAPIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchConsoleAPIClient.swift; sourceTree = "<group>"; };
@@ -156,6 +169,7 @@
 		B2B000000000000000000001 /* DockIconRenderingRules.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DockIconRenderingRules.swift; sourceTree = "<group>"; };
 		C3B000000000000000000001 /* DockHoverCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DockHoverCoordinator.swift; sourceTree = "<group>"; };
 		C3B000000000000000000002 /* CodexHoverDashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexHoverDashboardView.swift; sourceTree = "<group>"; };
+		C3B000000000000000000003 /* ClaudeCodeHoverDashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeCodeHoverDashboardView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -233,8 +247,10 @@
 			isa = PBXGroup;
 			children = (
 				03AB4D84301BB7FA006D74C0 /* DockMagicTests.swift */,
+				D0C100000000000000000011 /* SystemMetricsFeatureTests.swift */,
 				E0B000000000000000000005 /* BatteryFeatureTests.swift */,
 				F0B000000000000000000007 /* GitHubFeatureTests.swift */,
+				F1B000000000000000000002 /* LaunchAtLoginControllerTests.swift */,
 				A1B000000000000000000008 /* SearchConsoleFeatureTests.swift */,
 			);
 			path = DockMagicTests;
@@ -268,6 +284,7 @@
 				D7B000000000000000000002 /* CodexRateLimitSnapshot.swift */,
 				DAB000000000000000000001 /* NetworkMetricsSnapshot.swift */,
 				DAB000000000000000000002 /* StorageMetricsSnapshot.swift */,
+				D0C100000000000000000008 /* ProcessMetricsSnapshot.swift */,
 				D0C100000000000000000001 /* SystemMetricsSnapshot.swift */,
 				D9B000000000000000000001 /* WeatherSnapshot.swift */,
 			);
@@ -286,8 +303,10 @@
 				D0C100000000000000000004 /* DockTileController.swift */,
 				F0B000000000000000000005 /* GitHubCredentialVault.swift */,
 				F0B000000000000000000004 /* GitHubRepositoryAPIClient.swift */,
+				F1B000000000000000000001 /* LaunchAtLoginController.swift */,
 				DAB000000000000000000003 /* NetworkMetricsSampler.swift */,
 				DAB000000000000000000004 /* StorageMetricsSampler.swift */,
+				D0C100000000000000000009 /* ProcessMetricsSampler.swift */,
 				D0C100000000000000000002 /* SystemMetricsSampler.swift */,
 				D9B000000000000000000002 /* OpenMeteoWeatherProvider.swift */,
 			);
@@ -351,6 +370,8 @@
 			isa = PBXGroup;
 			children = (
 				C3B000000000000000000002 /* CodexHoverDashboardView.swift */,
+				C3B000000000000000000003 /* ClaudeCodeHoverDashboardView.swift */,
+				D0C100000000000000000010 /* SystemMetricsHoverDashboardView.swift */,
 			);
 			path = Hover;
 			sourceTree = "<group>";
@@ -524,6 +545,7 @@
 			files = (
 				C3A000000000000000000001 /* DockHoverCoordinator.swift in Sources */,
 				C3A000000000000000000002 /* CodexHoverDashboardView.swift in Sources */,
+				C3A000000000000000000003 /* ClaudeCodeHoverDashboardView.swift in Sources */,
 				B2A000000000000000000001 /* DockIconRenderingRules.swift in Sources */,
 				A1A000000000000000000001 /* SearchConsoleModels.swift in Sources */,
 				A1A000000000000000000002 /* SearchConsoleConfigurationRecord.swift in Sources */,
@@ -538,6 +560,9 @@
 				D0C000000000000000000004 /* DockTileController.swift in Sources */,
 				D0C000000000000000000005 /* DockMetricsView.swift in Sources */,
 				D0C000000000000000000007 /* SettingsView.swift in Sources */,
+				D0C000000000000000000008 /* ProcessMetricsSnapshot.swift in Sources */,
+				D0C000000000000000000009 /* ProcessMetricsSampler.swift in Sources */,
+				D0C000000000000000000010 /* SystemMetricsHoverDashboardView.swift in Sources */,
 				D5A000000000000000000001 /* DesignTokens.swift in Sources */,
 				D5A000000000000000000002 /* DesignTheme.swift in Sources */,
 				D5A000000000000000000003 /* DSSurface.swift in Sources */,
@@ -576,6 +601,7 @@
 				F0A000000000000000000004 /* GitHubRepositoryAPIClient.swift in Sources */,
 				F0A000000000000000000005 /* GitHubCredentialVault.swift in Sources */,
 				F0A000000000000000000006 /* GitHubRepositoryStore.swift in Sources */,
+				F1A000000000000000000001 /* LaunchAtLoginController.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -584,8 +610,10 @@
 			buildActionMask = 2147483647;
 			files = (
 				03AB4D85301BB7FA006D74C0 /* DockMagicTests.swift in Sources */,
+				D0C000000000000000000011 /* SystemMetricsFeatureTests.swift in Sources */,
 				E0A000000000000000000005 /* BatteryFeatureTests.swift in Sources */,
 				F0A000000000000000000007 /* GitHubFeatureTests.swift in Sources */,
+				F1A000000000000000000002 /* LaunchAtLoginControllerTests.swift in Sources */,
 				A1A000000000000000000008 /* SearchConsoleFeatureTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

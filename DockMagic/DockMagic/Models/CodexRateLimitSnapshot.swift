@@ -36,12 +36,19 @@ struct CodexAccountTokenUsage: Codable, Equatable, Sendable {
     }
 }
 
+struct CodexRecentTaskActivity: Codable, Equatable, Sendable {
+    let currentWeekCount: Int
+    let previousWeekCount: Int
+    let isPartial: Bool
+}
+
 struct CodexRateLimitSnapshot: Codable, Equatable, Sendable {
     let planType: String?
     let limitID: String?
     let fiveHour: CodexRateLimitWindow?
     let weekly: CodexRateLimitWindow?
     let tokenUsage: CodexAccountTokenUsage?
+    let recentTaskActivity: CodexRecentTaskActivity?
     let fetchedAt: Date
 
     init(
@@ -50,6 +57,7 @@ struct CodexRateLimitSnapshot: Codable, Equatable, Sendable {
         fiveHour: CodexRateLimitWindow?,
         weekly: CodexRateLimitWindow?,
         tokenUsage: CodexAccountTokenUsage? = nil,
+        recentTaskActivity: CodexRecentTaskActivity? = nil,
         fetchedAt: Date
     ) {
         self.planType = planType
@@ -57,6 +65,7 @@ struct CodexRateLimitSnapshot: Codable, Equatable, Sendable {
         self.fiveHour = fiveHour
         self.weekly = weekly
         self.tokenUsage = tokenUsage
+        self.recentTaskActivity = recentTaskActivity
         self.fetchedAt = fetchedAt
     }
 

@@ -22,6 +22,11 @@ final class DockMagicUITests: XCTestCase {
         XCTAssertTrue(
             app.descendants(matching: .any)["settings.appearancePicker"].exists
         )
+        XCTAssertTrue(
+            app.descendants(matching: .any)["settings.launchAtLogin.toggle"]
+                .exists,
+            "Missing the Launch at login control in General settings."
+        )
 
         for destination in [
             "General",

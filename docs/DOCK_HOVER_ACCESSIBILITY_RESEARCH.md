@@ -387,7 +387,7 @@ DockAppModel.hoverPresentation
 | Batteries | Danh sách device snapshot | Mac và accessories, phần trăm, charging state | Có thể nhiều hơn 4 device; panel rộng phù hợp hơn Dock icon |
 | GitHub | History tối đa 7 ngày, poll 15 phút khi active | Stars/forks hiện tại + delta + 7-day trend | Không hiển thị token; empty/not-configured state riêng |
 | Codex | Five-hour/weekly snapshot + aggregate account usage | Remaining %, reset time, lifetime tokens và daily token chart cuộn ngang tối đa 30 ngày | Đọc `account/rateLimits/read` và experimental `account/usage/read`; không inspect prompt/conversation |
-| Claude Code | Cùng normalized usage model | Remaining %, reset time, bridge/status | Không hiển thị path/secret nội bộ |
+| Claude Code | Cùng normalized usage model | Remaining %, reset time, next reset, tuổi snapshot và bridge/status | Không bịa token history; không hiển thị path/secret nội bộ |
 | Search Console | Snapshot có dated points và config time range/metric/mode | Chart hoặc numbers theo config đang chọn + property label rút gọn | Không render private key/client email trong hover card |
 
 ### 5.4 Reuse UI đúng lớp

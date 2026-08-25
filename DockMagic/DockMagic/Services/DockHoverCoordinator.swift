@@ -636,21 +636,36 @@ enum DockHoverScreenGeometry {
 }
 
 enum DockHoverPanelPlacement {
-    static let panelSize = CGSize(width: 440, height: 304)
+    static let standardPanelSize = CGSize(width: 440, height: 304)
+    static let systemMetricsPanelSize = CGSize(width: 620, height: 474)
+    static let codexPanelSize = CGSize(width: 440, height: 410)
     static let pointerExtent: CGFloat = 10
     static let iconClearance: CGFloat = 2
     static let windowLevel = NSWindow.Level(
         rawValue: NSWindow.Level.popUpMenu.rawValue + 1
     )
 
+    static func panelSize(for feature: DockFeature) -> CGSize {
+        switch feature {
+        case .systemMetrics:
+            systemMetricsPanelSize
+        case .codex:
+            codexPanelSize
+        default:
+            standardPanelSize
+        }
+    }
+
     static func frame(
-        anchor: DockHoverAnchor
+        anchor: DockHoverAnchor,
+        panelSize: CGSize = standardPanelSize
     ) -> CGRect {
         frame(
             iconFrame: anchor.iconFrame,
             pointerEdge: anchor.pointerEdge,
             visibleFrame: anchor.screen.visibleFrame,
-            screenFrame: anchor.screen.frame
+            screenFrame: anchor.screen.frame,
+            panelSize: panelSize
         )
     }
 
@@ -658,7 +673,8 @@ enum DockHoverPanelPlacement {
         iconFrame: CGRect,
         pointerEdge: DockHoverPointerEdge,
         visibleFrame: CGRect,
-        screenFrame: CGRect? = nil
+        screenFrame: CGRect? = nil,
+        panelSize: CGSize = standardPanelSize
     ) -> CGRect {
         var origin: CGPoint
         switch pointerEdge {
@@ -712,16 +728,26 @@ final class DockHoverPanelController {
     func show(anchor: DockHoverAnchor, appModel: DockAppModel) {
         pendingHideTask?.cancel()
         pendingHideTask = nil
+        let panelSize = DockHoverPanelPlacement.panelSize(
+            for: appModel.preferences.activeFeature
+        )
         let rootView = AnyView(
             DockHoverDashboardRoot(
                 appModel: appModel,
-                pointerEdge: anchor.pointerEdge
+                pointerEdge: anchor.pointerEdge,
+                panelSize: panelSize
             )
         )
-        let panel = panel ?? makePanel(rootView: rootView)
+        let panel = panel ?? makePanel(
+            rootView: rootView,
+            panelSize: panelSize
+        )
         hostingView?.rootView = rootView
         panel.setFrame(
-            DockHoverPanelPlacement.frame(anchor: anchor),
+            DockHoverPanelPlacement.frame(
+                anchor: anchor,
+                panelSize: panelSize
+            ),
             display: true
         )
         panel.orderFrontRegardless()
@@ -758,16 +784,19 @@ final class DockHoverPanelController {
         }
     }
 
-    private func makePanel(rootView: AnyView) -> DockHoverPanel {
+    private func makePanel(
+        rootView: AnyView,
+        panelSize: CGSize
+    ) -> DockHoverPanel {
         let panel = DockHoverPanel(
-            contentRect: CGRect(origin: .zero, size: DockHoverPanelPlacement.panelSize),
+            contentRect: CGRect(origin: .zero, size: panelSize),
             styleMask: [.borderless, .fullSizeContentView, .nonactivatingPanel],
             backing: .buffered,
             defer: false
         )
         let hostingView = NSHostingView(rootView: rootView)
         hostingView.frame = panel.contentView?.bounds
-            ?? CGRect(origin: .zero, size: DockHoverPanelPlacement.panelSize)
+            ?? CGRect(origin: .zero, size: panelSize)
         hostingView.autoresizingMask = [.width, .height]
 
         panel.contentView = hostingView

@@ -81,7 +81,9 @@ Click any screenshot to view it at full resolution.
 
 - **DockMagic** displays the DockMagic logo without running a metrics provider.
 - **CPU & RAM** displays system-wide CPU usage in the outer ring and used RAM
-  in the inner ring. Both values are sampled locally at `1 Hz`.
+  in the inner ring. Both values are sampled locally at `1 Hz`. Its Dock-hover
+  dashboard adds separate Top 10 process lists for normalized whole-machine CPU
+  and physical memory footprint, plus a dual-series 60-second realtime chart.
 - **Network** charts traffic for the primary network interface, with upload
   above and download below the baseline. Both directions share a linear scale
   that expands with traffic. The Dock keeps the latest 30 samples, while the
@@ -107,7 +109,10 @@ Click any screenshot to view it at full resolution.
   Claude Code's official `statusLine` contract and caches only the
   `rate_limits` object after a response. Selecting the feature installs the
   default local bridge automatically, preserves any previous status-line
-  command, and does not call internal OAuth endpoints.
+  command, and does not call internal OAuth endpoints. Its Dock-hover dashboard
+  shows quota reset times, the next reset, local snapshot freshness, and clear
+  stale/unavailable states; it does not invent token history that the supported
+  contract does not expose.
 - **General settings** select exactly one feature to run and display in the
   Dock. CPU & RAM, Storage, GitHub, Codex, and Claude Code support `Chart` and
   `Numbers` display styles. Colors and display choices are persisted and
@@ -123,8 +128,11 @@ the provided Claude Code logo. Users can still customize each ring separately.
 
 DockMagic is designed for direct distribution, not the Mac App Store.
 
-- CPU & RAM, Network, and Storage data is processed only on the Mac. Network
-  history remains in memory and is not persisted.
+- CPU & RAM, Network, and Storage data is processed only on the Mac. CPU & RAM
+  process names, PIDs, rankings, and 60-second history remain in memory and are
+  neither persisted nor logged. Processes macOS does not allow DockMagic to
+  inspect are skipped without requesting another permission. Network history
+  also remains in memory and is not persisted.
 - Weather sends the current coordinates to Open-Meteo over HTTPS and stores only
   the last successful snapshot for failure recovery. It does not keep location
   history. macOS requests Location permission through the standard system
@@ -142,9 +150,10 @@ DockMagic is designed for direct distribution, not the Mac App Store.
   tokens. The only Keychain secret managed by the GitHub feature is the
   optional token entered by the user.
 
-The app does not require Accessibility, Screen Recording, Full Disk Access, or
-administrator privileges. Weather alone requires Location Services and network
-access.
+The core Dock renderer does not require Accessibility, Screen Recording, Full
+Disk Access, or administrator privileges. The optional Dock-hover dashboard
+requires Accessibility only to detect DockMagic's own hovered Dock icon and its
+position. Weather requires Location Services and network access.
 
 Production releases must use Developer ID signing, Hardened Runtime,
 notarization, stapling, and a Gatekeeper smoke test on a clean Mac. Contributions

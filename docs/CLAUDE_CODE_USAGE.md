@@ -1,4 +1,6 @@
-# Claude Code Usage Limits Research
+# Claude Code Usage Limits and Hover Dashboard
+
+**Verified:** August 25, 2026
 
 ## Conclusion
 
@@ -17,9 +19,9 @@ Claude Code response
 ```
 
 Claude Code also provides `/usage`, but it is an interactive command within a
-session. The command documentation describes it as a view of plan usage,
-limits, and activity; it does not provide a stable CLI output schema for
-another app to poll.
+session. The command documentation describes it as a view of session cost,
+plan limits, activity, and plan-specific breakdowns; it does not provide a
+stable machine-readable output schema for another app to poll.
 
 ## Official contract
 
@@ -39,11 +41,37 @@ appears for Claude.ai Pro/Max after the first API response; either window may
 also be absent independently. DockMagic therefore does not convert missing or
 null values into `0% used` or `100% left`.
 
+Claude Code can enforce additional model-family limits, but the documented
+status-line contract exposes only the shared five-hour and seven-day windows.
+DockMagic shows only fields present in that supported contract; users can run
+`/usage` inside Claude Code for the richer interactive breakdown.
+
 Official sources:
 
 - [Claude Code status line](https://code.claude.com/docs/en/statusline)
 - [Claude Code commands — `/usage`](https://code.claude.com/docs/en/commands)
 - [Claude Code cost and usage](https://code.claude.com/docs/en/costs)
+- [Claude Code usage-limit errors](https://code.claude.com/docs/en/errors#usage-limits)
+
+## Hover dashboard
+
+When Claude Code is the active Dock feature and Dock hover is enabled, the
+440×304 dashboard mirrors the Codex quota hierarchy without inventing token
+history that Claude Code does not publish:
+
+- fixed 5-hour and Weekly rows show remaining percentage and reset time;
+- a missing window renders as `Not reported`, never as a full allowance;
+- `Next reset` selects the earliest reported reset and shows a countdown;
+- `Last sync` shows both snapshot age and the local modification time;
+- loading, stale, unavailable, and bridge-not-installed states preserve the
+  same panel geometry and provide text plus a monochrome state symbol;
+- the footer identifies `Claude Code statusLine` as the source and explains
+  that updates arrive after Claude Code emits a new status line.
+
+The dashboard uses neutral semantic surfaces and the shared action/status
+roles. The full-color Claude Code logo remains contained in its identity area;
+the user-selected Dock ring colors do not leak into dashboard chrome, status,
+or progress bars.
 
 ## DockMagic bridge
 
@@ -71,7 +99,8 @@ DockMagic refuses to install the bridge and explains the error.
 ## Freshness and limitations
 
 - The snapshot changes only when the Claude Code CLI runs the status line,
-  usually after a response.
+  including after a new assistant message and other documented status-line
+  update triggers.
 - Data older than 15 minutes is marked `stale`; it is not presented as live.
 - Claude Desktop does not run the CLI status line, so it does not update this
   bridge.

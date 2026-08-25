@@ -213,7 +213,7 @@ struct CodexAppServerRateLimitProvider: CodexRateLimitProviding {
                 break
             }
             output.append(chunk)
-            if CodexRateLimitParser.containsCompleteUsageResponse(output) {
+            if CodexRateLimitParser.containsCompleteDashboardResponse(output) {
                 break
             }
         }
@@ -265,6 +265,28 @@ struct CodexAppServerRateLimitProvider: CodexRateLimitProviding {
                 "id": 3,
                 "method": "account/usage/read",
                 "params": NSNull()
+            ],
+            [
+                "id": 4,
+                "method": "thread/list",
+                "params": [
+                    "limit": 500,
+                    "sortKey": "created_at",
+                    "sortDirection": "desc",
+                    "archived": false,
+                    "useStateDbOnly": true
+                ]
+            ],
+            [
+                "id": 5,
+                "method": "thread/list",
+                "params": [
+                    "limit": 500,
+                    "sortKey": "created_at",
+                    "sortDirection": "desc",
+                    "archived": true,
+                    "useStateDbOnly": true
+                ]
             ]
         ]
 
@@ -279,6 +301,12 @@ struct CodexAppServerRateLimitProvider: CodexRateLimitProviding {
     }
 }
 
+private struct CodexThreadListPage {
+    let threads: [[String: Any]]
+    let oldestCreatedAt: Date?
+    let hasNextPage: Bool
+}
+
 enum CodexRateLimitParser {
     static func containsRateLimitResponse(_ data: Data) -> Bool {
         containsResponse(id: 2, in: data)
@@ -287,6 +315,12 @@ enum CodexRateLimitParser {
     static func containsCompleteUsageResponse(_ data: Data) -> Bool {
         containsResponse(id: 2, in: data)
             && containsResponse(id: 3, in: data)
+    }
+
+    static func containsCompleteDashboardResponse(_ data: Data) -> Bool {
+        containsCompleteUsageResponse(data)
+            && containsResponse(id: 4, in: data)
+            && containsResponse(id: 5, in: data)
     }
 
     private static func containsResponse(id: Int, in data: Data) -> Bool {
@@ -347,6 +381,10 @@ enum CodexRateLimitParser {
                 fiveHour: fiveHour,
                 weekly: weekly,
                 tokenUsage: parseTokenUsage(from: lines),
+                recentTaskActivity: parseRecentTaskActivity(
+                    from: lines,
+                    fetchedAt: fetchedAt
+                ),
                 fetchedAt: fetchedAt
             )
         }
@@ -386,6 +424,101 @@ enum CodexRateLimitParser {
             )
         }
 
+        return nil
+    }
+
+    private static func parseRecentTaskActivity(
+        from lines: [Data.SubSequence],
+        fetchedAt: Date
+    ) -> CodexRecentTaskActivity? {
+        let pages = [4, 5].compactMap { responseID in
+            threadListPage(responseID: responseID, from: lines)
+        }
+        guard pages.count == 2 else { return nil }
+
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = .current
+        let today = calendar.startOfDay(for: fetchedAt)
+        guard
+            let currentStart = calendar.date(
+                byAdding: .day,
+                value: -6,
+                to: today
+            ),
+            let previousStart = calendar.date(
+                byAdding: .day,
+                value: -13,
+                to: today
+            ),
+            let nextDay = calendar.date(
+                byAdding: .day,
+                value: 1,
+                to: today
+            )
+        else {
+            return nil
+        }
+
+        let threads = pages.flatMap(\.threads)
+        let rootTaskDates = threads.compactMap { thread -> Date? in
+            if let parent = thread["parentThreadId"], !(parent is NSNull) {
+                return nil
+            }
+            if (thread["ephemeral"] as? Bool) == true {
+                return nil
+            }
+            guard let timestamp = int64(thread["createdAt"]) else {
+                return nil
+            }
+            return Date(timeIntervalSince1970: TimeInterval(timestamp))
+        }
+
+        let currentCount = rootTaskDates.filter {
+            $0 >= currentStart && $0 < nextDay
+        }.count
+        let previousCount = rootTaskDates.filter {
+            $0 >= previousStart && $0 < currentStart
+        }.count
+        let isPartial = pages.contains { page in
+            guard page.hasNextPage else { return false }
+            guard let oldestDate = page.oldestCreatedAt else { return true }
+            return oldestDate >= previousStart
+        }
+
+        return CodexRecentTaskActivity(
+            currentWeekCount: currentCount,
+            previousWeekCount: previousCount,
+            isPartial: isPartial
+        )
+    }
+
+    private static func threadListPage(
+        responseID: Int,
+        from lines: [Data.SubSequence]
+    ) -> CodexThreadListPage? {
+        for line in lines {
+            guard
+                let object = try? JSONSerialization.jsonObject(with: Data(line)),
+                let dictionary = object as? [String: Any],
+                (dictionary["id"] as? NSNumber)?.intValue == responseID,
+                dictionary["error"] == nil,
+                let result = dictionary["result"] as? [String: Any],
+                let threads = result["data"] as? [[String: Any]]
+            else {
+                continue
+            }
+
+            let oldestCreatedAt = threads
+                .compactMap { int64($0["createdAt"]) }
+                .min()
+                .map { Date(timeIntervalSince1970: TimeInterval($0)) }
+            let hasNextPage = (result["nextCursor"] as? String)?.isEmpty == false
+            return CodexThreadListPage(
+                threads: threads,
+                oldestCreatedAt: oldestCreatedAt,
+                hasNextPage: hasNextPage
+            )
+        }
         return nil
     }
 

@@ -1,3 +1,112 @@
+# DockMagic Codex rank ladder — design QA
+
+## Final result
+
+`passed`
+
+The selected Ascending Rank Rail direction is implemented in the native Codex hover dashboard with the requested revision: the existing gauge and score remain on the left, six ascending ranks occupy the right, only rank names appear beneath the steps, and the visible score-range and equal-weight copy are removed. No actionable P0, P1, or P2 visual differences remain.
+
+## Visual truth and runtime state
+
+- Selected direction: the first displayed Product Design ideation result, `/Users/dongnt/.codex/generated_images/01a039d2-63d3-7d93-b03d-c69ee5d5bc62/exec-8f67b1bf-aa8e-42c4-9d56-af86741ebe75.png`.
+- Revised source visual truth incorporating the user's feedback: `/Users/dongnt/.codex/generated_images/01a039d2-63d3-7d93-b03d-c69ee5d5bc62/exec-e755fc84-a09a-455a-9de8-d985420cfe34.png` (1299 × 1211 px).
+- Rendered Dark implementation: `/tmp/dockmagic-rank-qa-final.F5yv4Q/07AD1437-B90E-4759-9988-A811EEFD7A05.png` (880 × 820 px for a 440 × 410 pt Retina component).
+- Rendered Light implementation: `/tmp/dockmagic-rank-qa-final.F5yv4Q/D6C82F3D-BBF9-49EC-B5F1-18B44ACF9ABB.png` (880 × 820 px).
+- Normalized source: `/tmp/dockmagic-rank-source-normalized.png` (880 × 820 px), scaled proportionally to match the implementation density and viewport.
+- Full-view comparison: `/tmp/dockmagic-rank-comparison.png` (1760 × 820 px; normalized source left, implementation right).
+- Focused Ship momentum comparison: `/tmp/dockmagic-rank-card-comparison.png` (1680 × 250 px; source card left, implementation card right).
+- Accessibility evidence: Increased Contrast `/tmp/dockmagic-rank-qa-final.F5yv4Q/F30EA04A-007D-48FC-8B19-C4AA117AB6BD.png`, Reduced Transparency `/tmp/dockmagic-rank-qa-final.F5yv4Q/073CE83F-FB3F-49DA-BD98-A417706B97DE.png`, and grayscale `/tmp/dockmagic-rank-qa-final.F5yv4Q/7CD135FC-72E4-4B2E-B198-B349A092CED4.png`.
+- State: dark appearance; Pro; score 55; active rank 4 `Shipper`; 12 tasks; 7.1M tokens; 74% five-hour and 41% weekly remaining.
+
+## Findings
+
+No remaining P0/P1/P2 findings.
+
+- Fonts and typography: native SF Pro and rounded metrics preserve the source hierarchy. `Ship momentum`, score 55, step numbers, all six rank names, and the two activity metrics remain legible at the real 440 pt width without wrapping or clipping.
+- Spacing and layout rhythm: the implementation preserves the source's left gauge/right ladder split, vertical divider, six rising steps, lower divider, and centered metric row. Production is slightly denser than the generated mock to fit the real Dock-hover viewport while preserving its hierarchy.
+- Colors and visual tokens: the active arc, step 4, and `Shipper` label use the single semantic action accent; completed and future steps use neutral roles. No gradient, glow, league-color palette, or colored surface was introduced.
+- Image quality and asset fidelity: no raster asset is required for this quantitative UI renderer. The semicircular gauge, needle, and rank steps are crisp native SwiftUI geometry at Retina density; the existing production Codex logo remains unchanged.
+- Copy and content: the implementation shows only `Spark`, `Builder`, `Maker`, `Shipper`, `Accelerator`, and `Vanguard` under the steps. It contains no visible numeric ranges, `Steady`, or `Equal weight: task starts + token activity` copy.
+- Accessibility and behavior: score, active rank, rank index, task count, token activity, and comparison purpose are exposed through one concise accessibility value. The active rank remains identifiable by position, step number, label, and weight in grayscale.
+- Accepted P3 difference: the production ladder labels and blocks are modestly more compact than the generated source because the actual right column is narrower after preserving the existing 136 pt gauge region. All labels remain readable and evenly distributed.
+
+## Comparison history
+
+### Iteration 1
+
+- P2: the first native render let intrinsic text widths compress the final `Vanguard` label substantially more than the other ranks.
+- Fix: changed the ladder to calculate six equal-width columns from the available geometry and strengthened the minimum label scale.
+- Earlier evidence: `/tmp/dockmagic-rank-qa.vVhdld/C9A1787F-39A9-4A38-88C3-0D7F4863F97E.png`.
+
+### Iteration 2
+
+- Post-fix evidence: `/tmp/dockmagic-rank-comparison.png` and `/tmp/dockmagic-rank-card-comparison.png`.
+- Result: all six labels have consistent optical sizing; no actionable P0/P1/P2 mismatch remains.
+
+## Verification
+
+- `testCodexShipMomentumCombinesTasksAndTokensAgainstPriorWeek`: passed.
+- `testCodexShipMomentumRanksUseSixAscendingThresholds`: passed at every threshold boundary.
+- `testCodexHoverDashboardFollowsColorDesignSystemSourceContract`: passed, including absence of visible range and equal-weight strings.
+- `testCodexHoverDashboardMinimalColorRender`: passed with Light, Dark, Increased Contrast, Reduced Transparency, grayscale, weekly-only, and hover attachments.
+- Targeted test results: `.derivedData/Logs/Test/Test-DockMagic-2026.08.26_00-31-49-+0700.xcresult` and `.derivedData/Logs/Test/Test-DockMagic-2026.08.26_00-32-54-+0700.xcresult`.
+- Full `DockMagicTests` regression target: passed in `.derivedData/Logs/Test/Test-DockMagic-2026.08.26_00-34-33-+0700.xcresult`.
+- Signed Debug build and runtime verification via `./script/build_and_run.sh --verify`: passed; DockMagic remained running after launch.
+- Browser and console checks: not applicable to this native SwiftUI/AppKit component.
+
+final result: passed
+
+# DockMagic Codex Ship momentum — design QA
+
+## Final result
+
+`passed`
+
+The native SwiftUI Ship momentum gauge is integrated directly below Daily tokens in the Codex Dock-hover dashboard. It preserves the supplied semicircular gauge pattern while adapting it to one combined, self-relative activity metric and DockMagic's neutral-first color system. No actionable P0, P1, or P2 visual differences remain.
+
+## Visual truth and runtime state
+
+- Source visual truth: `/var/folders/ps/dndvmz2n3w53_cxkfwr4typh0000gn/T/TemporaryItems/NSIRD_screencaptureui_pEQ8Wq/Screenshot 2026-08-25 at 23.49.19.png` (382 × 158 px), a component-only reference containing three compact semicircular gauges.
+- Rendered Light implementation: `/tmp/dockmagic-ship-momentum-render-final/88A13E88-04B7-48C9-84A8-3D73CBCCB4CD.png` (880 × 820 px for a 440 × 410 pt Retina component).
+- Rendered Dark implementation: `/tmp/dockmagic-ship-momentum-render-final/C0164130-DC65-4CEC-A71F-1C0F52138A92.png` (880 × 820 px for a 440 × 410 pt Retina component).
+- Focused same-theme comparison: `/tmp/dockmagic-ship-momentum-comparison-light.png`; the source is normalized to the 190 px runtime-card height and placed beside the 832 × 190 px Light card crop.
+- Full-view implementation comparison: `/tmp/dockmagic-ship-momentum-full-light-dark.png` (Light and Dark runtime renders). A full-view source comparison is unavailable because the supplied image contains only the gauge component, so dashboard integration was evaluated against the real production hierarchy instead.
+- Additional accessibility evidence: Increased Contrast `/tmp/dockmagic-ship-momentum-render-final/91F71DAA-E926-49F5-8E5B-D2BF4DA1C1BB.png`, Reduced Transparency `/tmp/dockmagic-ship-momentum-render-final/F1333951-E44F-4A10-B5BE-8447F31E87CB.png`, and grayscale `/tmp/dockmagic-ship-momentum-render-final/406532B2-CE01-4FF4-B68F-2554444FACD0.png`.
+- Runtime state: Pro plan; 74% five-hour and 41% weekly remaining; 30 daily token buckets for Jul 26–Aug 24, 2026; 12 root tasks and 7.1M tokens in the latest seven local calendar days; Ship momentum 55, `Steady`, relative to the preceding seven days.
+
+## Findings
+
+No remaining P0/P1/P2 findings.
+
+- Typography: native SF Pro and rounded numerals preserve the reference's title/value/status hierarchy, remain legible at 440 pt, and do not clip in any rendered state.
+- Spacing and structure: the arc, needle, centered score, and status follow the source gauge anatomy. One full-width card replaces the reference's three-card row because this feature communicates one combined metric and must fit the existing Codex dashboard below Daily tokens.
+- Colors: the reference's green/yellow/red gauge bands intentionally become one semantic action accent over a neutral track. This follows DockMagic's normative one-accent contract, avoids false danger semantics, and remains understandable in grayscale through the numeric score, needle, and text status.
+- Imagery and assets: no raster asset is required for this quantitative renderer. The gauge and needle are resolution-independent SwiftUI shapes; existing production brand and SF Symbol assets remain unchanged.
+- Copy and meaning: `Ship momentum`, `vs prior 7 days`, and `Equal weight: task starts + token activity` expose the comparison and inputs. The Help and accessibility copy explicitly frame it as an activity trend, not a productivity rating or percentile.
+- Interaction and accessibility: the dashboard remains read-only in its nonactivating Dock panel. Help and VoiceOver values describe the score, trend, task count, token volume, and comparison period without relying on color or pointer interaction.
+- Data states: the card degrades to an unavailable explanation when either the 14-day task signal or token signal is absent. Partial task pagination is disclosed with a `+` count rather than presented as exact.
+
+## Comparison history
+
+### Iteration 1
+
+- The focused reference/runtime comparison found no actionable P0/P1/P2 mismatch after intentional product adaptations for a single combined metric and the repository color contract.
+- The full Light/Dark render confirmed the new card sits directly below Daily tokens with no clipping, overlap, or broken panel pointer.
+- Increased Contrast, Reduced Transparency, and grayscale renders preserve hierarchy and state meaning; no visual fix was required after comparison.
+
+## Verification
+
+- `testCodexShipMomentumCombinesTasksAndTokensAgainstPriorWeek`: passed, including the unavailable state when the task signal is empty.
+- `testCodexHoverDashboardMinimalColorRender`: passed with seven attachments covering Light, Dark, Increased Contrast, Reduced Transparency, grayscale, weekly-only, and hover states.
+- Test result: `.derivedData/Logs/Test/Test-DockMagic-2026.08.26_00-06-25-+0700.xcresult`.
+- Targeted parser, source-contract, and panel-placement tests: passed.
+- Full `DockMagicTests` regression target: passed in `.derivedData/Logs/Test/Test-DockMagic-2026.08.26_00-07-43-+0700.xcresult`.
+- Unsigned Debug build with `CODE_SIGNING_ALLOWED=NO`: passed.
+- Signed Debug build and launch verification via `./script/build_and_run.sh --verify`: passed; DockMagic stayed running after launch.
+- Browser and console checks: not applicable to this native SwiftUI/AppKit component.
+
+final result: passed
+
 # DockMagic Codex Dock-hover dashboard — Option 2 design QA
 
 ## Final result

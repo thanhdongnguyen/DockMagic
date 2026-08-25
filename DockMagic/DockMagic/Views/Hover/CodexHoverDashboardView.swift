@@ -10,30 +10,55 @@ enum DockHoverPointerEdge: Sendable {
 struct DockHoverDashboardRoot: View {
     let appModel: DockAppModel
     let pointerEdge: DockHoverPointerEdge
+    let panelSize: CGSize
     var appearanceMode: DSAppearanceMode = .dark
     var initialHoveredBucketID: Date?
 
     init(
         appModel: DockAppModel,
         pointerEdge: DockHoverPointerEdge,
+        panelSize: CGSize? = nil,
         appearanceMode: DSAppearanceMode = .dark,
         initialHoveredBucketID: Date? = nil
     ) {
         self.appModel = appModel
         self.pointerEdge = pointerEdge
+        self.panelSize = panelSize
+            ?? DockHoverPanelPlacement.panelSize(
+                for: appModel.preferences.activeFeature
+            )
         self.appearanceMode = appearanceMode
         self.initialHoveredBucketID = initialHoveredBucketID
     }
 
     var body: some View {
         DockMagicThemeRoot(
-            content: DockHoverChrome(pointerEdge: pointerEdge) {
-                if appModel.preferences.activeFeature == .codex {
+            content: DockHoverChrome(
+                pointerEdge: pointerEdge,
+                panelSize: panelSize
+            ) {
+                switch appModel.preferences.activeFeature {
+                case .systemMetrics:
+                    SystemMetricsHoverDashboardView(
+                        current: appModel.metricsStore.current,
+                        history: appModel.metricsStore.history,
+                        processes: appModel.metricsStore.currentProcesses,
+                        appearance: appModel.preferences.systemMetricsAppearance,
+                        systemErrorDescription: appModel.metricsStore
+                            .lastErrorDescription,
+                        processErrorDescription: appModel.metricsStore
+                            .lastProcessErrorDescription
+                    )
+                case .codex:
                     CodexHoverDashboardView(
                         state: appModel.codexStore.state,
                         initialHoveredBucketID: initialHoveredBucketID
                     )
-                } else {
+                case .claudeCode:
+                    ClaudeCodeHoverDashboardView(
+                        state: appModel.claudeCodeStore.state
+                    )
+                default:
                     DockHoverFeatureSummaryView(
                         feature: appModel.preferences.activeFeature
                     )
@@ -42,8 +67,8 @@ struct DockHoverDashboardRoot: View {
             appearanceMode: appearanceMode
         )
         .frame(
-            width: DockHoverPanelPlacement.panelSize.width,
-            height: DockHoverPanelPlacement.panelSize.height
+            width: panelSize.width,
+            height: panelSize.height
         )
         .accessibilityIdentifier("dockHover.dashboard")
     }
@@ -70,6 +95,7 @@ struct CodexHoverDashboardView: View {
             quotaRows
             tokenHeader
             tokenChart
+            shipMomentumCard
             Spacer(minLength: 0)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -138,7 +164,7 @@ struct CodexHoverDashboardView: View {
     private var quotaRows: some View {
         VStack(spacing: 6) {
             ForEach(visibleQuotaWindows, id: \.windowDurationMinutes) { window in
-                CodexHoverQuotaRow(
+                UsageLimitHoverRow(
                     title: window.kind == .fiveHour ? "5-hour" : "Weekly",
                     systemImage: window.kind == .fiveHour ? "clock" : "calendar",
                     window: window,
@@ -221,6 +247,10 @@ struct CodexHoverDashboardView: View {
     private var snapshot: CodexRateLimitSnapshot? { state.snapshot }
     private var tokenUsage: CodexAccountTokenUsage? { snapshot?.tokenUsage }
 
+    private var shipMomentum: CodexShipMomentum? {
+        CodexHoverDashboardPresentation.shipMomentum(in: snapshot)
+    }
+
     private var visibleQuotaWindows: [CodexRateLimitWindow] {
         CodexHoverDashboardPresentation.visibleQuotaWindows(in: snapshot)
     }
@@ -240,6 +270,10 @@ struct CodexHoverDashboardView: View {
 
     private var tokenChartHeight: CGFloat {
         tokenChartPlotHeight + 38
+    }
+
+    private var shipMomentumCard: some View {
+        CodexShipMomentumCard(momentum: shipMomentum)
     }
 
     private var statusTitle: String? {
@@ -348,6 +382,52 @@ struct CodexHoverDashboardView: View {
     }
 }
 
+struct CodexShipMomentum: Equatable, Sendable {
+    let score: Int
+    let currentTokens: Int64
+    let previousTokens: Int64
+    let currentTasks: Int
+    let previousTasks: Int
+    let isTaskCountPartial: Bool
+
+    var rank: CodexShipRank {
+        CodexShipRank.rank(for: score)
+    }
+}
+
+enum CodexShipRank: Int, CaseIterable, Identifiable, Equatable, Sendable {
+    case spark
+    case builder
+    case maker
+    case shipper
+    case accelerator
+    case vanguard
+
+    var id: Int { rawValue }
+
+    var title: String {
+        switch self {
+        case .spark: "Spark"
+        case .builder: "Builder"
+        case .maker: "Maker"
+        case .shipper: "Shipper"
+        case .accelerator: "Accelerator"
+        case .vanguard: "Vanguard"
+        }
+    }
+
+    static func rank(for score: Int) -> CodexShipRank {
+        switch min(max(score, 0), 100) {
+        case ..<10: .spark
+        case ..<30: .builder
+        case ..<50: .maker
+        case ..<70: .shipper
+        case ..<90: .accelerator
+        default: .vanguard
+        }
+    }
+}
+
 enum CodexHoverDashboardPresentation {
     static let maximumChartDays = 30
 
@@ -363,6 +443,77 @@ enum CodexHoverDashboardPresentation {
         Array(tokenUsage?.dailyUsageBuckets.suffix(maximumChartDays) ?? [])
     }
 
+    static func shipMomentum(
+        in snapshot: CodexRateLimitSnapshot?
+    ) -> CodexShipMomentum? {
+        guard
+            let snapshot,
+            let tokenUsage = snapshot.tokenUsage,
+            let taskActivity = snapshot.recentTaskActivity
+        else {
+            return nil
+        }
+
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = .current
+        let today = calendar.startOfDay(for: snapshot.fetchedAt)
+        guard
+            let currentStart = calendar.date(
+                byAdding: .day,
+                value: -6,
+                to: today
+            ),
+            let previousStart = calendar.date(
+                byAdding: .day,
+                value: -13,
+                to: today
+            ),
+            let nextDay = calendar.date(
+                byAdding: .day,
+                value: 1,
+                to: today
+            )
+        else {
+            return nil
+        }
+
+        let currentTokens = tokenUsage.dailyUsageBuckets
+            .filter { $0.startDate >= currentStart && $0.startDate < nextDay }
+            .reduce(Int64(0)) { $0 + $1.tokens }
+        let previousTokens = tokenUsage.dailyUsageBuckets
+            .filter {
+                $0.startDate >= previousStart && $0.startDate < currentStart
+            }
+            .reduce(Int64(0)) { $0 + $1.tokens }
+        guard
+            currentTokens + previousTokens > 0,
+            taskActivity.currentWeekCount + taskActivity.previousWeekCount > 0
+        else {
+            return nil
+        }
+
+        let tokenShare = comparisonShare(
+            current: Double(currentTokens),
+            previous: Double(previousTokens)
+        )
+        let taskShare = comparisonShare(
+            current: Double(taskActivity.currentWeekCount),
+            previous: Double(taskActivity.previousWeekCount)
+        )
+        let score = Int(
+            ((tokenShare + taskShare) * 50).rounded()
+        )
+
+        return CodexShipMomentum(
+            score: min(max(score, 0), 100),
+            currentTokens: currentTokens,
+            previousTokens: previousTokens,
+            currentTasks: taskActivity.currentWeekCount,
+            previousTasks: taskActivity.previousWeekCount,
+            isTaskCountPartial: taskActivity.isPartial
+        )
+    }
+
     static func resetLabel(for window: CodexRateLimitWindow) -> String {
         guard let reset = window.resetsAt else { return "Reset —" }
         let formatter = DateFormatter()
@@ -371,6 +522,15 @@ enum CodexHoverDashboardPresentation {
         formatter.timeZone = .current
         formatter.dateFormat = "MMM d, h:mm a"
         return "Resets \(formatter.string(from: reset))"
+    }
+
+    private static func comparisonShare(
+        current: Double,
+        previous: Double
+    ) -> Double {
+        let total = max(0, current) + max(0, previous)
+        guard total > 0 else { return 0 }
+        return max(0, current) / total
     }
 }
 
@@ -595,7 +755,307 @@ struct CodexTokenHistoryChart: View {
     }
 }
 
-private struct CodexHoverQuotaRow: View {
+struct CodexShipMomentumCard: View {
+    let momentum: CodexShipMomentum?
+
+    @Environment(\.designTheme) private var theme
+
+    var body: some View {
+        VStack(spacing: 6) {
+            HStack(spacing: 10) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Ship momentum")
+                        .font(.system(size: 10.5, weight: .bold))
+                        .foregroundStyle(theme.textPrimary)
+
+                    CodexShipMomentumGauge(score: momentum?.score)
+                }
+                .frame(width: 136, alignment: .leading)
+
+                Rectangle()
+                    .fill(theme.outline)
+                    .frame(width: 0.5, height: 68)
+                    .accessibilityHidden(true)
+
+                CodexShipRankLadder(activeRank: momentum?.rank)
+            }
+
+            Rectangle()
+                .fill(theme.outline)
+                .frame(height: 0.5)
+                .accessibilityHidden(true)
+
+            if let momentum {
+                HStack(spacing: 34) {
+                    metric(
+                        value: taskLabel(momentum),
+                        label: "tasks"
+                    )
+                    metric(
+                        value: Self.tokenLabel(momentum.currentTokens),
+                        label: "tokens"
+                    )
+                }
+                .frame(maxWidth: .infinity, alignment: .center)
+            } else {
+                unavailableDetails
+            }
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity, minHeight: 110)
+        .background(theme.opaqueSurfaceInset)
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .strokeBorder(theme.outline, lineWidth: 0.5)
+        }
+        .help(helpText)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Ship momentum")
+        .accessibilityValue(accessibilityValue)
+    }
+
+    private var unavailableDetails: some View {
+        Text("Not enough recent task and token activity")
+            .font(.system(size: 8.5, weight: .medium))
+            .foregroundStyle(theme.textSecondary)
+            .frame(maxWidth: .infinity, alignment: .center)
+    }
+
+    private func metric(value: String, label: String) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 4) {
+            Text(value)
+                .font(.system(size: 15, weight: .bold, design: .rounded))
+                .foregroundStyle(theme.textPrimary)
+                .monospacedDigit()
+            Text(label)
+                .font(.system(size: 8.5, weight: .semibold))
+                .foregroundStyle(theme.textSecondary)
+        }
+    }
+
+    private func taskLabel(_ momentum: CodexShipMomentum) -> String {
+        "\(momentum.currentTasks)\(momentum.isTaskCountPartial ? "+" : "")"
+    }
+
+    private var helpText: String {
+        "Ship momentum compares the latest 7 calendar days with the prior 7. "
+            + "The ladder progresses from Spark to Vanguard. It is an activity "
+            + "trend, not a productivity rating."
+    }
+
+    private var accessibilityValue: String {
+        guard let momentum else {
+            return "Not enough task and token activity data."
+        }
+        let partial = momentum.isTaskCountPartial ? "at least " : ""
+        return "\(momentum.score) out of 100, rank \(momentum.rank.title), "
+            + "\(momentum.rank.rawValue + 1) of \(CodexShipRank.allCases.count). "
+            + "Latest 7 days: \(partial)\(momentum.currentTasks) tasks and "
+            + "\(momentum.currentTokens.formatted()) tokens."
+    }
+
+    private static func tokenLabel(_ tokens: Int64) -> String {
+        tokens.formatted(
+            .number
+                .notation(.compactName)
+                .precision(.fractionLength(0...1))
+        )
+    }
+}
+
+private struct CodexShipMomentumGauge: View {
+    let score: Int?
+
+    @Environment(\.designTheme) private var theme
+
+    private var fraction: Double {
+        Double(min(max(score ?? 0, 0), 100)) / 100
+    }
+
+    var body: some View {
+        ZStack(alignment: .bottom) {
+            CodexGaugeArcShape(fraction: 1)
+                .stroke(
+                    theme.dockTrack,
+                    style: StrokeStyle(lineWidth: 8, lineCap: .round)
+                )
+
+            if score != nil {
+                CodexGaugeArcShape(fraction: fraction)
+                    .stroke(
+                        theme.action,
+                        style: StrokeStyle(lineWidth: 8, lineCap: .round)
+                    )
+
+                CodexGaugeNeedleShape(fraction: fraction)
+                    .stroke(
+                        theme.textPrimary,
+                        style: StrokeStyle(lineWidth: 1.5, lineCap: .round)
+                    )
+
+                Circle()
+                    .fill(theme.textPrimary)
+                    .frame(width: 5, height: 5)
+            }
+
+            Text(score.map(String.init) ?? "—")
+                .font(.system(size: 15, weight: .bold, design: .rounded))
+                .foregroundStyle(theme.textPrimary)
+                .monospacedDigit()
+            .padding(.horizontal, 3)
+            .background(theme.opaqueSurfaceInset)
+            .offset(y: 2)
+        }
+        .frame(width: 132, height: 56)
+        .accessibilityHidden(true)
+    }
+}
+
+private struct CodexShipRankLadder: View {
+    let activeRank: CodexShipRank?
+
+    @Environment(\.designTheme) private var theme
+
+    var body: some View {
+        GeometryReader { proxy in
+            let spacing: CGFloat = 3
+            let columnWidth = max(
+                0,
+                (proxy.size.width
+                    - spacing * CGFloat(CodexShipRank.allCases.count - 1))
+                    / CGFloat(CodexShipRank.allCases.count)
+            )
+
+            HStack(alignment: .bottom, spacing: spacing) {
+                ForEach(CodexShipRank.allCases) { rank in
+                    VStack(spacing: 3) {
+                        ZStack {
+                            CodexRankStepShape()
+                                .fill(stepFill(for: rank))
+                            CodexRankStepShape()
+                                .stroke(
+                                    stepOutline(for: rank),
+                                    lineWidth: rank == activeRank ? 1 : 0.5
+                                )
+
+                            Text("\(rank.rawValue + 1)")
+                                .font(.system(
+                                    size: 9,
+                                    weight: .bold,
+                                    design: .rounded
+                                ))
+                                .foregroundStyle(stepNumber(for: rank))
+                                .monospacedDigit()
+                        }
+                        .frame(
+                            width: columnWidth,
+                            height: 23 + CGFloat(rank.rawValue * 3)
+                        )
+
+                        Text(rank.title)
+                            .font(.system(
+                                size: 7,
+                                weight: rank == activeRank ? .bold : .medium
+                            ))
+                            .foregroundStyle(
+                                rank == activeRank
+                                    ? theme.action
+                                    : theme.textSecondary
+                            )
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
+                            .frame(width: columnWidth)
+                    }
+                    .frame(width: columnWidth)
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+        }
+        .frame(height: 61)
+        .accessibilityHidden(true)
+    }
+
+    private func stepFill(for rank: CodexShipRank) -> Color {
+        if rank == activeRank {
+            return theme.action
+        }
+        if let activeRank, rank.rawValue < activeRank.rawValue {
+            return theme.outlineStrong
+        }
+        return theme.dockTrack
+    }
+
+    private func stepOutline(for rank: CodexShipRank) -> Color {
+        rank == activeRank ? theme.action : theme.outline
+    }
+
+    private func stepNumber(for rank: CodexShipRank) -> Color {
+        rank == activeRank ? theme.onAction : theme.textPrimary
+    }
+}
+
+private struct CodexRankStepShape: Shape {
+    func path(in rect: CGRect) -> Path {
+        let notch = min(6, rect.width * 0.2)
+        var path = Path()
+        path.move(to: CGPoint(x: rect.minX, y: rect.maxY))
+        path.addLine(to: CGPoint(x: rect.minX, y: rect.minY + notch))
+        path.addLine(to: CGPoint(x: rect.minX + notch, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
+        path.closeSubpath()
+        return path
+    }
+}
+
+private struct CodexGaugeArcShape: Shape {
+    let fraction: Double
+
+    func path(in rect: CGRect) -> Path {
+        let clamped = min(max(fraction, 0), 1)
+        let center = CGPoint(x: rect.midX, y: rect.maxY - 3)
+        let radius = min(rect.width / 2 - 7, rect.height - 7)
+        let segments = max(1, Int(48 * clamped))
+        var path = Path()
+
+        for step in 0...segments {
+            let progress = clamped * Double(step) / Double(segments)
+            let angle = Double.pi * (1 - progress)
+            let point = CGPoint(
+                x: center.x + CGFloat(cos(angle)) * radius,
+                y: center.y - CGFloat(sin(angle)) * radius
+            )
+            if step == 0 {
+                path.move(to: point)
+            } else {
+                path.addLine(to: point)
+            }
+        }
+        return path
+    }
+}
+
+private struct CodexGaugeNeedleShape: Shape {
+    let fraction: Double
+
+    func path(in rect: CGRect) -> Path {
+        let clamped = min(max(fraction, 0), 1)
+        let center = CGPoint(x: rect.midX, y: rect.maxY - 3)
+        let radius = min(rect.width / 2 - 17, rect.height - 17)
+        let angle = Double.pi * (1 - clamped)
+        let endpoint = CGPoint(
+            x: center.x + CGFloat(cos(angle)) * radius,
+            y: center.y - CGFloat(sin(angle)) * radius
+        )
+        var path = Path()
+        path.move(to: center)
+        path.addLine(to: endpoint)
+        return path
+    }
+}
+
+struct UsageLimitHoverRow: View {
     let title: String
     let systemImage: String
     let window: CodexRateLimitWindow
@@ -717,6 +1177,7 @@ private struct DockHoverFeatureSummaryView: View {
 
 private struct DockHoverChrome<Content: View>: View {
     let pointerEdge: DockHoverPointerEdge
+    let panelSize: CGSize
     @ViewBuilder let content: () -> Content
 
     @Environment(\.designTheme) private var theme
@@ -726,7 +1187,7 @@ private struct DockHoverChrome<Content: View>: View {
         case .bottom:
             VStack(spacing: 0) {
                 card.frame(
-                    height: DockHoverPanelPlacement.panelSize.height
+                    height: panelSize.height
                         - DockHoverPanelPlacement.pointerExtent
                 )
                 DockHoverPointerShape(direction: .down)
@@ -745,14 +1206,14 @@ private struct DockHoverChrome<Content: View>: View {
                         height: DockHoverPanelPlacement.pointerExtent * 2
                     )
                 card.frame(
-                    width: DockHoverPanelPlacement.panelSize.width
+                    width: panelSize.width
                         - DockHoverPanelPlacement.pointerExtent
                 )
             }
         case .right:
             HStack(spacing: 0) {
                 card.frame(
-                    width: DockHoverPanelPlacement.panelSize.width
+                    width: panelSize.width
                         - DockHoverPanelPlacement.pointerExtent
                 )
                 DockHoverPointerShape(direction: .right)
@@ -867,7 +1328,17 @@ extension CodexRateLimitSnapshot {
                     )
                 }
             ),
-            fetchedAt: .now
+            recentTaskActivity: CodexRecentTaskActivity(
+                currentWeekCount: 12,
+                previousWeekCount: 8,
+                isPartial: false
+            ),
+            fetchedAt: calendar.date(from: DateComponents(
+                year: 2026,
+                month: 8,
+                day: 25,
+                hour: 12
+            ))!
         )
     }
 }

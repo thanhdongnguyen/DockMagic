@@ -447,8 +447,16 @@ final class DockMagicTests: XCTestCase {
             DockHoverPanelPlacement.windowLevel.rawValue,
             NSWindow.Level.popUpMenu.rawValue
         )
-        XCTAssertEqual(DockHoverPanelPlacement.panelSize.width, 440)
-        XCTAssertEqual(DockHoverPanelPlacement.panelSize.height, 304)
+        XCTAssertEqual(DockHoverPanelPlacement.standardPanelSize.width, 440)
+        XCTAssertEqual(DockHoverPanelPlacement.standardPanelSize.height, 304)
+        XCTAssertEqual(
+            DockHoverPanelPlacement.panelSize(for: .codex).height,
+            410
+        )
+        XCTAssertEqual(
+            DockHoverPanelPlacement.panelSize(for: .claudeCode),
+            DockHoverPanelPlacement.standardPanelSize
+        )
     }
 
     @MainActor
@@ -824,6 +832,116 @@ final class DockMagicTests: XCTestCase {
         let snapshot = try CodexRateLimitParser.parseJSONLines(response)
         XCTAssertEqual(snapshot.fiveHour?.remainingFraction, 0.8)
         XCTAssertNil(snapshot.tokenUsage)
+    }
+
+    func testCodexParserMapsRecentRootTasksAcrossActiveAndArchivedPages() throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = .current
+        let fetchedAt = calendar.date(from: DateComponents(
+            year: 2026,
+            month: 8,
+            day: 25,
+            hour: 12
+        ))!
+        func timestamp(day: Int) -> Int64 {
+            Int64(calendar.date(from: DateComponents(
+                year: 2026,
+                month: 8,
+                day: day,
+                hour: 12
+            ))!.timeIntervalSince1970)
+        }
+        func thread(day: Int, parent: Any = NSNull()) -> [String: Any] {
+            [
+                "createdAt": timestamp(day: day),
+                "parentThreadId": parent,
+                "ephemeral": false
+            ]
+        }
+
+        let rateLimits = codexResponse(
+            fallback: rateLimitBucket(
+                limitID: "codex",
+                primaryDuration: 300,
+                primaryUsed: 26,
+                secondaryDuration: 10_080,
+                secondaryUsed: 59
+            )
+        )
+        let usage = codexTokenUsageResponse(
+            lifetimeTokens: 18_400_000,
+            dailyTokens: Array(repeating: 500_000, count: 14)
+        )
+        let active = codexThreadListResponse(
+            id: 4,
+            threads: [
+                thread(day: 25),
+                thread(day: 20),
+                thread(day: 18),
+                thread(day: 24, parent: "parent-thread")
+            ]
+        )
+        let archived = codexThreadListResponse(
+            id: 5,
+            threads: [
+                thread(day: 22),
+                thread(day: 15)
+            ]
+        )
+        let response = rateLimits + usage + active + archived
+
+        XCTAssertTrue(
+            CodexRateLimitParser.containsCompleteDashboardResponse(response)
+        )
+        let snapshot = try CodexRateLimitParser.parseJSONLines(
+            response,
+            fetchedAt: fetchedAt
+        )
+        XCTAssertEqual(snapshot.recentTaskActivity?.currentWeekCount, 3)
+        XCTAssertEqual(snapshot.recentTaskActivity?.previousWeekCount, 2)
+        XCTAssertEqual(snapshot.recentTaskActivity?.isPartial, false)
+    }
+
+    func testCodexParserMarksRecentTaskCountPartialWhenPageEndsInWindow() throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = .current
+        let fetchedAt = calendar.date(from: DateComponents(
+            year: 2026,
+            month: 8,
+            day: 25,
+            hour: 12
+        ))!
+        let createdAt = Int64(calendar.date(from: DateComponents(
+            year: 2026,
+            month: 8,
+            day: 20,
+            hour: 12
+        ))!.timeIntervalSince1970)
+        let thread: [String: Any] = [
+            "createdAt": createdAt,
+            "parentThreadId": NSNull(),
+            "ephemeral": false
+        ]
+        let response = codexResponse(
+            fallback: rateLimitBucket(
+                limitID: "codex",
+                primaryDuration: 300,
+                primaryUsed: 20
+            )
+        )
+            + codexThreadListResponse(
+                id: 4,
+                threads: [thread],
+                nextCursor: "more"
+            )
+            + codexThreadListResponse(id: 5, threads: [])
+
+        let snapshot = try CodexRateLimitParser.parseJSONLines(
+            response,
+            fetchedAt: fetchedAt
+        )
+        XCTAssertEqual(snapshot.recentTaskActivity?.currentWeekCount, 1)
+        XCTAssertEqual(snapshot.recentTaskActivity?.isPartial, true)
     }
 
     func testCodexParserSupportsWeeklyOnlyWithoutInventingFiveHour() throws {
@@ -2122,6 +2240,7 @@ final class DockMagicTests: XCTestCase {
         let sampler = CountingMetricsSampler()
         let store = SystemMetricsStore(
             sampler: sampler,
+            processSampler: CountingProcessSampler(),
             samplingInterval: .milliseconds(20),
             historyLimit: 3
         )
@@ -2862,7 +2981,7 @@ final class DockMagicTests: XCTestCase {
                     pointerEdge: .bottom,
                     appearanceMode: mode
                 ),
-                size: DockHoverPanelPlacement.panelSize,
+                size: DockHoverPanelPlacement.codexPanelSize,
                 appearanceName: appearanceName,
                 name: name
             )
@@ -2893,13 +3012,28 @@ final class DockMagicTests: XCTestCase {
                     appearanceMode: .dark
                 )
                 .environment(\.dsAccessibilityOverrides, overrides),
-                size: DockHoverPanelPlacement.panelSize,
+                size: DockHoverPanelPlacement.codexPanelSize,
                 appearanceName: .darkAqua,
                 name: name
             )
             XCTAssertGreaterThan(data.count, 12_000)
             attachPNG(data, name: name)
         }
+
+        let grayscaleName = "Codex Hover — Ship Momentum — Grayscale"
+        let grayscale = try renderPNG(
+            of: DockHoverDashboardRoot(
+                appModel: appModel,
+                pointerEdge: .bottom,
+                appearanceMode: .dark
+            )
+            .grayscale(1),
+            size: DockHoverPanelPlacement.codexPanelSize,
+            appearanceName: .darkAqua,
+            name: grayscaleName
+        )
+        XCTAssertGreaterThan(grayscale.count, 12_000)
+        attachPNG(grayscale, name: grayscaleName)
 
         let fullPreview = CodexRateLimitSnapshot.hoverDesignPreview
         let weeklyOnlySnapshot = CodexRateLimitSnapshot(
@@ -2908,6 +3042,7 @@ final class DockMagicTests: XCTestCase {
             fiveHour: nil,
             weekly: fullPreview.weekly,
             tokenUsage: fullPreview.tokenUsage,
+            recentTaskActivity: fullPreview.recentTaskActivity,
             fetchedAt: fullPreview.fetchedAt
         )
         let weeklyOnlyStore = CodexUsageStore(
@@ -2927,7 +3062,7 @@ final class DockMagicTests: XCTestCase {
                 pointerEdge: .bottom,
                 appearanceMode: .dark
             ),
-            size: DockHoverPanelPlacement.panelSize,
+            size: DockHoverPanelPlacement.codexPanelSize,
             appearanceName: .darkAqua,
             name: weeklyOnlyName
         )
@@ -2948,13 +3083,256 @@ final class DockMagicTests: XCTestCase {
                 appearanceMode: .dark,
                 initialHoveredBucketID: hoveredBucketID
             ),
-            size: DockHoverPanelPlacement.panelSize,
+            size: DockHoverPanelPlacement.codexPanelSize,
             appearanceName: .darkAqua,
             name: hoveredName
         )
         XCTAssertGreaterThan(hovered.count, 12_000)
         XCTAssertNotEqual(hovered, renderedVariants[0])
         attachPNG(hovered, name: hoveredName)
+    }
+
+    @MainActor
+    func testClaudeCodeHoverDashboardRendersEveryDataState() async throws {
+        let suiteName = "DockMagicTests.ClaudeCodeHoverRender.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        defaults.set(
+            DockFeature.claudeCode.rawValue,
+            forKey: DockFeature.storageKey
+        )
+
+        let renderNow = Date.now
+        let liveSnapshot = CodexRateLimitSnapshot
+            .claudeCodeHoverDesignPreview(now: renderNow)
+        let liveStore = ClaudeCodeUsageStore(
+            provider: ScriptedClaudeCodeProvider([.success(liveSnapshot)]),
+            bridge: StubClaudeCodeBridge(installed: true),
+            pollingInterval: .seconds(60),
+            staleAfter: 900,
+            now: { renderNow }
+        )
+        await liveStore.refresh()
+        let liveModel = DockAppModel(
+            preferences: DockPreferencesStore(defaults: defaults),
+            claudeCodeStore: liveStore
+        )
+
+        let variants: [(String, DSAppearanceMode, NSAppearance.Name)] = [
+            ("Dark", .dark, .darkAqua),
+            ("Light", .light, .aqua)
+        ]
+        var renderedVariants: [Data] = []
+        for (label, mode, appearanceName) in variants {
+            let name = "Claude Code Hover — Live — \(label)"
+            let data = try renderPNG(
+                of: DockHoverDashboardRoot(
+                    appModel: liveModel,
+                    pointerEdge: .bottom,
+                    appearanceMode: mode
+                ),
+                size: DockHoverPanelPlacement.standardPanelSize,
+                appearanceName: appearanceName,
+                name: name
+            )
+            XCTAssertGreaterThan(data.count, 12_000)
+            attachPNG(data, name: name)
+            renderedVariants.append(data)
+        }
+        XCTAssertNotEqual(renderedVariants[0], renderedVariants[1])
+
+        let staleSnapshot = CodexRateLimitSnapshot(
+            planType: nil,
+            limitID: liveSnapshot.limitID,
+            fiveHour: liveSnapshot.fiveHour,
+            weekly: nil,
+            fetchedAt: renderNow.addingTimeInterval(-3_600)
+        )
+        let staleStore = ClaudeCodeUsageStore(
+            provider: ScriptedClaudeCodeProvider([.success(staleSnapshot)]),
+            bridge: StubClaudeCodeBridge(installed: true),
+            pollingInterval: .seconds(60),
+            staleAfter: 900,
+            now: { renderNow }
+        )
+        await staleStore.refresh()
+        let staleModel = DockAppModel(
+            preferences: DockPreferencesStore(defaults: defaults),
+            claudeCodeStore: staleStore
+        )
+        let staleName = "Claude Code Hover — Stale — Missing Weekly"
+        let staleData = try renderPNG(
+            of: DockHoverDashboardRoot(
+                appModel: staleModel,
+                pointerEdge: .bottom,
+                appearanceMode: .dark
+            ),
+            size: DockHoverPanelPlacement.standardPanelSize,
+            appearanceName: .darkAqua,
+            name: staleName
+        )
+        XCTAssertGreaterThan(staleData.count, 12_000)
+        XCTAssertNotEqual(staleData, renderedVariants[0])
+        attachPNG(staleData, name: staleName)
+
+        let unavailableStore = ClaudeCodeUsageStore(
+            provider: ScriptedClaudeCodeProvider([]),
+            bridge: StubClaudeCodeBridge(installed: false),
+            pollingInterval: .seconds(60)
+        )
+        await unavailableStore.refresh()
+        let unavailableModel = DockAppModel(
+            preferences: DockPreferencesStore(defaults: defaults),
+            claudeCodeStore: unavailableStore
+        )
+        let unavailableName = "Claude Code Hover — Unavailable"
+        let unavailableData = try renderPNG(
+            of: DockHoverDashboardRoot(
+                appModel: unavailableModel,
+                pointerEdge: .bottom,
+                appearanceMode: .dark
+            ),
+            size: DockHoverPanelPlacement.standardPanelSize,
+            appearanceName: .darkAqua,
+            name: unavailableName
+        )
+        XCTAssertGreaterThan(unavailableData.count, 12_000)
+        XCTAssertNotEqual(unavailableData, renderedVariants[0])
+        attachPNG(unavailableData, name: unavailableName)
+
+        let accessibilityVariants: [(String, DSAccessibilityOverrides)] = [
+            (
+                "Increased Contrast",
+                DSAccessibilityOverrides(increaseContrast: true)
+            ),
+            (
+                "Reduced Transparency",
+                DSAccessibilityOverrides(reduceTransparency: true)
+            )
+        ]
+        for (label, overrides) in accessibilityVariants {
+            let name = "Claude Code Hover — \(label)"
+            let data = try renderPNG(
+                of: DockHoverDashboardRoot(
+                    appModel: liveModel,
+                    pointerEdge: .bottom,
+                    appearanceMode: .dark
+                )
+                .environment(\.dsAccessibilityOverrides, overrides),
+                size: DockHoverPanelPlacement.standardPanelSize,
+                appearanceName: .darkAqua,
+                name: name
+            )
+            XCTAssertGreaterThan(data.count, 12_000)
+            attachPNG(data, name: name)
+        }
+
+    }
+
+    func testClaudeCodeHoverPresentationFormatsFreshnessAndReset() throws {
+        let now = Date(timeIntervalSince1970: 2_000_000_000)
+        let snapshot = CodexRateLimitSnapshot
+            .claudeCodeHoverDesignPreview(now: now)
+        let reset = try XCTUnwrap(
+            ClaudeCodeHoverDashboardPresentation.nextReset(
+                in: snapshot,
+                now: now
+            )
+        )
+
+        XCTAssertEqual(reset.title, "5-hour")
+        XCTAssertEqual(reset.date, snapshot.fiveHour?.resetsAt)
+        XCTAssertEqual(
+            ClaudeCodeHoverDashboardPresentation.countdownLabel(
+                until: reset.date,
+                now: now
+            ),
+            "2h 18m"
+        )
+        XCTAssertEqual(
+            ClaudeCodeHoverDashboardPresentation.countdownLabel(
+                until: now.addingTimeInterval(-1),
+                now: now
+            ),
+            "Time passed"
+        )
+        XCTAssertEqual(
+            ClaudeCodeHoverDashboardPresentation.ageLabel(
+                since: now.addingTimeInterval(-45),
+                now: now
+            ),
+            "Just now"
+        )
+        XCTAssertEqual(
+            ClaudeCodeHoverDashboardPresentation.ageLabel(
+                since: now.addingTimeInterval(-(2 * 3_600 + 5 * 60)),
+                now: now
+            ),
+            "2h 5m ago"
+        )
+        XCTAssertFalse(
+            ClaudeCodeHoverDashboardPresentation.dateLabel(now).isEmpty
+        )
+
+        let mixedSnapshot = CodexRateLimitSnapshot(
+            planType: nil,
+            limitID: "claude-code",
+            fiveHour: ClaudeCodeRateLimitWindow(
+                kind: .fiveHour,
+                usedPercent: 100,
+                windowDurationMinutes: 300,
+                resetsAt: now.addingTimeInterval(-1)
+            ),
+            weekly: snapshot.weekly,
+            fetchedAt: now
+        )
+        XCTAssertEqual(
+            ClaudeCodeHoverDashboardPresentation.nextReset(
+                in: mixedSnapshot,
+                now: now
+            )?.title,
+            "Weekly"
+        )
+    }
+
+    func testClaudeCodeHoverDashboardFollowsColorAndPrivacyContracts() throws {
+        let projectDirectory = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let sourceURL = projectDirectory.appendingPathComponent(
+            "DockMagic/Views/Hover/ClaudeCodeHoverDashboardView.swift"
+        )
+        let source = try String(contentsOf: sourceURL, encoding: .utf8)
+        let forbiddenPatterns = [
+            "LinearGradient(",
+            "RadialGradient(",
+            "AngularGradient(",
+            ".ultraThinMaterial",
+            "Color.black",
+            "Color.white",
+            "appearance.outerColor",
+            "appearance.innerColor",
+            "DockRingAppearance",
+            "import Charts",
+            "transcript_path",
+            "session_id",
+            "OAuth"
+        ]
+
+        for pattern in forbiddenPatterns {
+            XCTAssertFalse(
+                source.contains(pattern),
+                "Claude Code hover must not contain \(pattern)."
+            )
+        }
+
+        XCTAssertTrue(source.contains("Image(\"ClaudeCodeLogo\")"))
+        XCTAssertTrue(source.contains("UsageLimitHoverRow("))
+        XCTAssertTrue(source.contains("Claude Code statusLine"))
+        XCTAssertTrue(source.contains("dockHover.claudeCode"))
+        XCTAssertTrue(source.contains(".symbolRenderingMode(.monochrome)"))
+        XCTAssertTrue(source.contains("theme.opaqueSurfaceInset"))
     }
 
     func testCodexHoverPresentationUsesOnlyAvailableLimitsAndThirtyDays() {
@@ -3022,6 +3400,97 @@ final class DockMagicTests: XCTestCase {
         )
     }
 
+    func testCodexShipMomentumCombinesTasksAndTokensAgainstPriorWeek() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = .current
+        let fetchedAt = calendar.date(from: DateComponents(
+            year: 2026,
+            month: 8,
+            day: 25,
+            hour: 12
+        ))!
+        let start = calendar.date(from: DateComponents(
+            year: 2026,
+            month: 8,
+            day: 12,
+            hour: 12
+        ))!
+        let buckets = (0..<14).map { index in
+            CodexTokenUsageDailyBucket(
+                startDate: calendar.date(
+                    byAdding: .day,
+                    value: index,
+                    to: start
+                )!,
+                tokens: index < 7 ? 300 : 700
+            )
+        }
+        let usage = CodexAccountTokenUsage(
+            lifetimeTokens: nil,
+            peakDailyTokens: nil,
+            currentStreakDays: nil,
+            longestStreakDays: nil,
+            longestRunningTurnSeconds: nil,
+            dailyUsageBuckets: buckets
+        )
+        let snapshot = CodexRateLimitSnapshot(
+            planType: "pro",
+            limitID: "codex",
+            fiveHour: nil,
+            weekly: nil,
+            tokenUsage: usage,
+            recentTaskActivity: CodexRecentTaskActivity(
+                currentWeekCount: 9,
+                previousWeekCount: 3,
+                isPartial: false
+            ),
+            fetchedAt: fetchedAt
+        )
+
+        let momentum = CodexHoverDashboardPresentation.shipMomentum(
+            in: snapshot
+        )
+        XCTAssertEqual(momentum?.currentTokens, 4_900)
+        XCTAssertEqual(momentum?.previousTokens, 2_100)
+        XCTAssertEqual(momentum?.currentTasks, 9)
+        XCTAssertEqual(momentum?.score, 73)
+        XCTAssertEqual(momentum?.rank, .accelerator)
+
+        let missingTaskSignal = CodexRateLimitSnapshot(
+            planType: "pro",
+            limitID: "codex",
+            fiveHour: nil,
+            weekly: nil,
+            tokenUsage: usage,
+            recentTaskActivity: CodexRecentTaskActivity(
+                currentWeekCount: 0,
+                previousWeekCount: 0,
+                isPartial: false
+            ),
+            fetchedAt: fetchedAt
+        )
+        XCTAssertNil(
+            CodexHoverDashboardPresentation.shipMomentum(
+                in: missingTaskSignal
+            )
+        )
+    }
+
+    func testCodexShipMomentumRanksUseSixAscendingThresholds() {
+        XCTAssertEqual(CodexShipRank.rank(for: 0), .spark)
+        XCTAssertEqual(CodexShipRank.rank(for: 9), .spark)
+        XCTAssertEqual(CodexShipRank.rank(for: 10), .builder)
+        XCTAssertEqual(CodexShipRank.rank(for: 29), .builder)
+        XCTAssertEqual(CodexShipRank.rank(for: 30), .maker)
+        XCTAssertEqual(CodexShipRank.rank(for: 49), .maker)
+        XCTAssertEqual(CodexShipRank.rank(for: 50), .shipper)
+        XCTAssertEqual(CodexShipRank.rank(for: 69), .shipper)
+        XCTAssertEqual(CodexShipRank.rank(for: 70), .accelerator)
+        XCTAssertEqual(CodexShipRank.rank(for: 89), .accelerator)
+        XCTAssertEqual(CodexShipRank.rank(for: 90), .vanguard)
+        XCTAssertEqual(CodexShipRank.rank(for: 100), .vanguard)
+    }
+
     func testCodexHoverDashboardFollowsColorDesignSystemSourceContract() throws {
         let projectDirectory = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()
@@ -3060,6 +3529,20 @@ final class DockMagicTests: XCTestCase {
         XCTAssertTrue(source.contains(".onHover"))
         XCTAssertTrue(source.contains(".help("))
         XCTAssertTrue(source.contains("maximumChartDays = 30"))
+        XCTAssertTrue(source.contains("Ship momentum"))
+        XCTAssertTrue(source.contains("CodexGaugeArcShape"))
+        XCTAssertTrue(source.contains("CodexShipRankLadder"))
+        XCTAssertTrue(source.contains("CodexRankStepShape"))
+        XCTAssertTrue(source.contains("case shipper"))
+        XCTAssertTrue(source.contains("case vanguard"))
+        XCTAssertFalse(source.contains("Equal weight: task starts + token activity"))
+        XCTAssertFalse(source.contains("Steady"))
+        XCTAssertFalse(source.contains("\"0–10\""))
+        XCTAssertFalse(source.contains("\"10–30\""))
+        XCTAssertFalse(source.contains("\"30–50\""))
+        XCTAssertFalse(source.contains("\"50–70\""))
+        XCTAssertFalse(source.contains("\"70–90\""))
+        XCTAssertFalse(source.contains("\"90–100\""))
         XCTAssertTrue(source.contains("case \"pro\":"))
         XCTAssertTrue(source.contains("\"crown.fill\""))
         XCTAssertTrue(source.contains("case \"plus\":"))
@@ -4007,6 +4490,26 @@ final class DockMagicTests: XCTestCase {
                     ] as [String: Any]
                 }
             ]
+        ]
+        let data = try! JSONSerialization.data(withJSONObject: response)
+        return data + Data([0x0A])
+    }
+
+    private func codexThreadListResponse(
+        id: Int,
+        threads: [[String: Any]],
+        nextCursor: String? = nil
+    ) -> Data {
+        var result: [String: Any] = [
+            "data": threads,
+            "nextCursor": NSNull()
+        ]
+        if let nextCursor {
+            result["nextCursor"] = nextCursor
+        }
+        let response: [String: Any] = [
+            "id": id,
+            "result": result
         ]
         let data = try! JSONSerialization.data(withJSONObject: response)
         return data + Data([0x0A])

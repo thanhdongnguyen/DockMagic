@@ -33,8 +33,10 @@ Settings uses a native `NavigationSplitView`:
 | `SettingsWindowRouter` | Focuses or opens one Settings window; Dock reopen and `⌘,` share this path |
 | `DockAppModel` | Composition root; ensures only the active feature's provider runs |
 | `DockPreferencesStore` | Persists the feature, renderer appearance, and Codex executable override |
-| `SystemMetricsStore` | `1 Hz` sampling loop, current/history/error state |
+| `SystemMetricsStore` | `1 Hz` sampling loop, host history, process rankings, and independent error state |
 | `SystemMetricsSampler` | Reads Mach CPU/VM counters; does not own UI |
+| `SystemProcessMetricsSampler` | Reads per-process CPU time and physical footprint through local `libproc`; inaccessible processes are skipped |
+| `SystemMetricsHoverDashboardView` | Renders Top 10 CPU/RAM rankings and a 60-second dual-series chart from store state |
 | `NetworkMetricsStore` / `NetworkMetricsSampler` | `1 Hz` sampling, up to 60 history samples, and byte-counter deltas for the primary interface |
 | `StorageMetricsStore` / `StorageMetricsSampler` | Polls the startup volume every 5 seconds and calculates used/available/total capacity |
 | `WeatherStore` | Polls every 10 minutes, caches the snapshot, and owns live/stale/unavailable state |
@@ -50,6 +52,7 @@ Settings uses a native `NavigationSplitView`:
 | `ClaudeCodeUsageStore` | Polls the local snapshot and owns freshness and live/stale/unavailable state |
 | `ClaudeCodeStatusLineBridge` | Installs/removes the status-line wrapper and preserves the previous configuration |
 | `ClaudeCodeStatusLineRateLimitProvider` | Reads and parses only the local `rate_limits` cache |
+| `ClaudeCodeHoverDashboardView` | Renders quota rows, next reset, snapshot freshness, and all availability states without reading private session data |
 | `DockTileController` | Maintains one long-lived `NSHostingView`, updates its root view, and calls `NSDockTile.display()` |
 | `DockMetricsView` / `DockNetworkView` / `DockStorageView` / `DockWeatherView` / `DockBatteryView` / `DockGitHubView` / `CodexDockView` | Pure renderers driven by input models and appearance |
 | `SettingsView` | Preference UI; does not create timers or call Mach APIs |
@@ -93,6 +96,7 @@ flowchart LR
     A -->|"Codex active"| C["CodexUsageStore 5 min"]
     A -->|"Claude Code active"| L["ClaudeCodeUsageStore 15 s"]
     M --> D["DockTilePresentation"]
+    M --> X["SystemMetricsHoverDashboardView"]
     R --> D
     S --> D
     W --> D
@@ -103,6 +107,8 @@ flowchart LR
     P --> D
     D --> H["DockTileController"]
     H --> N["NSDockTile.display()"]
+    L --> V["ClaudeCodeHoverDashboardView"]
+    P --> V
 ```
 
 When the feature changes, the coordinator stops the previous provider before
@@ -134,6 +140,29 @@ This is an intentional estimate and is not guaranteed to match Activity
 Monitor: inactive, speculative, and reclaimable cached pages are not counted as
 used. RAM-shortage warnings should be implemented as a separate memory-pressure
 feature.
+
+The Dock-hover dashboard samples readable processes through `proc_listallpids`
+and `proc_pid_rusage(RUSAGE_INFO_V4)`. A process identity combines PID and start
+time so PID reuse does not create a false CPU spike. CPU is derived from the
+delta of user + system CPU time and normalized to the whole Mac:
+
+```text
+processCPU = Δ(userTime + systemTime) / elapsedSeconds / activeProcessorCount
+```
+
+The result is clamped to `0...1`, so the list shares the same percentage scale
+as the host chart. The first process sample establishes the CPU baseline while
+RAM can already be ranked using `ri_phys_footprint`. Both lists are sorted
+independently and capped at ten rows. Process names, PIDs, counters, rankings,
+and the 60-sample chart history remain memory-only; unreadable or exited
+processes are skipped, and no additional macOS permission is requested.
+
+Apple's `libproc.h` labels these process interfaces private and subject to
+change. This is compatible with DockMagic's direct Developer ID distribution
+and Hardened Runtime in the current deployment target, but it remains a release
+risk: every supported macOS version must smoke-test the signed build. A future
+read failure degrades only the two process lists to an unavailable state; host
+CPU/RAM sampling and the realtime chart continue independently.
 
 ## 6. Network
 
@@ -293,11 +322,17 @@ The provider launches:
 codex app-server --stdio
 ```
 
-It then sends `initialize`, `initialized`, `account/read`, and
-`account/rateLimits/read`. Stdin remains open until the rate-limit request
-receives a response; the request times out after 12 seconds. The parser
+It then sends `initialize`, `initialized`, `account/rateLimits/read`,
+`account/usage/read`, and two `thread/list` requests for active and archived
+interactive tasks. Stdin remains open until these dashboard requests receive a
+response or the 12-second timeout expires. The parser
 prioritizes the `codex` limit ID, accepts the exact 300-minute and 10,080-minute
 windows, clamps `usedPercent`, and converts it to the remaining percentage.
+`thread/list` reads state-database metadata only; DockMagic combines archived
+and non-archived root threads while excluding spawned sub-agent threads. The
+result powers the self-relative seven-day Ship momentum gauge documented in
+`docs/CODEX_SHIP_MOMENTUM.md`. Missing task activity never invalidates an
+otherwise usable quota snapshot.
 
 State contract:
 

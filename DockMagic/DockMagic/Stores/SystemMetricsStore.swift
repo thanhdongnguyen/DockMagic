@@ -11,11 +11,16 @@ import Observation
 final class SystemMetricsStore {
     private(set) var current: SystemMetricsSnapshot = .zero
     private(set) var history: [SystemMetricsSnapshot] = []
+    private(set) var currentProcesses: ProcessMetricsSnapshot = .zero
     private(set) var isMonitoring = false
     private(set) var lastErrorDescription: String?
+    private(set) var lastProcessErrorDescription: String?
 
     @ObservationIgnored
     private let sampler: any SystemMetricsSampling
+
+    @ObservationIgnored
+    private let processSampler: any ProcessMetricsSampling
 
     @ObservationIgnored
     private let samplingInterval: Duration
@@ -31,12 +36,14 @@ final class SystemMetricsStore {
 
     init(
         sampler: any SystemMetricsSampling = SystemMetricsSampler(),
+        processSampler: any ProcessMetricsSampling = SystemProcessMetricsSampler(),
         samplingInterval: Duration = .seconds(1),
         historyLimit: Int = 60
     ) {
         precondition(samplingInterval > .zero, "Sampling interval must be positive.")
 
         self.sampler = sampler
+        self.processSampler = processSampler
         self.samplingInterval = samplingInterval
         self.historyLimit = max(historyLimit, 1)
     }
@@ -55,9 +62,11 @@ final class SystemMetricsStore {
         isMonitoring = true
 
         let sampler = self.sampler
+        let processSampler = self.processSampler
         let samplingInterval = self.samplingInterval
         monitoringTask = Task { [weak self] in
             await sampler.reset()
+            await processSampler.reset()
 
             while !Task.isCancelled {
                 guard self != nil else {
@@ -77,6 +86,21 @@ final class SystemMetricsStore {
                     break
                 } catch {
                     self?.lastErrorDescription = error.localizedDescription
+                }
+
+                do {
+                    let processSnapshot = try await processSampler.sample()
+
+                    guard !Task.isCancelled, let self else {
+                        break
+                    }
+
+                    self.currentProcesses = processSnapshot
+                    self.lastProcessErrorDescription = nil
+                } catch is CancellationError {
+                    break
+                } catch {
+                    self?.lastProcessErrorDescription = error.localizedDescription
                 }
 
                 guard !Task.isCancelled else {
@@ -109,6 +133,8 @@ final class SystemMetricsStore {
 
     @discardableResult
     func refresh() async -> SystemMetricsSnapshot? {
+        var refreshedSnapshot: SystemMetricsSnapshot?
+
         do {
             let snapshot = try await sampler.sample()
 
@@ -118,13 +144,29 @@ final class SystemMetricsStore {
 
             record(snapshot)
             lastErrorDescription = nil
-            return snapshot
+            refreshedSnapshot = snapshot
         } catch is CancellationError {
             return nil
         } catch {
             lastErrorDescription = error.localizedDescription
-            return nil
         }
+
+        do {
+            let processSnapshot = try await processSampler.sample()
+
+            guard !Task.isCancelled else {
+                return refreshedSnapshot
+            }
+
+            currentProcesses = processSnapshot
+            lastProcessErrorDescription = nil
+        } catch is CancellationError {
+            return refreshedSnapshot
+        } catch {
+            lastProcessErrorDescription = error.localizedDescription
+        }
+
+        return refreshedSnapshot
     }
 
     private func record(_ snapshot: SystemMetricsSnapshot) {

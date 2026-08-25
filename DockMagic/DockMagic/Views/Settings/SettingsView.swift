@@ -129,6 +129,7 @@ struct SettingsView: View {
     let dockHoverPermissionController: DockHoverPermissionController?
 
     @State private var destination: SettingsDestination
+    @State private var launchAtLoginController: LaunchAtLoginController
     @AppStorage(DSAppearanceMode.storageKey)
     private var appearanceRawValue = DSAppearanceMode.system.rawValue
     @Environment(\.designTheme) private var theme
@@ -136,11 +137,16 @@ struct SettingsView: View {
     init(
         appModel: DockAppModel,
         dockHoverPermissionController: DockHoverPermissionController? = nil,
+        launchAtLoginController: LaunchAtLoginController? = nil,
         initialDestination: SettingsDestination = .general
     ) {
         self.appModel = appModel
         self.dockHoverPermissionController = dockHoverPermissionController
         _destination = State(initialValue: initialDestination)
+        _launchAtLoginController = State(
+            initialValue: launchAtLoginController
+                ?? LaunchAtLoginController()
+        )
     }
 
     var body: some View {
@@ -171,6 +177,9 @@ struct SettingsView: View {
                 appModel.searchConsoleStore.start()
             case .general, .systemMetrics, .network, .storage, .codex,
                  .claudeCode, .github, .about:
+                if newDestination == .general {
+                    launchAtLoginController.refresh()
+                }
                 if appModel.preferences.activeFeature != .batteries {
                     appModel.batteryStore.stop()
                 }
@@ -195,6 +204,7 @@ struct SettingsView: View {
         ) { _ in
             refreshWeatherAfterReturningFromSystemSettings()
             dockHoverPermissionController?.refresh()
+            launchAtLoginController.refresh()
         }
     }
 
@@ -453,6 +463,50 @@ struct SettingsView: View {
             }
 
             DSSettingsSection(
+                title: "Startup",
+                detail: "Choose whether DockMagic starts automatically when you sign in to your Mac."
+            ) {
+                VStack(spacing: DSSpacing.standard) {
+                    DSSettingsRow(
+                        title: "Launch at login",
+                        detail: launchAtLoginController.state.detail,
+                        systemImage: "power"
+                    ) {
+                        Toggle(
+                            "Launch at login",
+                            isOn: launchAtLoginBinding
+                        )
+                        .labelsHidden()
+                        .toggleStyle(.switch)
+                        .disabled(!launchAtLoginController.state.canChange)
+                        .accessibilityIdentifier(
+                            "settings.launchAtLogin.toggle"
+                        )
+                    }
+
+                    if launchAtLoginController.state == .requiresApproval {
+                        DSDivider()
+                        launchAtLoginApprovalRow
+                    }
+
+                    if let errorDescription =
+                        launchAtLoginController.errorDescription
+                    {
+                        DSDivider()
+                        DSStatusCard(
+                            title: "Launch at login couldn't be updated",
+                            detail: errorDescription,
+                            systemImage: "exclamationmark.triangle.fill",
+                            role: .danger
+                        )
+                        .accessibilityIdentifier(
+                            "settings.launchAtLogin.error"
+                        )
+                    }
+                }
+            }
+
+            DSSettingsSection(
                 title: "Dock",
                 detail: "Choose the single feature DockMagic shows and updates in the Dock."
             ) {
@@ -513,6 +567,40 @@ struct SettingsView: View {
                 }
             }
         }
+    }
+
+    private var launchAtLoginApprovalRow: some View {
+        HStack(alignment: .top, spacing: DSSpacing.medium) {
+            DSIconPlate(
+                systemImage: "checkmark.shield.fill",
+                role: .warning
+            )
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Approval required")
+                    .font(DSTypography.bodyEmphasis)
+                    .foregroundStyle(theme.textPrimary)
+
+                Text(
+                    "Allow DockMagic under Open at Login to finish enabling this feature."
+                )
+                .font(DSTypography.metadata)
+                .foregroundStyle(theme.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+                Button("Open Login Items…") {
+                    launchAtLoginController.openSystemSettings()
+                }
+                .buttonStyle(DSButtonStyle())
+                .padding(.top, DSSpacing.xSmall)
+                .accessibilityIdentifier(
+                    "settings.launchAtLogin.openSystemSettings"
+                )
+            }
+
+            Spacer(minLength: 0)
+        }
+        .accessibilityIdentifier("settings.launchAtLogin.approval")
     }
 
     @ViewBuilder
@@ -1057,6 +1145,13 @@ struct SettingsView: View {
         Binding(
             get: { appModel.preferences.isDockHoverDashboardEnabled },
             set: { appModel.preferences.isDockHoverDashboardEnabled = $0 }
+        )
+    }
+
+    private var launchAtLoginBinding: Binding<Bool> {
+        Binding(
+            get: { launchAtLoginController.state.isRequested },
+            set: { launchAtLoginController.setEnabled($0) }
         )
     }
 
