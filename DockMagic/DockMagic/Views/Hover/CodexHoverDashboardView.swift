@@ -1,4 +1,3 @@
-import Charts
 import SwiftUI
 
 enum DockHoverPointerEdge: Sendable {
@@ -11,6 +10,20 @@ enum DockHoverPointerEdge: Sendable {
 struct DockHoverDashboardRoot: View {
     let appModel: DockAppModel
     let pointerEdge: DockHoverPointerEdge
+    var appearanceMode: DSAppearanceMode = .dark
+    var initialHoveredBucketID: Date?
+
+    init(
+        appModel: DockAppModel,
+        pointerEdge: DockHoverPointerEdge,
+        appearanceMode: DSAppearanceMode = .dark,
+        initialHoveredBucketID: Date? = nil
+    ) {
+        self.appModel = appModel
+        self.pointerEdge = pointerEdge
+        self.appearanceMode = appearanceMode
+        self.initialHoveredBucketID = initialHoveredBucketID
+    }
 
     var body: some View {
         DockMagicThemeRoot(
@@ -18,7 +31,7 @@ struct DockHoverDashboardRoot: View {
                 if appModel.preferences.activeFeature == .codex {
                     CodexHoverDashboardView(
                         state: appModel.codexStore.state,
-                        appearance: appModel.preferences.codexAppearance
+                        initialHoveredBucketID: initialHoveredBucketID
                     )
                 } else {
                     DockHoverFeatureSummaryView(
@@ -26,9 +39,12 @@ struct DockHoverDashboardRoot: View {
                     )
                 }
             },
-            appearanceMode: .dark
+            appearanceMode: appearanceMode
         )
-        .frame(width: 360, height: 224)
+        .frame(
+            width: DockHoverPanelPlacement.panelSize.width,
+            height: DockHoverPanelPlacement.panelSize.height
+        )
         .accessibilityIdentifier("dockHover.dashboard")
     }
 }
@@ -36,18 +52,25 @@ struct DockHoverDashboardRoot: View {
 @MainActor
 struct CodexHoverDashboardView: View {
     let state: CodexUsageState
-    let appearance: DockRingAppearance
-    var now: Date = .now
 
     @Environment(\.designTheme) private var theme
+    @State private var hoveredBucketID: Date?
+
+    init(
+        state: CodexUsageState,
+        initialHoveredBucketID: Date? = nil
+    ) {
+        self.state = state
+        _hoveredBucketID = State(initialValue: initialHoveredBucketID)
+    }
 
     var body: some View {
-        VStack(spacing: 5) {
+        VStack(spacing: 7) {
             header
             quotaRows
             tokenHeader
             tokenChart
-            footer
+            Spacer(minLength: 0)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .accessibilityElement(children: .contain)
@@ -55,52 +78,52 @@ struct CodexHoverDashboardView: View {
     }
 
     private var header: some View {
-        HStack(spacing: 7) {
+        HStack(spacing: 8) {
             Image("CodexLogo")
                 .resizable()
                 .interpolation(.high)
-                .scaledToFit()
-                .frame(width: 21, height: 21)
+                .scaledToFill()
+                // The supplied logo includes faint edge pixels outside the
+                // brand mark. Crop that transparent fringe at presentation
+                // time so it stays clean on an opaque dark surface.
+                .frame(width: 42, height: 42)
+                .frame(width: 26, height: 26)
+                .clipShape(
+                    RoundedRectangle(cornerRadius: 7, style: .continuous)
+                )
                 .accessibilityHidden(true)
 
             Text("Codex")
-                .font(.system(size: 15, weight: .bold))
+                .font(.system(size: 17, weight: .bold))
                 .foregroundStyle(theme.textPrimary)
 
             if let plan = snapshot?.planType, !plan.isEmpty {
-                Text(plan.localizedCapitalized)
-                    .font(.system(size: 9, weight: .medium))
-                    .foregroundStyle(theme.textSecondary)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(
-                        Capsule()
-                            .fill(theme.opaqueSurfaceRaised)
-                    )
-                    .overlay {
-                        Capsule().strokeBorder(theme.outline, lineWidth: 1)
-                    }
+                CodexPlanBadge(plan: plan)
             }
 
-            Circle()
-                .fill(statusColor)
-                .frame(width: 6, height: 6)
-                .shadow(color: statusColor.opacity(0.65), radius: 3)
-                .accessibilityHidden(true)
+            if let statusTitle, let statusSystemImage {
+                HStack(spacing: 3) {
+                    Image(systemName: statusSystemImage)
+                        .symbolRenderingMode(.monochrome)
+                        .font(.system(size: 9, weight: .semibold))
+                        .accessibilityHidden(true)
 
-            Text(statusTitle)
-                .font(.system(size: 9, weight: .semibold))
-                .foregroundStyle(statusColor)
+                    Text(statusTitle)
+                        .font(.system(size: 10, weight: .semibold))
+                }
+                .foregroundStyle(statusForeground)
+                .accessibilityElement(children: .combine)
+            }
 
             Spacer(minLength: 4)
 
             if let lifetimeTokens = tokenUsage?.lifetimeTokens {
                 HStack(alignment: .firstTextBaseline, spacing: 3) {
                     Text(Self.tokenLabel(lifetimeTokens))
-                        .font(.system(size: 12, weight: .bold, design: .rounded))
+                        .font(.system(size: 14, weight: .bold, design: .rounded))
                         .foregroundStyle(theme.textPrimary)
                     Text("lifetime")
-                        .font(.system(size: 9, weight: .medium))
+                        .font(.system(size: 10, weight: .medium))
                         .foregroundStyle(theme.textSecondary)
                 }
                 .monospacedDigit()
@@ -109,53 +132,66 @@ struct CodexHoverDashboardView: View {
                 .accessibilityValue(lifetimeTokens.formatted())
             }
         }
-        .frame(height: 22)
+        .frame(height: 30)
     }
 
     private var quotaRows: some View {
-        VStack(spacing: 4) {
-            CodexHoverQuotaRow(
-                title: "5-hour",
-                systemImage: "clock",
-                window: snapshot?.fiveHour,
-                tint: appearance.outerColor.color,
-                resetLabel: resetLabel(for: snapshot?.fiveHour, isWeekly: false)
-            )
-            CodexHoverQuotaRow(
-                title: "Weekly",
-                systemImage: "calendar",
-                window: snapshot?.weekly,
-                tint: appearance.innerColor.color,
-                resetLabel: resetLabel(for: snapshot?.weekly, isWeekly: true)
-            )
+        VStack(spacing: 6) {
+            ForEach(visibleQuotaWindows, id: \.windowDurationMinutes) { window in
+                CodexHoverQuotaRow(
+                    title: window.kind == .fiveHour ? "5-hour" : "Weekly",
+                    systemImage: window.kind == .fiveHour ? "clock" : "calendar",
+                    window: window,
+                    resetLabel: CodexHoverDashboardPresentation.resetLabel(
+                        for: window
+                    )
+                )
+            }
         }
     }
 
     private var tokenHeader: some View {
-        HStack(alignment: .lastTextBaseline, spacing: 5) {
+        HStack(alignment: .lastTextBaseline, spacing: 6) {
             Text("Daily tokens")
-                .font(.system(size: 10, weight: .bold))
+                .font(.system(size: 12, weight: .bold))
                 .foregroundStyle(theme.textPrimary)
 
             if let dateRangeLabel {
                 Text(dateRangeLabel)
-                    .font(.system(size: 8, weight: .medium))
+                    .font(.system(size: 9, weight: .medium))
                     .foregroundStyle(theme.textTertiary)
             }
 
             Spacer(minLength: 4)
 
-            if let todayTokens = tokenUsage?.latestDailyTokens {
-                Text(Self.tokenLabel(todayTokens))
-                    .font(.system(size: 12, weight: .bold, design: .rounded))
-                    .foregroundStyle(theme.textPrimary)
-                    .monospacedDigit()
-                Text("today")
-                    .font(.system(size: 9, weight: .semibold))
-                    .foregroundStyle(appearance.innerColor.color)
+            if let hoveredBucket {
+                HStack(alignment: .lastTextBaseline, spacing: 4) {
+                    Text(Self.hoverDateLabel(hoveredBucket.startDate))
+                        .font(.system(size: 9, weight: .medium))
+                        .foregroundStyle(theme.textSecondary)
+                    Text(hoveredBucket.tokens.formatted())
+                        .font(.system(size: 12, weight: .bold, design: .rounded))
+                        .foregroundStyle(theme.textPrimary)
+                        .monospacedDigit()
+                    Text("tokens")
+                        .font(.system(size: 9, weight: .semibold))
+                        .foregroundStyle(theme.textSecondary)
+                }
+                .accessibilityElement(children: .combine)
+            } else if let todayTokens = tokenUsage?.latestDailyTokens {
+                HStack(alignment: .lastTextBaseline, spacing: 4) {
+                    Text(Self.tokenLabel(todayTokens))
+                        .font(.system(size: 13, weight: .bold, design: .rounded))
+                        .foregroundStyle(theme.textPrimary)
+                        .monospacedDigit()
+                    Text("today")
+                        .font(.system(size: 9, weight: .semibold))
+                        .foregroundStyle(theme.textSecondary)
+                }
+                .accessibilityElement(children: .combine)
             }
         }
-        .frame(height: 15)
+        .frame(height: 20)
     }
 
     @ViewBuilder
@@ -163,108 +199,57 @@ struct CodexHoverDashboardView: View {
         if chartBuckets.isEmpty {
             HStack(spacing: 6) {
                 Image(systemName: "chart.bar")
+                    .symbolRenderingMode(.monochrome)
                     .foregroundStyle(theme.textTertiary)
                     .accessibilityHidden(true)
                 Text(tokenEmptyMessage)
-                    .font(.system(size: 9, weight: .medium))
+                    .font(.system(size: 10, weight: .medium))
                     .foregroundStyle(theme.textSecondary)
             }
-            .frame(maxWidth: .infinity, minHeight: 67)
-            .background(theme.opaqueSurfaceInset.opacity(0.5))
-            .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+            .frame(maxWidth: .infinity, minHeight: tokenChartHeight)
+            .background(theme.opaqueSurfaceInset)
+            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         } else {
-            Chart(chartBuckets) { bucket in
-                BarMark(
-                    x: .value("Day", bucket.startDate, unit: .day),
-                    y: .value("Tokens", bucket.tokens)
-                )
-                .cornerRadius(3)
-                .foregroundStyle(
-                    LinearGradient(
-                        colors: [
-                            appearance.outerColor.color,
-                            appearance.innerColor.color
-                        ],
-                        startPoint: .bottom,
-                        endPoint: .top
-                    )
-                )
-                .opacity(bucket.id == chartBuckets.last?.id ? 1 : 0.7)
-            }
-            .chartXAxis {
-                AxisMarks(values: chartBuckets.map(\.startDate)) { value in
-                    AxisValueLabel {
-                        if let date = value.as(Date.self) {
-                            VStack(spacing: 0) {
-                                Text(Self.weekdayLabel(date))
-                                Text(Self.dayLabel(date))
-                            }
-                            .font(.system(size: 6.5, weight: .medium))
-                            .foregroundStyle(theme.textTertiary)
-                        }
-                    }
-                }
-            }
-            .chartYAxis {
-                AxisMarks(position: .leading, values: .automatic(desiredCount: 2)) {
-                    value in
-                    AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5, dash: [2, 2]))
-                        .foregroundStyle(theme.outline)
-                    AxisValueLabel {
-                        if let tokens = value.as(Int64.self) {
-                            Text(Self.tokenAxisLabel(tokens))
-                                .font(.system(size: 6.5, weight: .medium))
-                                .foregroundStyle(theme.textTertiary)
-                        }
-                    }
-                }
-            }
-            .chartPlotStyle { plotArea in
-                plotArea
-                    .background(theme.opaqueSurfaceInset.opacity(0.38))
-                    .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
-            }
-            .frame(height: 73)
-            .accessibilityLabel("Daily token usage over the last seven days")
+            CodexTokenHistoryChart(
+                buckets: chartBuckets,
+                hoveredBucketID: $hoveredBucketID,
+                plotHeight: tokenChartPlotHeight
+            )
         }
-    }
-
-    private var footer: some View {
-        HStack(spacing: 4) {
-            if case .loading = state {
-                ProgressView()
-                    .controlSize(.mini)
-                    .accessibilityHidden(true)
-            } else {
-                Image(systemName: "arrow.clockwise")
-                    .font(.system(size: 7, weight: .semibold))
-                    .accessibilityHidden(true)
-            }
-
-            Text(updatedLabel)
-                .font(.system(size: 8, weight: .medium))
-                .foregroundStyle(theme.textTertiary)
-
-            Spacer(minLength: 0)
-        }
-        .frame(height: 9)
     }
 
     private var snapshot: CodexRateLimitSnapshot? { state.snapshot }
     private var tokenUsage: CodexAccountTokenUsage? { snapshot?.tokenUsage }
 
-    private var chartBuckets: [CodexTokenUsageDailyBucket] {
-        Array(tokenUsage?.dailyUsageBuckets.suffix(7) ?? [])
+    private var visibleQuotaWindows: [CodexRateLimitWindow] {
+        CodexHoverDashboardPresentation.visibleQuotaWindows(in: snapshot)
     }
 
-    private var statusTitle: String {
+    private var chartBuckets: [CodexTokenUsageDailyBucket] {
+        CodexHoverDashboardPresentation.chartBuckets(from: tokenUsage)
+    }
+
+    private var hoveredBucket: CodexTokenUsageDailyBucket? {
+        guard let hoveredBucketID else { return nil }
+        return chartBuckets.first { $0.id == hoveredBucketID }
+    }
+
+    private var tokenChartPlotHeight: CGFloat {
+        visibleQuotaWindows.count < 2 ? 128 : 88
+    }
+
+    private var tokenChartHeight: CGFloat {
+        tokenChartPlotHeight + 38
+    }
+
+    private var statusTitle: String? {
         switch state {
         case .idle:
             "Idle"
         case .loading:
             "Loading"
         case .live:
-            "Live"
+            nil
         case .stale:
             "Stale"
         case .unavailable:
@@ -272,16 +257,31 @@ struct CodexHoverDashboardView: View {
         }
     }
 
-    private var statusColor: Color {
+    private var statusSystemImage: String? {
         switch state {
-        case .live:
-            theme.processingForeground
+        case .idle:
+            "minus.circle"
         case .loading:
-            theme.informationForeground
+            "ellipsis.circle"
+        case .live:
+            nil
+        case .stale:
+            "exclamationmark.triangle"
+        case .unavailable:
+            "xmark.circle"
+        }
+    }
+
+    private var statusForeground: Color {
+        switch state {
+        case .loading:
+            theme.processingForeground
         case .stale:
             theme.warningForeground
-        case .idle, .unavailable:
+        case .unavailable:
             theme.dangerForeground
+        case .idle, .live:
+            theme.textTertiary
         }
     }
 
@@ -322,30 +322,6 @@ struct CodexHoverDashboardView: View {
         return "\(Self.monthLabel(first)) \(firstDay)–\(Self.monthLabel(last)) \(lastDay), \(year)"
     }
 
-    private var updatedLabel: String {
-        guard let fetchedAt = snapshot?.fetchedAt else {
-            return state.statusTitle
-        }
-        let elapsed = max(0, now.timeIntervalSince(fetchedAt))
-        if elapsed < 60 {
-            return "Updated just now"
-        }
-        return "Updated \(Int(elapsed / 60))m ago"
-    }
-
-    private func resetLabel(
-        for window: CodexRateLimitWindow?,
-        isWeekly: Bool
-    ) -> String {
-        guard let reset = window?.resetsAt else {
-            return "Reset —"
-        }
-        if isWeekly {
-            return "Resets \(reset.formatted(.dateTime.weekday(.abbreviated)))"
-        }
-        return "Resets \(reset.formatted(.dateTime.hour().minute()))"
-    }
-
     private static func tokenLabel(_ tokens: Int64) -> String {
         tokens.formatted(
             .number
@@ -354,17 +330,247 @@ struct CodexHoverDashboardView: View {
         )
     }
 
+    private static func monthLabel(_ date: Date) -> String {
+        formatter("MMM").string(from: date)
+    }
+
+    private static func hoverDateLabel(_ date: Date) -> String {
+        formatter("MMM d").string(from: date)
+    }
+
+    private static func formatter(_ format: String) -> DateFormatter {
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = .current
+        formatter.dateFormat = format
+        return formatter
+    }
+}
+
+enum CodexHoverDashboardPresentation {
+    static let maximumChartDays = 30
+
+    static func visibleQuotaWindows(
+        in snapshot: CodexRateLimitSnapshot?
+    ) -> [CodexRateLimitWindow] {
+        [snapshot?.fiveHour, snapshot?.weekly].compactMap { $0 }
+    }
+
+    static func chartBuckets(
+        from tokenUsage: CodexAccountTokenUsage?
+    ) -> [CodexTokenUsageDailyBucket] {
+        Array(tokenUsage?.dailyUsageBuckets.suffix(maximumChartDays) ?? [])
+    }
+
+    static func resetLabel(for window: CodexRateLimitWindow) -> String {
+        guard let reset = window.resetsAt else { return "Reset —" }
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = .current
+        formatter.dateFormat = "MMM d, h:mm a"
+        return "Resets \(formatter.string(from: reset))"
+    }
+}
+
+private struct CodexPlanBadge: View {
+    let plan: String
+
+    @Environment(\.designTheme) private var theme
+
+    var body: some View {
+        HStack(spacing: 4) {
+            if let systemImage {
+                Image(systemName: systemImage)
+                    .symbolRenderingMode(.monochrome)
+                    .font(.system(size: 9, weight: .bold))
+                    .accessibilityHidden(true)
+            }
+
+            Text(plan.localizedUppercase)
+                .font(.system(size: 10, weight: isPremium ? .bold : .semibold))
+                .tracking(isPremium ? 0.25 : 0)
+        }
+        .foregroundStyle(isPremium ? theme.textPrimary : theme.textSecondary)
+        .padding(.horizontal, 7)
+        .padding(.vertical, 3)
+        .background(
+            Capsule().fill(
+                isPremium ? theme.opaqueSurfaceInset : theme.opaqueSurfaceRaised
+            )
+        )
+        .overlay {
+            Capsule().strokeBorder(
+                isPremium ? theme.outlineStrong : theme.outline,
+                lineWidth: isPremium ? 1.25 : 1
+            )
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Codex \(plan.localizedCapitalized) plan")
+    }
+
+    private var normalizedPlan: String {
+        plan.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    }
+
+    private var isPremium: Bool {
+        normalizedPlan == "pro" || normalizedPlan == "plus"
+    }
+
+    private var systemImage: String? {
+        switch normalizedPlan {
+        case "pro":
+            "crown.fill"
+        case "plus":
+            "sparkles"
+        default:
+            nil
+        }
+    }
+}
+
+struct CodexTokenHistoryChart: View {
+    let buckets: [CodexTokenUsageDailyBucket]
+    @Binding var hoveredBucketID: Date?
+    let plotHeight: CGFloat
+
+    @Environment(\.designTheme) private var theme
+
+    private let columnWidth: CGFloat = 46
+    private let columnSpacing: CGFloat = 8
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 7) {
+            yAxis
+
+            ScrollViewReader { proxy in
+                ScrollView(.horizontal, showsIndicators: true) {
+                    HStack(alignment: .top, spacing: columnSpacing) {
+                        ForEach(buckets) { bucket in
+                            tokenColumn(for: bucket)
+                                .id(bucket.id)
+                        }
+                    }
+                    .padding(.horizontal, 4)
+                    .background(alignment: .top) {
+                        chartGrid
+                    }
+                }
+                .onAppear {
+                    scrollToLatest(using: proxy)
+                }
+                .onChange(of: buckets.last?.id) { _, _ in
+                    scrollToLatest(using: proxy)
+                }
+            }
+        }
+        .frame(height: plotHeight + 38)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Daily token usage over the last 30 days")
+    }
+
+    private var yAxis: some View {
+        VStack(alignment: .trailing, spacing: 0) {
+            Text(Self.tokenAxisLabel(axisMaximum))
+            Spacer()
+            Text(Self.tokenAxisLabel(axisMaximum / 2))
+            Spacer()
+            Text("0")
+        }
+        .font(.system(size: 7.5, weight: .medium))
+        .foregroundStyle(theme.textTertiary)
+        .monospacedDigit()
+        .frame(width: 31, height: plotHeight, alignment: .trailing)
+    }
+
+    private var chartGrid: some View {
+        VStack(spacing: 0) {
+            Rectangle().fill(theme.outline).frame(height: 0.5)
+            Spacer()
+            Rectangle().fill(theme.outline).frame(height: 0.5)
+            Spacer()
+            Rectangle().fill(theme.outline).frame(height: 0.5)
+        }
+        .frame(maxWidth: .infinity)
+        .frame(height: plotHeight)
+    }
+
+    private func tokenColumn(
+        for bucket: CodexTokenUsageDailyBucket
+    ) -> some View {
+        let isLatest = bucket.id == buckets.last?.id
+        let isHovered = bucket.id == hoveredBucketID
+        let height = barHeight(for: bucket.tokens)
+
+        return VStack(spacing: 5) {
+            ZStack(alignment: .bottom) {
+                Color.clear
+
+                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                    .fill(theme.action)
+                    .opacity(isHovered ? 1 : (isLatest ? 0.9 : 0.5))
+                    .frame(width: 27, height: height)
+                    .overlay {
+                        if isHovered {
+                            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                                .strokeBorder(theme.outlineStrong, lineWidth: 1)
+                                .frame(width: 27, height: height)
+                        }
+                    }
+            }
+            .frame(width: columnWidth, height: plotHeight)
+
+            VStack(spacing: 0) {
+                Text(Self.weekdayLabel(bucket.startDate))
+                Text(Self.dayLabel(bucket.startDate))
+            }
+            .font(.system(size: 8, weight: isLatest ? .semibold : .medium))
+            .foregroundStyle(isLatest ? theme.textSecondary : theme.textTertiary)
+            .monospacedDigit()
+        }
+        .frame(width: columnWidth)
+        .contentShape(Rectangle())
+        .onHover { isInside in
+            if isInside {
+                hoveredBucketID = bucket.id
+            } else if hoveredBucketID == bucket.id {
+                hoveredBucketID = nil
+            }
+        }
+        .help(
+            "\(Self.fullDateLabel(bucket.startDate)): "
+                + "\(bucket.tokens.formatted()) tokens"
+        )
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Self.fullDateLabel(bucket.startDate))
+        .accessibilityValue("\(bucket.tokens.formatted()) tokens")
+    }
+
+    private var axisMaximum: Int64 {
+        let peak = buckets.map(\.tokens).max() ?? 0
+        guard peak > 0 else { return 1 }
+        return max(1, Int64((Double(peak) * 1.1).rounded(.up)))
+    }
+
+    private func barHeight(for tokens: Int64) -> CGFloat {
+        guard tokens > 0 else { return 0 }
+        let fraction = min(1, Double(tokens) / Double(axisMaximum))
+        return max(2, plotHeight * CGFloat(fraction))
+    }
+
+    private func scrollToLatest(using proxy: ScrollViewProxy) {
+        guard let latestID = buckets.last?.id else { return }
+        proxy.scrollTo(latestID, anchor: .trailing)
+    }
+
     private static func tokenAxisLabel(_ tokens: Int64) -> String {
         guard tokens > 0 else { return "0" }
-        let millions = Double(tokens) / 1_000_000
-        if millions >= 1 {
-            return millions.formatted(
-                .number.precision(.fractionLength(0...1))
-            ) + "M"
-        }
-        return (Double(tokens) / 1_000).formatted(
-            .number.precision(.fractionLength(0))
-        ) + "K"
+        return tokens.formatted(
+            .number
+                .notation(.compactName)
+                .precision(.fractionLength(0...1))
+        )
     }
 
     private static func weekdayLabel(_ date: Date) -> String {
@@ -375,8 +581,8 @@ struct CodexHoverDashboardView: View {
         formatter("d").string(from: date)
     }
 
-    private static func monthLabel(_ date: Date) -> String {
-        formatter("MMM").string(from: date)
+    private static func fullDateLabel(_ date: Date) -> String {
+        formatter("MMM d, yyyy").string(from: date)
     }
 
     private static func formatter(_ format: String) -> DateFormatter {
@@ -392,8 +598,7 @@ struct CodexHoverDashboardView: View {
 private struct CodexHoverQuotaRow: View {
     let title: String
     let systemImage: String
-    let window: CodexRateLimitWindow?
-    let tint: Color
+    let window: CodexRateLimitWindow
     let resetLabel: String
 
     @Environment(\.designTheme) private var theme
@@ -401,51 +606,52 @@ private struct CodexHoverQuotaRow: View {
     var body: some View {
         HStack(spacing: 6) {
             Image(systemName: systemImage)
-                .font(.system(size: 9, weight: .semibold))
-                .foregroundStyle(tint)
-                .frame(width: 13)
+                .symbolRenderingMode(.monochrome)
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(theme.textSecondary)
+                .frame(width: 15)
                 .accessibilityHidden(true)
 
             Text(title)
-                .font(.system(size: 9, weight: .semibold))
+                .font(.system(size: 10.5, weight: .semibold))
                 .foregroundStyle(theme.textPrimary)
-                .frame(width: 42, alignment: .leading)
+                .frame(width: 50, alignment: .leading)
 
             Text(remainingLabel)
-                .font(.system(size: 10, weight: .bold, design: .rounded))
-                .foregroundStyle(tint)
+                .font(.system(size: 11.5, weight: .bold, design: .rounded))
+                .foregroundStyle(valueForeground)
                 .monospacedDigit()
-                .frame(width: 41, alignment: .trailing)
+                .frame(width: 43, alignment: .trailing)
 
             Text("left")
-                .font(.system(size: 8, weight: .medium))
+                .font(.system(size: 9, weight: .medium))
                 .foregroundStyle(theme.textSecondary)
 
             GeometryReader { proxy in
-                let fraction = window?.remainingFraction ?? 0
+                let fraction = window.remainingFraction
                 ZStack(alignment: .leading) {
                     Capsule().fill(theme.dockTrack)
                     Capsule()
-                        .fill(tint)
+                        .fill(progressFill)
                         .frame(width: proxy.size.width * fraction)
                 }
             }
-            .frame(height: 5)
+            .frame(height: 6)
 
             Text(resetLabel)
-                .font(.system(size: 8, weight: .medium))
+                .font(.system(size: 9, weight: .medium))
                 .foregroundStyle(theme.textSecondary)
                 .monospacedDigit()
-                .frame(width: 66, alignment: .trailing)
+                .frame(width: 126, alignment: .trailing)
                 .lineLimit(1)
         }
-        .padding(.horizontal, 7)
-        .frame(height: 24)
-        .background(theme.opaqueSurfaceInset.opacity(0.72))
-        .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+        .padding(.horizontal, 9)
+        .frame(height: 30)
+        .background(theme.opaqueSurfaceInset)
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: 7, style: .continuous)
-                .strokeBorder(theme.outline.opacity(0.75), lineWidth: 0.5)
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .strokeBorder(theme.outline, lineWidth: 0.5)
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(title)
@@ -453,8 +659,29 @@ private struct CodexHoverQuotaRow: View {
     }
 
     private var remainingLabel: String {
-        guard let window else { return "—" }
         return "\(Int((window.remainingFraction * 100).rounded()))%"
+    }
+
+    private var progressFill: Color {
+        switch window.remainingFraction {
+        case ...0.05:
+            return theme.danger
+        case ...0.2:
+            return theme.warning
+        default:
+            return theme.action
+        }
+    }
+
+    private var valueForeground: Color {
+        switch window.remainingFraction {
+        case ...0.05:
+            return theme.dangerForeground
+        case ...0.2:
+            return theme.warningForeground
+        default:
+            return theme.textPrimary
+        }
     }
 }
 
@@ -464,22 +691,23 @@ private struct DockHoverFeatureSummaryView: View {
     @Environment(\.designTheme) private var theme
 
     var body: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 14) {
             Image(systemName: feature.systemImage)
-                .font(.system(size: 28, weight: .semibold))
+                .symbolRenderingMode(.monochrome)
+                .font(.system(size: 34, weight: .semibold))
                 .foregroundStyle(theme.actionForeground)
                 .accessibilityHidden(true)
 
             Text(feature.title)
-                .font(.system(size: 18, weight: .bold))
+                .font(.system(size: 21, weight: .bold))
                 .foregroundStyle(theme.textPrimary)
 
             Text(feature.detail)
-                .font(.system(size: 11, weight: .medium))
+                .font(.system(size: 13, weight: .medium))
                 .foregroundStyle(theme.textSecondary)
 
             Text("Detailed hover dashboard coming next")
-                .font(.system(size: 9, weight: .medium))
+                .font(.system(size: 11, weight: .medium))
                 .foregroundStyle(theme.textTertiary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -491,58 +719,60 @@ private struct DockHoverChrome<Content: View>: View {
     let pointerEdge: DockHoverPointerEdge
     @ViewBuilder let content: () -> Content
 
+    @Environment(\.designTheme) private var theme
+
     var body: some View {
         switch pointerEdge {
         case .bottom:
             VStack(spacing: 0) {
-                card.frame(height: 214)
+                card.frame(
+                    height: DockHoverPanelPlacement.panelSize.height
+                        - DockHoverPanelPlacement.pointerExtent
+                )
                 DockHoverPointerShape(direction: .down)
-                    .fill(.ultraThinMaterial)
-                    .frame(width: 20, height: 10)
+                    .fill(theme.opaqueSurfaceRaised)
+                    .frame(
+                        width: DockHoverPanelPlacement.pointerExtent * 2,
+                        height: DockHoverPanelPlacement.pointerExtent
+                    )
             }
         case .left:
             HStack(spacing: 0) {
                 DockHoverPointerShape(direction: .left)
-                    .fill(.ultraThinMaterial)
-                    .frame(width: 10, height: 20)
-                card.frame(width: 350)
+                    .fill(theme.opaqueSurfaceRaised)
+                    .frame(
+                        width: DockHoverPanelPlacement.pointerExtent,
+                        height: DockHoverPanelPlacement.pointerExtent * 2
+                    )
+                card.frame(
+                    width: DockHoverPanelPlacement.panelSize.width
+                        - DockHoverPanelPlacement.pointerExtent
+                )
             }
         case .right:
             HStack(spacing: 0) {
-                card.frame(width: 350)
+                card.frame(
+                    width: DockHoverPanelPlacement.panelSize.width
+                        - DockHoverPanelPlacement.pointerExtent
+                )
                 DockHoverPointerShape(direction: .right)
-                    .fill(.ultraThinMaterial)
-                    .frame(width: 10, height: 20)
+                    .fill(theme.opaqueSurfaceRaised)
+                    .frame(
+                        width: DockHoverPanelPlacement.pointerExtent,
+                        height: DockHoverPanelPlacement.pointerExtent * 2
+                    )
             }
         }
     }
 
     private var card: some View {
         content()
-            .padding(10)
-            .background {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .fill(.ultraThinMaterial)
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .fill(Color.black.opacity(0.42))
-                }
-            }
-            .overlay {
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .strokeBorder(
-                        LinearGradient(
-                            colors: [
-                                Color.white.opacity(0.36),
-                                Color.white.opacity(0.08)
-                            ],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        ),
-                        lineWidth: 1
-                    )
-            }
-            .shadow(color: .black.opacity(0.48), radius: 18, y: 8)
+            .padding(12)
+            .dsSurface(
+                RoundedRectangle(cornerRadius: 18, style: .continuous),
+                kind: .raised,
+                elevation: .primary
+            )
     }
 }
 
@@ -582,11 +812,17 @@ extension CodexRateLimitSnapshot {
         let calendar = Calendar(identifier: .gregorian)
         let start = calendar.date(from: DateComponents(
             year: 2026,
-            month: 8,
-            day: 18
+            month: 7,
+            day: 26
         ))!
-        let values: [Int64] = [980_000, 1_320_000, 1_560_000, 1_210_000,
-                               1_010_000, 730_000, 1_280_000]
+        let values: [Int64] = [
+            640_000, 820_000, 510_000, 940_000, 1_080_000,
+            760_000, 420_000, 1_120_000, 890_000, 1_340_000,
+            980_000, 670_000, 1_460_000, 1_150_000, 720_000,
+            1_280_000, 860_000, 1_020_000, 590_000, 1_390_000,
+            930_000, 1_180_000, 780_000, 980_000, 1_320_000,
+            1_560_000, 1_210_000, 1_010_000, 730_000, 1_280_000
+        ]
         return Self(
             planType: "pro",
             limitID: "codex",
@@ -609,7 +845,9 @@ extension CodexRateLimitSnapshot {
                 resetsAt: calendar.date(from: DateComponents(
                     year: 2026,
                     month: 8,
-                    day: 28
+                    day: 28,
+                    hour: 9,
+                    minute: 15
                 ))
             ),
             tokenUsage: CodexAccountTokenUsage(

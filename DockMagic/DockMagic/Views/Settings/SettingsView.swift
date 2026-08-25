@@ -467,7 +467,7 @@ struct SettingsView: View {
 
             DSSettingsSection(
                 title: "Dock hover dashboard",
-                detail: "Show a read-only dashboard above DockMagic when its Dock icon is hovered. Codex includes rate limits and a seven-day token chart."
+                detail: "Show a read-only dashboard above DockMagic when its Dock icon is hovered. Codex includes rate limits and a scrollable token chart for up to 30 days."
             ) {
                 VStack(spacing: DSSpacing.standard) {
                     DSSettingsRow(

@@ -273,6 +273,7 @@ Read the following documents before changing the corresponding subsystem:
 
 - [Architecture](docs/ARCHITECTURE.md)
 - [Design system](docs/DESIGN_SYSTEM.md)
+- [Color design system](docs/COLOR_DESIGN_SYSTEM.md)
 - [Sigma-inspired design-system mapping](docs/SIGMA_DESIGN_SYSTEM.md)
 - [Weather and Open-Meteo](docs/WEATHER_OPEN_METEO.md)
 - [Claude Code usage integration](docs/CLAUDE_CODE_USAGE.md)
@@ -325,9 +326,11 @@ the proposal fits DockMagic's focused Dock-tile model and privacy boundary.
   Never commit credentials, tokens, personal paths, transcripts, or private
   sample payloads.
 - Use semantic colors and shared components from `DesignSystem` instead of
-  introducing one-off visual constants. Verify UI changes in System, Light, and
-  Dark appearances, at small Dock sizes, and with relevant accessibility
-  settings.
+  introducing one-off visual constants. Follow the color budget in
+  `docs/COLOR_DESIGN_SYSTEM.md`: neutral-first, one action accent, conditional
+  semantic color, monochrome interface icons, and no product gradients. Verify
+  UI changes in System, Light, and Dark appearances, at small Dock sizes, and
+  with relevant accessibility settings.
 - Preserve existing accessibility labels and identifiers. Add them for new
   interactive controls and non-text status states.
 - Follow the existing Swift style: four-space indentation, descriptive names,

@@ -341,6 +341,7 @@ struct SearchConsoleSettingsView: View {
     }
 }
 
+@MainActor
 private struct SearchConsoleConnectionSheet: View {
     let store: SearchConsoleStore
     let dismiss: () -> Void

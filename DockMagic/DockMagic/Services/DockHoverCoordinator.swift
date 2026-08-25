@@ -258,7 +258,7 @@ final class DockHoverCoordinator {
                     appModel: self.appModel
                 )
             case .exited:
-                self.panelController.hide()
+                self.panelController.scheduleHide()
             }
         }
         if !attached {
@@ -636,17 +636,21 @@ enum DockHoverScreenGeometry {
 }
 
 enum DockHoverPanelPlacement {
-    static let panelSize = CGSize(width: 360, height: 224)
+    static let panelSize = CGSize(width: 440, height: 304)
+    static let pointerExtent: CGFloat = 10
+    static let iconClearance: CGFloat = 2
+    static let windowLevel = NSWindow.Level(
+        rawValue: NSWindow.Level.popUpMenu.rawValue + 1
+    )
 
     static func frame(
-        anchor: DockHoverAnchor,
-        gap: CGFloat = 14
+        anchor: DockHoverAnchor
     ) -> CGRect {
         frame(
             iconFrame: anchor.iconFrame,
             pointerEdge: anchor.pointerEdge,
             visibleFrame: anchor.screen.visibleFrame,
-            gap: gap
+            screenFrame: anchor.screen.frame
         )
     }
 
@@ -654,35 +658,46 @@ enum DockHoverPanelPlacement {
         iconFrame: CGRect,
         pointerEdge: DockHoverPointerEdge,
         visibleFrame: CGRect,
-        gap: CGFloat = 14
+        screenFrame: CGRect? = nil
     ) -> CGRect {
         var origin: CGPoint
         switch pointerEdge {
         case .bottom:
             origin = CGPoint(
                 x: iconFrame.midX - panelSize.width / 2,
-                y: iconFrame.maxY + max(gap, 24)
+                y: iconFrame.maxY + iconClearance
             )
         case .left:
             origin = CGPoint(
-                x: iconFrame.maxX + gap,
+                x: iconFrame.maxX + iconClearance,
                 y: iconFrame.midY - panelSize.height / 2
             )
         case .right:
             origin = CGPoint(
-                x: iconFrame.minX - panelSize.width - gap,
+                x: iconFrame.minX - panelSize.width - iconClearance,
                 y: iconFrame.midY - panelSize.height / 2
             )
         }
 
         let visible = visibleFrame.insetBy(dx: 8, dy: 8)
+        let screen = (screenFrame ?? visibleFrame).insetBy(dx: 8, dy: 8)
+        let minimumX = pointerEdge == .left
+            ? screen.minX
+            : visible.minX
+        let maximumX = pointerEdge == .right
+            ? screen.maxX - panelSize.width
+            : visible.maxX - panelSize.width
+        let minimumY = pointerEdge == .bottom
+            ? screen.minY
+            : visible.minY
+        let maximumY = visible.maxY - panelSize.height
         origin.x = min(
-            max(origin.x, visible.minX),
-            max(visible.minX, visible.maxX - panelSize.width)
+            max(origin.x, minimumX),
+            max(minimumX, maximumX)
         )
         origin.y = min(
-            max(origin.y, visible.minY),
-            max(visible.minY, visible.maxY - panelSize.height)
+            max(origin.y, minimumY),
+            max(minimumY, maximumY)
         )
         return CGRect(origin: origin, size: panelSize)
     }
@@ -692,8 +707,11 @@ enum DockHoverPanelPlacement {
 final class DockHoverPanelController {
     private var panel: DockHoverPanel?
     private var hostingView: NSHostingView<AnyView>?
+    private var pendingHideTask: Task<Void, Never>?
 
     func show(anchor: DockHoverAnchor, appModel: DockAppModel) {
+        pendingHideTask?.cancel()
+        pendingHideTask = nil
         let rootView = AnyView(
             DockHoverDashboardRoot(
                 appModel: appModel,
@@ -713,7 +731,31 @@ final class DockHoverPanelController {
     }
 
     func hide() {
+        pendingHideTask?.cancel()
+        pendingHideTask = nil
         panel?.orderOut(nil)
+    }
+
+    func scheduleHide() {
+        pendingHideTask?.cancel()
+        pendingHideTask = Task { @MainActor [weak self] in
+            do {
+                try await Task.sleep(for: .milliseconds(160))
+                guard let self, let panel = self.panel else { return }
+
+                while panel.isVisible,
+                      panel.frame.contains(NSEvent.mouseLocation) {
+                    try await Task.sleep(for: .milliseconds(100))
+                }
+
+                try await Task.sleep(for: .milliseconds(120))
+                try Task.checkCancellation()
+                panel.orderOut(nil)
+                self.pendingHideTask = nil
+            } catch {
+                return
+            }
+        }
     }
 
     private func makePanel(rootView: AnyView) -> DockHoverPanel {
@@ -736,8 +778,9 @@ final class DockHoverPanelController {
         panel.isMovableByWindowBackground = false
         panel.isReleasedWhenClosed = false
         panel.hidesOnDeactivate = false
-        panel.ignoresMouseEvents = true
-        panel.level = .popUpMenu
+        panel.ignoresMouseEvents = false
+        panel.acceptsMouseMovedEvents = true
+        panel.level = DockHoverPanelPlacement.windowLevel
         panel.collectionBehavior = [
             .canJoinAllSpaces,
             .fullScreenAuxiliary,

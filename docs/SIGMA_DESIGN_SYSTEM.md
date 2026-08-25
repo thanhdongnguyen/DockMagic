@@ -6,6 +6,12 @@ DockMagic applies the **public principles and tokens** of Sigma Design System 3
 (DS3) to its own SwiftUI/AppKit design system. This is not a port, a clone, or
 a claim of official compatibility with Sigma.
 
+The hue tables in this document are reference inputs, not a license to display
+the full palette in one interface. DockMagic's normative runtime color budget,
+semantic usage, exceptions, and no-gradient rule live in
+[COLOR_DESIGN_SYSTEM.md](COLOR_DESIGN_SYSTEM.md) and take precedence over
+legacy examples in this research mapping.
+
 Public research sources:
 
 - [Sigma Design System](https://www.thesigma.co/designsystem) and the

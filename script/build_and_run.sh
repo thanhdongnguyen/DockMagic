@@ -16,6 +16,7 @@ stop_running_app() {
 }
 
 build_app() {
+  rm -rf "$APP_BUNDLE"
   xcodebuild \
     -project "$PROJECT_PATH" \
     -scheme "$APP_NAME" \

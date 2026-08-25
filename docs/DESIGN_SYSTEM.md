@@ -18,6 +18,13 @@ DockMagicThemeRoot
   └─ installs the selected theme, tint, and appearance at the scene/AppKit host boundary
 ```
 
+The normative color-usage contract is defined in
+[COLOR_DESIGN_SYSTEM.md](COLOR_DESIGN_SYSTEM.md). It limits normal UI to a
+neutral family plus one action accent, permits semantic color only when it
+carries state, and prohibits product gradients. This document defines the
+broader component and appearance architecture; the color contract wins if a
+legacy example conflicts with it.
+
 Feature views do not create one-off materials, shadows, focus rings, or status
 colors. Dock ring and chart colors are preferences owned by the product model
 because users can change them; a renderer receives only the corresponding
@@ -59,6 +66,11 @@ are personal choices and may not carry a consistent meaning outside the
 renderer. The Weather condition palette is part of the renderer, while
 freshness and error badges still use the semantic `warning` and `danger` roles.
 
+Semantic roles are not permission to show every hue simultaneously. Normal
+chrome is neutral plus `action`; information, processing, warning, and danger
+replace the local accent only when a real state requires them. See the color
+budget and bounded exceptions in `COLOR_DESIGN_SYSTEM.md`.
+
 ## 4. Foundation tokens
 
 | Group | Contract |
@@ -98,9 +110,10 @@ elevation.
   clamping model.
 - Storage uses one ring. Network uses two series that diverge around a baseline,
   share a scale, and do not reuse the ring metaphor.
-- Weather does not use a ring: its gradient, condition symbol, and temperature
-  establish reading order. H/L appears only when the tile is large enough to
-  preserve the 32/48 pt layouts.
+- Weather does not use a ring: a solid semantic background, condition symbol,
+  and temperature establish reading order. H/L appears only when the tile is
+  large enough to preserve the 32/48 pt layouts. Existing gradients are legacy
+  migration debt and are not precedent for new renderer work.
 - Tracks, backgrounds, and outlines use semantic assets.
 - Progress is not communicated by color alone: the renderer provides complete
   accessibility labels and values.
@@ -130,9 +143,11 @@ elevation.
 2. Use existing tokens and components. When something is missing, add a shared
    primitive with the appropriate hover, pressed, focus, disabled, and error
    states.
-3. Test Light, Dark, and Liquid appearances; Increased Contrast; Reduce
+3. Apply the color budget: neutral plus one accent in normal UI, semantic color
+   only for real state, monochrome interface icons, and no product gradients.
+4. Test Light, Dark, and Liquid appearances; Increased Contrast; Reduce
    Transparency; Reduce Motion; pointer and keyboard input; and long content.
-4. Check AX uniqueness and hittability, not just existence.
-5. Render the Dock at 32/48/64/128 pt and inspect a Settings runtime screenshot.
-6. Before release, observe the real system Dock at multiple sizes and positions;
+5. Check AX uniqueness and hittability, not just existence.
+6. Render the Dock at 32/48/64/128 pt and inspect a Settings runtime screenshot.
+7. Before release, observe the real system Dock at multiple sizes and positions;
    snapshots and the AX tree do not prove the compositor's final output.

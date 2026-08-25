@@ -23,8 +23,9 @@ Những phần đã có trong source hiện tại:
 - health check/reattach khi Dock PID hoặc tree thay đổi, đồng thời đọc lại
   selected child mỗi 5 giây làm fallback nếu notification bị bỏ lỡ;
 - `NSPanel` thụ động, non-activating, được clamp theo màn hình/cạnh Dock;
-- popup Codex 360×224 gồm 5-hour/weekly rate limits, lifetime tokens và chart
-  daily token usage bảy ngày đọc từ Codex App Server `account/usage/read`;
+- popup Codex 440×304 gồm 5-hour/weekly rate limits, lifetime tokens và chart
+  daily token usage cuộn ngang tối đa 30 ngày đọc từ Codex App Server
+  `account/usage/read`;
 - fallback an toàn khi Codex CLI chưa hỗ trợ method usage mới;
 - unit tests cho parser, permission state machine, panel placement và
   reference-render test cho popup.
@@ -385,7 +386,7 @@ DockAppModel.hoverPresentation
 | Weather | `idle/loading/live/stale/unavailable` | Condition, temperature, feels-like, high/low, precipitation, location | Hiện stale/error rõ ràng |
 | Batteries | Danh sách device snapshot | Mac và accessories, phần trăm, charging state | Có thể nhiều hơn 4 device; panel rộng phù hợp hơn Dock icon |
 | GitHub | History tối đa 7 ngày, poll 15 phút khi active | Stars/forks hiện tại + delta + 7-day trend | Không hiển thị token; empty/not-configured state riêng |
-| Codex | Five-hour/weekly snapshot + aggregate account usage | Remaining %, reset time, lifetime tokens và daily token chart bảy ngày | Đọc `account/rateLimits/read` và experimental `account/usage/read`; không inspect prompt/conversation |
+| Codex | Five-hour/weekly snapshot + aggregate account usage | Remaining %, reset time, lifetime tokens và daily token chart cuộn ngang tối đa 30 ngày | Đọc `account/rateLimits/read` và experimental `account/usage/read`; không inspect prompt/conversation |
 | Claude Code | Cùng normalized usage model | Remaining %, reset time, bridge/status | Không hiển thị path/secret nội bộ |
 | Search Console | Snapshot có dated points và config time range/metric/mode | Chart hoặc numbers theo config đang chọn + property label rút gọn | Không render private key/client email trong hover card |
 

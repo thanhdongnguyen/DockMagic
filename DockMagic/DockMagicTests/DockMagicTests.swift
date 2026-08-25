@@ -377,7 +377,7 @@ final class DockMagicTests: XCTestCase {
         controller.stop()
     }
 
-    func testDockHoverPanelPlacementStaysInsideVisibleScreen() {
+    func testDockHoverPanelPlacementCoversSystemLabelAndStaysOnScreen() {
         let visibleFrame = CGRect(x: 0, y: 0, width: 1_440, height: 900)
         let centered = DockHoverPanelPlacement.frame(
             iconFrame: CGRect(x: 688, y: 0, width: 64, height: 64),
@@ -385,7 +385,7 @@ final class DockMagicTests: XCTestCase {
             visibleFrame: visibleFrame
         )
         XCTAssertEqual(centered.midX, 720, accuracy: 0.001)
-        XCTAssertEqual(centered.minY, 88, accuracy: 0.001)
+        XCTAssertEqual(centered.minY, 66, accuracy: 0.001)
 
         let rightEdge = DockHoverPanelPlacement.frame(
             iconFrame: CGRect(x: 1_400, y: 0, width: 40, height: 40),
@@ -400,9 +400,55 @@ final class DockMagicTests: XCTestCase {
             pointerEdge: .left,
             visibleFrame: visibleFrame
         )
-        XCTAssertEqual(sideDock.minX, 78, accuracy: 0.001)
+        XCTAssertEqual(sideDock.minX, 66, accuracy: 0.001)
         XCTAssertGreaterThanOrEqual(sideDock.minY, 8)
         XCTAssertLessThanOrEqual(sideDock.maxY, 892)
+
+        let rightDock = DockHoverPanelPlacement.frame(
+            iconFrame: CGRect(x: 1_376, y: 400, width: 64, height: 64),
+            pointerEdge: .right,
+            visibleFrame: visibleFrame
+        )
+        XCTAssertEqual(rightDock.maxX, 1_374, accuracy: 0.001)
+        XCTAssertGreaterThanOrEqual(rightDock.minY, 8)
+        XCTAssertLessThanOrEqual(rightDock.maxY, 892)
+
+        let bottomDockVisibleFrame = CGRect(
+            x: 0,
+            y: 72,
+            width: 1_440,
+            height: 828
+        )
+        let bottomDockIconFrame = CGRect(x: 688, y: 5, width: 64, height: 65)
+        let loweredBottomDock = DockHoverPanelPlacement.frame(
+            iconFrame: bottomDockIconFrame,
+            pointerEdge: .bottom,
+            visibleFrame: bottomDockVisibleFrame,
+            screenFrame: visibleFrame
+        )
+        XCTAssertEqual(loweredBottomDock.minY, 72, accuracy: 0.001)
+        XCTAssertEqual(
+            loweredBottomDock.minY,
+            bottomDockVisibleFrame.minY,
+            accuracy: 0.001
+        )
+        XCTAssertEqual(
+            loweredBottomDock.minY,
+            bottomDockIconFrame.maxY
+                + DockHoverPanelPlacement.iconClearance,
+            accuracy: 0.001
+        )
+        XCTAssertGreaterThan(
+            loweredBottomDock.minY,
+            bottomDockIconFrame.maxY
+        )
+
+        XCTAssertGreaterThan(
+            DockHoverPanelPlacement.windowLevel.rawValue,
+            NSWindow.Level.popUpMenu.rawValue
+        )
+        XCTAssertEqual(DockHoverPanelPlacement.panelSize.width, 440)
+        XCTAssertEqual(DockHoverPanelPlacement.panelSize.height, 304)
     }
 
     @MainActor
@@ -2779,7 +2825,7 @@ final class DockMagicTests: XCTestCase {
     }
 
     @MainActor
-    func testCodexHoverDashboardOptionTwoReferenceRender() async throws {
+    func testCodexHoverDashboardMinimalColorRender() async throws {
         let suiteName = "DockMagicTests.CodexHoverRender.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
         defaults.removePersistentDomain(forName: suiteName)
@@ -2802,17 +2848,305 @@ final class DockMagicTests: XCTestCase {
             codexStore: codexStore
         )
 
-        let data = try renderPNG(
+        let variants: [(String, DSAppearanceMode, NSAppearance.Name)] = [
+            ("Dark", .dark, .darkAqua),
+            ("Light", .light, .aqua)
+        ]
+        var renderedVariants: [Data] = []
+
+        for (label, mode, appearanceName) in variants {
+            let name = "Codex Hover — Minimal Color — \(label)"
+            let data = try renderPNG(
+                of: DockHoverDashboardRoot(
+                    appModel: appModel,
+                    pointerEdge: .bottom,
+                    appearanceMode: mode
+                ),
+                size: DockHoverPanelPlacement.panelSize,
+                appearanceName: appearanceName,
+                name: name
+            )
+            XCTAssertGreaterThan(data.count, 12_000)
+            attachPNG(data, name: name)
+            renderedVariants.append(data)
+        }
+
+        XCTAssertEqual(renderedVariants.count, 2)
+        XCTAssertNotEqual(renderedVariants[0], renderedVariants[1])
+
+        let accessibilityVariants: [(String, DSAccessibilityOverrides)] = [
+            (
+                "Increased Contrast",
+                DSAccessibilityOverrides(increaseContrast: true)
+            ),
+            (
+                "Reduced Transparency",
+                DSAccessibilityOverrides(reduceTransparency: true)
+            )
+        ]
+        for (label, overrides) in accessibilityVariants {
+            let name = "Codex Hover — Minimal Color — \(label)"
+            let data = try renderPNG(
+                of: DockHoverDashboardRoot(
+                    appModel: appModel,
+                    pointerEdge: .bottom,
+                    appearanceMode: .dark
+                )
+                .environment(\.dsAccessibilityOverrides, overrides),
+                size: DockHoverPanelPlacement.panelSize,
+                appearanceName: .darkAqua,
+                name: name
+            )
+            XCTAssertGreaterThan(data.count, 12_000)
+            attachPNG(data, name: name)
+        }
+
+        let fullPreview = CodexRateLimitSnapshot.hoverDesignPreview
+        let weeklyOnlySnapshot = CodexRateLimitSnapshot(
+            planType: "plus",
+            limitID: fullPreview.limitID,
+            fiveHour: nil,
+            weekly: fullPreview.weekly,
+            tokenUsage: fullPreview.tokenUsage,
+            fetchedAt: fullPreview.fetchedAt
+        )
+        let weeklyOnlyStore = CodexUsageStore(
+            provider: ScriptedCodexProvider([.success(weeklyOnlySnapshot)]),
+            locator: StubCodexLocator(),
+            pollingInterval: .seconds(60)
+        )
+        await weeklyOnlyStore.refresh()
+        let weeklyOnlyModel = DockAppModel(
+            preferences: DockPreferencesStore(defaults: defaults),
+            codexStore: weeklyOnlyStore
+        )
+        let weeklyOnlyName = "Codex Hover — Plus — Weekly Only"
+        let weeklyOnly = try renderPNG(
+            of: DockHoverDashboardRoot(
+                appModel: weeklyOnlyModel,
+                pointerEdge: .bottom,
+                appearanceMode: .dark
+            ),
+            size: DockHoverPanelPlacement.panelSize,
+            appearanceName: .darkAqua,
+            name: weeklyOnlyName
+        )
+        XCTAssertGreaterThan(weeklyOnly.count, 12_000)
+        attachPNG(weeklyOnly, name: weeklyOnlyName)
+
+        let hoveredBucketID = fullPreview.tokenUsage?
+            .dailyUsageBuckets
+            .suffix(7)
+            .dropLast(2)
+            .last?
+            .id
+        let hoveredName = "Codex Hover — Token Hover"
+        let hovered = try renderPNG(
             of: DockHoverDashboardRoot(
                 appModel: appModel,
-                pointerEdge: .bottom
+                pointerEdge: .bottom,
+                appearanceMode: .dark,
+                initialHoveredBucketID: hoveredBucketID
             ),
-            size: NSSize(width: 360, height: 224),
+            size: DockHoverPanelPlacement.panelSize,
             appearanceName: .darkAqua,
-            name: "Codex Hover — Option 2"
+            name: hoveredName
         )
-        XCTAssertGreaterThan(data.count, 12_000)
-        attachPNG(data, name: "Codex Hover — Option 2")
+        XCTAssertGreaterThan(hovered.count, 12_000)
+        XCTAssertNotEqual(hovered, renderedVariants[0])
+        attachPNG(hovered, name: hoveredName)
+    }
+
+    func testCodexHoverPresentationUsesOnlyAvailableLimitsAndThirtyDays() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = .current
+        let reset = calendar.date(from: DateComponents(
+            year: 2026,
+            month: 8,
+            day: 28,
+            hour: 9,
+            minute: 15
+        ))!
+        let weekly = CodexRateLimitWindow(
+            kind: .weekly,
+            usedPercent: 40,
+            windowDurationMinutes: 10_080,
+            resetsAt: reset
+        )
+        let start = calendar.date(from: DateComponents(
+            year: 2026,
+            month: 7,
+            day: 21,
+            hour: 12
+        ))!
+        let buckets = (0..<35).map { index in
+            CodexTokenUsageDailyBucket(
+                startDate: calendar.date(
+                    byAdding: .day,
+                    value: index,
+                    to: start
+                )!,
+                tokens: Int64((index + 1) * 10_000)
+            )
+        }
+        let usage = CodexAccountTokenUsage(
+            lifetimeTokens: nil,
+            peakDailyTokens: nil,
+            currentStreakDays: nil,
+            longestStreakDays: nil,
+            longestRunningTurnSeconds: nil,
+            dailyUsageBuckets: buckets
+        )
+        let snapshot = CodexRateLimitSnapshot(
+            planType: "plus",
+            limitID: "codex",
+            fiveHour: nil,
+            weekly: weekly,
+            tokenUsage: usage,
+            fetchedAt: reset
+        )
+
+        let visibleWindows = CodexHoverDashboardPresentation
+            .visibleQuotaWindows(in: snapshot)
+        XCTAssertEqual(visibleWindows.map(\.kind), [.weekly])
+
+        let visibleBuckets = CodexHoverDashboardPresentation.chartBuckets(
+            from: usage
+        )
+        XCTAssertEqual(visibleBuckets.count, 30)
+        XCTAssertEqual(visibleBuckets.first?.id, buckets[5].id)
+        XCTAssertEqual(visibleBuckets.last?.id, buckets[34].id)
+        XCTAssertEqual(
+            CodexHoverDashboardPresentation.resetLabel(for: weekly),
+            "Resets Aug 28, 9:15 AM"
+        )
+    }
+
+    func testCodexHoverDashboardFollowsColorDesignSystemSourceContract() throws {
+        let projectDirectory = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let sourceURL = projectDirectory.appendingPathComponent(
+            "DockMagic/Views/Hover/CodexHoverDashboardView.swift"
+        )
+        let source = try String(contentsOf: sourceURL, encoding: .utf8)
+        let forbiddenPatterns = [
+            "LinearGradient(",
+            "RadialGradient(",
+            "AngularGradient(",
+            ".ultraThinMaterial",
+            "Color.black",
+            "Color.white",
+            "appearance.outerColor",
+            "appearance.innerColor",
+            "DockRingAppearance",
+            "import Charts",
+            "Updated just now",
+            "\"Live\""
+        ]
+
+        for pattern in forbiddenPatterns {
+            XCTAssertFalse(
+                source.contains(pattern),
+                "Codex hover must not contain \(pattern)."
+            )
+        }
+
+        XCTAssertTrue(source.contains("Image(\"CodexLogo\")"))
+        XCTAssertTrue(source.contains(".fill(theme.action)"))
+        XCTAssertTrue(source.contains(".dsSurface("))
+        XCTAssertTrue(source.contains(".symbolRenderingMode(.monochrome)"))
+        XCTAssertTrue(source.contains("ScrollView(.horizontal"))
+        XCTAssertTrue(source.contains(".onHover"))
+        XCTAssertTrue(source.contains(".help("))
+        XCTAssertTrue(source.contains("maximumChartDays = 30"))
+        XCTAssertTrue(source.contains("case \"pro\":"))
+        XCTAssertTrue(source.contains("\"crown.fill\""))
+        XCTAssertTrue(source.contains("case \"plus\":"))
+        XCTAssertTrue(source.contains("\"sparkles\""))
+    }
+
+    func testDockHoverPopupSourceAllowsChartPointerInteraction() throws {
+        let projectDirectory = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let sourceURL = projectDirectory.appendingPathComponent(
+            "DockMagic/Services/DockHoverCoordinator.swift"
+        )
+        let source = try String(contentsOf: sourceURL, encoding: .utf8)
+
+        XCTAssertTrue(source.contains("panelController.scheduleHide()"))
+        XCTAssertTrue(source.contains("panel.ignoresMouseEvents = false"))
+        XCTAssertTrue(source.contains("panel.acceptsMouseMovedEvents = true"))
+        XCTAssertTrue(source.contains("panel.frame.contains(NSEvent.mouseLocation)"))
+    }
+
+    @MainActor
+    func testCodexTokenHistoryChartCreatesScrollableViewportAndHoverTracking() throws {
+        let buckets = try XCTUnwrap(
+            CodexRateLimitSnapshot.hoverDesignPreview
+                .tokenUsage?
+                .dailyUsageBuckets
+        )
+        let hoverState = CodexHoverTestState()
+        let binding = Binding<Date?>(
+            get: { hoverState.hoveredBucketID },
+            set: { hoverState.hoveredBucketID = $0 }
+        )
+        let hostingView = NSHostingView(
+            rootView: DockMagicThemeRoot(
+                content: CodexTokenHistoryChart(
+                    buckets: buckets,
+                    hoveredBucketID: binding,
+                    plotHeight: 88
+                ),
+                appearanceMode: .dark
+            )
+            .frame(width: 400, height: 126)
+        )
+        let window = NSWindow(
+            contentRect: NSRect(x: 120, y: 120, width: 400, height: 126),
+            styleMask: [.borderless],
+            backing: .buffered,
+            defer: false
+        )
+        window.isReleasedWhenClosed = false
+        window.acceptsMouseMovedEvents = true
+        window.contentView = hostingView
+        window.makeKeyAndOrderFront(nil)
+        defer {
+            window.contentView = nil
+            window.close()
+        }
+
+        RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.2))
+        hostingView.layoutSubtreeIfNeeded()
+
+        let scrollView = try XCTUnwrap(
+            firstSubview(of: NSScrollView.self, in: hostingView)
+        )
+        let documentView = try XCTUnwrap(scrollView.documentView)
+        XCTAssertGreaterThan(
+            documentView.bounds.width,
+            scrollView.contentView.bounds.width * 2
+        )
+        XCTAssertTrue(scrollView.hasHorizontalScroller)
+
+        let latestOffset = scrollView.contentView.bounds.origin.x
+        XCTAssertGreaterThan(latestOffset, 0)
+        scrollView.contentView.scroll(to: .zero)
+        scrollView.reflectScrolledClipView(scrollView.contentView)
+        XCTAssertLessThan(
+            scrollView.contentView.bounds.origin.x,
+            latestOffset
+        )
+
+        let trackingAreaCount = countTrackingAreas(in: hostingView)
+        XCTAssertGreaterThan(
+            trackingAreaCount,
+            0,
+            "The chart should install AppKit pointer hover tracking."
+        )
     }
 
     @MainActor
@@ -4031,10 +4365,39 @@ final class DockMagicTests: XCTestCase {
         add(attachment)
     }
 
+    @MainActor
+    private func firstSubview<ViewType: NSView>(
+        of type: ViewType.Type,
+        in root: NSView
+    ) -> ViewType? {
+        if let match = root as? ViewType {
+            return match
+        }
+        for subview in root.subviews {
+            if let match = firstSubview(of: type, in: subview) {
+                return match
+            }
+        }
+        return nil
+    }
+
+    @MainActor
+    private func countTrackingAreas(in root: NSView) -> Int {
+        root.trackingAreas.count
+            + root.subviews.reduce(0) { count, subview in
+                count + countTrackingAreas(in: subview)
+            }
+    }
+
     private enum RenderingError: Error {
         case bitmapAllocationFailed
         case pngEncodingFailed
     }
+}
+
+@MainActor
+private final class CodexHoverTestState {
+    var hoveredBucketID: Date?
 }
 
 private actor SequenceMetricsSampler: SystemMetricsSampling {
