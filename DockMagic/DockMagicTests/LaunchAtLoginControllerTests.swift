@@ -59,18 +59,19 @@ final class LaunchAtLoginControllerTests: XCTestCase {
     }
 
     @MainActor
-    func testControllerRefreshesExternalSystemStatus() {
+    func testControllerRegistersWhenSystemStatusIsNotFound() {
         let service = FakeLaunchAtLoginService(status: .notFound)
         let controller = LaunchAtLoginController(service: service)
 
-        XCTAssertEqual(controller.state, .unavailable)
-        XCTAssertFalse(controller.state.canChange)
+        XCTAssertEqual(controller.state, .disabled)
+        XCTAssertFalse(controller.state.isRequested)
 
-        service.status = .enabled
-        controller.refresh()
+        controller.setEnabled(true)
 
+        XCTAssertEqual(service.registerCallCount, 1)
         XCTAssertEqual(controller.state, .enabled)
-        XCTAssertTrue(controller.state.canChange)
+        XCTAssertTrue(controller.state.isRequested)
+        XCTAssertNil(controller.errorDescription)
     }
 }
 

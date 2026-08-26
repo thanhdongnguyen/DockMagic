@@ -23,6 +23,13 @@ struct CodexTokenUsageDailyBucket: Codable, Equatable, Identifiable, Sendable {
     var id: Date { startDate }
 }
 
+struct CodexModelTokenUsage: Codable, Equatable, Identifiable, Sendable {
+    let model: String
+    let tokens: Int64
+
+    var id: String { model }
+}
+
 struct CodexAccountTokenUsage: Codable, Equatable, Sendable {
     let lifetimeTokens: Int64?
     let peakDailyTokens: Int64?
@@ -30,6 +37,28 @@ struct CodexAccountTokenUsage: Codable, Equatable, Sendable {
     let longestStreakDays: Int64?
     let longestRunningTurnSeconds: Int64?
     let dailyUsageBuckets: [CodexTokenUsageDailyBucket]
+    let modelUsage: [CodexModelTokenUsage]?
+    let isModelUsagePartial: Bool?
+
+    init(
+        lifetimeTokens: Int64?,
+        peakDailyTokens: Int64?,
+        currentStreakDays: Int64?,
+        longestStreakDays: Int64?,
+        longestRunningTurnSeconds: Int64?,
+        dailyUsageBuckets: [CodexTokenUsageDailyBucket],
+        modelUsage: [CodexModelTokenUsage]? = nil,
+        isModelUsagePartial: Bool? = nil
+    ) {
+        self.lifetimeTokens = lifetimeTokens
+        self.peakDailyTokens = peakDailyTokens
+        self.currentStreakDays = currentStreakDays
+        self.longestStreakDays = longestStreakDays
+        self.longestRunningTurnSeconds = longestRunningTurnSeconds
+        self.dailyUsageBuckets = dailyUsageBuckets
+        self.modelUsage = modelUsage
+        self.isModelUsagePartial = isModelUsagePartial
+    }
 
     var latestDailyTokens: Int64? {
         dailyUsageBuckets.last?.tokens

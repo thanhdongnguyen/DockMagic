@@ -478,7 +478,6 @@ struct SettingsView: View {
                         )
                         .labelsHidden()
                         .toggleStyle(.switch)
-                        .disabled(!launchAtLoginController.state.canChange)
                         .accessibilityIdentifier(
                             "settings.launchAtLogin.toggle"
                         )

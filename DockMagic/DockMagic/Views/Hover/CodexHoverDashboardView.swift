@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 enum DockHoverPointerEdge: Sendable {
@@ -13,13 +14,19 @@ struct DockHoverDashboardRoot: View {
     let panelSize: CGSize
     var appearanceMode: DSAppearanceMode = .dark
     var initialHoveredBucketID: Date?
+    var initialIntensityHoveredBucketID: Date?
+    var showsCaptureControls: Bool
+    var initialCaptureMenuPresented: Bool
 
     init(
         appModel: DockAppModel,
         pointerEdge: DockHoverPointerEdge,
         panelSize: CGSize? = nil,
         appearanceMode: DSAppearanceMode = .dark,
-        initialHoveredBucketID: Date? = nil
+        initialHoveredBucketID: Date? = nil,
+        initialIntensityHoveredBucketID: Date? = nil,
+        showsCaptureControls: Bool = true,
+        initialCaptureMenuPresented: Bool = false
     ) {
         self.appModel = appModel
         self.pointerEdge = pointerEdge
@@ -29,6 +36,9 @@ struct DockHoverDashboardRoot: View {
             )
         self.appearanceMode = appearanceMode
         self.initialHoveredBucketID = initialHoveredBucketID
+        self.initialIntensityHoveredBucketID = initialIntensityHoveredBucketID
+        self.showsCaptureControls = showsCaptureControls
+        self.initialCaptureMenuPresented = initialCaptureMenuPresented
     }
 
     var body: some View {
@@ -52,7 +62,18 @@ struct DockHoverDashboardRoot: View {
                 case .codex:
                     CodexHoverDashboardView(
                         state: appModel.codexStore.state,
-                        initialHoveredBucketID: initialHoveredBucketID
+                        initialHoveredBucketID: initialHoveredBucketID,
+                        initialIntensityHoveredBucketID:
+                            initialIntensityHoveredBucketID,
+                        captureConfiguration: showsCaptureControls
+                            ? CodexDashboardCaptureConfiguration(
+                                pointerEdge: pointerEdge,
+                                panelSize: panelSize,
+                                appearanceMode: appearanceMode
+                            )
+                            : nil,
+                        initialCaptureMenuPresented:
+                            initialCaptureMenuPresented
                     )
                 case .claudeCode:
                     ClaudeCodeHoverDashboardView(
@@ -77,28 +98,68 @@ struct DockHoverDashboardRoot: View {
 @MainActor
 struct CodexHoverDashboardView: View {
     let state: CodexUsageState
+    let initialIntensityHoveredBucketID: Date?
+    let captureConfiguration: CodexDashboardCaptureConfiguration?
 
     @Environment(\.designTheme) private var theme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var hoveredBucketID: Date?
+    @State private var isCaptureButtonHovered = false
+    @State private var isCaptureMenuPresented: Bool
+    @State private var captureErrorText: String?
+    @State private var pendingShareURL: URL?
 
     init(
         state: CodexUsageState,
-        initialHoveredBucketID: Date? = nil
+        initialHoveredBucketID: Date? = nil,
+        initialIntensityHoveredBucketID: Date? = nil,
+        captureConfiguration: CodexDashboardCaptureConfiguration? = nil,
+        initialCaptureMenuPresented: Bool = false
     ) {
         self.state = state
+        self.initialIntensityHoveredBucketID = initialIntensityHoveredBucketID
+        self.captureConfiguration = captureConfiguration
         _hoveredBucketID = State(initialValue: initialHoveredBucketID)
+        _isCaptureMenuPresented = State(
+            initialValue: initialCaptureMenuPresented
+        )
     }
 
     var body: some View {
-        VStack(spacing: 7) {
-            header
-            quotaRows
-            tokenHeader
-            tokenChart
-            shipMomentumCard
-            Spacer(minLength: 0)
+        ZStack(alignment: .topTrailing) {
+            VStack(spacing: 7) {
+                header
+                quotaRows
+                tokenHeader
+                tokenChart
+                shipMomentumCard
+                usageInsights
+                Spacer(minLength: 0)
+            }
+
+            if isCaptureMenuPresented, captureConfiguration != nil {
+                captureMenu
+                    .padding(.top, 29)
+                    .zIndex(2)
+                    .transition(
+                        .opacity.combined(
+                            with: .scale(
+                                scale: 0.96,
+                                anchor: .topTrailing
+                            )
+                        )
+                    )
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(alignment: .topTrailing) {
+            CodexDashboardSharePresenter(itemURL: $pendingShareURL)
+                .frame(width: 1, height: 1)
+                .opacity(0.001)
+        }
+        .onExitCommand {
+            setCaptureMenuPresented(false)
+        }
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Codex usage dashboard")
     }
@@ -143,6 +204,10 @@ struct CodexHoverDashboardView: View {
 
             Spacer(minLength: 4)
 
+            if captureConfiguration != nil {
+                captureButton
+            }
+
             if let lifetimeTokens = tokenUsage?.lifetimeTokens {
                 HStack(alignment: .firstTextBaseline, spacing: 3) {
                     Text(Self.tokenLabel(lifetimeTokens))
@@ -159,6 +224,223 @@ struct CodexHoverDashboardView: View {
             }
         }
         .frame(height: 30)
+    }
+
+    private var captureButton: some View {
+        Button {
+            captureErrorText = nil
+            setCaptureMenuPresented(!isCaptureMenuPresented)
+        } label: {
+            Image(systemName: "square.and.arrow.up")
+                .symbolRenderingMode(.monochrome)
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(theme.textPrimary)
+                .frame(width: 26, height: 26)
+                .background {
+                    RoundedRectangle(cornerRadius: 7, style: .continuous)
+                        .fill(theme.opaqueSurfaceInset)
+                        .opacity(
+                            isCaptureButtonHovered || isCaptureMenuPresented
+                                ? 1
+                                : 0
+                        )
+                }
+                .overlay {
+                    RoundedRectangle(cornerRadius: 7, style: .continuous)
+                        .strokeBorder(
+                            isCaptureMenuPresented
+                                ? theme.outlineStrong
+                                : theme.outline,
+                            lineWidth: isCaptureMenuPresented ? 1 : 0.5
+                        )
+                        .opacity(
+                            isCaptureButtonHovered || isCaptureMenuPresented
+                                ? 1
+                                : 0
+                        )
+                }
+        }
+        .buttonStyle(.plain)
+        .contentShape(Rectangle())
+        .onHover { isHovering in
+            isCaptureButtonHovered = isHovering
+        }
+        .help("Capture dashboard")
+        .accessibilityLabel("Capture dashboard")
+        .accessibilityHint("Opens high-resolution PNG export options")
+        .accessibilityIdentifier("codex.capture.button")
+    }
+
+    private var captureMenu: some View {
+        VStack(alignment: .trailing, spacing: 0) {
+            DockHoverPointerShape(direction: .up)
+                .fill(theme.opaqueSurfaceRaised)
+                .overlay {
+                    DockHoverPointerShape(direction: .up)
+                        .stroke(theme.outline, lineWidth: 0.75)
+                }
+                .frame(width: 12, height: 7)
+                .padding(.trailing, capturePointerTrailingPadding)
+
+            VStack(spacing: 1) {
+                captureMenuRow(
+                    title: "Save 4× PNG",
+                    subtitle: capturePixelSizeLabel,
+                    systemImage: "photo",
+                    isPrimary: true,
+                    accessibilityHint:
+                        "Opens a save panel for the high-resolution PNG",
+                    action: saveDashboard
+                )
+                captureMenuRow(
+                    title: "Copy image",
+                    systemImage: "doc.on.doc",
+                    action: copyDashboard
+                )
+                captureMenuRow(
+                    title: "Share…",
+                    systemImage: "square.and.arrow.up",
+                    action: shareDashboard
+                )
+
+                if let captureErrorText {
+                    Text(captureErrorText)
+                        .font(.system(size: 8, weight: .medium))
+                        .foregroundStyle(theme.dangerForeground)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 4)
+                        .accessibilityIdentifier("codex.capture.error")
+                }
+            }
+            .padding(4)
+            .frame(width: 146)
+            .dsSurface(
+                RoundedRectangle(cornerRadius: 10, style: .continuous),
+                kind: .raised,
+                elevation: .secondary
+            )
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Dashboard capture options")
+        .accessibilityIdentifier("codex.capture.menu")
+    }
+
+    private var capturePointerTrailingPadding: CGFloat {
+        tokenUsage?.lifetimeTokens == nil ? 7 : 98
+    }
+
+    private var capturePixelSizeLabel: String {
+        guard let captureConfiguration else { return "" }
+        return CodexDashboardCaptureService.pixelSizeLabel(
+            for: captureConfiguration.panelSize
+        )
+    }
+
+    private func captureMenuRow(
+        title: String,
+        subtitle: String? = nil,
+        systemImage: String,
+        isPrimary: Bool = false,
+        accessibilityHint: String? = nil,
+        action: @escaping @MainActor () -> Void
+    ) -> some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                Image(systemName: systemImage)
+                    .symbolRenderingMode(.monochrome)
+                    .font(.system(size: 11, weight: .semibold))
+                    .frame(width: 16)
+                    .accessibilityHidden(true)
+
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(title)
+                        .font(.system(size: 11, weight: .semibold))
+
+                    if let subtitle {
+                        Text(subtitle)
+                            .font(.system(size: 8.5, weight: .medium))
+                            .opacity(0.82)
+                    }
+                }
+
+                Spacer(minLength: 0)
+            }
+            .foregroundStyle(isPrimary ? theme.onAction : theme.textPrimary)
+            .padding(.horizontal, 8)
+            .frame(maxWidth: .infinity, minHeight: subtitle == nil ? 26 : 36)
+            .background {
+                if isPrimary {
+                    RoundedRectangle(cornerRadius: 7, style: .continuous)
+                        .fill(theme.action)
+                }
+            }
+            .contentShape(
+                RoundedRectangle(cornerRadius: 7, style: .continuous)
+            )
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(title)
+        .accessibilityValue(subtitle ?? "")
+        .accessibilityHint(accessibilityHint ?? "")
+    }
+
+    private func setCaptureMenuPresented(_ isPresented: Bool) {
+        if reduceMotion {
+            isCaptureMenuPresented = isPresented
+        } else {
+            withAnimation(.easeOut(duration: 0.14)) {
+                isCaptureMenuPresented = isPresented
+            }
+        }
+    }
+
+    private func makeCaptureArtifact() -> CodexDashboardCaptureArtifact? {
+        guard let captureConfiguration else { return nil }
+        do {
+            captureErrorText = nil
+            return try CodexDashboardCaptureService.render(
+                state: state,
+                configuration: captureConfiguration
+            )
+        } catch {
+            captureErrorText = error.localizedDescription
+            setCaptureMenuPresented(true)
+            return nil
+        }
+    }
+
+    private func saveDashboard() {
+        guard let artifact = makeCaptureArtifact() else { return }
+        setCaptureMenuPresented(false)
+        CodexDashboardCaptureService.presentSavePanel(for: artifact) { error in
+            guard let error else { return }
+            captureErrorText = error.localizedDescription
+            setCaptureMenuPresented(true)
+        }
+    }
+
+    private func copyDashboard() {
+        guard let artifact = makeCaptureArtifact() else { return }
+        do {
+            try CodexDashboardCaptureService.copy(artifact)
+            setCaptureMenuPresented(false)
+        } catch {
+            captureErrorText = error.localizedDescription
+            setCaptureMenuPresented(true)
+        }
+    }
+
+    private func shareDashboard() {
+        guard let artifact = makeCaptureArtifact() else { return }
+        do {
+            pendingShareURL = try CodexDashboardCaptureService
+                .temporaryShareURL(for: artifact)
+            setCaptureMenuPresented(false)
+        } catch {
+            captureErrorText = error.localizedDescription
+            setCaptureMenuPresented(true)
+        }
     }
 
     private var quotaRows: some View {
@@ -274,6 +556,22 @@ struct CodexHoverDashboardView: View {
 
     private var shipMomentumCard: some View {
         CodexShipMomentumCard(momentum: shipMomentum)
+    }
+
+    private var usageInsights: some View {
+        HStack(spacing: 7) {
+            CodexDailyIntensityCard(
+                buckets: chartBuckets,
+                initialHoveredBucketID: initialIntensityHoveredBucketID
+            )
+            CodexTopModelsCard(
+                models: CodexHoverDashboardPresentation.topModels(
+                    from: tokenUsage
+                ),
+                isPartial: tokenUsage?.isModelUsagePartial == true
+            )
+        }
+        .frame(height: 104)
     }
 
     private var statusTitle: String? {
@@ -430,6 +728,7 @@ enum CodexShipRank: Int, CaseIterable, Identifiable, Equatable, Sendable {
 
 enum CodexHoverDashboardPresentation {
     static let maximumChartDays = 30
+    static let maximumVisibleModels = 3
 
     static func visibleQuotaWindows(
         in snapshot: CodexRateLimitSnapshot?
@@ -441,6 +740,22 @@ enum CodexHoverDashboardPresentation {
         from tokenUsage: CodexAccountTokenUsage?
     ) -> [CodexTokenUsageDailyBucket] {
         Array(tokenUsage?.dailyUsageBuckets.suffix(maximumChartDays) ?? [])
+    }
+
+    static func topModels(
+        from tokenUsage: CodexAccountTokenUsage?
+    ) -> [CodexModelTokenUsage] {
+        Array(
+            (tokenUsage?.modelUsage ?? [])
+                .sorted {
+                    if $0.tokens != $1.tokens {
+                        return $0.tokens > $1.tokens
+                    }
+                    return $0.model.localizedCaseInsensitiveCompare($1.model)
+                        == .orderedAscending
+                }
+                .prefix(maximumVisibleModels)
+        )
     }
 
     static func shipMomentum(
@@ -864,6 +1179,366 @@ struct CodexShipMomentumCard: View {
     }
 }
 
+private struct CodexDailyIntensityCard: View {
+    let buckets: [CodexTokenUsageDailyBucket]
+    @State private var hoveredBucketID: Date?
+
+    @Environment(\.designTheme) private var theme
+
+    init(
+        buckets: [CodexTokenUsageDailyBucket],
+        initialHoveredBucketID: Date? = nil
+    ) {
+        self.buckets = buckets
+        _hoveredBucketID = State(initialValue: initialHoveredBucketID)
+    }
+
+    private let columns = Array(
+        repeating: GridItem(.flexible(minimum: 5), spacing: 3),
+        count: 15
+    )
+
+    var body: some View {
+        GeometryReader { geometry in
+            ZStack(alignment: .topLeading) {
+                cardContent
+
+                if let hoveredBucket {
+                    hoverTooltip(
+                        for: hoveredBucket,
+                        in: geometry.size
+                    )
+                }
+            }
+        }
+        .background(theme.opaqueSurfaceInset)
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .strokeBorder(theme.outline, lineWidth: 0.5)
+        }
+        .help(helpText)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Daily token intensity")
+    }
+
+    private var cardContent: some View {
+        VStack(alignment: .leading, spacing: 7) {
+            HStack(alignment: .firstTextBaseline, spacing: 4) {
+                Text("Daily intensity")
+                    .font(.system(size: 10.5, weight: .bold))
+                    .foregroundStyle(theme.textPrimary)
+
+                Spacer(minLength: 2)
+
+                if let bestDay {
+                    Text("Best \(Self.shortDateLabel(bestDay.startDate))")
+                        .font(.system(size: 8, weight: .semibold))
+                        .foregroundStyle(theme.textSecondary)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(
+                            Capsule().fill(theme.opaqueSurfaceRaised)
+                        )
+                        .overlay {
+                            Capsule().strokeBorder(
+                                theme.outline,
+                                lineWidth: 0.5
+                            )
+                        }
+                        .lineLimit(1)
+                }
+            }
+
+            if buckets.isEmpty {
+                Text("No intensity data")
+                    .font(.system(size: 8.5, weight: .medium))
+                    .foregroundStyle(theme.textSecondary)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                LazyVGrid(columns: columns, spacing: 3) {
+                    ForEach(buckets) { bucket in
+                        intensityCell(for: bucket)
+                    }
+                }
+
+                HStack(spacing: 4) {
+                    Text(Self.shortDateLabel(buckets.first!.startDate))
+
+                    Spacer(minLength: 1)
+
+                    HStack(spacing: 2) {
+                        ForEach(0..<5, id: \.self) { level in
+                            RoundedRectangle(
+                                cornerRadius: 1.5,
+                                style: .continuous
+                            )
+                            .fill(fill(for: level))
+                            .overlay {
+                                RoundedRectangle(
+                                    cornerRadius: 1.5,
+                                    style: .continuous
+                                )
+                                .strokeBorder(theme.outline, lineWidth: 0.5)
+                            }
+                            .frame(width: 7, height: 6)
+                        }
+                    }
+                    .accessibilityHidden(true)
+
+                    Spacer(minLength: 1)
+
+                    Text(Self.shortDateLabel(buckets.last!.startDate))
+                }
+                .font(.system(size: 7.5, weight: .medium))
+                .foregroundStyle(theme.textTertiary)
+                .monospacedDigit()
+            }
+        }
+        .padding(9)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+    }
+
+    private var bestDay: CodexTokenUsageDailyBucket? {
+        buckets.max { $0.tokens < $1.tokens }
+    }
+
+    private var hoveredBucket: CodexTokenUsageDailyBucket? {
+        guard let hoveredBucketID else { return nil }
+        return buckets.first { $0.id == hoveredBucketID }
+    }
+
+    private var maximumTokens: Int64 {
+        max(1, buckets.map(\.tokens).max() ?? 1)
+    }
+
+    private func intensityCell(
+        for bucket: CodexTokenUsageDailyBucket
+    ) -> some View {
+        let level = intensityLevel(for: bucket.tokens)
+        let isHovered = bucket.id == hoveredBucketID
+        return RoundedRectangle(cornerRadius: 2, style: .continuous)
+            .fill(fill(for: level))
+            .overlay {
+                RoundedRectangle(cornerRadius: 2, style: .continuous)
+                    .strokeBorder(
+                        isHovered
+                            ? theme.actionForeground
+                            : bucket.id == buckets.last?.id
+                            ? theme.textPrimary
+                            : theme.outline,
+                        lineWidth: isHovered || bucket.id == buckets.last?.id
+                            ? 1
+                            : 0.5
+                    )
+            }
+            .frame(height: 10)
+            .contentShape(Rectangle())
+            .onHover { isHovering in
+                if isHovering {
+                    hoveredBucketID = bucket.id
+                } else if hoveredBucketID == bucket.id {
+                    hoveredBucketID = nil
+                }
+            }
+            .accessibilityLabel(Self.fullDateLabel(bucket.startDate))
+            .accessibilityValue("\(bucket.tokens.formatted()) tokens")
+    }
+
+    private func hoverTooltip(
+        for bucket: CodexTokenUsageDailyBucket,
+        in size: CGSize
+    ) -> some View {
+        Text(Self.fullDateLabel(bucket.startDate))
+            .font(.system(size: 7.5, weight: .semibold))
+            .foregroundStyle(theme.textPrimary)
+            .monospacedDigit()
+            .lineLimit(1)
+            .fixedSize()
+            .padding(.horizontal, 6)
+            .padding(.vertical, 3)
+            .background(
+                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                    .fill(theme.opaqueSurfaceRaised)
+            )
+            .overlay {
+                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                    .strokeBorder(theme.outlineStrong, lineWidth: 0.5)
+            }
+            .position(
+                x: tooltipCenterX(for: bucket, cardWidth: size.width),
+                y: max(12, size.height - 12)
+            )
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
+    }
+
+    private func tooltipCenterX(
+        for bucket: CodexTokenUsageDailyBucket,
+        cardWidth: CGFloat
+    ) -> CGFloat {
+        guard let index = buckets.firstIndex(where: { $0.id == bucket.id })
+        else {
+            return cardWidth / 2
+        }
+
+        let column = index % columns.count
+        let horizontalPadding: CGFloat = 9
+        let usableWidth = max(0, cardWidth - horizontalPadding * 2)
+        let cellCenter = horizontalPadding
+            + usableWidth * (CGFloat(column) + 0.5) / CGFloat(columns.count)
+        let tooltipHalfWidth: CGFloat = 36
+        return min(
+            max(tooltipHalfWidth, cellCenter),
+            max(tooltipHalfWidth, cardWidth - tooltipHalfWidth)
+        )
+    }
+
+    private func intensityLevel(for tokens: Int64) -> Int {
+        guard tokens > 0 else { return 0 }
+        return min(
+            4,
+            max(1, Int(ceil(Double(tokens) / Double(maximumTokens) * 4)))
+        )
+    }
+
+    private func fill(for level: Int) -> Color {
+        theme.action.opacity(0.10 + Double(level) * 0.19)
+    }
+
+    private var helpText: String {
+        guard let bestDay else {
+            return "Daily token intensity is unavailable."
+        }
+        return "Daily token intensity for up to 30 days. Best day: "
+            + "\(Self.fullDateLabel(bestDay.startDate)), "
+            + "\(bestDay.tokens.formatted()) tokens."
+    }
+
+    private static func shortDateLabel(_ date: Date) -> String {
+        formatter("MMM d").string(from: date)
+    }
+
+    private static func fullDateLabel(_ date: Date) -> String {
+        formatter("MMM d, yyyy").string(from: date)
+    }
+
+    private static func formatter(_ format: String) -> DateFormatter {
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = .current
+        formatter.dateFormat = format
+        return formatter
+    }
+}
+
+private struct CodexTopModelsCard: View {
+    let models: [CodexModelTokenUsage]
+    let isPartial: Bool
+
+    @Environment(\.designTheme) private var theme
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 7) {
+            HStack(alignment: .firstTextBaseline, spacing: 4) {
+                Text("Top models")
+                    .font(.system(size: 10.5, weight: .bold))
+                    .foregroundStyle(theme.textPrimary)
+
+                Spacer(minLength: 2)
+
+                Text(isPartial ? "30d*" : "30d")
+                    .font(.system(size: 8, weight: .semibold))
+                    .foregroundStyle(theme.textSecondary)
+                    .monospacedDigit()
+            }
+
+            if models.isEmpty {
+                Text("No model token data")
+                    .font(.system(size: 8.5, weight: .medium))
+                    .foregroundStyle(theme.textSecondary)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                VStack(spacing: 5) {
+                    ForEach(Array(models.enumerated()), id: \.element.id) {
+                        index, model in
+                        modelRow(model, rank: index + 1)
+                    }
+                }
+            }
+        }
+        .padding(9)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .background(theme.opaqueSurfaceInset)
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .strokeBorder(theme.outline, lineWidth: 0.5)
+        }
+        .help(helpText)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Top models by token usage")
+    }
+
+    private func modelRow(
+        _ model: CodexModelTokenUsage,
+        rank: Int
+    ) -> some View {
+        HStack(spacing: 5) {
+            Text("\(rank)")
+                .font(.system(size: 8, weight: .bold, design: .rounded))
+                .foregroundStyle(theme.textTertiary)
+                .monospacedDigit()
+                .frame(width: 8, alignment: .trailing)
+
+            Text(model.model)
+                .font(.system(size: 9, weight: .semibold))
+                .foregroundStyle(theme.textPrimary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+
+            Spacer(minLength: 2)
+
+            Capsule()
+                .fill(theme.action)
+                .frame(width: modelBarWidth(model.tokens), height: 4)
+                .accessibilityHidden(true)
+
+            Text(Self.tokenLabel(model.tokens))
+                .font(.system(size: 9, weight: .bold, design: .rounded))
+                .foregroundStyle(theme.textSecondary)
+                .monospacedDigit()
+        }
+        .frame(height: 18)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Rank \(rank), \(model.model)")
+        .accessibilityValue("\(model.tokens.formatted()) tokens")
+    }
+
+    private func modelBarWidth(_ tokens: Int64) -> CGFloat {
+        let maximum = max(1, models.map(\.tokens).max() ?? 1)
+        return max(3, 13 * CGFloat(Double(tokens) / Double(maximum)))
+    }
+
+    private var helpText: String {
+        let coverage = isPartial
+            ? " Coverage is partial because some recent session metadata could not be read or the scan limit was reached."
+            : ""
+        return "Models ranked by tokens in Codex tasks created during the "
+            + "last 30 days. Prompt and response content is not used."
+            + coverage
+    }
+
+    private static func tokenLabel(_ tokens: Int64) -> String {
+        tokens.formatted(
+            .number
+                .notation(.compactName)
+                .precision(.fractionLength(0...1))
+        )
+    }
+}
+
 private struct CodexShipMomentumGauge: View {
     let score: Int?
 
@@ -1060,6 +1735,7 @@ struct UsageLimitHoverRow: View {
     let systemImage: String
     let window: CodexRateLimitWindow
     let resetLabel: String
+    var usageAccent: Color? = nil
 
     @Environment(\.designTheme) private var theme
 
@@ -1129,7 +1805,7 @@ struct UsageLimitHoverRow: View {
         case ...0.2:
             return theme.warning
         default:
-            return theme.action
+            return usageAccent ?? theme.action
         }
     }
 
@@ -1175,7 +1851,11 @@ private struct DockHoverFeatureSummaryView: View {
     }
 }
 
-private struct DockHoverChrome<Content: View>: View {
+struct DockHoverChrome<Content: View>: View {
+    // Keep elevation inside the transparent NSPanel so its blur does not get
+    // clipped into square outer corners.
+    private static var shadowInset: CGFloat { 6 }
+
     let pointerEdge: DockHoverPointerEdge
     let panelSize: CGSize
     @ViewBuilder let content: () -> Content
@@ -1189,7 +1869,10 @@ private struct DockHoverChrome<Content: View>: View {
                 card.frame(
                     height: panelSize.height
                         - DockHoverPanelPlacement.pointerExtent
+                        - Self.shadowInset
                 )
+                .padding(.horizontal, Self.shadowInset)
+                .padding(.top, Self.shadowInset)
                 DockHoverPointerShape(direction: .down)
                     .fill(theme.opaqueSurfaceRaised)
                     .frame(
@@ -1208,14 +1891,20 @@ private struct DockHoverChrome<Content: View>: View {
                 card.frame(
                     width: panelSize.width
                         - DockHoverPanelPlacement.pointerExtent
+                        - Self.shadowInset
                 )
+                .padding(.vertical, Self.shadowInset)
+                .padding(.trailing, Self.shadowInset)
             }
         case .right:
             HStack(spacing: 0) {
                 card.frame(
                     width: panelSize.width
                         - DockHoverPanelPlacement.pointerExtent
+                        - Self.shadowInset
                 )
+                .padding(.vertical, Self.shadowInset)
+                .padding(.leading, Self.shadowInset)
                 DockHoverPointerShape(direction: .right)
                     .fill(theme.opaqueSurfaceRaised)
                     .frame(
@@ -1239,6 +1928,7 @@ private struct DockHoverChrome<Content: View>: View {
 
 private struct DockHoverPointerShape: Shape {
     enum Direction {
+        case up
         case down
         case left
         case right
@@ -1249,6 +1939,10 @@ private struct DockHoverPointerShape: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
         switch direction {
+        case .up:
+            path.move(to: CGPoint(x: rect.minX, y: rect.maxY))
+            path.addLine(to: CGPoint(x: rect.midX, y: rect.minY))
+            path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
         case .down:
             path.move(to: CGPoint(x: rect.minX, y: rect.minY))
             path.addLine(to: CGPoint(x: rect.midX, y: rect.maxY))
@@ -1267,6 +1961,47 @@ private struct DockHoverPointerShape: Shape {
     }
 }
 
+private struct CodexDashboardSharePresenter: NSViewRepresentable {
+    @Binding var itemURL: URL?
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator()
+    }
+
+    func makeNSView(context: Context) -> NSView {
+        NSView(frame: .zero)
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {
+        guard let itemURL else {
+            context.coordinator.presentedURL = nil
+            return
+        }
+        guard context.coordinator.presentedURL != itemURL else {
+            return
+        }
+        context.coordinator.presentedURL = itemURL
+        let itemBinding = $itemURL
+        let coordinator = context.coordinator
+
+        DispatchQueue.main.async {
+            let picker = NSSharingServicePicker(items: [itemURL])
+            coordinator.picker = picker
+            picker.show(
+                relativeTo: nsView.bounds,
+                of: nsView,
+                preferredEdge: .minY
+            )
+            itemBinding.wrappedValue = nil
+        }
+    }
+
+    final class Coordinator {
+        var presentedURL: URL?
+        var picker: NSSharingServicePicker?
+    }
+}
+
 #if DEBUG
 extension CodexRateLimitSnapshot {
     static var hoverDesignPreview: Self {
@@ -1277,11 +2012,11 @@ extension CodexRateLimitSnapshot {
             day: 26
         ))!
         let values: [Int64] = [
-            640_000, 820_000, 510_000, 940_000, 1_080_000,
-            760_000, 420_000, 1_120_000, 890_000, 1_340_000,
-            980_000, 670_000, 1_460_000, 1_150_000, 720_000,
-            1_280_000, 860_000, 1_020_000, 590_000, 1_390_000,
-            930_000, 1_180_000, 780_000, 980_000, 1_320_000,
+            0, 120_000, 510_000, 940_000, 1_080_000,
+            260_000, 420_000, 1_120_000, 0, 1_340_000,
+            180_000, 670_000, 1_460_000, 310_000, 720_000,
+            1_280_000, 770_000, 1_020_000, 590_000, 1_390_000,
+            800_000, 1_180_000, 1_000_000, 980_000, 1_320_000,
             1_560_000, 1_210_000, 1_010_000, 730_000, 1_280_000
         ]
         return Self(
@@ -1326,7 +2061,13 @@ extension CodexRateLimitSnapshot {
                         )!,
                         tokens: tokens
                     )
-                }
+                },
+                modelUsage: [
+                    CodexModelTokenUsage(model: "gpt-5.6", tokens: 8_400_000),
+                    CodexModelTokenUsage(model: "gpt-5.5", tokens: 5_700_000),
+                    CodexModelTokenUsage(model: "gpt-5.4", tokens: 2_900_000)
+                ],
+                isModelUsagePartial: false
             ),
             recentTaskActivity: CodexRecentTaskActivity(
                 currentWeekCount: 12,

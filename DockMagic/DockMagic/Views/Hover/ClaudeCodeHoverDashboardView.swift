@@ -11,7 +11,8 @@ struct ClaudeCodeHoverDashboardView: View {
         VStack(spacing: 7) {
             header
             quotaRows
-            overviewHeader
+            usageHeader
+            quotaChart
             overviewCard
             Spacer(minLength: 0)
         }
@@ -104,7 +105,8 @@ struct ClaudeCodeHoverDashboardView: View {
                 window: window,
                 resetLabel: CodexHoverDashboardPresentation.resetLabel(
                     for: window
-                )
+                ),
+                usageAccent: ProjectTheme.claudeCodeUsage
             )
         } else {
             ClaudeCodeUnavailableLimitRow(
@@ -114,9 +116,9 @@ struct ClaudeCodeHoverDashboardView: View {
         }
     }
 
-    private var overviewHeader: some View {
+    private var usageHeader: some View {
         HStack(alignment: .lastTextBaseline, spacing: 6) {
-            Text("Usage snapshot")
+            Text("Remaining quota")
                 .font(.system(size: 12, weight: .bold))
                 .foregroundStyle(theme.textPrimary)
 
@@ -126,7 +128,14 @@ struct ClaudeCodeHoverDashboardView: View {
                 .font(.system(size: 9, weight: .medium))
                 .foregroundStyle(theme.textTertiary)
         }
-        .frame(height: 16)
+        .frame(height: 20)
+    }
+
+    private var quotaChart: some View {
+        ClaudeCodeQuotaChart(
+            fiveHour: snapshot?.fiveHour,
+            weekly: snapshot?.weekly
+        )
     }
 
     @ViewBuilder
@@ -167,7 +176,7 @@ struct ClaudeCodeHoverDashboardView: View {
                 statusMessage
             }
             .padding(8)
-            .frame(maxWidth: .infinity, minHeight: 112)
+            .frame(maxWidth: .infinity, minHeight: 104)
             .background(theme.opaqueSurfaceInset)
             .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
             .overlay {
@@ -253,7 +262,7 @@ struct ClaudeCodeHoverDashboardView: View {
                 .lineLimit(3)
         }
         .padding(.horizontal, 20)
-        .frame(maxWidth: .infinity, minHeight: 112)
+        .frame(maxWidth: .infinity, minHeight: 104)
         .background(theme.opaqueSurfaceInset)
         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         .overlay {
@@ -391,6 +400,117 @@ struct ClaudeCodeHoverDashboardView: View {
             "DockMagic is reading the latest local Claude Code snapshot."
         case .idle, .live, .stale:
             "Complete one Claude Code response to publish the first quota snapshot."
+        }
+    }
+}
+
+private struct ClaudeCodeQuotaChart: View {
+    let fiveHour: ClaudeCodeRateLimitWindow?
+    let weekly: ClaudeCodeRateLimitWindow?
+
+    @Environment(\.designTheme) private var theme
+
+    var body: some View {
+        HStack(alignment: .bottom, spacing: 32) {
+            quotaColumn(
+                title: "5-hour",
+                systemImage: "clock",
+                window: fiveHour
+            )
+            quotaColumn(
+                title: "Weekly",
+                systemImage: "calendar",
+                window: weekly
+            )
+        }
+        .padding(.horizontal, 52)
+        .padding(.vertical, 8)
+        .frame(maxWidth: .infinity, minHeight: 100)
+        .background(theme.opaqueSurfaceInset)
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .strokeBorder(theme.outline, lineWidth: 0.5)
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Remaining Claude Code quota")
+    }
+
+    private func quotaColumn(
+        title: String,
+        systemImage: String,
+        window: ClaudeCodeRateLimitWindow?
+    ) -> some View {
+        VStack(spacing: 4) {
+            Text(remainingLabel(for: window))
+                .font(.system(size: 12, weight: .bold, design: .rounded))
+                .foregroundStyle(theme.textPrimary)
+                .monospacedDigit()
+
+            GeometryReader { proxy in
+                ZStack(alignment: .bottom) {
+                    Capsule().fill(theme.dockTrack)
+
+                    if let window {
+                        Capsule()
+                            .fill(progressFill(for: window))
+                            .frame(
+                                height: fillHeight(
+                                    fraction: window.remainingFraction,
+                                    availableHeight: proxy.size.height
+                                )
+                            )
+                    }
+                }
+            }
+            .frame(width: 28, height: 52)
+
+            HStack(spacing: 3) {
+                Image(systemName: systemImage)
+                    .symbolRenderingMode(.monochrome)
+                    .font(.system(size: 8, weight: .semibold))
+                    .accessibilityHidden(true)
+                Text(title)
+                    .font(.system(size: 9, weight: .semibold))
+            }
+            .foregroundStyle(theme.textSecondary)
+        }
+        .frame(maxWidth: .infinity)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(title)
+        .accessibilityValue(accessibilityValue(for: window))
+    }
+
+    private func remainingLabel(
+        for window: ClaudeCodeRateLimitWindow?
+    ) -> String {
+        guard let window else { return "—" }
+        return "\(Int((window.remainingFraction * 100).rounded()))%"
+    }
+
+    private func accessibilityValue(
+        for window: ClaudeCodeRateLimitWindow?
+    ) -> String {
+        guard let window else { return "Not reported" }
+        return "\(remainingLabel(for: window)) remaining"
+    }
+
+    private func fillHeight(
+        fraction: Double,
+        availableHeight: CGFloat
+    ) -> CGFloat {
+        guard fraction > 0 else { return 0 }
+        return max(4, availableHeight * min(max(fraction, 0), 1))
+    }
+
+    private func progressFill(for window: ClaudeCodeRateLimitWindow) -> Color {
+        switch window.remainingFraction {
+        case ...0.05:
+            theme.danger
+        case ...0.2:
+            theme.warning
+        default:
+            ProjectTheme.claudeCodeUsage
         }
     }
 }

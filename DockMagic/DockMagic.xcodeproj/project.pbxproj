@@ -76,6 +76,7 @@
 		C3A000000000000000000001 /* DockHoverCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3B000000000000000000001 /* DockHoverCoordinator.swift */; };
 		C3A000000000000000000002 /* CodexHoverDashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3B000000000000000000002 /* CodexHoverDashboardView.swift */; };
 		C3A000000000000000000003 /* ClaudeCodeHoverDashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3B000000000000000000003 /* ClaudeCodeHoverDashboardView.swift */; };
+		C3A000000000000000000004 /* CodexDashboardCaptureService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3B000000000000000000004 /* CodexDashboardCaptureService.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -170,6 +171,7 @@
 		C3B000000000000000000001 /* DockHoverCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DockHoverCoordinator.swift; sourceTree = "<group>"; };
 		C3B000000000000000000002 /* CodexHoverDashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexHoverDashboardView.swift; sourceTree = "<group>"; };
 		C3B000000000000000000003 /* ClaudeCodeHoverDashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeCodeHoverDashboardView.swift; sourceTree = "<group>"; };
+		C3B000000000000000000004 /* CodexDashboardCaptureService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexDashboardCaptureService.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -294,6 +296,7 @@
 		D0C200000000000000000003 /* Services */ = {
 			isa = PBXGroup;
 			children = (
+				C3B000000000000000000004 /* CodexDashboardCaptureService.swift */,
 				C3B000000000000000000001 /* DockHoverCoordinator.swift */,
 				B2B000000000000000000001 /* DockIconRenderingRules.swift */,
 				A1B000000000000000000004 /* SearchConsoleAPIClient.swift */,
@@ -546,6 +549,7 @@
 				C3A000000000000000000001 /* DockHoverCoordinator.swift in Sources */,
 				C3A000000000000000000002 /* CodexHoverDashboardView.swift in Sources */,
 				C3A000000000000000000003 /* ClaudeCodeHoverDashboardView.swift in Sources */,
+				C3A000000000000000000004 /* CodexDashboardCaptureService.swift in Sources */,
 				B2A000000000000000000001 /* DockIconRenderingRules.swift in Sources */,
 				A1A000000000000000000001 /* SearchConsoleModels.swift in Sources */,
 				A1A000000000000000000002 /* SearchConsoleConfigurationRecord.swift in Sources */,

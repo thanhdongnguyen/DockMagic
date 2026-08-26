@@ -171,6 +171,7 @@ final class DockHoverCoordinator {
     private let panelController: DockHoverPanelController
     private var isRunning = false
     private var configurationObservationActive = false
+    private var isDockMenuPresented = false
     private var healthTask: Task<Void, Never>?
 
     init(
@@ -199,6 +200,7 @@ final class DockHoverCoordinator {
     func stop() {
         isRunning = false
         configurationObservationActive = false
+        isDockMenuPresented = false
         healthTask?.cancel()
         healthTask = nil
         dockObserver.stop()
@@ -214,6 +216,11 @@ final class DockHoverCoordinator {
             isEnabled: appModel.preferences.isDockHoverDashboardEnabled
         )
         applyConfiguration()
+    }
+
+    func dockMenuWillOpen() {
+        isDockMenuPresented = true
+        panelController.hide()
     }
 
     private func observeConfiguration() {
@@ -253,11 +260,15 @@ final class DockHoverCoordinator {
             }
             switch event {
             case let .hovered(anchor):
+                guard !self.isDockMenuPresented else {
+                    return
+                }
                 self.panelController.show(
                     anchor: anchor,
                     appModel: self.appModel
                 )
             case .exited:
+                self.isDockMenuPresented = false
                 self.panelController.scheduleHide()
             }
         }
@@ -638,7 +649,8 @@ enum DockHoverScreenGeometry {
 enum DockHoverPanelPlacement {
     static let standardPanelSize = CGSize(width: 440, height: 304)
     static let systemMetricsPanelSize = CGSize(width: 620, height: 474)
-    static let codexPanelSize = CGSize(width: 440, height: 410)
+    static let codexPanelSize = CGSize(width: 440, height: 522)
+    static let claudeCodePanelSize = CGSize(width: 440, height: 410)
     static let pointerExtent: CGFloat = 10
     static let iconClearance: CGFloat = 2
     static let windowLevel = NSWindow.Level(
@@ -651,6 +663,8 @@ enum DockHoverPanelPlacement {
             systemMetricsPanelSize
         case .codex:
             codexPanelSize
+        case .claudeCode:
+            claudeCodePanelSize
         default:
             standardPanelSize
         }

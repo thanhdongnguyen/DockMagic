@@ -73,6 +73,7 @@ The current canonical product values are:
 | Raised neutral | `DSSurfaceRaised` | `#FFFFFF` | `#1F1E1E` | Raised content surface |
 | Primary text | `DSTextPrimary` | `#000000` | `#FFFFFF` | Main content and default icon |
 | Action blue | `DSAction` | `#0088FF` | `#0091FF` | The single persistent product accent |
+| Claude usage data | `DSClaudeCodeUsage` | `#D97757` | `#D97757` | Quota progress inside the Claude dashboard only |
 | Warning orange | `DSWarning` | `#FF8D28` | `#FF9230` | Conditional warning only |
 | Danger red | `DSDanger` | `#FF383C` | `#FF4245` | Conditional error/destructive state only |
 
@@ -171,6 +172,9 @@ Exceptions are allowed only when color is the content rather than decoration:
   and its color controls. They do not become semantic status or chrome colors.
 - A two-series chart may use two data hues when labels, shapes, or positions
   alone are insufficient. Its legend must repeat the series names.
+- Claude Code quota progress may use `DSClaudeCodeUsage` as its single data
+  hue inside the dashboard quota rows and chart. It must not tint chrome, text,
+  selection, or status; warning and danger replace it at their thresholds.
 - Photography, weather imagery, and other content media are not UI palette
   tokens, but their container and controls still follow this contract.
 - System-owned macOS UI keeps its native appearance.

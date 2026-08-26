@@ -12,19 +12,14 @@ enum LaunchAtLoginState: Equatable, Sendable {
     case disabled
     case enabled
     case requiresApproval
-    case unavailable
 
     var isRequested: Bool {
         switch self {
         case .enabled, .requiresApproval:
             true
-        case .disabled, .unavailable:
+        case .disabled:
             false
         }
-    }
-
-    var canChange: Bool {
-        self != .unavailable
     }
 
     var detail: String {
@@ -35,8 +30,6 @@ enum LaunchAtLoginState: Equatable, Sendable {
             "DockMagic starts automatically after you sign in."
         case .requiresApproval:
             "Approve DockMagic in System Settings → General → Login Items."
-        case .unavailable:
-            "Launch at login is unavailable for this app build."
         }
     }
 }
@@ -135,7 +128,7 @@ final class LaunchAtLoginController {
         case .requiresApproval:
             .requiresApproval
         case .notFound:
-            .unavailable
+            .disabled
         }
     }
 }

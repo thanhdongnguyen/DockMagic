@@ -119,6 +119,8 @@ protocol CodexRateLimitProviding: Sendable {
 }
 
 struct CodexAppServerRateLimitProvider: CodexRateLimitProviding {
+    private static let modelUsageResponseIDBase = 1_000
+
     let timeout: TimeInterval
 
     init(timeout: TimeInterval = 12) {
@@ -193,8 +195,9 @@ struct CodexAppServerRateLimitProvider: CodexRateLimitProviding {
             execute: timeoutWork
         )
 
+        let fetchedAt = Date()
         do {
-            let payload = try requestPayload()
+            let payload = try initialRequestPayload()
             try standardInput.fileHandleForWriting.write(contentsOf: payload)
         } catch {
             timeoutWork.cancel()
@@ -218,6 +221,45 @@ struct CodexAppServerRateLimitProvider: CodexRateLimitProviding {
             }
         }
 
+        let localModelUsage = CodexRateLimitParser
+            .containsCompleteDashboardResponse(output)
+            ? CodexLocalModelUsageReader().read(fetchedAt: fetchedAt)
+            : nil
+
+        if localModelUsage == nil,
+           !timeoutState.didTimeOut,
+           !cancellation.isCancelled,
+           CodexRateLimitParser.containsCompleteDashboardResponse(output) {
+            let plan = CodexRateLimitParser.modelUsageRequestPlan(
+                output,
+                fetchedAt: fetchedAt
+            )
+            if !plan.threadIDs.isEmpty,
+               let payload = try? modelUsageRequestPayload(
+                   threadIDs: plan.threadIDs
+               ),
+               (try? standardInput.fileHandleForWriting.write(
+                   contentsOf: payload
+               )) != nil {
+                let responseIDs = Set(plan.threadIDs.indices.map {
+                    modelUsageResponseIDBase + $0
+                })
+                while !timeoutState.didTimeOut, !cancellation.isCancelled {
+                    let chunk = standardOutput.fileHandleForReading.availableData
+                    if chunk.isEmpty {
+                        break
+                    }
+                    output.append(chunk)
+                    if CodexRateLimitParser.containsResponses(
+                        responseIDs,
+                        in: output
+                    ) {
+                        break
+                    }
+                }
+            }
+        }
+
         timeoutWork.cancel()
         try? standardInput.fileHandleForWriting.close()
         if process.isRunning {
@@ -233,10 +275,14 @@ struct CodexAppServerRateLimitProvider: CodexRateLimitProviding {
             throw CodexRateLimitProviderError.timedOut
         }
 
-        return try CodexRateLimitParser.parseJSONLines(output)
+        return try CodexRateLimitParser.parseJSONLines(
+            output,
+            fetchedAt: fetchedAt,
+            localModelUsage: localModelUsage
+        )
     }
 
-    private static func requestPayload() throws -> Data {
+    private static func initialRequestPayload() throws -> Data {
         let requests: [[String: Any]] = [
             [
                 "id": 1,
@@ -299,6 +345,22 @@ struct CodexAppServerRateLimitProvider: CodexRateLimitProviding {
         }
         return payload
     }
+
+    private static func modelUsageRequestPayload(
+        threadIDs: [String]
+    ) throws -> Data {
+        var payload = Data()
+        for (index, threadID) in threadIDs.enumerated() {
+            let request: [String: Any] = [
+                "id": modelUsageResponseIDBase + index,
+                "method": "account/usage/read",
+                "params": ["threadId": threadID]
+            ]
+            payload.append(try JSONSerialization.data(withJSONObject: request))
+            payload.append(0x0A)
+        }
+        return payload
+    }
 }
 
 private struct CodexThreadListPage {
@@ -307,7 +369,311 @@ private struct CodexThreadListPage {
     let hasNextPage: Bool
 }
 
+struct CodexModelUsageRequestPlan: Equatable, Sendable {
+    let threadIDs: [String]
+    let isPartial: Bool
+}
+
+struct CodexLocalModelUsageResult: Equatable, Sendable {
+    let rows: [CodexModelTokenUsage]
+    let isPartial: Bool
+}
+
+struct CodexLocalModelUsageReader: Sendable {
+    static let maximumFiles = 200
+    static let maximumBytes: Int64 = 64 * 1_024 * 1_024
+
+    let stateDatabaseURL: URL?
+    let sessionsRoot: URL
+    let maximumFiles: Int
+    let maximumBytes: Int64
+
+    init(
+        sessionsRoot: URL? = nil,
+        stateDatabaseURL: URL? = nil,
+        maximumFiles: Int = Self.maximumFiles,
+        maximumBytes: Int64 = Self.maximumBytes,
+        environment: [String: String] = ProcessInfo.processInfo.environment,
+        homeDirectory: URL = FileManager.default.homeDirectoryForCurrentUser
+    ) {
+        if let sessionsRoot {
+            self.sessionsRoot = sessionsRoot
+            self.stateDatabaseURL = stateDatabaseURL
+        } else {
+            let configuredCodexHome = environment["CODEX_HOME"]?
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            let codexHome = configuredCodexHome.flatMap { value in
+                value.isEmpty
+                    ? nil
+                    : URL(
+                        fileURLWithPath: NSString(string: value)
+                            .expandingTildeInPath
+                    )
+            } ?? homeDirectory.appendingPathComponent(".codex")
+            self.stateDatabaseURL = stateDatabaseURL
+                ?? codexHome.appendingPathComponent("state_5.sqlite")
+            self.sessionsRoot = codexHome.appendingPathComponent(
+                "sessions",
+                isDirectory: true
+            )
+        }
+        self.maximumFiles = maximumFiles
+        self.maximumBytes = maximumBytes
+    }
+
+    func read(fetchedAt: Date = .now) -> CodexLocalModelUsageResult? {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = .current
+        let today = calendar.startOfDay(for: fetchedAt)
+        guard
+            let windowStart = calendar.date(
+                byAdding: .day,
+                value: -(CodexRateLimitParser.modelUsageWindowDays - 1),
+                to: today
+            ),
+            let nextDay = calendar.date(byAdding: .day, value: 1, to: today)
+        else {
+            return CodexLocalModelUsageResult(rows: [], isPartial: true)
+        }
+
+        if let databaseResult = readStateDatabase(windowStart: windowStart) {
+            return databaseResult
+        }
+        return readRolloutMetadata(
+            windowStart: windowStart,
+            nextDay: nextDay
+        )
+    }
+
+    private func readStateDatabase(
+        windowStart: Date
+    ) -> CodexLocalModelUsageResult? {
+        guard
+            let stateDatabaseURL,
+            FileManager.default.fileExists(atPath: stateDatabaseURL.path),
+            FileManager.default.isExecutableFile(atPath: "/usr/bin/sqlite3")
+        else {
+            return nil
+        }
+
+        let cutoff = Int64(windowStart.timeIntervalSince1970)
+        let query = """
+            SELECT model, SUM(tokens_used)
+            FROM threads
+            WHERE created_at >= \(cutoff)
+              AND model IS NOT NULL
+              AND TRIM(model) <> ''
+              AND tokens_used > 0
+            GROUP BY model
+            ORDER BY SUM(tokens_used) DESC, model COLLATE NOCASE ASC;
+            """
+        let process = Process()
+        let output = Pipe()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/sqlite3")
+        process.arguments = [
+            "-readonly",
+            "-separator",
+            "\t",
+            stateDatabaseURL.path,
+            query
+        ]
+        process.standardOutput = output
+        process.standardError = FileHandle.nullDevice
+
+        do {
+            try process.run()
+            process.waitUntilExit()
+        } catch {
+            return nil
+        }
+        guard process.terminationStatus == 0 else { return nil }
+
+        let data = output.fileHandleForReading.readDataToEndOfFile()
+        guard let value = String(data: data, encoding: .utf8) else {
+            return nil
+        }
+        let rows: [CodexModelTokenUsage] = value
+            .split(separator: "\n")
+            .compactMap { line in
+                let components = line.split(
+                    separator: "\t",
+                    maxSplits: 1,
+                    omittingEmptySubsequences: false
+                )
+                guard
+                    components.count == 2,
+                    let tokens = Int64(components[1]),
+                    tokens > 0
+                else {
+                    return nil
+                }
+                let model = String(components[0])
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !model.isEmpty else { return nil }
+                return CodexModelTokenUsage(model: model, tokens: tokens)
+            }
+        return CodexLocalModelUsageResult(rows: rows, isPartial: false)
+    }
+
+    private func readRolloutMetadata(
+        windowStart: Date,
+        nextDay: Date
+    ) -> CodexLocalModelUsageResult? {
+        let fileManager = FileManager.default
+        var isDirectory: ObjCBool = false
+        guard
+            fileManager.fileExists(
+                atPath: sessionsRoot.path,
+                isDirectory: &isDirectory
+            ),
+            isDirectory.boolValue
+        else {
+            return nil
+        }
+
+        let keys: [URLResourceKey] = [
+            .isRegularFileKey,
+            .contentModificationDateKey,
+            .fileSizeKey
+        ]
+        guard let enumerator = fileManager.enumerator(
+            at: sessionsRoot,
+            includingPropertiesForKeys: keys,
+            options: [.skipsHiddenFiles, .skipsPackageDescendants]
+        ) else {
+            return CodexLocalModelUsageResult(rows: [], isPartial: true)
+        }
+
+        var candidates: [(
+            url: URL,
+            modifiedAt: Date,
+            size: Int64
+        )] = []
+        var scanIsPartial = false
+        for case let url as URL in enumerator {
+            guard url.pathExtension == "jsonl" else { continue }
+            do {
+                let values = try url.resourceValues(forKeys: Set(keys))
+                guard
+                    values.isRegularFile == true,
+                    let modifiedAt = values.contentModificationDate,
+                    modifiedAt >= windowStart
+                else {
+                    continue
+                }
+                candidates.append((
+                    url,
+                    modifiedAt,
+                    Int64(values.fileSize ?? 0)
+                ))
+            } catch {
+                scanIsPartial = true
+            }
+        }
+        candidates.sort {
+            if $0.modifiedAt != $1.modifiedAt {
+                return $0.modifiedAt > $1.modifiedAt
+            }
+            return $0.url.path < $1.url.path
+        }
+
+        if candidates.count > maximumFiles {
+            scanIsPartial = true
+        }
+        var selected: [URL] = []
+        var selectedBytes: Int64 = 0
+        for candidate in candidates.prefix(maximumFiles) {
+            guard selectedBytes + candidate.size <= maximumBytes else {
+                scanIsPartial = true
+                break
+            }
+            selected.append(candidate.url)
+            selectedBytes += candidate.size
+        }
+
+        var tokensByModel: [String: Int64] = [:]
+        let timestampFormatter = ISO8601DateFormatter()
+        timestampFormatter.formatOptions = [
+            .withInternetDateTime,
+            .withFractionalSeconds
+        ]
+        let fallbackTimestampFormatter = ISO8601DateFormatter()
+        fallbackTimestampFormatter.formatOptions = [.withInternetDateTime]
+
+        for url in selected {
+            do {
+                let data = try Data(contentsOf: url, options: .mappedIfSafe)
+                var currentModel: String?
+                for line in data.split(separator: 0x0A) {
+                    guard
+                        let object = try? JSONSerialization.jsonObject(
+                            with: Data(line)
+                        ),
+                        let dictionary = object as? [String: Any],
+                        let payload = dictionary["payload"] as? [String: Any]
+                    else {
+                        continue
+                    }
+
+                    if dictionary["type"] as? String == "turn_context" {
+                        currentModel = normalizedModel(payload["model"])
+                        continue
+                    }
+
+                    guard
+                        dictionary["type"] as? String == "event_msg",
+                        payload["type"] as? String == "token_count",
+                        let timestamp = dictionary["timestamp"] as? String,
+                        let eventDate = timestampFormatter.date(from: timestamp)
+                            ?? fallbackTimestampFormatter.date(from: timestamp),
+                        eventDate >= windowStart,
+                        eventDate < nextDay,
+                        let model = currentModel,
+                        let info = payload["info"] as? [String: Any],
+                        let lastUsage = info["last_token_usage"]
+                            as? [String: Any],
+                        let tokens = int64(lastUsage["total_tokens"]),
+                        tokens > 0
+                    else {
+                        continue
+                    }
+                    tokensByModel[model, default: 0] += tokens
+                }
+            } catch {
+                scanIsPartial = true
+            }
+        }
+
+        let rows = tokensByModel
+            .map { CodexModelTokenUsage(model: $0.key, tokens: $0.value) }
+            .sorted {
+                if $0.tokens != $1.tokens {
+                    return $0.tokens > $1.tokens
+                }
+                return $0.model.localizedCaseInsensitiveCompare($1.model)
+                    == .orderedAscending
+            }
+        return CodexLocalModelUsageResult(
+            rows: rows,
+            isPartial: scanIsPartial
+        )
+    }
+
+    private func normalizedModel(_ value: Any?) -> String? {
+        guard let rawValue = value as? String else { return nil }
+        let model = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        return model.isEmpty ? nil : model
+    }
+
+    private func int64(_ value: Any?) -> Int64? {
+        (value as? NSNumber)?.int64Value
+    }
+}
+
 enum CodexRateLimitParser {
+    static let modelUsageWindowDays = 30
+    static let maximumModelUsageThreads = 100
+
     static func containsRateLimitResponse(_ data: Data) -> Bool {
         containsResponse(id: 2, in: data)
     }
@@ -321,6 +687,20 @@ enum CodexRateLimitParser {
         containsCompleteUsageResponse(data)
             && containsResponse(id: 4, in: data)
             && containsResponse(id: 5, in: data)
+    }
+
+    static func containsResponses(_ ids: Set<Int>, in data: Data) -> Bool {
+        ids.allSatisfy { containsResponse(id: $0, in: data) }
+    }
+
+    static func modelUsageRequestPlan(
+        _ data: Data,
+        fetchedAt: Date = .now
+    ) -> CodexModelUsageRequestPlan {
+        modelUsageRequestPlan(
+            from: data.split(separator: 0x0A),
+            fetchedAt: fetchedAt
+        )
     }
 
     private static func containsResponse(id: Int, in data: Data) -> Bool {
@@ -337,7 +717,8 @@ enum CodexRateLimitParser {
 
     static func parseJSONLines(
         _ data: Data,
-        fetchedAt: Date = .now
+        fetchedAt: Date = .now,
+        localModelUsage: CodexLocalModelUsageResult? = nil
     ) throws -> CodexRateLimitSnapshot {
         let lines = data.split(separator: 0x0A)
 
@@ -380,7 +761,11 @@ enum CodexRateLimitParser {
                 limitID: aggregate["limitId"] as? String,
                 fiveHour: fiveHour,
                 weekly: weekly,
-                tokenUsage: parseTokenUsage(from: lines),
+                tokenUsage: parseTokenUsage(
+                    from: lines,
+                    fetchedAt: fetchedAt,
+                    localModelUsage: localModelUsage
+                ),
                 recentTaskActivity: parseRecentTaskActivity(
                     from: lines,
                     fetchedAt: fetchedAt
@@ -393,7 +778,9 @@ enum CodexRateLimitParser {
     }
 
     private static func parseTokenUsage(
-        from lines: [Data.SubSequence]
+        from lines: [Data.SubSequence],
+        fetchedAt: Date,
+        localModelUsage: CodexLocalModelUsageResult?
     ) -> CodexAccountTokenUsage? {
         for line in lines {
             guard
@@ -411,6 +798,24 @@ enum CodexRateLimitParser {
                 .compactMap(parseDailyUsageBucket)
                 .sorted { $0.startDate < $1.startDate }
                 ?? []
+            let hasThreadPages = [4, 5].allSatisfy { responseID in
+                threadListPage(responseID: responseID, from: lines) != nil
+            }
+            let appServerModelUsage: (
+                rows: [CodexModelTokenUsage],
+                isPartial: Bool
+            )? = localModelUsage == nil && hasThreadPages
+                ? parseModelUsage(
+                    from: lines,
+                    plan: modelUsageRequestPlan(
+                        from: lines,
+                        fetchedAt: fetchedAt
+                    )
+                )
+                : nil
+            let modelUsage = localModelUsage.map {
+                (rows: $0.rows, isPartial: $0.isPartial)
+            } ?? appServerModelUsage
 
             return CodexAccountTokenUsage(
                 lifetimeTokens: int64(summary["lifetimeTokens"]),
@@ -420,11 +825,156 @@ enum CodexRateLimitParser {
                 longestRunningTurnSeconds: int64(
                     summary["longestRunningTurnSec"]
                 ),
-                dailyUsageBuckets: buckets
+                dailyUsageBuckets: buckets,
+                modelUsage: modelUsage?.rows,
+                isModelUsagePartial: modelUsage?.isPartial
             )
         }
 
         return nil
+    }
+
+    private static func modelUsageRequestPlan(
+        from lines: [Data.SubSequence],
+        fetchedAt: Date
+    ) -> CodexModelUsageRequestPlan {
+        let pages = [4, 5].compactMap { responseID in
+            threadListPage(responseID: responseID, from: lines)
+        }
+        guard pages.count == 2 else {
+            return CodexModelUsageRequestPlan(
+                threadIDs: [],
+                isPartial: true
+            )
+        }
+
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = .current
+        let today = calendar.startOfDay(for: fetchedAt)
+        guard
+            let windowStart = calendar.date(
+                byAdding: .day,
+                value: -(modelUsageWindowDays - 1),
+                to: today
+            ),
+            let nextDay = calendar.date(byAdding: .day, value: 1, to: today)
+        else {
+            return CodexModelUsageRequestPlan(
+                threadIDs: [],
+                isPartial: true
+            )
+        }
+
+        let candidates = pages
+            .flatMap(\.threads)
+            .compactMap { thread -> (id: String, createdAt: Date)? in
+                if let parent = thread["parentThreadId"], !(parent is NSNull) {
+                    return nil
+                }
+                guard
+                    (thread["ephemeral"] as? Bool) != true,
+                    let id = thread["id"] as? String,
+                    !id.isEmpty,
+                    let timestamp = int64(thread["createdAt"])
+                else {
+                    return nil
+                }
+                let createdAt = Date(
+                    timeIntervalSince1970: TimeInterval(timestamp)
+                )
+                guard createdAt >= windowStart, createdAt < nextDay else {
+                    return nil
+                }
+                return (id, createdAt)
+            }
+            .sorted {
+                if $0.createdAt != $1.createdAt {
+                    return $0.createdAt > $1.createdAt
+                }
+                return $0.id < $1.id
+            }
+
+        var seen = Set<String>()
+        let uniqueThreadIDs = candidates.compactMap { candidate in
+            seen.insert(candidate.id).inserted ? candidate.id : nil
+        }
+        let pageCoverageIsPartial = pages.contains { page in
+            guard page.hasNextPage else { return false }
+            guard let oldestDate = page.oldestCreatedAt else { return true }
+            return oldestDate >= windowStart
+        }
+
+        return CodexModelUsageRequestPlan(
+            threadIDs: Array(
+                uniqueThreadIDs.prefix(maximumModelUsageThreads)
+            ),
+            isPartial: pageCoverageIsPartial
+                || uniqueThreadIDs.count > maximumModelUsageThreads
+        )
+    }
+
+    private static func parseModelUsage(
+        from lines: [Data.SubSequence],
+        plan: CodexModelUsageRequestPlan
+    ) -> (rows: [CodexModelTokenUsage], isPartial: Bool) {
+        let requestedThreadIDs = Set(plan.threadIDs)
+        var successfulThreadIDs = Set<String>()
+        var tokensByModel: [String: Int64] = [:]
+        var hasUnattributedTokens = false
+
+        for line in lines {
+            guard
+                let object = try? JSONSerialization.jsonObject(with: Data(line)),
+                let dictionary = object as? [String: Any],
+                dictionary["error"] == nil,
+                let result = dictionary["result"] as? [String: Any],
+                let threadUsage = result["threadUsage"] as? [String: Any],
+                let threadID = threadUsage["threadId"] as? String,
+                requestedThreadIDs.contains(threadID),
+                let groups = threadUsage["groups"] as? [[String: Any]]
+            else {
+                continue
+            }
+
+            successfulThreadIDs.insert(threadID)
+            for group in groups {
+                let tokens = int64(group["totalTokens"])
+                    ?? ((int64(group["inputTokens"]) ?? 0)
+                        + (int64(group["outputTokens"]) ?? 0))
+                guard tokens > 0 else { continue }
+
+                guard
+                    let rawModel = group["model"] as? String,
+                    !rawModel.trimmingCharacters(
+                        in: .whitespacesAndNewlines
+                    ).isEmpty
+                else {
+                    hasUnattributedTokens = true
+                    continue
+                }
+                let model = rawModel.trimmingCharacters(
+                    in: .whitespacesAndNewlines
+                )
+                tokensByModel[model, default: 0] += tokens
+            }
+        }
+
+        let rows = tokensByModel
+            .map { CodexModelTokenUsage(model: $0.key, tokens: $0.value) }
+            .sorted {
+                if $0.tokens != $1.tokens {
+                    return $0.tokens > $1.tokens
+                }
+                return $0.model.localizedCaseInsensitiveCompare($1.model)
+                    == .orderedAscending
+            }
+        let missingThreadUsage = !Set(plan.threadIDs).isSubset(
+            of: successfulThreadIDs
+        )
+        return (
+            rows,
+            plan.isPartial || missingThreadUsage || hasUnattributedTokens
+        )
     }
 
     private static func parseRecentTaskActivity(

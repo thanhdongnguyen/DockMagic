@@ -13,6 +13,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let appearanceStore: UserDefaults
     private let notificationCenter: NotificationCenter
     private let workspaceNotificationCenter: NotificationCenter
+    private let dockFeatureMenuController: DockFeatureMenuController
     private var dockTileController: DockTileController?
     private var dockHoverCoordinator: DockHoverCoordinator?
     private var appearanceObserver: NSObjectProtocol?
@@ -82,6 +83,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         self.appearanceStore = appearanceStore
         self.notificationCenter = notificationCenter
         self.workspaceNotificationCenter = workspaceNotificationCenter
+        dockFeatureMenuController = DockFeatureMenuController(
+            preferences: appModel.preferences
+        )
         super.init()
     }
 
@@ -108,6 +112,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidBecomeActive(_ notification: Notification) {
         dockHoverCoordinator?.applicationDidBecomeActive()
+    }
+
+    func applicationDockMenu(_ sender: NSApplication) -> NSMenu? {
+        dockHoverCoordinator?.dockMenuWillOpen()
+        return dockFeatureMenuController.makeMenu()
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(
@@ -227,6 +236,125 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 await self?.appModel.refreshActiveGitHubAfterResume()
             }
         }
+    }
+}
+
+@MainActor
+private final class DockFeatureMenuController: NSObject {
+    private let preferences: DockPreferencesStore
+
+    init(preferences: DockPreferencesStore) {
+        self.preferences = preferences
+        super.init()
+    }
+
+    func makeMenu() -> NSMenu {
+        let menu = NSMenu(title: "DockMagic")
+        menu.autoenablesItems = false
+
+        let switchFeatureItem = NSMenuItem(
+            title: "Switch Feature",
+            action: nil,
+            keyEquivalent: ""
+        )
+        switchFeatureItem.identifier = NSUserInterfaceItemIdentifier(
+            "dockMenu.switchFeature"
+        )
+        switchFeatureItem.submenu = makeFeatureSubmenu()
+        menu.addItem(switchFeatureItem)
+
+        return menu
+    }
+
+    private func makeFeatureSubmenu() -> NSMenu {
+        let submenu = NSMenu(title: "Switch Feature")
+        submenu.autoenablesItems = false
+
+        for feature in DockFeature.allCases {
+            let item = NSMenuItem(
+                title: feature.title,
+                action: action(for: feature),
+                keyEquivalent: ""
+            )
+            item.identifier = NSUserInterfaceItemIdentifier(
+                "dockMenu.feature.\(feature.rawValue)"
+            )
+            item.target = self
+            item.isEnabled = true
+            item.state = preferences.activeFeature == feature ? .on : .off
+            submenu.addItem(item)
+        }
+
+        return submenu
+    }
+
+    private func action(for feature: DockFeature) -> Selector {
+        switch feature {
+        case .dockMagic:
+            #selector(selectDockMagic(_:))
+        case .systemMetrics:
+            #selector(selectSystemMetrics(_:))
+        case .network:
+            #selector(selectNetwork(_:))
+        case .storage:
+            #selector(selectStorage(_:))
+        case .weather:
+            #selector(selectWeather(_:))
+        case .batteries:
+            #selector(selectBatteries(_:))
+        case .github:
+            #selector(selectGitHub(_:))
+        case .codex:
+            #selector(selectCodex(_:))
+        case .claudeCode:
+            #selector(selectClaudeCode(_:))
+        case .searchConsole:
+            #selector(selectSearchConsole(_:))
+        }
+    }
+
+    private func select(_ feature: DockFeature) {
+        preferences.activeFeature = feature
+    }
+
+    @objc private func selectDockMagic(_ sender: Any?) {
+        select(.dockMagic)
+    }
+
+    @objc private func selectSystemMetrics(_ sender: Any?) {
+        select(.systemMetrics)
+    }
+
+    @objc private func selectNetwork(_ sender: Any?) {
+        select(.network)
+    }
+
+    @objc private func selectStorage(_ sender: Any?) {
+        select(.storage)
+    }
+
+    @objc private func selectWeather(_ sender: Any?) {
+        select(.weather)
+    }
+
+    @objc private func selectBatteries(_ sender: Any?) {
+        select(.batteries)
+    }
+
+    @objc private func selectGitHub(_ sender: Any?) {
+        select(.github)
+    }
+
+    @objc private func selectCodex(_ sender: Any?) {
+        select(.codex)
+    }
+
+    @objc private func selectClaudeCode(_ sender: Any?) {
+        select(.claudeCode)
+    }
+
+    @objc private func selectSearchConsole(_ sender: Any?) {
+        select(.searchConsole)
     }
 }
 

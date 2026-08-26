@@ -1,3 +1,269 @@
+# DockMagic Codex dashboard capture — Option 1 design QA
+
+## Final result
+
+`passed`
+
+The selected Option 1 is implemented as a compact share control in the Codex header. Its menu offers Save 4× PNG, Copy image, and Share… while the generated image contains only the clean dashboard. The 440 × 522 pt component exports as a lossless 1760 × 2088 px PNG. No actionable P0, P1, or P2 visual differences remain.
+
+## Visual truth and interaction states
+
+- Selected source: `/Users/dongnt/.codex/generated_images/01a03c0c-2a63-7d13-ad45-fd5b800f6232/exec-99571dac-1dfe-439c-90ad-6fad97874c73.png`.
+- Normalized source: `/Users/dongnt/.codex/visualizations/2026/08/26/01a03c0c-2a63-7d13-ad45-fd5b800f6232/codex-capture-reference-normalized.png` (880 × 1044 px).
+- Final deterministic menu: `/Users/dongnt/.codex/visualizations/2026/08/26/01a03c0c-2a63-7d13-ad45-fd5b800f6232/codex-capture-menu-final.png` (880 × 1044 px).
+- Menu opened by a real mouse event in a nonactivating `NSPanel`: `/Users/dongnt/.codex/visualizations/2026/08/26/01a03c0c-2a63-7d13-ad45-fd5b800f6232/codex-capture-menu-clicked.png` (880 × 1044 px).
+- Full comparison input: `/Users/dongnt/.codex/visualizations/2026/08/26/01a03c0c-2a63-7d13-ad45-fd5b800f6232/codex-capture-comparison.png` (1760 × 1044 px; source left, implementation right).
+- Focused comparison input: `/Users/dongnt/.codex/visualizations/2026/08/26/01a03c0c-2a63-7d13-ad45-fd5b800f6232/codex-capture-focused-comparison.png` (1760 × 330 px).
+- Final clean export: `/Users/dongnt/.codex/visualizations/2026/08/26/01a03c0c-2a63-7d13-ad45-fd5b800f6232/codex-capture-export-4x-final.png` (1760 × 2088 px).
+- State: Dark; Pro; capture menu open; real component viewport 440 × 522 pt; QA snapshots at 2×; exported PNG at 4×.
+
+## Findings
+
+No remaining P0/P1/P2 findings.
+
+- Typography and copy: the menu preserves the selected hierarchy and exact primary actions. `1760 × 2088 px` makes export quality explicit before saving.
+- Spacing and layout rhythm: the 26 pt header control fits between the plan/status region and lifetime usage. The compact 146 pt menu aligns to that control and does not resize the dashboard.
+- Colors and tokens: the menu uses DockMagic semantic raised-surface, outline, action, on-action, and text roles. It introduces no direct RGB value, new feature palette, decorative tint, or gradient.
+- Image quality: the renderer creates an explicit 4× bitmap, validates its pixel dimensions, and writes lossless PNG bytes. The clean export excludes the capture button and menu, then lets Daily tokens settle on its latest bucket before rasterization.
+- Interactions: Save uses a native `NSSavePanel`; Copy places the same PNG bytes on the pasteboard; Share gives the system sharing picker a temporary file containing those exact bytes. Repeated Share actions reset correctly even when the generated URL is the same.
+- Accessibility: the header control and menu have labels, hints, and identifiers; Escape closes the menu; Reduce Motion disables its scale/fade animation.
+
+## Comparison history
+
+### Iteration 1
+
+- P2: the first implementation menu was wider and taller than the selected compact treatment.
+- Fix: reduced the menu to 146 pt, tightened row heights and padding, and added the small pointer aligned to the header control.
+
+### Iteration 2
+
+- Post-fix evidence: `codex-capture-comparison.png` and `codex-capture-focused-comparison.png`.
+- Result: share-button placement, menu hierarchy, row density, pointer alignment, icons, labels, and export-size copy match the selected direction. Production intentionally uses `theme.onAction` for accessible action text rather than copying ImageGen's hard-coded white.
+
+## Verification
+
+- `testCodexCaptureButtonOpensMenuInNonactivatingPanel`: passed after sending actual mouse down/up events to the production control; the clicked-state attachment visibly contains the menu.
+- `testCodexDashboardCaptureRendersCrispFourTimesPNG`: passed for exact 1760 × 2088 dimensions, PNG output, deterministic naming, exact pasteboard bytes, and exact share-file bytes.
+- `testCodexHoverDashboardFollowsColorDesignSystemSourceContract`: passed.
+- Final targeted result bundle: `/tmp/dockmagic-codex-capture-tests-20260826-5.xcresult` (3/3 passed).
+- `git diff --check`: passed. Source scan found no prohibited gradient or direct color literal in the capture implementation; only `Color.clear` exists elsewhere in the dashboard renderer.
+- Final Debug build, signing, launch, and process verification via `./script/build_and_run.sh --verify`: passed.
+- Computer Use runtime inspection hung while reading the app state, so it is not claimed as evidence. The direct nonactivating-panel event test provides the runtime interaction proof instead.
+- Browser and console checks: not applicable to this native SwiftUI/AppKit feature.
+
+final result: passed
+
+# DockMagic Daily intensity in-panel tooltip — design QA
+
+## Final result
+
+`passed`
+
+Daily intensity now renders its own SwiftUI tooltip inside the Dock hover card instead of depending on the native `.help` mechanism, which did not appear in DockMagic's nonactivating panel. Hovering a cell displays its full date in the card's lower open area, horizontally follows the hovered column, keeps Best day visible, and does not intercept pointer events. No actionable P0, P1, or P2 visual differences remain.
+
+## Visual truth and interaction states
+
+- User-reported runtime failure is the primary source truth: hovering individual cells did not show the date when the implementation depended on native `.help`.
+- Previous deterministic hover without a visible tooltip: `/Users/dongnt/.codex/visualizations/2026/08/26/01a03c0c-2a63-7d13-ad45-fd5b800f6232/codex-intensity-tooltip-hover-render.png` (880 × 1044 px for a 440 × 522 pt Retina component).
+- Updated deterministic hover with the in-panel tooltip: `/Users/dongnt/.codex/visualizations/2026/08/26/01a03c0c-2a63-7d13-ad45-fd5b800f6232/codex-intensity-custom-tooltip-hover.png` (880 × 1044 px).
+- Full-view comparison input: `/Users/dongnt/.codex/visualizations/2026/08/26/01a03c0c-2a63-7d13-ad45-fd5b800f6232/codex-intensity-custom-tooltip-full-comparison.png` (1760 × 1044 px; failed behavior left, updated behavior right).
+- Focused comparison input: `/Users/dongnt/.codex/visualizations/2026/08/26/01a03c0c-2a63-7d13-ad45-fd5b800f6232/codex-intensity-custom-tooltip-comparison.png` (800 × 210 px; failed behavior left, updated behavior right).
+- State: Dark; deterministic Aug 22 cell hover; tooltip `Aug 22, 2026`; Best Aug 20 remains visible.
+
+## Findings
+
+No remaining P0/P1/P2 findings.
+
+- Typography and copy: the tooltip uses compact native SF text, semibold weight, monospaced digits, the full `MMM d, yyyy` date, and no unrelated token copy. It remains readable without wrapping.
+- Spacing and layout rhythm: the tooltip occupies the card's existing lower open area and does not move the header, grid, endpoint labels, legend, adjacent Top models card, or overall 440 × 522 pt dashboard.
+- Colors and visual tokens: the tooltip uses DockMagic's existing raised opaque surface, primary text, and strong neutral outline. The blue intensity scale and selected-cell action outline remain unchanged; no gradient or feature-local palette was added.
+- Image quality and assets: no image asset is required. Tooltip, grid, and outline are native SwiftUI geometry and remain crisp at Retina density.
+- Interaction and accessibility: local `@State` follows each cell's `.onHover`; the tooltip is rendered from that same hovered bucket, clamped inside the card at both horizontal edges, and uses `.allowsHitTesting(false)` so it cannot break hover tracking. Each cell retains its date accessibility label and token-count value.
+
+## Comparison history
+
+### Iteration 1
+
+- P1: native `.help` existed in source but did not produce a visible tooltip in the real nonactivating Dock panel, so the requested hover behavior was unavailable.
+- Fix: replaced the cell-level `.help` dependency with a visible in-panel SwiftUI tooltip driven directly by the existing hovered-cell state.
+
+### Iteration 2
+
+- Post-fix evidence: `codex-intensity-custom-tooltip-full-comparison.png` and `codex-intensity-custom-tooltip-comparison.png`.
+- Result: the full date is visibly rendered during hover, Best remains fixed, the selected cell remains outlined, and the tooltip fits without clipping or layout movement.
+
+## Verification
+
+- `testCodexHoverDashboardFollowsColorDesignSystemSourceContract`: passed, including custom tooltip rendering, non-hit-testing behavior, and removal of cell-level native `.help`.
+- `testCodexHoverDashboardMinimalColorRender`: passed for normal and deterministic intensity-cell-hover states; the hover attachment visibly contains `Aug 22, 2026`.
+- Targeted result bundle: `/tmp/dockmagic-codex-intensity-custom-tooltip-tests.xcresult` (2/2 passed).
+- `git diff --check`: passed.
+- Debug build, signing, launch, and process verification via `./script/build_and_run.sh --verify`: passed; the rebuilt DockMagic process remained running.
+- Browser and console checks: not applicable to this native SwiftUI/AppKit component.
+
+final result: passed
+
+# DockMagic Daily intensity native tooltip — design QA
+
+## Final result
+
+`passed`
+
+The Daily intensity header now keeps the Best-day capsule fixed while each intensity cell exposes its full calendar date through the native macOS tooltip. Hover still gives the active cell a visible outline, but no longer replaces or covers the most-used-day value. No actionable P0, P1, or P2 visual differences remain.
+
+## Visual truth and interaction states
+
+- User feedback is the primary source truth: the hovered date must appear as a tooltip and must not replace the Best-day value in the card header.
+- Previous hovered implementation: `/Users/dongnt/.codex/visualizations/2026/08/26/01a03c0c-2a63-7d13-ad45-fd5b800f6232/codex-intensity-blue-hover.png` (880 × 1044 px for a 440 × 522 pt Retina component).
+- Updated normal implementation: `/Users/dongnt/.codex/visualizations/2026/08/26/01a03c0c-2a63-7d13-ad45-fd5b800f6232/codex-intensity-tooltip-normal.png` (880 × 1044 px).
+- Updated deterministic cell-hover implementation: `/Users/dongnt/.codex/visualizations/2026/08/26/01a03c0c-2a63-7d13-ad45-fd5b800f6232/codex-intensity-tooltip-hover-render.png` (880 × 1044 px).
+- Full-view comparison input: `/Users/dongnt/.codex/visualizations/2026/08/26/01a03c0c-2a63-7d13-ad45-fd5b800f6232/codex-intensity-tooltip-full-comparison.png` (1760 × 1044 px; previous hover left, updated hover right).
+- Focused comparison input: `/Users/dongnt/.codex/visualizations/2026/08/26/01a03c0c-2a63-7d13-ad45-fd5b800f6232/codex-intensity-tooltip-comparison.png` (800 × 150 px; previous hover left, updated hover right).
+- State: Dark; deterministic Aug 22 cell hover; Best Aug 20 remains visible.
+
+## Findings
+
+No remaining P0/P1/P2 findings.
+
+- Typography and copy: `Best Aug 20` remains readable in its original capsule during hover. The native tooltip uses the full `MMM d, yyyy` date format and does not add unrelated copy.
+- Spacing and layout rhythm: the header no longer changes content or color when a cell is hovered. Card size, grid position, legend, adjacent Top models card, and complete dashboard geometry are unchanged.
+- Colors and visual tokens: the existing five-step semantic action-blue scale is unchanged. Hover continues to use the existing action-foreground outline and the tooltip uses the native macOS presentation rather than a new feature-local surface color.
+- Image quality and assets: no new asset is required; all cells and outlines remain native SwiftUI geometry at Retina density.
+- Interaction and accessibility: every intensity cell has a native `.help` tooltip containing its full date, a visible hover outline, an accessibility date label, and a token-count accessibility value. The Best-day capsule is independent of the local hovered-cell state.
+- Evidence limitation: the native AppKit tooltip window is system-owned and is not included in an offscreen `NSHostingView` PNG. Computer Use could not read the nonactivating Dock panel in the available runtime, so the tooltip contract is verified by the production modifier and focused source/render tests rather than a fabricated screenshot.
+
+## Comparison history
+
+### Iteration 1
+
+- P2: the hovered date replaced the Best-day capsule in the upper-right corner, hiding the most-used-day value and mixing two independent meanings in one location.
+- Fix: made the Best-day capsule unconditional whenever Best data exists and moved the hovered date to the cell's native macOS `.help` tooltip.
+
+### Iteration 2
+
+- Post-fix evidence: `codex-intensity-tooltip-full-comparison.png` and `codex-intensity-tooltip-comparison.png`.
+- Result: the hovered cell remains identifiable by outline, Best Aug 20 remains fixed, and no dashboard content shifts or clips.
+
+## Verification
+
+- `testCodexHoverDashboardFollowsColorDesignSystemSourceContract`: passed, including native full-date tooltip presence and absence of the old `Hovered date` header branch.
+- `testCodexHoverDashboardMinimalColorRender`: passed for normal and deterministic intensity-cell-hover states.
+- Targeted result bundle: `/tmp/dockmagic-codex-intensity-tooltip-tests.xcresult` (2/2 passed).
+- Source diff validation: `git diff --check` passed.
+- Debug build, signing, launch, and process verification via `./script/build_and_run.sh --verify`: passed; the rebuilt DockMagic process remained running.
+- Browser and console checks: not applicable to this native SwiftUI/AppKit component.
+
+final result: passed
+
+# DockMagic Daily intensity blue scale and hover date — design QA
+
+## Final result
+
+`passed`
+
+The compact Daily intensity supplement now uses DockMagic's existing semantic action blue from low to high intensity and replaces the Best-day capsule with the hovered calendar date while the pointer is over a cell. The card remains in its existing position below Ship momentum, keeps the same dimensions and hierarchy, and does not disturb the adjacent Top models card. No actionable P0, P1, or P2 visual differences remain.
+
+## Visual truth and interaction states
+
+- Previous implementation source: `/Users/dongnt/.codex/visualizations/2026/08/26/01a03c0c-2a63-7d13-ad45-fd5b800f6232/codex-option3-implementation-final-v2.png` (880 × 1044 px for a 440 × 522 pt Retina component).
+- Updated Dark implementation: `/Users/dongnt/.codex/visualizations/2026/08/26/01a03c0c-2a63-7d13-ad45-fd5b800f6232/codex-intensity-blue-dark.png` (880 × 1044 px).
+- Hovered Aug 22 state: `/Users/dongnt/.codex/visualizations/2026/08/26/01a03c0c-2a63-7d13-ad45-fd5b800f6232/codex-intensity-blue-hover.png` (880 × 1044 px).
+- Before/after comparison input: `/Users/dongnt/.codex/visualizations/2026/08/26/01a03c0c-2a63-7d13-ad45-fd5b800f6232/codex-intensity-blue-comparison.png` (1760 × 1044 px; previous neutral scale left, updated blue scale right).
+- Focused normal/hover comparison: `/Users/dongnt/.codex/visualizations/2026/08/26/01a03c0c-2a63-7d13-ad45-fd5b800f6232/codex-intensity-blue-card-states.png` (800 × 210 px; normal left, Aug 22 hover right).
+- Deterministic state: Dark; the normal card identifies Best Aug 20; the interaction render hovers Aug 22.
+
+## Findings
+
+No remaining P0/P1/P2 findings.
+
+- Typography and copy: title, Best-day capsule, date endpoints, legend, and hovered `MMM d` label remain readable without clipping or wrapping at the real 440 pt dashboard width.
+- Layout and rhythm: hover changes only the trailing capsule and selected-cell outline. It does not resize the card, move surrounding content, or alter the adjacent Top models list.
+- Colors and tokens: the five levels use `theme.action` at increasing opacity from 0.10 through 0.86. This reuses DockMagic's existing action accent inside the quantitative renderer rather than introducing a local palette, decorative tint, or gradient.
+- Interaction and accessibility: every cell updates the visible date capsule on pointer hover and receives a distinct outline. Exact date and token count remain available through Help and accessibility values, so the state does not depend on color alone.
+- Image quality and assets: no image asset is required; the grid, outlines, and capsules remain crisp native SwiftUI geometry at Retina density.
+
+## Comparison history
+
+### Iteration 1
+
+- P2: the neutral intensity scale appeared too dark and visually disconnected from the blue quantitative accents already used elsewhere in the Codex dashboard.
+- P2: the first deterministic hover render reused the large Daily tokens chart hover state, which changed an unrelated chart and could clip the offscreen render.
+- Fixes: moved the five-level scale to semantic action blue and gave Daily intensity an independent local hover state with a visible date capsule and cell outline.
+
+### Iteration 2
+
+- Post-fix evidence: `codex-intensity-blue-comparison.png` and `codex-intensity-blue-card-states.png`.
+- Result: the scale now reads clearly from light to dark blue, the hovered date is immediately visible, and the full dashboard remains stable with no actionable P0/P1/P2 mismatch.
+
+## Verification
+
+- `testCodexHoverDashboardFollowsColorDesignSystemSourceContract`: passed, including the semantic action-blue source contract and visible hover-date label.
+- `testCodexHoverDashboardMinimalColorRender`: passed for the normal and Daily-intensity-hover render states.
+- Final post-cleanup targeted result bundle: `/tmp/dockmagic-codex-intensity-blue-tests-final-4.xcresult` (2/2 passed).
+- Source diff validation: `git diff --check` passed.
+- Debug build, signing, launch, and process verification via `./script/build_and_run.sh --verify`: passed; DockMagic remained running after launch.
+- Browser and console checks: not applicable to this native SwiftUI/AppKit component.
+
+final result: passed
+
+# DockMagic Codex usage supplements — Option 3 design QA
+
+## Final result
+
+`passed`
+
+The selected Option 3 is implemented as two compact, equal-height supplements directly below the existing Ship momentum card: a 30-day Daily intensity grid and a three-row Top models list ranked by token usage. The production dashboard keeps the real 440 pt Dock-hover width, its existing hierarchy, and DockMagic's neutral-first color contract. No actionable P0, P1, or P2 visual differences remain.
+
+## Visual truth and runtime state
+
+- Selected source: `/Users/dongnt/.codex/generated_images/01a03c0c-2a63-7d13-ad45-fd5b800f6232/exec-2c0849a2-ed59-42a7-b192-3488e9c32e31.png` (1153 × 1364 px).
+- Normalized source: `/Users/dongnt/.codex/visualizations/2026/08/26/01a03c0c-2a63-7d13-ad45-fd5b800f6232/codex-option3-reference-normalized.png` (880 × 1044 px).
+- Final Dark implementation: `/Users/dongnt/.codex/visualizations/2026/08/26/01a03c0c-2a63-7d13-ad45-fd5b800f6232/codex-option3-implementation-final-v2.png` (880 × 1044 px for a 440 × 522 pt Retina component).
+- Combined comparison input: `/Users/dongnt/.codex/visualizations/2026/08/26/01a03c0c-2a63-7d13-ad45-fd5b800f6232/codex-option3-comparison-final-v2.png` (1760 × 1044 px; normalized source left, implementation right).
+- Additional render states are attached to `/tmp/dockmagic-codex-option3-render-final-3.xcresult`: Light, Increased Contrast, Reduced Transparency, grayscale, weekly-only, and token-hover.
+- Deterministic state: Dark; Pro; 74% five-hour and 41% weekly remaining; 18.4M lifetime; 1.28M latest day; Ship momentum 55 and Shipper; 12 tasks; 7.1M tokens; three model rows.
+
+## Findings
+
+No remaining P0/P1/P2 findings.
+
+- Typography and hierarchy: both supplements use the existing compact native type scale. Titles, the Best-day pill, 30-day label, model ranks, identifiers, and compact token totals remain readable without wrapping at 440 pt.
+- Layout and rhythm: the two 104 pt cards sit only below Ship momentum with the existing 7 pt dashboard rhythm. They remain secondary to the large Daily tokens chart and Ship momentum card, and the complete panel grows only from 410 pt to 522 pt.
+- Daily intensity: 30 native cells render in two rows of 15, with five neutral luminance levels, date endpoints, a five-step legend, a Best-day pill, and a latest-day outline. Every cell exposes its exact date and token value through Help and accessibility, so meaning is not color-only.
+- Top models: the three highest token totals are ranked numerically and include model identifiers, proportional action-accent markers, and compact totals. The `30d*` state and Help text disclose partial fallback coverage when necessary.
+- Colors and assets: normal chrome stays neutral; only the existing semantic action accent is used for quantitative model markers. No gradient, decorative glow, tinted card palette, new raster asset, or recreated brand icon was introduced.
+- Data privacy and fidelity: the primary reader queries only `model`, `tokens_used`, and `created_at` from Codex's local state database in read-only mode. Prompt and response content is not queried. Bounded rollout metadata and app-server per-thread usage remain fallbacks when the state database is unavailable.
+- Accepted P3 differences: production uses the actual account date range and includes the month in the Best-day pill; the generated source abbreviates that value. Production spacing is marginally denser to preserve the real DockMagic viewport and current dashboard hierarchy.
+
+## Comparison history
+
+### Iteration 1
+
+- P2: the first model list used vertical blue markers beside the ranks, while the selected source places compact quantitative markers near the token totals.
+- P2: the first intensity preview did not exercise enough low and zero-token cells, so its five levels were visually understated.
+- Fixes: moved proportional horizontal markers to the totals column, strengthened the neutral intensity separation, exercised zero/low preview values, reduced both supplements to 104 pt, and restored the selected source's Best-day capsule treatment.
+
+### Iteration 2
+
+- Post-fix evidence: `codex-option3-comparison-final-v2.png`.
+- Result: module placement, card proportions, title hierarchy, 2 × 15 grid, legend, three ranked models, token markers, and panel pointer match the selected direction with no actionable P0/P1/P2 mismatch.
+
+## Verification
+
+- `testCodexLocalModelUsageReaderPrefersReadOnlyStateDatabase`: passed.
+- `testCodexLocalModelUsageReaderUsesOnlyRecentTokenMetadata`: passed.
+- `testCodexParserAggregatesRecentRootThreadTokensByModel`: passed, including partial coverage.
+- `testCodexHoverPresentationUsesOnlyAvailableLimitsAndThirtyDays`: passed, including top-three ordering.
+- `testCodexHoverDashboardFollowsColorDesignSystemSourceContract`: passed.
+- `testCodexHoverDashboardMinimalColorRender`: passed across Dark, Light, Increased Contrast, Reduced Transparency, grayscale, weekly-only, and token-hover states.
+- Focused data and render suite: passed in `/tmp/dockmagic-codex-option3-tests-4.xcresult`; final render/source-contract pass is `/tmp/dockmagic-codex-option3-render-final-3.xcresult`.
+- Full `DockMagicTests` regression target: passed in `/tmp/dockmagic-codex-option3-full-tests.xcresult`.
+- Exact production reader probe against the installed Codex state returned four model aggregates in 142 ms with full coverage and without reading prompt/response content.
+- Debug build and runtime verification via `./script/build_and_run.sh --verify`: passed; DockMagic remained running after launch. Xcode signed the rebuilt bundle with the current Apple Development identity. Independent deep verification reported `CSSMERR_TP_NOT_TRUSTED` even though Keychain reports both Apple Development and Developer ID identities as valid, so this is recorded as a local certificate-trust limitation rather than UI/runtime proof.
+- Browser and console checks: not applicable to this native SwiftUI/AppKit component.
+
+final result: passed
+
 # DockMagic Codex rank ladder — design QA
 
 ## Final result

@@ -4,6 +4,11 @@ import SwiftUI
 /// DockMagic's product palette. Reusable components know only `DesignTheme`;
 /// this mapping and the named Color Set values remain application-owned.
 enum ProjectTheme {
+    /// Claude Code usage data uses the service's clay-orange identity as its
+    /// single persistent data accent. Status colors still come from
+    /// `DesignTheme` and replace this accent when they carry meaning.
+    static let claudeCodeUsage = Color("DSClaudeCodeUsage")
+
     static let current = DesignTheme(
         action: Color("DSAction"),
         actionForeground: Color("DSActionForeground"),

@@ -56,11 +56,13 @@ Official sources:
 ## Hover dashboard
 
 When Claude Code is the active Dock feature and Dock hover is enabled, the
-440×304 dashboard mirrors the Codex quota hierarchy without inventing token
+440×410 dashboard mirrors the Codex visual hierarchy without inventing token
 history that Claude Code does not publish:
 
 - fixed 5-hour and Weekly rows show remaining percentage and reset time;
 - a missing window renders as `Not reported`, never as a full allowance;
+- a compact two-column quota chart uses Claude's clay-orange as the single
+  persistent data accent while retaining numeric labels for grayscale use;
 - `Next reset` selects the earliest reported reset and shows a countdown;
 - `Last sync` shows both snapshot age and the local modification time;
 - loading, stale, unavailable, and bridge-not-installed states preserve the
@@ -68,10 +70,11 @@ history that Claude Code does not publish:
 - the footer identifies `Claude Code statusLine` as the source and explains
   that updates arrive after Claude Code emits a new status line.
 
-The dashboard uses neutral semantic surfaces and the shared action/status
-roles. The full-color Claude Code logo remains contained in its identity area;
-the user-selected Dock ring colors do not leak into dashboard chrome, status,
-or progress bars.
+The dashboard uses neutral semantic surfaces and the shared status roles.
+Claude's project-owned clay-orange usage accent is confined to quota progress;
+warning and danger replace it at their thresholds. The full-color Claude Code
+logo remains contained in its identity area, and user-selected Dock ring colors
+do not leak into dashboard chrome or status.
 
 ## DockMagic bridge
 

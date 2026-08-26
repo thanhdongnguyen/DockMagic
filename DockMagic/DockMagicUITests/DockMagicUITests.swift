@@ -22,10 +22,16 @@ final class DockMagicUITests: XCTestCase {
         XCTAssertTrue(
             app.descendants(matching: .any)["settings.appearancePicker"].exists
         )
+        let launchAtLoginToggle = app.descendants(matching: .any)[
+            "settings.launchAtLogin.toggle"
+        ]
         XCTAssertTrue(
-            app.descendants(matching: .any)["settings.launchAtLogin.toggle"]
-                .exists,
+            launchAtLoginToggle.exists,
             "Missing the Launch at login control in General settings."
+        )
+        XCTAssertTrue(
+            launchAtLoginToggle.isEnabled,
+            "Launch at login should remain actionable when registration is missing."
         )
 
         for destination in [

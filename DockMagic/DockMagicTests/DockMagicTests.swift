@@ -220,6 +220,70 @@ final class DockMagicTests: XCTestCase {
     }
 
     @MainActor
+    func testDockMenuNestsEveryFeatureAndSwitchesThePersistedSelection() throws {
+        let suiteName = "DockMagicTests.DockFeatureMenu.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let preferences = DockPreferencesStore(defaults: defaults)
+        preferences.activeFeature = .network
+        let appModel = DockAppModel(preferences: preferences)
+        let delegate = AppDelegate(
+            appModel: appModel,
+            settingsWindowRouter: SettingsWindowRouter()
+        )
+
+        let dockMenu = try XCTUnwrap(
+            delegate.applicationDockMenu(NSApplication.shared)
+        )
+        XCTAssertEqual(dockMenu.items.map(\.title), ["Switch Feature"])
+
+        let switchFeatureItem = try XCTUnwrap(dockMenu.items.first)
+        XCTAssertEqual(
+            switchFeatureItem.identifier?.rawValue,
+            "dockMenu.switchFeature"
+        )
+        let featureSubmenu = try XCTUnwrap(switchFeatureItem.submenu)
+        XCTAssertEqual(
+            featureSubmenu.items.map(\.title),
+            DockFeature.allCases.map(\.title)
+        )
+        XCTAssertEqual(
+            featureSubmenu.items.filter { $0.state == .on }.map(\.title),
+            [DockFeature.network.title]
+        )
+
+        let codexItem = try XCTUnwrap(
+            featureSubmenu.items.first {
+                $0.identifier?.rawValue == "dockMenu.feature.codex"
+            }
+        )
+        let action = try XCTUnwrap(codexItem.action)
+        XCTAssertTrue(
+            NSApplication.shared.sendAction(
+                action,
+                to: codexItem.target,
+                from: nil
+            )
+        )
+        XCTAssertEqual(preferences.activeFeature, .codex)
+        XCTAssertEqual(
+            defaults.string(forKey: DockFeature.storageKey),
+            DockFeature.codex.rawValue
+        )
+
+        let updatedMenu = try XCTUnwrap(
+            delegate.applicationDockMenu(NSApplication.shared)
+        )
+        let updatedSubmenu = try XCTUnwrap(updatedMenu.items.first?.submenu)
+        XCTAssertEqual(
+            updatedSubmenu.items.filter { $0.state == .on }.map(\.title),
+            [DockFeature.codex.title]
+        )
+    }
+
+    @MainActor
     func testSettingsRouterBringsExistingWindowForwardWithoutOpeningAnother() {
         var didBringForward = false
         var didOpen = false
@@ -451,11 +515,15 @@ final class DockMagicTests: XCTestCase {
         XCTAssertEqual(DockHoverPanelPlacement.standardPanelSize.height, 304)
         XCTAssertEqual(
             DockHoverPanelPlacement.panelSize(for: .codex).height,
-            410
+            522
         )
         XCTAssertEqual(
             DockHoverPanelPlacement.panelSize(for: .claudeCode),
-            DockHoverPanelPlacement.standardPanelSize
+            DockHoverPanelPlacement.claudeCodePanelSize
+        )
+        XCTAssertLessThan(
+            DockHoverPanelPlacement.claudeCodePanelSize.height,
+            DockHoverPanelPlacement.codexPanelSize.height
         )
     }
 
@@ -942,6 +1010,247 @@ final class DockMagicTests: XCTestCase {
         )
         XCTAssertEqual(snapshot.recentTaskActivity?.currentWeekCount, 1)
         XCTAssertEqual(snapshot.recentTaskActivity?.isPartial, true)
+    }
+
+    func testCodexParserAggregatesRecentRootThreadTokensByModel() throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = .current
+        let fetchedAt = calendar.date(from: DateComponents(
+            year: 2026,
+            month: 8,
+            day: 25,
+            hour: 12
+        ))!
+        func timestamp(day: Int, month: Int = 8) -> Int64 {
+            Int64(calendar.date(from: DateComponents(
+                year: 2026,
+                month: month,
+                day: day,
+                hour: 12
+            ))!.timeIntervalSince1970)
+        }
+        func thread(
+            id: String,
+            day: Int,
+            month: Int = 8,
+            parent: Any = NSNull()
+        ) -> [String: Any] {
+            [
+                "id": id,
+                "createdAt": timestamp(day: day, month: month),
+                "parentThreadId": parent,
+                "ephemeral": false
+            ]
+        }
+
+        let response = codexResponse(
+            fallback: rateLimitBucket(
+                limitID: "codex",
+                primaryDuration: 300,
+                primaryUsed: 20
+            )
+        )
+            + codexTokenUsageResponse(
+                lifetimeTokens: 18_400_000,
+                dailyTokens: Array(repeating: 500_000, count: 14)
+            )
+            + codexThreadListResponse(
+                id: 4,
+                threads: [
+                    thread(id: "active-a", day: 25),
+                    thread(
+                        id: "child",
+                        day: 24,
+                        parent: "active-a"
+                    ),
+                    thread(id: "old", day: 1, month: 7)
+                ]
+            )
+            + codexThreadListResponse(
+                id: 5,
+                threads: [thread(id: "archived-b", day: 22)]
+            )
+
+        let plan = CodexRateLimitParser.modelUsageRequestPlan(
+            response,
+            fetchedAt: fetchedAt
+        )
+        XCTAssertEqual(plan.threadIDs, ["active-a", "archived-b"])
+        XCTAssertFalse(plan.isPartial)
+
+        let completeResponse = response
+            + codexThreadUsageResponse(
+                id: 1_000,
+                threadID: "active-a",
+                groups: [
+                    ("gpt-5.6", 1_000_000),
+                    ("gpt-5.5", 200_000)
+                ]
+            )
+            + codexThreadUsageResponse(
+                id: 1_001,
+                threadID: "archived-b",
+                groups: [
+                    ("gpt-5.5", 600_000),
+                    ("gpt-5.6", 100_000)
+                ]
+            )
+        XCTAssertTrue(
+            CodexRateLimitParser.containsResponses(
+                [1_000, 1_001],
+                in: completeResponse
+            )
+        )
+
+        let snapshot = try CodexRateLimitParser.parseJSONLines(
+            completeResponse,
+            fetchedAt: fetchedAt
+        )
+        XCTAssertEqual(
+            snapshot.tokenUsage?.modelUsage,
+            [
+                CodexModelTokenUsage(model: "gpt-5.6", tokens: 1_100_000),
+                CodexModelTokenUsage(model: "gpt-5.5", tokens: 800_000)
+            ]
+        )
+        XCTAssertEqual(snapshot.tokenUsage?.isModelUsagePartial, false)
+
+        let partialSnapshot = try CodexRateLimitParser.parseJSONLines(
+            response + codexThreadUsageResponse(
+                id: 1_000,
+                threadID: "active-a",
+                groups: [("gpt-5.6", 1_000_000)]
+            ),
+            fetchedAt: fetchedAt
+        )
+        XCTAssertEqual(partialSnapshot.tokenUsage?.modelUsage?.count, 1)
+        XCTAssertEqual(partialSnapshot.tokenUsage?.isModelUsagePartial, true)
+    }
+
+    func testCodexLocalModelUsageReaderUsesOnlyRecentTokenMetadata() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: root,
+            withIntermediateDirectories: true
+        )
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        func line(_ object: [String: Any]) throws -> Data {
+            var data = try JSONSerialization.data(withJSONObject: object)
+            data.append(0x0A)
+            return data
+        }
+        func turn(model: String, timestamp: String) -> [String: Any] {
+            [
+                "timestamp": timestamp,
+                "type": "turn_context",
+                "payload": ["model": model]
+            ]
+        }
+        func tokenCount(tokens: Int64, timestamp: String) -> [String: Any] {
+            [
+                "timestamp": timestamp,
+                "type": "event_msg",
+                "payload": [
+                    "type": "token_count",
+                    "info": [
+                        "last_token_usage": ["total_tokens": tokens]
+                    ]
+                ]
+            ]
+        }
+
+        var fixture = Data()
+        fixture.append(try line(turn(
+            model: "gpt-5.6",
+            timestamp: "2026-08-25T08:00:00.000Z"
+        )))
+        fixture.append(try line(tokenCount(
+            tokens: 1_000,
+            timestamp: "2026-08-25T08:01:00.000Z"
+        )))
+        fixture.append(try line(tokenCount(
+            tokens: 99_000,
+            timestamp: "2026-07-01T08:01:00.000Z"
+        )))
+        fixture.append(try line(turn(
+            model: "gpt-5.5",
+            timestamp: "2026-08-25T09:00:00.000Z"
+        )))
+        fixture.append(try line(tokenCount(
+            tokens: 700,
+            timestamp: "2026-08-25T09:01:00.000Z"
+        )))
+        try fixture.write(to: root.appendingPathComponent("rollout.jsonl"))
+
+        let fetchedAt = ISO8601DateFormatter().date(
+            from: "2026-08-26T12:00:00Z"
+        )!
+        let result = try XCTUnwrap(
+            CodexLocalModelUsageReader(sessionsRoot: root).read(
+                fetchedAt: fetchedAt
+            )
+        )
+        XCTAssertEqual(
+            result.rows,
+            [
+                CodexModelTokenUsage(model: "gpt-5.6", tokens: 1_000),
+                CodexModelTokenUsage(model: "gpt-5.5", tokens: 700)
+            ]
+        )
+        XCTAssertFalse(result.isPartial)
+    }
+
+    func testCodexLocalModelUsageReaderPrefersReadOnlyStateDatabase() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: root,
+            withIntermediateDirectories: true
+        )
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let databaseURL = root.appendingPathComponent("state_5.sqlite")
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/sqlite3")
+        process.arguments = [
+            databaseURL.path,
+            """
+            CREATE TABLE threads (
+                created_at INTEGER NOT NULL,
+                model TEXT,
+                tokens_used INTEGER NOT NULL
+            );
+            INSERT INTO threads VALUES (1787590800, 'gpt-5.6', 900);
+            INSERT INTO threads VALUES (1787504400, 'gpt-5.5', 600);
+            INSERT INTO threads VALUES (1787504400, 'gpt-5.6', 100);
+            INSERT INTO threads VALUES (1750000000, 'old-model', 999999);
+            """
+        ]
+        process.standardOutput = FileHandle.nullDevice
+        process.standardError = FileHandle.nullDevice
+        try process.run()
+        process.waitUntilExit()
+        XCTAssertEqual(process.terminationStatus, 0)
+
+        let fetchedAt = ISO8601DateFormatter().date(
+            from: "2026-08-26T12:00:00Z"
+        )!
+        let result = try XCTUnwrap(
+            CodexLocalModelUsageReader(
+                sessionsRoot: root,
+                stateDatabaseURL: databaseURL
+            ).read(fetchedAt: fetchedAt)
+        )
+        XCTAssertEqual(
+            result.rows,
+            [
+                CodexModelTokenUsage(model: "gpt-5.6", tokens: 1_000),
+                CodexModelTokenUsage(model: "gpt-5.5", tokens: 600)
+            ]
+        )
+        XCTAssertFalse(result.isPartial)
     }
 
     func testCodexParserSupportsWeeklyOnlyWithoutInventingFiveHour() throws {
@@ -2993,6 +3302,32 @@ final class DockMagicTests: XCTestCase {
         XCTAssertEqual(renderedVariants.count, 2)
         XCTAssertNotEqual(renderedVariants[0], renderedVariants[1])
 
+        let darkRepresentation = try XCTUnwrap(
+            NSBitmapImageRep(data: renderedVariants[0])
+        )
+        let outerCorners = [
+            NSPoint(x: 0, y: 0),
+            NSPoint(x: darkRepresentation.pixelsWide - 1, y: 0),
+            NSPoint(x: 0, y: darkRepresentation.pixelsHigh - 1),
+            NSPoint(
+                x: darkRepresentation.pixelsWide - 1,
+                y: darkRepresentation.pixelsHigh - 1
+            )
+        ]
+        for corner in outerCorners {
+            let color = try XCTUnwrap(
+                darkRepresentation.colorAt(
+                    x: Int(corner.x),
+                    y: Int(corner.y)
+                )
+            )
+            XCTAssertLessThanOrEqual(
+                color.alphaComponent,
+                0.1,
+                "Dashboard shadow must not square off an outer corner."
+            )
+        }
+
         let accessibilityVariants: [(String, DSAccessibilityOverrides)] = [
             (
                 "Increased Contrast",
@@ -3075,13 +3410,13 @@ final class DockMagicTests: XCTestCase {
             .dropLast(2)
             .last?
             .id
-        let hoveredName = "Codex Hover — Token Hover"
+        let hoveredName = "Codex Hover — Daily Intensity Hover"
         let hovered = try renderPNG(
             of: DockHoverDashboardRoot(
                 appModel: appModel,
                 pointerEdge: .bottom,
                 appearanceMode: .dark,
-                initialHoveredBucketID: hoveredBucketID
+                initialIntensityHoveredBucketID: hoveredBucketID
             ),
             size: DockHoverPanelPlacement.codexPanelSize,
             appearanceName: .darkAqua,
@@ -3090,6 +3425,183 @@ final class DockMagicTests: XCTestCase {
         XCTAssertGreaterThan(hovered.count, 12_000)
         XCTAssertNotEqual(hovered, renderedVariants[0])
         attachPNG(hovered, name: hoveredName)
+
+        let captureMenuName = "Codex Hover — Capture Menu"
+        let captureMenu = try renderPNG(
+            of: DockHoverDashboardRoot(
+                appModel: appModel,
+                pointerEdge: .bottom,
+                appearanceMode: .dark,
+                initialCaptureMenuPresented: true
+            ),
+            size: DockHoverPanelPlacement.codexPanelSize,
+            appearanceName: .darkAqua,
+            name: captureMenuName
+        )
+        XCTAssertGreaterThan(captureMenu.count, 12_000)
+        XCTAssertNotEqual(captureMenu, renderedVariants[0])
+        attachPNG(captureMenu, name: captureMenuName)
+    }
+
+    @MainActor
+    func testCodexDashboardCaptureRendersCrispFourTimesPNG() throws {
+        let panelSize = DockHoverPanelPlacement.codexPanelSize
+        let fixedNow = Date(timeIntervalSince1970: 1_777_000_000)
+        let artifact = try CodexDashboardCaptureService.render(
+            state: .live(.hoverDesignPreview),
+            configuration: CodexDashboardCaptureConfiguration(
+                pointerEdge: .bottom,
+                panelSize: panelSize,
+                appearanceMode: .dark
+            ),
+            now: fixedNow
+        )
+        let representation = try XCTUnwrap(
+            NSBitmapImageRep(data: artifact.pngData)
+        )
+
+        XCTAssertEqual(artifact.pixelWidth, 1_760)
+        XCTAssertEqual(artifact.pixelHeight, 2_088)
+        XCTAssertEqual(representation.pixelsWide, 1_760)
+        XCTAssertEqual(representation.pixelsHigh, 2_088)
+        XCTAssertGreaterThan(artifact.pngData.count, 60_000)
+        XCTAssertEqual(
+            artifact.fileName,
+            CodexDashboardCaptureService.defaultFileName(
+                at: fixedNow,
+                timeZone: .current
+            )
+        )
+        XCTAssertEqual(
+            CodexDashboardCaptureService.pixelSizeLabel(for: panelSize),
+            "1760 × 2088 px"
+        )
+
+        let pasteboard = NSPasteboard.withUniqueName()
+        try CodexDashboardCaptureService.copy(
+            artifact,
+            to: pasteboard
+        )
+        XCTAssertEqual(
+            pasteboard.data(forType: .png),
+            artifact.pngData
+        )
+
+        let shareDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(
+                "DockMagicCaptureTests-\(UUID().uuidString)",
+                isDirectory: true
+            )
+        try FileManager.default.createDirectory(
+            at: shareDirectory,
+            withIntermediateDirectories: true
+        )
+        defer { try? FileManager.default.removeItem(at: shareDirectory) }
+        let shareURL = try CodexDashboardCaptureService.temporaryShareURL(
+            for: artifact,
+            directory: shareDirectory
+        )
+        XCTAssertEqual(
+            try Data(contentsOf: shareURL),
+            artifact.pngData
+        )
+
+        attachPNG(
+            artifact.pngData,
+            name: "Codex Dashboard — Exported 4× PNG"
+        )
+    }
+
+    @MainActor
+    func testCodexCaptureButtonOpensMenuInNonactivatingPanel() throws {
+        let panelSize = DockHoverPanelPlacement.codexPanelSize
+        let configuration = CodexDashboardCaptureConfiguration(
+            pointerEdge: .bottom,
+            panelSize: panelSize,
+            appearanceMode: .dark
+        )
+        let root = DockMagicThemeRoot(
+            content: DockHoverChrome(
+                pointerEdge: .bottom,
+                panelSize: panelSize
+            ) {
+                CodexHoverDashboardView(
+                    state: .live(.hoverDesignPreview),
+                    captureConfiguration: configuration
+                )
+            },
+            appearanceMode: .dark
+        )
+        .frame(width: panelSize.width, height: panelSize.height)
+        let hostingView = NSHostingView(rootView: root)
+        hostingView.frame = NSRect(origin: .zero, size: panelSize)
+        hostingView.appearance = NSAppearance(named: .darkAqua)
+        let panel = NSPanel(
+            contentRect: NSRect(origin: .zero, size: panelSize),
+            styleMask: [.borderless, .fullSizeContentView, .nonactivatingPanel],
+            backing: .buffered,
+            defer: false
+        )
+        panel.isReleasedWhenClosed = false
+        panel.setFrameOrigin(NSPoint(x: -20_000, y: -20_000))
+        panel.ignoresMouseEvents = false
+        panel.contentView = hostingView
+        panel.orderFront(nil)
+        defer {
+            panel.contentView = nil
+            panel.close()
+        }
+
+        RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.15))
+        hostingView.layoutSubtreeIfNeeded()
+        let before = try renderExistingViewPNG(
+            hostingView,
+            name: "Codex capture button before click"
+        )
+
+        let clickLocation = NSPoint(x: 315, y: 497)
+        let down = try XCTUnwrap(NSEvent.mouseEvent(
+            with: .leftMouseDown,
+            location: clickLocation,
+            modifierFlags: [],
+            timestamp: 0,
+            windowNumber: panel.windowNumber,
+            context: nil,
+            eventNumber: 1,
+            clickCount: 1,
+            pressure: 1
+        ))
+        let up = try XCTUnwrap(NSEvent.mouseEvent(
+            with: .leftMouseUp,
+            location: clickLocation,
+            modifierFlags: [],
+            timestamp: 0.01,
+            windowNumber: panel.windowNumber,
+            context: nil,
+            eventNumber: 2,
+            clickCount: 1,
+            pressure: 0
+        ))
+        panel.sendEvent(down)
+        panel.sendEvent(up)
+        RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.2))
+        hostingView.layoutSubtreeIfNeeded()
+
+        let after = try renderExistingViewPNG(
+            hostingView,
+            name: "Codex capture menu after click"
+        )
+        XCTAssertNotEqual(before, after)
+        assertPixelDifference(
+            before,
+            after,
+            minimumChangedFraction: 0.02,
+            label: "Capture menu click state"
+        )
+        attachPNG(
+            after,
+            name: "Codex Hover — Capture Menu — Clicked"
+        )
     }
 
     @MainActor
@@ -3132,7 +3644,7 @@ final class DockMagicTests: XCTestCase {
                     pointerEdge: .bottom,
                     appearanceMode: mode
                 ),
-                size: DockHoverPanelPlacement.standardPanelSize,
+                size: DockHoverPanelPlacement.claudeCodePanelSize,
                 appearanceName: appearanceName,
                 name: name
             )
@@ -3168,7 +3680,7 @@ final class DockMagicTests: XCTestCase {
                 pointerEdge: .bottom,
                 appearanceMode: .dark
             ),
-            size: DockHoverPanelPlacement.standardPanelSize,
+            size: DockHoverPanelPlacement.claudeCodePanelSize,
             appearanceName: .darkAqua,
             name: staleName
         )
@@ -3193,7 +3705,7 @@ final class DockMagicTests: XCTestCase {
                 pointerEdge: .bottom,
                 appearanceMode: .dark
             ),
-            size: DockHoverPanelPlacement.standardPanelSize,
+            size: DockHoverPanelPlacement.claudeCodePanelSize,
             appearanceName: .darkAqua,
             name: unavailableName
         )
@@ -3220,13 +3732,28 @@ final class DockMagicTests: XCTestCase {
                     appearanceMode: .dark
                 )
                 .environment(\.dsAccessibilityOverrides, overrides),
-                size: DockHoverPanelPlacement.standardPanelSize,
+                size: DockHoverPanelPlacement.claudeCodePanelSize,
                 appearanceName: .darkAqua,
                 name: name
             )
             XCTAssertGreaterThan(data.count, 12_000)
             attachPNG(data, name: name)
         }
+
+        let grayscaleName = "Claude Code Hover — Grayscale"
+        let grayscale = try renderPNG(
+            of: DockHoverDashboardRoot(
+                appModel: liveModel,
+                pointerEdge: .bottom,
+                appearanceMode: .dark
+            )
+            .grayscale(1),
+            size: DockHoverPanelPlacement.claudeCodePanelSize,
+            appearanceName: .darkAqua,
+            name: grayscaleName
+        )
+        XCTAssertGreaterThan(grayscale.count, 12_000)
+        attachPNG(grayscale, name: grayscaleName)
 
     }
 
@@ -3313,6 +3840,7 @@ final class DockMagicTests: XCTestCase {
             "Color.white",
             "appearance.outerColor",
             "appearance.innerColor",
+            "DockFeatureDefaults.claudeCodeAppearance",
             "DockRingAppearance",
             "import Charts",
             "transcript_path",
@@ -3329,6 +3857,9 @@ final class DockMagicTests: XCTestCase {
 
         XCTAssertTrue(source.contains("Image(\"ClaudeCodeLogo\")"))
         XCTAssertTrue(source.contains("UsageLimitHoverRow("))
+        XCTAssertTrue(source.contains("ClaudeCodeQuotaChart("))
+        XCTAssertTrue(source.contains("ProjectTheme.claudeCodeUsage"))
+        XCTAssertTrue(source.contains("Remaining quota"))
         XCTAssertTrue(source.contains("Claude Code statusLine"))
         XCTAssertTrue(source.contains("dockHover.claudeCode"))
         XCTAssertTrue(source.contains(".symbolRenderingMode(.monochrome)"))
@@ -3373,7 +3904,14 @@ final class DockMagicTests: XCTestCase {
             currentStreakDays: nil,
             longestStreakDays: nil,
             longestRunningTurnSeconds: nil,
-            dailyUsageBuckets: buckets
+            dailyUsageBuckets: buckets,
+            modelUsage: [
+                CodexModelTokenUsage(model: "gpt-5.4", tokens: 300),
+                CodexModelTokenUsage(model: "gpt-5.6", tokens: 900),
+                CodexModelTokenUsage(model: "gpt-5.5", tokens: 600),
+                CodexModelTokenUsage(model: "gpt-5.3", tokens: 100)
+            ],
+            isModelUsagePartial: false
         )
         let snapshot = CodexRateLimitSnapshot(
             planType: "plus",
@@ -3394,6 +3932,14 @@ final class DockMagicTests: XCTestCase {
         XCTAssertEqual(visibleBuckets.count, 30)
         XCTAssertEqual(visibleBuckets.first?.id, buckets[5].id)
         XCTAssertEqual(visibleBuckets.last?.id, buckets[34].id)
+        XCTAssertEqual(
+            CodexHoverDashboardPresentation.topModels(from: usage),
+            [
+                CodexModelTokenUsage(model: "gpt-5.6", tokens: 900),
+                CodexModelTokenUsage(model: "gpt-5.5", tokens: 600),
+                CodexModelTokenUsage(model: "gpt-5.4", tokens: 300)
+            ]
+        )
         XCTAssertEqual(
             CodexHoverDashboardPresentation.resetLabel(for: weekly),
             "Resets Aug 28, 9:15 AM"
@@ -3530,6 +4076,22 @@ final class DockMagicTests: XCTestCase {
         XCTAssertTrue(source.contains(".help("))
         XCTAssertTrue(source.contains("maximumChartDays = 30"))
         XCTAssertTrue(source.contains("Ship momentum"))
+        XCTAssertTrue(source.contains("Daily intensity"))
+        XCTAssertTrue(source.contains("Top models"))
+        XCTAssertTrue(source.contains("initialIntensityHoveredBucketID"))
+        XCTAssertTrue(source.contains("theme.action.opacity(0.10"))
+        XCTAssertTrue(source.contains("hoverTooltip("))
+        XCTAssertTrue(source.contains(".allowsHitTesting(false)"))
+        XCTAssertTrue(source.contains("square.and.arrow.up"))
+        XCTAssertTrue(source.contains("Save 4× PNG"))
+        XCTAssertTrue(source.contains("Copy image"))
+        XCTAssertTrue(source.contains("Share…"))
+        XCTAssertTrue(source.contains("codex.capture.button"))
+        XCTAssertTrue(source.contains("codex.capture.menu"))
+        XCTAssertFalse(
+            source.contains(".help(Self.fullDateLabel(bucket.startDate))")
+        )
+        XCTAssertFalse(source.contains("Hovered date"))
         XCTAssertTrue(source.contains("CodexGaugeArcShape"))
         XCTAssertTrue(source.contains("CodexShipRankLadder"))
         XCTAssertTrue(source.contains("CodexRankStepShape"))
@@ -4515,6 +5077,29 @@ final class DockMagicTests: XCTestCase {
         return data + Data([0x0A])
     }
 
+    private func codexThreadUsageResponse(
+        id: Int,
+        threadID: String,
+        groups: [(model: String, tokens: Int64)]
+    ) -> Data {
+        let response: [String: Any] = [
+            "id": id,
+            "result": [
+                "threadUsage": [
+                    "threadId": threadID,
+                    "groups": groups.map { group in
+                        [
+                            "model": group.model,
+                            "totalTokens": group.tokens
+                        ] as [String: Any]
+                    }
+                ]
+            ]
+        ]
+        let data = try! JSONSerialization.data(withJSONObject: response)
+        return data + Data([0x0A])
+    }
+
     private func rateLimitBucket(
         limitID: String,
         primaryDuration: Int,
@@ -4852,6 +5437,30 @@ final class DockMagicTests: XCTestCase {
 
             return data
         }
+    }
+
+    @MainActor
+    private func renderExistingViewPNG(
+        _ view: NSView,
+        name: String
+    ) throws -> Data {
+        view.layoutSubtreeIfNeeded()
+        view.displayIfNeeded()
+        guard let representation = view.bitmapImageRepForCachingDisplay(
+            in: view.bounds
+        ) else {
+            XCTFail("Unable to allocate bitmap for \(name).")
+            throw RenderingError.bitmapAllocationFailed
+        }
+        view.cacheDisplay(in: view.bounds, to: representation)
+        guard let data = representation.representation(
+            using: .png,
+            properties: [:]
+        ) else {
+            XCTFail("Unable to encode \(name).")
+            throw RenderingError.pngEncodingFailed
+        }
+        return data
     }
 
     private func attachPNG(
