@@ -377,6 +377,17 @@ struct CodexModelUsageRequestPlan: Equatable, Sendable {
 struct CodexLocalModelUsageResult: Equatable, Sendable {
     let rows: [CodexModelTokenUsage]
     let isPartial: Bool
+    let dailyDetails: [CodexDailyTokenDetail]?
+
+    init(
+        rows: [CodexModelTokenUsage],
+        isPartial: Bool,
+        dailyDetails: [CodexDailyTokenDetail]? = nil
+    ) {
+        self.rows = rows
+        self.isPartial = isPartial
+        self.dailyDetails = dailyDetails
+    }
 }
 
 struct CodexLocalModelUsageReader: Sendable {
@@ -592,6 +603,15 @@ struct CodexLocalModelUsageReader: Sendable {
         }
 
         var tokensByModel: [String: Int64] = [:]
+        var usageByDay: [Date: CodexTokenBreakdown] = [:]
+        var usageByDayAndHour: [
+            Date: [Date: CodexTokenBreakdown]
+        ] = [:]
+        var usageByDayAndModel: [
+            Date: [String: CodexTokenBreakdown]
+        ] = [:]
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = .current
         let timestampFormatter = ISO8601DateFormatter()
         timestampFormatter.formatOptions = [
             .withInternetDateTime,
@@ -632,12 +652,27 @@ struct CodexLocalModelUsageReader: Sendable {
                         let info = payload["info"] as? [String: Any],
                         let lastUsage = info["last_token_usage"]
                             as? [String: Any],
-                        let tokens = int64(lastUsage["total_tokens"]),
-                        tokens > 0
+                        let breakdown = tokenBreakdown(from: lastUsage),
+                        breakdown.totalTokens > 0,
+                        let hour = calendar.dateInterval(
+                            of: .hour,
+                            for: eventDate
+                        )?.start
                     else {
                         continue
                     }
-                    tokensByModel[model, default: 0] += tokens
+                    let day = calendar.startOfDay(for: eventDate)
+                    tokensByModel[model, default: 0] += breakdown.totalTokens
+                    usageByDay[day] = usageByDay[day, default: .zero]
+                        .adding(breakdown)
+                    usageByDayAndHour[day, default: [:]][hour] =
+                        usageByDayAndHour[day, default: [:]][hour, default: .zero]
+                            .adding(breakdown)
+                    usageByDayAndModel[day, default: [:]][model] =
+                        usageByDayAndModel[day, default: [:]][
+                            model,
+                            default: .zero
+                        ].adding(breakdown)
                 }
             } catch {
                 scanIsPartial = true
@@ -653,9 +688,79 @@ struct CodexLocalModelUsageReader: Sendable {
                 return $0.model.localizedCaseInsensitiveCompare($1.model)
                     == .orderedAscending
             }
+        let dailyDetails = usageByDay.keys.sorted().map { day in
+            let hourlyUsage: [CodexHourlyTokenUsageBucket] =
+                (0..<24).compactMap { hour in
+                guard let startDate = calendar.date(
+                    byAdding: .hour,
+                    value: hour,
+                    to: day
+                ) else {
+                    return nil
+                }
+                return CodexHourlyTokenUsageBucket(
+                    startDate: startDate,
+                    usage: usageByDayAndHour[day]?[startDate] ?? .zero
+                )
+            }
+            let modelUsage = (usageByDayAndModel[day] ?? [:])
+                .map {
+                    CodexDailyModelTokenUsage(
+                        model: $0.key,
+                        usage: $0.value
+                    )
+                }
+                .sorted {
+                    if $0.usage.totalTokens != $1.usage.totalTokens {
+                        return $0.usage.totalTokens > $1.usage.totalTokens
+                    }
+                    return $0.model.localizedCaseInsensitiveCompare($1.model)
+                        == .orderedAscending
+                }
+            return CodexDailyTokenDetail(
+                startDate: day,
+                usage: usageByDay[day] ?? .zero,
+                hourlyUsage: hourlyUsage,
+                modelUsage: modelUsage,
+                isPartial: scanIsPartial
+            )
+        }
         return CodexLocalModelUsageResult(
             rows: rows,
-            isPartial: scanIsPartial
+            isPartial: scanIsPartial,
+            dailyDetails: dailyDetails
+        )
+    }
+
+    private func tokenBreakdown(
+        from lastUsage: [String: Any]
+    ) -> CodexTokenBreakdown? {
+        let input = max(0, int64(lastUsage["input_tokens"]) ?? 0)
+        let cachedInput = min(
+            input,
+            max(0, int64(lastUsage["cached_input_tokens"]) ?? 0)
+        )
+        let cacheWriteInput = max(
+            0,
+            int64(lastUsage["cache_write_input_tokens"]) ?? 0
+        )
+        let output = max(0, int64(lastUsage["output_tokens"]) ?? 0)
+        let reasoningOutput = min(
+            output,
+            max(0, int64(lastUsage["reasoning_output_tokens"]) ?? 0)
+        )
+        let total = max(
+            0,
+            int64(lastUsage["total_tokens"]) ?? input + output
+        )
+        guard total > 0 || input > 0 || output > 0 else { return nil }
+        return CodexTokenBreakdown(
+            inputTokens: input,
+            cachedInputTokens: cachedInput,
+            cacheWriteInputTokens: cacheWriteInput,
+            outputTokens: output,
+            reasoningOutputTokens: reasoningOutput,
+            totalTokens: max(total, input + output)
         )
     }
 
@@ -827,7 +932,8 @@ enum CodexRateLimitParser {
                 ),
                 dailyUsageBuckets: buckets,
                 modelUsage: modelUsage?.rows,
-                isModelUsagePartial: modelUsage?.isPartial
+                isModelUsagePartial: modelUsage?.isPartial,
+                localDailyDetails: localModelUsage?.dailyDetails
             )
         }
 

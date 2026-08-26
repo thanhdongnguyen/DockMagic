@@ -7,6 +7,13 @@ enum DockHoverPointerEdge: Sendable {
     case right
 }
 
+enum CodexDailyTokenDetailLoadState: Equatable, Sendable {
+    case idle
+    case loading
+    case loaded(CodexDailyTokenDetail?)
+    case failed(String)
+}
+
 @MainActor
 struct DockHoverDashboardRoot: View {
     let appModel: DockAppModel
@@ -14,6 +21,7 @@ struct DockHoverDashboardRoot: View {
     let panelSize: CGSize
     var appearanceMode: DSAppearanceMode = .dark
     var initialHoveredBucketID: Date?
+    var initialSelectedDailyBucketID: Date?
     var initialIntensityHoveredBucketID: Date?
     var showsCaptureControls: Bool
     var initialCaptureMenuPresented: Bool
@@ -24,6 +32,7 @@ struct DockHoverDashboardRoot: View {
         panelSize: CGSize? = nil,
         appearanceMode: DSAppearanceMode = .dark,
         initialHoveredBucketID: Date? = nil,
+        initialSelectedDailyBucketID: Date? = nil,
         initialIntensityHoveredBucketID: Date? = nil,
         showsCaptureControls: Bool = true,
         initialCaptureMenuPresented: Bool = false
@@ -36,6 +45,7 @@ struct DockHoverDashboardRoot: View {
             )
         self.appearanceMode = appearanceMode
         self.initialHoveredBucketID = initialHoveredBucketID
+        self.initialSelectedDailyBucketID = initialSelectedDailyBucketID
         self.initialIntensityHoveredBucketID = initialIntensityHoveredBucketID
         self.showsCaptureControls = showsCaptureControls
         self.initialCaptureMenuPresented = initialCaptureMenuPresented
@@ -62,7 +72,14 @@ struct DockHoverDashboardRoot: View {
                 case .codex:
                     CodexHoverDashboardView(
                         state: appModel.codexStore.state,
+                        dailyDetailLoader: { date in
+                            try await appModel.codexStore.loadDailyTokenDetail(
+                                for: date
+                            )
+                        },
                         initialHoveredBucketID: initialHoveredBucketID,
+                        initialSelectedDailyBucketID:
+                            initialSelectedDailyBucketID,
                         initialIntensityHoveredBucketID:
                             initialIntensityHoveredBucketID,
                         captureConfiguration: showsCaptureControls
@@ -98,12 +115,17 @@ struct DockHoverDashboardRoot: View {
 @MainActor
 struct CodexHoverDashboardView: View {
     let state: CodexUsageState
+    let dailyDetailLoader: (
+        @MainActor @Sendable (Date) async throws -> CodexDailyTokenDetail?
+    )?
     let initialIntensityHoveredBucketID: Date?
     let captureConfiguration: CodexDashboardCaptureConfiguration?
 
     @Environment(\.designTheme) private var theme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var hoveredBucketID: Date?
+    @State private var selectedDailyBucketID: Date?
+    @State private var dailyDetailLoadState: CodexDailyTokenDetailLoadState
     @State private var isCaptureButtonHovered = false
     @State private var isCaptureMenuPresented: Bool
     @State private var captureErrorText: String?
@@ -111,15 +133,24 @@ struct CodexHoverDashboardView: View {
 
     init(
         state: CodexUsageState,
+        dailyDetailLoader: (
+            @MainActor @Sendable (Date) async throws -> CodexDailyTokenDetail?
+        )? = nil,
         initialHoveredBucketID: Date? = nil,
+        initialSelectedDailyBucketID: Date? = nil,
         initialIntensityHoveredBucketID: Date? = nil,
         captureConfiguration: CodexDashboardCaptureConfiguration? = nil,
         initialCaptureMenuPresented: Bool = false
     ) {
         self.state = state
+        self.dailyDetailLoader = dailyDetailLoader
         self.initialIntensityHoveredBucketID = initialIntensityHoveredBucketID
         self.captureConfiguration = captureConfiguration
         _hoveredBucketID = State(initialValue: initialHoveredBucketID)
+        _selectedDailyBucketID = State(
+            initialValue: initialSelectedDailyBucketID
+        )
+        _dailyDetailLoadState = State(initialValue: .idle)
         _isCaptureMenuPresented = State(
             initialValue: initialCaptureMenuPresented
         )
@@ -127,17 +158,23 @@ struct CodexHoverDashboardView: View {
 
     var body: some View {
         ZStack(alignment: .topTrailing) {
-            VStack(spacing: 7) {
-                header
-                quotaRows
-                tokenHeader
-                tokenChart
-                shipMomentumCard
-                usageInsights
-                Spacer(minLength: 0)
+            if let selectedDailyBucket {
+                CodexDailyTokenDetailView(
+                    accountBucket: selectedDailyBucket,
+                    detail: selectedDailyDetail,
+                    loadState: effectiveDailyDetailLoadState,
+                    onBack: { setSelectedDailyBucketID(nil) }
+                )
+                .id(selectedDailyBucket.id)
+                .transition(.opacity)
+            } else {
+                overview
+                    .transition(.opacity)
             }
 
-            if isCaptureMenuPresented, captureConfiguration != nil {
+            if selectedDailyBucket == nil,
+               isCaptureMenuPresented,
+               captureConfiguration != nil {
                 captureMenu
                     .padding(.top, 29)
                     .zIndex(2)
@@ -158,10 +195,33 @@ struct CodexHoverDashboardView: View {
                 .opacity(0.001)
         }
         .onExitCommand {
-            setCaptureMenuPresented(false)
+            if isCaptureMenuPresented {
+                setCaptureMenuPresented(false)
+            } else if selectedDailyBucketID != nil {
+                setSelectedDailyBucketID(nil)
+            }
+        }
+        .task(id: selectedDailyBucket?.id) {
+            await loadSelectedDailyDetail()
         }
         .accessibilityElement(children: .contain)
-        .accessibilityLabel("Codex usage dashboard")
+        .accessibilityLabel(
+            selectedDailyBucket == nil
+                ? "Codex usage dashboard"
+                : "Codex daily token detail"
+        )
+    }
+
+    private var overview: some View {
+        VStack(spacing: 7) {
+            header
+            quotaRows
+            tokenHeader
+            tokenChart
+            shipMomentumCard
+            usageInsights
+            Spacer(minLength: 0)
+        }
     }
 
     private var header: some View {
@@ -521,7 +581,8 @@ struct CodexHoverDashboardView: View {
             CodexTokenHistoryChart(
                 buckets: chartBuckets,
                 hoveredBucketID: $hoveredBucketID,
-                plotHeight: tokenChartPlotHeight
+                plotHeight: tokenChartPlotHeight,
+                onSelectBucket: setSelectedDailyBucketID
             )
         }
     }
@@ -546,12 +607,91 @@ struct CodexHoverDashboardView: View {
         return chartBuckets.first { $0.id == hoveredBucketID }
     }
 
+    private var selectedDailyBucket: CodexTokenUsageDailyBucket? {
+        guard let selectedDailyBucketID else { return nil }
+        return chartBuckets.first { $0.id == selectedDailyBucketID }
+    }
+
+    private var embeddedSelectedDailyDetail: CodexDailyTokenDetail? {
+        guard let selectedDailyBucket else { return nil }
+        return tokenUsage?.localDetail(for: selectedDailyBucket.startDate)
+    }
+
+    private var selectedDailyDetail: CodexDailyTokenDetail? {
+        guard let selectedDailyBucket else { return nil }
+        if case let .loaded(detail) = dailyDetailLoadState,
+           let detail,
+           Calendar.current.isDate(
+               detail.startDate,
+               inSameDayAs: selectedDailyBucket.startDate
+           ) {
+            return detail
+        }
+        return embeddedSelectedDailyDetail
+    }
+
+    private var effectiveDailyDetailLoadState: CodexDailyTokenDetailLoadState {
+        if selectedDailyDetail != nil {
+            switch dailyDetailLoadState {
+            case .idle, .loading:
+                return .loaded(selectedDailyDetail)
+            case .loaded, .failed:
+                break
+            }
+        }
+        return dailyDetailLoadState
+    }
+
     private var tokenChartPlotHeight: CGFloat {
         visibleQuotaWindows.count < 2 ? 128 : 88
     }
 
     private var tokenChartHeight: CGFloat {
         tokenChartPlotHeight + 38
+    }
+
+    private func setSelectedDailyBucketID(_ bucketID: Date?) {
+        hoveredBucketID = nil
+        dailyDetailLoadState = bucketID == nil || dailyDetailLoader == nil
+            ? .idle
+            : .loading
+        if bucketID != nil, isCaptureMenuPresented {
+            setCaptureMenuPresented(false)
+        }
+        if reduceMotion {
+            selectedDailyBucketID = bucketID
+        } else {
+            withAnimation(.easeOut(duration: 0.14)) {
+                selectedDailyBucketID = bucketID
+            }
+        }
+    }
+
+    private func loadSelectedDailyDetail() async {
+        guard let selectedDailyBucket else {
+            dailyDetailLoadState = .idle
+            return
+        }
+        guard let dailyDetailLoader else {
+            dailyDetailLoadState = embeddedSelectedDailyDetail.map {
+                .loaded($0)
+            } ?? .loaded(nil)
+            return
+        }
+
+        dailyDetailLoadState = .loading
+        do {
+            let detail = try await dailyDetailLoader(
+                selectedDailyBucket.startDate
+            )
+            try Task.checkCancellation()
+            dailyDetailLoadState = .loaded(detail)
+        } catch is CancellationError {
+            return
+        } catch {
+            guard !Task.isCancelled else { return }
+            dailyDetailLoadState = .failed(error.localizedDescription)
+        }
     }
 
     private var shipMomentumCard: some View {
@@ -909,6 +1049,7 @@ struct CodexTokenHistoryChart: View {
     let buckets: [CodexTokenUsageDailyBucket]
     @Binding var hoveredBucketID: Date?
     let plotHeight: CGFloat
+    let onSelectBucket: @MainActor (Date) -> Void
 
     @Environment(\.designTheme) private var theme
 
@@ -978,34 +1119,52 @@ struct CodexTokenHistoryChart: View {
         let isHovered = bucket.id == hoveredBucketID
         let height = barHeight(for: bucket.tokens)
 
-        return VStack(spacing: 5) {
-            ZStack(alignment: .bottom) {
-                Color.clear
+        return Button {
+            onSelectBucket(bucket.id)
+        } label: {
+            VStack(spacing: 5) {
+                ZStack(alignment: .bottom) {
+                    Color.clear
 
-                RoundedRectangle(cornerRadius: 4, style: .continuous)
-                    .fill(theme.action)
-                    .opacity(isHovered ? 1 : (isLatest ? 0.9 : 0.5))
-                    .frame(width: 27, height: height)
-                    .overlay {
-                        if isHovered {
-                            RoundedRectangle(cornerRadius: 4, style: .continuous)
-                                .strokeBorder(theme.outlineStrong, lineWidth: 1)
+                    RoundedRectangle(cornerRadius: 4, style: .continuous)
+                        .fill(theme.action)
+                        .opacity(isHovered ? 1 : (isLatest ? 0.9 : 0.5))
+                        .frame(width: 27, height: height)
+                        .overlay {
+                            if isHovered {
+                                RoundedRectangle(
+                                    cornerRadius: 4,
+                                    style: .continuous
+                                )
+                                .strokeBorder(
+                                    theme.outlineStrong,
+                                    lineWidth: 1
+                                )
                                 .frame(width: 27, height: height)
+                            }
                         }
-                    }
-            }
-            .frame(width: columnWidth, height: plotHeight)
+                }
+                .frame(width: columnWidth, height: plotHeight)
 
-            VStack(spacing: 0) {
-                Text(Self.weekdayLabel(bucket.startDate))
-                Text(Self.dayLabel(bucket.startDate))
+                VStack(spacing: 0) {
+                    Text(Self.weekdayLabel(bucket.startDate))
+                    Text(Self.dayLabel(bucket.startDate))
+                }
+                .font(
+                    .system(
+                        size: 8,
+                        weight: isLatest ? .semibold : .medium
+                    )
+                )
+                .foregroundStyle(
+                    isLatest ? theme.textSecondary : theme.textTertiary
+                )
+                .monospacedDigit()
             }
-            .font(.system(size: 8, weight: isLatest ? .semibold : .medium))
-            .foregroundStyle(isLatest ? theme.textSecondary : theme.textTertiary)
-            .monospacedDigit()
+            .frame(width: columnWidth)
+            .contentShape(Rectangle())
         }
-        .frame(width: columnWidth)
-        .contentShape(Rectangle())
+        .buttonStyle(.plain)
         .onHover { isInside in
             if isInside {
                 hoveredBucketID = bucket.id
@@ -1020,6 +1179,7 @@ struct CodexTokenHistoryChart: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(Self.fullDateLabel(bucket.startDate))
         .accessibilityValue("\(bucket.tokens.formatted()) tokens")
+        .accessibilityHint("Opens hourly and model token details")
     }
 
     private var axisMaximum: Int64 {
@@ -1852,9 +2012,9 @@ private struct DockHoverFeatureSummaryView: View {
 }
 
 struct DockHoverChrome<Content: View>: View {
-    // Keep elevation inside the transparent NSPanel so its blur does not get
-    // clipped into square outer corners.
-    private static var shadowInset: CGFloat { 6 }
+    // Keep the rounded surface fully inside the transparent NSPanel. Explicit
+    // placement prevents AppKit from clipping its top outline at the host edge.
+    private static var panelInset: CGFloat { 6 }
 
     let pointerEdge: DockHoverPointerEdge
     let panelSize: CGSize
@@ -1865,63 +2025,85 @@ struct DockHoverChrome<Content: View>: View {
     var body: some View {
         switch pointerEdge {
         case .bottom:
-            VStack(spacing: 0) {
-                card.frame(
+            ZStack(alignment: .topLeading) {
+                card(
+                    width: panelSize.width - (Self.panelInset * 2),
                     height: panelSize.height
                         - DockHoverPanelPlacement.pointerExtent
-                        - Self.shadowInset
+                        - Self.panelInset
                 )
-                .padding(.horizontal, Self.shadowInset)
-                .padding(.top, Self.shadowInset)
+                    .offset(x: Self.panelInset, y: Self.panelInset)
+
                 DockHoverPointerShape(direction: .down)
                     .fill(theme.opaqueSurfaceRaised)
                     .frame(
                         width: DockHoverPanelPlacement.pointerExtent * 2,
                         height: DockHoverPanelPlacement.pointerExtent
                     )
+                    .frame(
+                        width: panelSize.width,
+                        height: panelSize.height,
+                        alignment: .bottom
+                    )
             }
         case .left:
-            HStack(spacing: 0) {
+            ZStack(alignment: .topLeading) {
+                card(
+                    width: panelSize.width
+                        - DockHoverPanelPlacement.pointerExtent
+                        - Self.panelInset,
+                    height: panelSize.height - (Self.panelInset * 2)
+                )
+                    .offset(
+                        x: DockHoverPanelPlacement.pointerExtent,
+                        y: Self.panelInset
+                    )
+
                 DockHoverPointerShape(direction: .left)
                     .fill(theme.opaqueSurfaceRaised)
                     .frame(
                         width: DockHoverPanelPlacement.pointerExtent,
                         height: DockHoverPanelPlacement.pointerExtent * 2
                     )
-                card.frame(
-                    width: panelSize.width
-                        - DockHoverPanelPlacement.pointerExtent
-                        - Self.shadowInset
-                )
-                .padding(.vertical, Self.shadowInset)
-                .padding(.trailing, Self.shadowInset)
+                    .frame(
+                        width: panelSize.width,
+                        height: panelSize.height,
+                        alignment: .leading
+                    )
             }
         case .right:
-            HStack(spacing: 0) {
-                card.frame(
+            ZStack(alignment: .topLeading) {
+                card(
                     width: panelSize.width
                         - DockHoverPanelPlacement.pointerExtent
-                        - Self.shadowInset
+                        - Self.panelInset,
+                    height: panelSize.height
+                        - (Self.panelInset * 2)
                 )
-                .padding(.vertical, Self.shadowInset)
-                .padding(.leading, Self.shadowInset)
+                    .offset(x: Self.panelInset, y: Self.panelInset)
+
                 DockHoverPointerShape(direction: .right)
                     .fill(theme.opaqueSurfaceRaised)
                     .frame(
                         width: DockHoverPanelPlacement.pointerExtent,
                         height: DockHoverPanelPlacement.pointerExtent * 2
                     )
+                    .frame(
+                        width: panelSize.width,
+                        height: panelSize.height,
+                        alignment: .trailing
+                    )
             }
         }
     }
 
-    private var card: some View {
+    private func card(width: CGFloat, height: CGFloat) -> some View {
         content()
             .padding(12)
+            .frame(width: width, height: height)
             .dsSurface(
                 RoundedRectangle(cornerRadius: 18, style: .continuous),
-                kind: .raised,
-                elevation: .primary
+                kind: .raised
             )
     }
 }
@@ -1986,19 +2168,98 @@ private struct CodexDashboardSharePresenter: NSViewRepresentable {
 
         DispatchQueue.main.async {
             let picker = NSSharingServicePicker(items: [itemURL])
-            coordinator.picker = picker
-            picker.show(
-                relativeTo: nsView.bounds,
-                of: nsView,
-                preferredEdge: .minY
-            )
+            coordinator.present(picker, relativeTo: nsView)
             itemBinding.wrappedValue = nil
         }
     }
 
-    final class Coordinator {
+    static func dismantleNSView(
+        _ nsView: NSView,
+        coordinator: Coordinator
+    ) {
+        coordinator.endPresentation(closePicker: true)
+    }
+
+    @MainActor
+    final class Coordinator: NSObject,
+        @MainActor NSSharingServicePickerDelegate,
+        @MainActor NSSharingServiceDelegate
+    {
         var presentedURL: URL?
-        var picker: NSSharingServicePicker?
+        private var picker: NSSharingServicePicker?
+        private weak var presentingWindow: NSWindow?
+        private var presentingWindowLevel: NSWindow.Level?
+
+        func present(
+            _ picker: NSSharingServicePicker,
+            relativeTo sourceView: NSView
+        ) {
+            endPresentation(closePicker: true)
+
+            if let window = sourceView.window,
+               window.level
+                    > DockHoverPanelPlacement.sharePresentationWindowLevel {
+                presentingWindow = window
+                presentingWindowLevel = window.level
+                window.level = DockHoverPanelPlacement
+                    .sharePresentationWindowLevel
+            }
+
+            self.picker = picker
+            picker.delegate = self
+            picker.show(
+                relativeTo: sourceView.bounds,
+                of: sourceView,
+                preferredEdge: .minY
+            )
+        }
+
+        func sharingServicePicker(
+            _ sharingServicePicker: NSSharingServicePicker,
+            delegateFor sharingService: NSSharingService
+        ) -> (any NSSharingServiceDelegate)? {
+            self
+        }
+
+        func sharingServicePicker(
+            _ sharingServicePicker: NSSharingServicePicker,
+            didChoose service: NSSharingService?
+        ) {
+            guard service == nil else {
+                return
+            }
+            endPresentation(closePicker: false)
+        }
+
+        func sharingService(
+            _ sharingService: NSSharingService,
+            didShareItems items: [Any]
+        ) {
+            endPresentation(closePicker: false)
+        }
+
+        func sharingService(
+            _ sharingService: NSSharingService,
+            didFailToShareItems items: [Any],
+            error: any Error
+        ) {
+            endPresentation(closePicker: false)
+        }
+
+        func endPresentation(closePicker: Bool) {
+            let activePicker = picker
+            picker = nil
+            activePicker?.delegate = nil
+            if closePicker {
+                activePicker?.close()
+            }
+
+            if let presentingWindow, let presentingWindowLevel {
+                presentingWindow.level = presentingWindowLevel
+            }
+            presentingWindow = nil
+            presentingWindowLevel = nil
+        }
     }
 }
 
@@ -2019,6 +2280,47 @@ extension CodexRateLimitSnapshot {
             800_000, 1_180_000, 1_000_000, 980_000, 1_320_000,
             1_560_000, 1_210_000, 1_010_000, 730_000, 1_280_000
         ]
+        let detailDate = calendar.date(
+            byAdding: .day,
+            value: values.count - 1,
+            to: start
+        )!
+        func breakdown(
+            total: Int64,
+            cachedFraction: Double
+        ) -> CodexTokenBreakdown {
+            let output = max(1, total / 30)
+            let input = max(0, total - output)
+            return CodexTokenBreakdown(
+                inputTokens: input,
+                cachedInputTokens: Int64(
+                    (Double(input) * cachedFraction).rounded()
+                ),
+                cacheWriteInputTokens: 0,
+                outputTokens: output,
+                reasoningOutputTokens: output / 3,
+                totalTokens: total
+            )
+        }
+        let hourlyTotals: [Int64] = [
+            5_000, 10_000, 15_000, 15_000, 10_000, 15_000,
+            30_000, 40_000, 60_000, 110_000, 70_000, 45_000,
+            40_000, 60_000, 100_000, 75_000, 35_000, 25_000,
+            35_000, 40_000, 45_000, 60_000, 75_000, 40_000
+        ]
+        let hourlyUsage = hourlyTotals.enumerated().map { hour, total in
+            CodexHourlyTokenUsageBucket(
+                startDate: calendar.date(
+                    byAdding: .hour,
+                    value: hour,
+                    to: detailDate
+                )!,
+                usage: breakdown(total: total, cachedFraction: 0.88)
+            )
+        }
+        let detailUsage = hourlyUsage.reduce(CodexTokenBreakdown.zero) {
+            $0.adding($1.usage)
+        }
         return Self(
             planType: "pro",
             limitID: "codex",
@@ -2067,7 +2369,38 @@ extension CodexRateLimitSnapshot {
                     CodexModelTokenUsage(model: "gpt-5.5", tokens: 5_700_000),
                     CodexModelTokenUsage(model: "gpt-5.4", tokens: 2_900_000)
                 ],
-                isModelUsagePartial: false
+                isModelUsagePartial: false,
+                localDailyDetails: [
+                    CodexDailyTokenDetail(
+                        startDate: detailDate,
+                        usage: detailUsage,
+                        hourlyUsage: hourlyUsage,
+                        modelUsage: [
+                            CodexDailyModelTokenUsage(
+                                model: "gpt-5.6-sol",
+                                usage: breakdown(
+                                    total: 780_000,
+                                    cachedFraction: 0.90
+                                )
+                            ),
+                            CodexDailyModelTokenUsage(
+                                model: "codex-auto-review",
+                                usage: breakdown(
+                                    total: 180_000,
+                                    cachedFraction: 0.84
+                                )
+                            ),
+                            CodexDailyModelTokenUsage(
+                                model: "gpt-5.5",
+                                usage: breakdown(
+                                    total: 95_000,
+                                    cachedFraction: 0.81
+                                )
+                            )
+                        ],
+                        isPartial: false
+                    )
+                ]
             ),
             recentTaskActivity: CodexRecentTaskActivity(
                 currentWeekCount: 12,

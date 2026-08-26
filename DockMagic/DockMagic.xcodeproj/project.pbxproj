@@ -36,6 +36,7 @@
 		D7A000000000000000000005 /* CodexUsageStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7B000000000000000000005 /* CodexUsageStore.swift */; };
 		D7A000000000000000000006 /* DockAppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7B000000000000000000006 /* DockAppModel.swift */; };
 		D7A000000000000000000007 /* SettingsWindowRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7B000000000000000000007 /* SettingsWindowRouter.swift */; };
+		D7A000000000000000000008 /* CodexDailyTokenDetailLoader.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7B000000000000000000008 /* CodexDailyTokenDetailLoader.swift */; };
 		D8A000000000000000000001 /* ClaudeCodeRateLimitProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8B000000000000000000001 /* ClaudeCodeRateLimitProvider.swift */; };
 		D8A000000000000000000002 /* ClaudeCodeUsageStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8B000000000000000000002 /* ClaudeCodeUsageStore.swift */; };
 		D9A000000000000000000001 /* WeatherSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9B000000000000000000001 /* WeatherSnapshot.swift */; };
@@ -77,6 +78,7 @@
 		C3A000000000000000000002 /* CodexHoverDashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3B000000000000000000002 /* CodexHoverDashboardView.swift */; };
 		C3A000000000000000000003 /* ClaudeCodeHoverDashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3B000000000000000000003 /* ClaudeCodeHoverDashboardView.swift */; };
 		C3A000000000000000000004 /* CodexDashboardCaptureService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3B000000000000000000004 /* CodexDashboardCaptureService.swift */; };
+		C3A000000000000000000005 /* CodexDailyTokenDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3B000000000000000000005 /* CodexDailyTokenDetailView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -131,6 +133,7 @@
 		D7B000000000000000000005 /* CodexUsageStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexUsageStore.swift; sourceTree = "<group>"; };
 		D7B000000000000000000006 /* DockAppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DockAppModel.swift; sourceTree = "<group>"; };
 		D7B000000000000000000007 /* SettingsWindowRouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsWindowRouter.swift; sourceTree = "<group>"; };
+		D7B000000000000000000008 /* CodexDailyTokenDetailLoader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexDailyTokenDetailLoader.swift; sourceTree = "<group>"; };
 		D8B000000000000000000001 /* ClaudeCodeRateLimitProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeCodeRateLimitProvider.swift; sourceTree = "<group>"; };
 		D8B000000000000000000002 /* ClaudeCodeUsageStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeCodeUsageStore.swift; sourceTree = "<group>"; };
 		D9B000000000000000000001 /* WeatherSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeatherSnapshot.swift; sourceTree = "<group>"; };
@@ -172,6 +175,7 @@
 		C3B000000000000000000002 /* CodexHoverDashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexHoverDashboardView.swift; sourceTree = "<group>"; };
 		C3B000000000000000000003 /* ClaudeCodeHoverDashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeCodeHoverDashboardView.swift; sourceTree = "<group>"; };
 		C3B000000000000000000004 /* CodexDashboardCaptureService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexDashboardCaptureService.swift; sourceTree = "<group>"; };
+		C3B000000000000000000005 /* CodexDailyTokenDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexDailyTokenDetailView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -296,6 +300,7 @@
 		D0C200000000000000000003 /* Services */ = {
 			isa = PBXGroup;
 			children = (
+				D7B000000000000000000008 /* CodexDailyTokenDetailLoader.swift */,
 				C3B000000000000000000004 /* CodexDashboardCaptureService.swift */,
 				C3B000000000000000000001 /* DockHoverCoordinator.swift */,
 				B2B000000000000000000001 /* DockIconRenderingRules.swift */,
@@ -373,6 +378,7 @@
 			isa = PBXGroup;
 			children = (
 				C3B000000000000000000002 /* CodexHoverDashboardView.swift */,
+				C3B000000000000000000005 /* CodexDailyTokenDetailView.swift */,
 				C3B000000000000000000003 /* ClaudeCodeHoverDashboardView.swift */,
 				D0C100000000000000000010 /* SystemMetricsHoverDashboardView.swift */,
 			);
@@ -548,6 +554,7 @@
 			files = (
 				C3A000000000000000000001 /* DockHoverCoordinator.swift in Sources */,
 				C3A000000000000000000002 /* CodexHoverDashboardView.swift in Sources */,
+				C3A000000000000000000005 /* CodexDailyTokenDetailView.swift in Sources */,
 				C3A000000000000000000003 /* ClaudeCodeHoverDashboardView.swift in Sources */,
 				C3A000000000000000000004 /* CodexDashboardCaptureService.swift in Sources */,
 				B2A000000000000000000001 /* DockIconRenderingRules.swift in Sources */,
@@ -576,6 +583,7 @@
 				D7A000000000000000000001 /* DockConfiguration.swift in Sources */,
 				D7A000000000000000000002 /* CodexRateLimitSnapshot.swift in Sources */,
 				D7A000000000000000000003 /* CodexRateLimitProvider.swift in Sources */,
+				D7A000000000000000000008 /* CodexDailyTokenDetailLoader.swift in Sources */,
 				D7A000000000000000000004 /* DockPreferencesStore.swift in Sources */,
 				D7A000000000000000000005 /* CodexUsageStore.swift in Sources */,
 				D7A000000000000000000006 /* DockAppModel.swift in Sources */,

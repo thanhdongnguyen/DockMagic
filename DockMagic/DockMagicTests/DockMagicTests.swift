@@ -511,6 +511,14 @@ final class DockMagicTests: XCTestCase {
             DockHoverPanelPlacement.windowLevel.rawValue,
             NSWindow.Level.popUpMenu.rawValue
         )
+        XCTAssertEqual(
+            DockHoverPanelPlacement.sharePresentationWindowLevel,
+            .normal
+        )
+        XCTAssertLessThan(
+            DockHoverPanelPlacement.sharePresentationWindowLevel.rawValue,
+            DockHoverPanelPlacement.windowLevel.rawValue
+        )
         XCTAssertEqual(DockHoverPanelPlacement.standardPanelSize.width, 440)
         XCTAssertEqual(DockHoverPanelPlacement.standardPanelSize.height, 304)
         XCTAssertEqual(
@@ -884,6 +892,35 @@ final class DockMagicTests: XCTestCase {
         )
         XCTAssertEqual(snapshot.tokenUsage?.dailyUsageBuckets.count, 7)
         XCTAssertEqual(snapshot.tokenUsage?.latestDailyTokens, 1_280_000)
+
+        let detail = CodexDailyTokenDetail(
+            startDate: Date(timeIntervalSince1970: 1_777_000_000),
+            usage: CodexTokenBreakdown(
+                inputTokens: 800,
+                cachedInputTokens: 600,
+                cacheWriteInputTokens: 0,
+                outputTokens: 200,
+                reasoningOutputTokens: 100,
+                totalTokens: 1_000
+            ),
+            hourlyUsage: [],
+            modelUsage: [],
+            isPartial: false
+        )
+        let snapshotWithLocalDetail = try CodexRateLimitParser.parseJSONLines(
+            rateLimits + usage,
+            localModelUsage: CodexLocalModelUsageResult(
+                rows: [
+                    CodexModelTokenUsage(model: "gpt-5.6", tokens: 1_000)
+                ],
+                isPartial: false,
+                dailyDetails: [detail]
+            )
+        )
+        XCTAssertEqual(
+            snapshotWithLocalDetail.tokenUsage?.localDailyDetails,
+            [detail]
+        )
     }
 
     func testCodexParserKeepsRateLimitsWhenAccountUsageIsUnsupported() throws {
@@ -1148,14 +1185,26 @@ final class DockMagicTests: XCTestCase {
                 "payload": ["model": model]
             ]
         }
-        func tokenCount(tokens: Int64, timestamp: String) -> [String: Any] {
+        func tokenCount(
+            input: Int64,
+            cachedInput: Int64,
+            output: Int64,
+            timestamp: String
+        ) -> [String: Any] {
             [
                 "timestamp": timestamp,
                 "type": "event_msg",
                 "payload": [
                     "type": "token_count",
                     "info": [
-                        "last_token_usage": ["total_tokens": tokens]
+                        "last_token_usage": [
+                            "input_tokens": input,
+                            "cached_input_tokens": cachedInput,
+                            "cache_write_input_tokens": 0,
+                            "output_tokens": output,
+                            "reasoning_output_tokens": output / 2,
+                            "total_tokens": input + output
+                        ]
                     ]
                 ]
             ]
@@ -1167,11 +1216,15 @@ final class DockMagicTests: XCTestCase {
             timestamp: "2026-08-25T08:00:00.000Z"
         )))
         fixture.append(try line(tokenCount(
-            tokens: 1_000,
+            input: 800,
+            cachedInput: 600,
+            output: 200,
             timestamp: "2026-08-25T08:01:00.000Z"
         )))
         fixture.append(try line(tokenCount(
-            tokens: 99_000,
+            input: 90_000,
+            cachedInput: 80_000,
+            output: 9_000,
             timestamp: "2026-07-01T08:01:00.000Z"
         )))
         fixture.append(try line(turn(
@@ -1179,7 +1232,9 @@ final class DockMagicTests: XCTestCase {
             timestamp: "2026-08-25T09:00:00.000Z"
         )))
         fixture.append(try line(tokenCount(
-            tokens: 700,
+            input: 600,
+            cachedInput: 400,
+            output: 100,
             timestamp: "2026-08-25T09:01:00.000Z"
         )))
         try fixture.write(to: root.appendingPathComponent("rollout.jsonl"))
@@ -1200,6 +1255,264 @@ final class DockMagicTests: XCTestCase {
             ]
         )
         XCTAssertFalse(result.isPartial)
+
+        let detail = try XCTUnwrap(result.dailyDetails?.first)
+        XCTAssertEqual(result.dailyDetails?.count, 1)
+        XCTAssertEqual(detail.usage.inputTokens, 1_400)
+        XCTAssertEqual(detail.usage.cachedInputTokens, 1_000)
+        XCTAssertEqual(detail.usage.outputTokens, 300)
+        XCTAssertEqual(detail.usage.reasoningOutputTokens, 150)
+        XCTAssertEqual(detail.usage.totalTokens, 1_700)
+        XCTAssertEqual(detail.hourlyUsage.count, 24)
+        XCTAssertEqual(
+            detail.hourlyUsage.filter { $0.usage.totalTokens > 0 }
+                .map(\.usage.totalTokens),
+            [1_000, 700]
+        )
+        XCTAssertEqual(detail.modelUsage.count, 2)
+        XCTAssertEqual(detail.modelUsage[0].model, "gpt-5.6")
+        XCTAssertEqual(detail.modelUsage[0].usage.totalTokens, 1_000)
+        XCTAssertEqual(detail.modelUsage[1].model, "gpt-5.5")
+        XCTAssertEqual(detail.modelUsage[1].usage.totalTokens, 700)
+        XCTAssertFalse(detail.isPartial)
+    }
+
+    func testCodexDailyTokenDetailReaderScansOnlyClickedDayCandidates() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let sessionsRoot = root.appendingPathComponent(
+            "sessions",
+            isDirectory: true
+        )
+        let archivedRoot = root.appendingPathComponent(
+            "archived_sessions",
+            isDirectory: true
+        )
+        try FileManager.default.createDirectory(
+            at: sessionsRoot,
+            withIntermediateDirectories: true
+        )
+        try FileManager.default.createDirectory(
+            at: archivedRoot,
+            withIntermediateDirectories: true
+        )
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = .current
+        let referenceDate = ISO8601DateFormatter().date(
+            from: "2026-08-25T12:00:00Z"
+        )!
+        let dayStart = calendar.startOfDay(for: referenceDate)
+        let nextDay = try XCTUnwrap(
+            calendar.date(byAdding: .day, value: 1, to: dayStart)
+        )
+        let firstHour = try XCTUnwrap(
+            calendar.date(byAdding: .hour, value: 8, to: dayStart)
+        )
+        let secondHour = try XCTUnwrap(
+            calendar.date(byAdding: .hour, value: 9, to: dayStart)
+        )
+        let archivedHour = try XCTUnwrap(
+            calendar.date(byAdding: .hour, value: 10, to: dayStart)
+        )
+
+        let activeURL = sessionsRoot.appendingPathComponent(
+            "rollout-active.jsonl"
+        )
+        let archivedURL = archivedRoot.appendingPathComponent(
+            "rollout-archived.jsonl"
+        )
+        let irrelevantURL = sessionsRoot.appendingPathComponent(
+            "rollout-future.jsonl"
+        )
+        let activeData = try codexRolloutFixture(
+            model: "gpt-5.6",
+            events: [
+                (firstHour.addingTimeInterval(60), 800, 600, 200),
+                (secondHour.addingTimeInterval(60), 600, 400, 100)
+            ]
+        )
+        let archivedData = try codexRolloutFixture(
+            model: "gpt-5.5",
+            events: [
+                (archivedHour.addingTimeInterval(60), 300, 200, 100)
+            ]
+        )
+        try activeData.write(to: activeURL)
+        try archivedData.write(to: archivedURL)
+        try Data(repeating: 0x78, count: 4 * 1_024 * 1_024)
+            .write(to: irrelevantURL)
+
+        let databaseURL = root.appendingPathComponent("state_5.sqlite")
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/sqlite3")
+        process.arguments = [
+            databaseURL.path,
+            """
+            CREATE TABLE threads (
+                id TEXT PRIMARY KEY,
+                rollout_path TEXT NOT NULL,
+                created_at INTEGER NOT NULL,
+                updated_at INTEGER NOT NULL
+            );
+            INSERT INTO threads VALUES (
+                'active',
+                '\(sqlString(activeURL.path))',
+                \(Int64(dayStart.timeIntervalSince1970 + 60)),
+                \(Int64(secondHour.timeIntervalSince1970 + 120))
+            );
+            INSERT INTO threads VALUES (
+                'archived',
+                '\(sqlString(archivedURL.path))',
+                \(Int64(dayStart.timeIntervalSince1970 + 120)),
+                \(Int64(archivedHour.timeIntervalSince1970 + 120))
+            );
+            INSERT INTO threads VALUES (
+                'future',
+                '\(sqlString(irrelevantURL.path))',
+                \(Int64(nextDay.timeIntervalSince1970 + 60)),
+                \(Int64(nextDay.timeIntervalSince1970 + 120))
+            );
+            """
+        ]
+        process.standardOutput = FileHandle.nullDevice
+        process.standardError = FileHandle.nullDevice
+        try process.run()
+        process.waitUntilExit()
+        XCTAssertEqual(process.terminationStatus, 0)
+
+        let result = try CodexLocalDailyTokenDetailReader(
+            sessionRoots: [sessionsRoot, archivedRoot],
+            stateDatabaseURL: databaseURL,
+            readChunkSize: 128
+        ).readDetail(for: referenceDate)
+        let detail = try XCTUnwrap(result.detail)
+
+        XCTAssertTrue(result.usedStateDatabaseIndex)
+        XCTAssertEqual(result.candidateFileCount, 2)
+        XCTAssertEqual(result.scannedFileCount, 2)
+        XCTAssertEqual(
+            result.scannedBytes,
+            Int64(activeData.count + archivedData.count)
+        )
+        XCTAssertLessThan(result.scannedBytes, 4 * 1_024 * 1_024)
+        XCTAssertTrue(calendar.isDate(detail.startDate, inSameDayAs: referenceDate))
+        XCTAssertEqual(detail.usage.inputTokens, 1_700)
+        XCTAssertEqual(detail.usage.cachedInputTokens, 1_200)
+        XCTAssertEqual(detail.usage.outputTokens, 400)
+        XCTAssertEqual(detail.usage.totalTokens, 2_100)
+        XCTAssertEqual(detail.hourlyUsage.count, 24)
+        XCTAssertEqual(
+            detail.hourlyUsage.filter { $0.usage.totalTokens > 0 }.count,
+            3
+        )
+        XCTAssertEqual(detail.modelUsage.map(\.model), ["gpt-5.6", "gpt-5.5"])
+        XCTAssertFalse(detail.isPartial)
+    }
+
+    func testCodexDailyTokenDetailLoaderDeduplicatesAndCachesPastDay() async throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = .current
+        let now = ISO8601DateFormatter().date(
+            from: "2026-08-27T12:00:00Z"
+        )!
+        let requestedDate = try XCTUnwrap(
+            calendar.date(byAdding: .day, value: -3, to: now)
+        )
+        let counter = CodexDailyDetailLoadCounter()
+        let loader = CodexDailyTokenDetailLoader(
+            now: { now },
+            loadOperation: { date in
+                try await counter.load(date: date)
+            }
+        )
+
+        async let first = loader.loadDetail(for: requestedDate)
+        async let second = loader.loadDetail(for: requestedDate)
+        let (firstDetail, secondDetail) = try await (first, second)
+        XCTAssertEqual(firstDetail, secondDetail)
+
+        let cachedDetail = try await loader.loadDetail(for: requestedDate)
+        XCTAssertEqual(cachedDetail, firstDetail)
+        let callCount = await counter.callCount
+        XCTAssertEqual(callCount, 1)
+    }
+
+    func testCodexDailyTokenDetailReaderUsesLocalDayBoundaries() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: root,
+            withIntermediateDirectories: true
+        )
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = .current
+        let referenceDate = ISO8601DateFormatter().date(
+            from: "2026-08-25T12:00:00Z"
+        )!
+        let dayStart = calendar.startOfDay(for: referenceDate)
+        let nextDay = try XCTUnwrap(
+            calendar.date(byAdding: .day, value: 1, to: dayStart)
+        )
+        let rolloutURL = root.appendingPathComponent("rollout-boundary.jsonl")
+        let rollout = try codexRolloutFixture(
+            model: "gpt-boundary",
+            events: [
+                (dayStart.addingTimeInterval(5 * 60), 100, 60, 20),
+                (nextDay.addingTimeInterval(-5 * 60), 200, 120, 40),
+                (nextDay.addingTimeInterval(5 * 60), 9_000, 8_000, 1_000)
+            ]
+        )
+        try rollout.write(to: rolloutURL)
+
+        let databaseURL = root.appendingPathComponent("state_5.sqlite")
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/sqlite3")
+        process.arguments = [
+            databaseURL.path,
+            """
+            CREATE TABLE threads (
+                id TEXT PRIMARY KEY,
+                rollout_path TEXT NOT NULL,
+                created_at INTEGER NOT NULL,
+                updated_at INTEGER NOT NULL
+            );
+            INSERT INTO threads VALUES (
+                'boundary',
+                '\(sqlString(rolloutURL.path))',
+                \(Int64(dayStart.timeIntervalSince1970)),
+                \(Int64(nextDay.timeIntervalSince1970 + 600))
+            );
+            """
+        ]
+        process.standardOutput = FileHandle.nullDevice
+        process.standardError = FileHandle.nullDevice
+        try process.run()
+        process.waitUntilExit()
+        XCTAssertEqual(process.terminationStatus, 0)
+
+        let result = try CodexLocalDailyTokenDetailReader(
+            sessionRoots: [root],
+            stateDatabaseURL: databaseURL,
+            readChunkSize: 96
+        ).readDetail(for: referenceDate)
+        let detail = try XCTUnwrap(result.detail)
+        let populatedHours = detail.hourlyUsage.filter {
+            $0.usage.totalTokens > 0
+        }
+
+        XCTAssertEqual(detail.usage.inputTokens, 300)
+        XCTAssertEqual(detail.usage.outputTokens, 60)
+        XCTAssertEqual(detail.usage.totalTokens, 360)
+        XCTAssertEqual(
+            populatedHours.map {
+                calendar.component(.hour, from: $0.startDate)
+            },
+            [0, 23]
+        )
     }
 
     func testCodexLocalModelUsageReaderPrefersReadOnlyStateDatabase() throws {
@@ -1251,6 +1564,7 @@ final class DockMagicTests: XCTestCase {
             ]
         )
         XCTAssertFalse(result.isPartial)
+        XCTAssertNil(result.dailyDetails)
     }
 
     func testCodexParserSupportsWeeklyOnlyWithoutInventingFiveHour() throws {
@@ -3328,6 +3642,64 @@ final class DockMagicTests: XCTestCase {
             )
         }
 
+        let centerX = darkRepresentation.pixelsWide / 2
+        let topEdgeY = try XCTUnwrap(
+            (0..<(darkRepresentation.pixelsHigh / 4)).first { y in
+                darkRepresentation.colorAt(x: centerX, y: y)?
+                    .alphaComponent ?? 0 > 0.9
+            },
+            "Dashboard must have an opaque top edge."
+        )
+        let footerX = darkRepresentation.pixelsWide / 4
+        let footerEdgeY = try XCTUnwrap(
+            stride(
+                from: darkRepresentation.pixelsHigh - 1,
+                through: darkRepresentation.pixelsHigh * 3 / 4,
+                by: -1
+            ).first { y in
+                darkRepresentation.colorAt(x: footerX, y: y)?
+                    .alphaComponent ?? 0 > 0.9
+            },
+            "Dashboard must have an opaque footer edge."
+        )
+        let topEdge = try XCTUnwrap(
+            darkRepresentation.colorAt(
+                x: centerX,
+                y: topEdgeY
+            )?.usingColorSpace(.sRGB)
+        )
+        let topInterior = try XCTUnwrap(
+            darkRepresentation.colorAt(
+                x: centerX,
+                y: min(topEdgeY + 15, darkRepresentation.pixelsHigh - 1)
+            )?.usingColorSpace(.sRGB)
+        )
+        let footerEdge = try XCTUnwrap(
+            darkRepresentation.colorAt(
+                x: footerX,
+                y: footerEdgeY
+            )?.usingColorSpace(.sRGB)
+        )
+        let footerInterior = try XCTUnwrap(
+            darkRepresentation.colorAt(
+                x: footerX,
+                y: max(footerEdgeY - 15, 0)
+            )?.usingColorSpace(.sRGB)
+        )
+        let brightness: (NSColor) -> CGFloat = { color in
+            (color.redComponent + color.greenComponent + color.blueComponent)
+                / 3
+        }
+        let headerContrast = abs(brightness(topEdge) - brightness(topInterior))
+        let footerContrast = abs(
+            brightness(footerEdge) - brightness(footerInterior)
+        )
+        XCTAssertGreaterThanOrEqual(
+            headerContrast,
+            footerContrast * 0.75,
+            "Header and footer must render with comparable outer-edge contrast."
+        )
+
         let accessibilityVariants: [(String, DSAccessibilityOverrides)] = [
             (
                 "Increased Contrast",
@@ -3425,6 +3797,86 @@ final class DockMagicTests: XCTestCase {
         XCTAssertGreaterThan(hovered.count, 12_000)
         XCTAssertNotEqual(hovered, renderedVariants[0])
         attachPNG(hovered, name: hoveredName)
+
+        let detailBucketID = try XCTUnwrap(
+            fullPreview.tokenUsage?.dailyUsageBuckets.last?.id
+        )
+        let detailVariants: [(String, DSAppearanceMode, NSAppearance.Name)] = [
+            ("Dark", .dark, .darkAqua),
+            ("Light", .light, .aqua)
+        ]
+        for (label, mode, appearanceName) in detailVariants {
+            let name = "Codex Hover — Daily Detail — \(label)"
+            let data = try renderPNG(
+                of: DockHoverDashboardRoot(
+                    appModel: appModel,
+                    pointerEdge: .bottom,
+                    appearanceMode: mode,
+                    initialSelectedDailyBucketID: detailBucketID
+                ),
+                size: DockHoverPanelPlacement.codexPanelSize,
+                appearanceName: appearanceName,
+                name: name
+            )
+            XCTAssertGreaterThan(data.count, 12_000)
+            XCTAssertNotEqual(data, renderedVariants[0])
+            attachPNG(data, name: name)
+        }
+
+        let detailContrastName = "Codex Hover — Daily Detail — Increased Contrast"
+        let detailContrast = try renderPNG(
+            of: DockHoverDashboardRoot(
+                appModel: appModel,
+                pointerEdge: .bottom,
+                appearanceMode: .dark,
+                initialSelectedDailyBucketID: detailBucketID
+            )
+            .environment(
+                \.dsAccessibilityOverrides,
+                DSAccessibilityOverrides(increaseContrast: true)
+            ),
+            size: DockHoverPanelPlacement.codexPanelSize,
+            appearanceName: .darkAqua,
+            name: detailContrastName
+        )
+        XCTAssertGreaterThan(detailContrast.count, 12_000)
+        attachPNG(detailContrast, name: detailContrastName)
+
+        let detailTransparencyName =
+            "Codex Hover — Daily Detail — Reduced Transparency"
+        let detailTransparency = try renderPNG(
+            of: DockHoverDashboardRoot(
+                appModel: appModel,
+                pointerEdge: .bottom,
+                appearanceMode: .dark,
+                initialSelectedDailyBucketID: detailBucketID
+            )
+            .environment(
+                \.dsAccessibilityOverrides,
+                DSAccessibilityOverrides(reduceTransparency: true)
+            ),
+            size: DockHoverPanelPlacement.codexPanelSize,
+            appearanceName: .darkAqua,
+            name: detailTransparencyName
+        )
+        XCTAssertGreaterThan(detailTransparency.count, 12_000)
+        attachPNG(detailTransparency, name: detailTransparencyName)
+
+        let detailGrayscaleName = "Codex Hover — Daily Detail — Grayscale"
+        let detailGrayscale = try renderPNG(
+            of: DockHoverDashboardRoot(
+                appModel: appModel,
+                pointerEdge: .bottom,
+                appearanceMode: .dark,
+                initialSelectedDailyBucketID: detailBucketID
+            )
+            .grayscale(1),
+            size: DockHoverPanelPlacement.codexPanelSize,
+            appearanceName: .darkAqua,
+            name: detailGrayscaleName
+        )
+        XCTAssertGreaterThan(detailGrayscale.count, 12_000)
+        attachPNG(detailGrayscale, name: detailGrayscaleName)
 
         let captureMenuName = "Codex Hover — Capture Menu"
         let captureMenu = try renderPNG(
@@ -3946,6 +4398,29 @@ final class DockMagicTests: XCTestCase {
         )
     }
 
+    func testCodexDailyDetailCachedInputStaysBounded() {
+        let breakdown = CodexTokenBreakdown(
+            inputTokens: 800,
+            cachedInputTokens: 600,
+            cacheWriteInputTokens: 0,
+            outputTokens: 200,
+            reasoningOutputTokens: 100,
+            totalTokens: 1_000
+        )
+        XCTAssertEqual(breakdown.cachedInputFraction, 0.75)
+        XCTAssertEqual(
+            breakdown.adding(breakdown),
+            CodexTokenBreakdown(
+                inputTokens: 1_600,
+                cachedInputTokens: 1_200,
+                cacheWriteInputTokens: 0,
+                outputTokens: 400,
+                reasoningOutputTokens: 200,
+                totalTokens: 2_000
+            )
+        )
+    }
+
     func testCodexShipMomentumCombinesTasksAndTokensAgainstPriorWeek() {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = .current
@@ -4041,10 +4516,16 @@ final class DockMagicTests: XCTestCase {
         let projectDirectory = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()
             .deletingLastPathComponent()
-        let sourceURL = projectDirectory.appendingPathComponent(
-            "DockMagic/Views/Hover/CodexHoverDashboardView.swift"
-        )
-        let source = try String(contentsOf: sourceURL, encoding: .utf8)
+        let sourcePaths = [
+            "DockMagic/Views/Hover/CodexHoverDashboardView.swift",
+            "DockMagic/Views/Hover/CodexDailyTokenDetailView.swift"
+        ]
+        let source = try sourcePaths.map { path in
+            try String(
+                contentsOf: projectDirectory.appendingPathComponent(path),
+                encoding: .utf8
+            )
+        }.joined(separator: "\n")
         let forbiddenPatterns = [
             "LinearGradient(",
             "RadialGradient(",
@@ -4056,6 +4537,8 @@ final class DockMagicTests: XCTestCase {
             "appearance.innerColor",
             "DockRingAppearance",
             "import Charts",
+            "Cost",
+            "Pricing",
             "Updated just now",
             "\"Live\""
         ]
@@ -4080,6 +4563,16 @@ final class DockMagicTests: XCTestCase {
         XCTAssertTrue(source.contains("Top models"))
         XCTAssertTrue(source.contains("initialIntensityHoveredBucketID"))
         XCTAssertTrue(source.contains("theme.action.opacity(0.10"))
+        XCTAssertTrue(source.contains("CodexDailyTokenDetailView("))
+        XCTAssertFalse(source.contains("Text(\"Local detail\")"))
+        XCTAssertFalse(source.contains("Text(\"Partial\")"))
+        XCTAssertFalse(source.contains("Text(summaryStatusLabel)"))
+        XCTAssertFalse(source.contains("Text(coverageLabel)"))
+        XCTAssertFalse(source.contains("Text(\"No local hourly data\")"))
+        XCTAssertTrue(source.contains("Cached input"))
+        XCTAssertTrue(source.contains("Hourly usage"))
+        XCTAssertTrue(source.contains(".buttonStyle(.plain)"))
+        XCTAssertTrue(source.contains("codex.dailyDetail.back"))
         XCTAssertTrue(source.contains("hoverTooltip("))
         XCTAssertTrue(source.contains(".allowsHitTesting(false)"))
         XCTAssertTrue(source.contains("square.and.arrow.up"))
@@ -4143,7 +4636,8 @@ final class DockMagicTests: XCTestCase {
                 content: CodexTokenHistoryChart(
                     buckets: buckets,
                     hoveredBucketID: binding,
-                    plotHeight: 88
+                    plotHeight: 88,
+                    onSelectBucket: { hoverState.selectedBucketID = $0 }
                 ),
                 appearanceMode: .dark
             )
@@ -5510,6 +6004,92 @@ final class DockMagicTests: XCTestCase {
 @MainActor
 private final class CodexHoverTestState {
     var hoveredBucketID: Date?
+    var selectedBucketID: Date?
+}
+
+private func codexRolloutFixture(
+    model: String,
+    events: [(
+        date: Date,
+        input: Int64,
+        cachedInput: Int64,
+        output: Int64
+    )]
+) throws -> Data {
+    let formatter = ISO8601DateFormatter()
+    formatter.formatOptions = [
+        .withInternetDateTime,
+        .withFractionalSeconds
+    ]
+    var data = Data()
+
+    func appendLine(_ object: [String: Any]) throws {
+        data.append(try JSONSerialization.data(withJSONObject: object))
+        data.append(0x0A)
+    }
+
+    if let firstDate = events.first?.date {
+        try appendLine([
+            "timestamp": formatter.string(
+                from: firstDate.addingTimeInterval(-60)
+            ),
+            "type": "turn_context",
+            "payload": ["model": model]
+        ])
+    }
+    for event in events {
+        try appendLine([
+            "timestamp": formatter.string(from: event.date),
+            "type": "event_msg",
+            "payload": [
+                "type": "token_count",
+                "info": [
+                    "last_token_usage": [
+                        "input_tokens": event.input,
+                        "cached_input_tokens": event.cachedInput,
+                        "cache_write_input_tokens": 0,
+                        "output_tokens": event.output,
+                        "reasoning_output_tokens": event.output / 2,
+                        "total_tokens": event.input + event.output
+                    ]
+                ]
+            ]
+        ])
+    }
+    return data
+}
+
+private func sqlString(_ value: String) -> String {
+    value.replacingOccurrences(of: "'", with: "''")
+}
+
+private actor CodexDailyDetailLoadCounter {
+    private(set) var callCount = 0
+
+    func load(date: Date) async throws -> CodexDailyTokenDetail? {
+        callCount += 1
+        try await Task.sleep(for: .milliseconds(40))
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = .current
+        let day = calendar.startOfDay(for: date)
+        let usage = CodexTokenBreakdown(
+            inputTokens: 80,
+            cachedInputTokens: 60,
+            cacheWriteInputTokens: 0,
+            outputTokens: 20,
+            reasoningOutputTokens: 10,
+            totalTokens: 100
+        )
+        return CodexDailyTokenDetail(
+            startDate: day,
+            usage: usage,
+            hourlyUsage: [],
+            modelUsage: [
+                CodexDailyModelTokenUsage(model: "gpt-test", usage: usage)
+            ],
+            isPartial: false
+        )
+    }
 }
 
 private actor SequenceMetricsSampler: SystemMetricsSampling {

@@ -656,6 +656,10 @@ enum DockHoverPanelPlacement {
     static let windowLevel = NSWindow.Level(
         rawValue: NSWindow.Level.popUpMenu.rawValue + 1
     )
+    // System share UI is presented above a normal-level source window. The
+    // hover panel temporarily uses this level while sharing so it cannot cover
+    // the picker or the selected sharing service's window.
+    static let sharePresentationWindowLevel = NSWindow.Level.normal
 
     static func panelSize(for feature: DockFeature) -> CGSize {
         switch feature {

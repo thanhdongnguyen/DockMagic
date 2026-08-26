@@ -1,0 +1,50 @@
+{
+  "scene": "DockMagic Factory",
+  "stage": "environment-and-rigged-characters",
+  "collections": [
+    "FACTORY_CHARACTERS",
+    "FACTORY_ENVIRONMENT"
+  ],
+  "armatures": 6,
+  "actions": [
+    "FactoryWorker_BenAgent_Idle",
+    "FactoryWorker_BenAgent_Testing",
+    "FactoryWorker_BenAgent_Thinking",
+    "FactoryWorker_BenAgent_Typing",
+    "FactoryWorker_BenAgent_WaitingApproval",
+    "FactoryWorker_CLI_Idle",
+    "FactoryWorker_CLI_Testing",
+    "FactoryWorker_CLI_Thinking",
+    "FactoryWorker_CLI_Typing",
+    "FactoryWorker_CLI_WaitingApproval",
+    "FactoryWorker_Planner_Idle",
+    "FactoryWorker_Planner_Testing",
+    "FactoryWorker_Planner_Thinking",
+    "FactoryWorker_Planner_Typing",
+    "FactoryWorker_Planner_WaitingApproval",
+    "FactoryWorker_Root_Idle",
+    "FactoryWorker_Root_Testing",
+    "FactoryWorker_Root_Thinking",
+    "FactoryWorker_Root_Typing",
+    "FactoryWorker_Root_WaitingApproval",
+    "FactoryWorker_Tester_Idle",
+    "FactoryWorker_Tester_Testing",
+    "FactoryWorker_Tester_Thinking",
+    "FactoryWorker_Tester_Typing",
+    "FactoryWorker_Tester_WaitingApproval",
+    "FactoryWorker_Website_Idle",
+    "FactoryWorker_Website_Testing",
+    "FactoryWorker_Website_Thinking",
+    "FactoryWorker_Website_Typing",
+    "FactoryWorker_Website_WaitingApproval"
+  ],
+  "robots": [
+    "FactoryWorker_BenAgent_RIG",
+    "FactoryWorker_CLI_RIG",
+    "FactoryWorker_Planner_RIG",
+    "FactoryWorker_Root_RIG",
+    "FactoryWorker_Tester_RIG",
+    "FactoryWorker_Website_RIG"
+  ],
+  "camera": "Factory_Orthographic_Camera"
+}

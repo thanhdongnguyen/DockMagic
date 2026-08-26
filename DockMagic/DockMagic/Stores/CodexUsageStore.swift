@@ -18,6 +18,9 @@ final class CodexUsageStore {
     private let locator: any CodexExecutableLocating
 
     @ObservationIgnored
+    private let dailyDetailLoader: any CodexDailyTokenDetailLoading
+
+    @ObservationIgnored
     private let pollingInterval: Duration
 
     @ObservationIgnored
@@ -35,12 +38,15 @@ final class CodexUsageStore {
     init(
         provider: any CodexRateLimitProviding = CodexAppServerRateLimitProvider(),
         locator: any CodexExecutableLocating = CodexExecutableLocator(),
+        dailyDetailLoader: any CodexDailyTokenDetailLoading =
+            CodexDailyTokenDetailLoader(),
         pollingInterval: Duration = .seconds(300),
         executableOverridePath: String? = nil
     ) {
         precondition(pollingInterval > .zero, "Polling interval must be positive.")
         self.provider = provider
         self.locator = locator
+        self.dailyDetailLoader = dailyDetailLoader
         self.pollingInterval = pollingInterval
         self.executableOverridePath = executableOverridePath
     }
@@ -125,6 +131,12 @@ final class CodexUsageStore {
         }
         refreshTask = task
         await task.value
+    }
+
+    func loadDailyTokenDetail(
+        for date: Date
+    ) async throws -> CodexDailyTokenDetail? {
+        try await dailyDetailLoader.loadDetail(for: date)
     }
 
     private func performRefresh(
