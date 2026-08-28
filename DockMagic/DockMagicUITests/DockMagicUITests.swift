@@ -40,12 +40,12 @@ final class DockMagicUITests: XCTestCase {
             "Network",
             "Storage",
             "Weather",
+            "Clock",
             "Batteries",
             "GitHub",
             "Codex",
             "Claude Code",
-            "Search Console",
-            "About"
+            "Search Console"
         ] {
             XCTAssertTrue(
                 sidebarRow(named: destination, in: app).exists,
@@ -60,6 +60,71 @@ final class DockMagicUITests: XCTestCase {
 
         attachScreenshot(
             named: "Settings — General — System Glass Chrome",
+            in: app
+        )
+    }
+
+    func testClockIsDockOnlyAndConfiguresStyleAndLocation() {
+        let app = launchApp(appearance: "light", activeFeature: "clock")
+        XCTAssertTrue(
+            app.windows["DockMagic Settings"].waitForExistence(timeout: 5),
+            app.debugDescription
+        )
+        XCTAssertEqual(
+            sidebarRow(named: "Clock", in: app).value as? String,
+            "Active"
+        )
+
+        let hoverToggle = app.descendants(matching: .any)[
+            "settings.dockHover.toggle"
+        ]
+        XCTAssertTrue(hoverToggle.waitForExistence(timeout: 3))
+        XCTAssertFalse(
+            hoverToggle.isEnabled,
+            "Clock must not expose an actionable hover-dashboard toggle."
+        )
+
+        var stylePicker = app.radioGroups["settings.clock.style"].firstMatch
+        XCTAssertTrue(stylePicker.waitForExistence(timeout: 3))
+        XCTAssertEqual(stylePicker.value as? String, "Digital")
+        guard let splitFlap = waitForHittableRadioButton(
+            identifiedBy: "settings.clock.styleOption.splitFlap",
+            in: app,
+            timeout: 3
+        ) else {
+            return XCTFail("Missing Split-flap Clock style in General.")
+        }
+        splitFlap.click()
+        stylePicker = app.radioGroups["settings.clock.style"].firstMatch
+        XCTAssertEqual(stylePicker.value as? String, "Split-flap")
+
+        openSidebarDestination(named: "Clock", in: app)
+        XCTAssertTrue(
+            app.descendants(matching: .any)["settings.clock"]
+                .waitForExistence(timeout: 3)
+        )
+        XCTAssertTrue(
+            app.descendants(matching: .any)["settings.clock.dockPreview"].exists
+        )
+        XCTAssertTrue(
+            app.descendants(matching: .any)["settings.clock.noDashboard"].exists
+        )
+        stylePicker = app.radioGroups["settings.clock.style"].firstMatch
+        XCTAssertEqual(stylePicker.value as? String, "Split-flap")
+
+        let followToggle = app.descendants(matching: .any)[
+            "settings.clock.followSystemTimeZone"
+        ]
+        XCTAssertTrue(followToggle.waitForExistence(timeout: 3))
+        followToggle.click()
+        XCTAssertTrue(
+            app.descendants(matching: .any)["settings.clock.location"]
+                .waitForExistence(timeout: 3),
+            "Turning off the Mac time zone should reveal another-location selection."
+        )
+
+        attachScreenshot(
+            named: "Settings — Clock — Split-flap Custom Location",
             in: app
         )
     }
@@ -331,18 +396,6 @@ final class DockMagicUITests: XCTestCase {
             named: "Settings — Search Console — Adaptive Focus",
             in: app
         )
-
-        openSidebarDestination(named: "About", in: app)
-        XCTAssertTrue(
-            app.descendants(matching: .any)["settings.about"]
-                .waitForExistence(timeout: 3)
-        )
-        XCTAssertTrue(app.staticTexts["Version"].exists)
-        XCTAssertTrue(app.staticTexts["Distribution"].exists)
-        attachScreenshot(
-            named: "Settings — About — System Glass Chrome",
-            in: app
-        )
     }
 
     func testInlineColorPaletteSelectsAndPersistsWithoutOpeningPanel() {
@@ -514,6 +567,7 @@ final class DockMagicUITests: XCTestCase {
             "Network",
             "Storage",
             "Weather",
+            "Clock",
             "Batteries",
             "GitHub",
             "Codex",
@@ -1109,6 +1163,7 @@ final class DockMagicUITests: XCTestCase {
             "Network": "network",
             "Storage": "storage",
             "Weather": "weather",
+            "Clock": "clock",
             "Batteries": "batteries",
             "GitHub": "github",
             "Codex": "codex",
@@ -1178,12 +1233,12 @@ final class DockMagicUITests: XCTestCase {
             "Network": "settings.nav.network",
             "Storage": "settings.nav.storage",
             "Weather": "settings.nav.weather",
+            "Clock": "settings.nav.clock",
             "Batteries": "settings.nav.batteries",
             "GitHub": "settings.nav.github",
             "Codex": "settings.nav.codex",
             "Claude Code": "settings.nav.claudeCode",
-            "Search Console": "settings.nav.searchConsole",
-            "About": "settings.nav.about"
+            "Search Console": "settings.nav.searchConsole"
         ]
 
         guard let identifier = identifiers[title] else {

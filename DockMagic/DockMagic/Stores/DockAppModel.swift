@@ -9,6 +9,7 @@ final class DockAppModel {
     let networkStore: NetworkMetricsStore
     let storageStore: StorageMetricsStore
     let weatherStore: WeatherStore
+    let clockStore: ClockStore
     let batteryStore: BatteryMetricsStore
     let githubStore: GitHubRepositoryStore
     let codexStore: CodexUsageStore
@@ -29,6 +30,7 @@ final class DockAppModel {
         networkStore: NetworkMetricsStore? = nil,
         storageStore: StorageMetricsStore? = nil,
         weatherStore: WeatherStore? = nil,
+        clockStore: ClockStore? = nil,
         batteryStore: BatteryMetricsStore? = nil,
         githubStore: GitHubRepositoryStore? = nil,
         codexStore: CodexUsageStore? = nil,
@@ -41,6 +43,7 @@ final class DockAppModel {
         self.networkStore = networkStore ?? NetworkMetricsStore()
         self.storageStore = storageStore ?? StorageMetricsStore()
         self.weatherStore = weatherStore ?? WeatherStore()
+        self.clockStore = clockStore ?? ClockStore()
         self.batteryStore = batteryStore ?? BatteryMetricsStore()
         self.githubStore = githubStore ?? GitHubRepositoryStore()
         self.codexStore = codexStore ?? CodexUsageStore(
@@ -77,6 +80,13 @@ final class DockAppModel {
             )
         case .weather:
             .weather(state: weatherStore.state)
+        case .clock:
+            .clock(
+                date: preferences.clockConfiguration.presentationDate(
+                    for: clockStore.currentDate
+                ),
+                configuration: preferences.clockConfiguration
+            )
         case .batteries:
             .batteries(
                 snapshot: batteryStore.current,
@@ -125,6 +135,7 @@ final class DockAppModel {
         networkStore.stop()
         storageStore.stop()
         weatherStore.stop()
+        clockStore.stop()
         batteryStore.stop()
         githubStore.stop()
         codexStore.stop()
@@ -169,6 +180,7 @@ final class DockAppModel {
             networkStore.stop()
             storageStore.stop()
             weatherStore.stop()
+            clockStore.stop()
             batteryStore.stop()
             githubStore.pause()
             codexStore.stop()
@@ -178,6 +190,7 @@ final class DockAppModel {
             networkStore.stop()
             storageStore.stop()
             weatherStore.stop()
+            clockStore.stop()
             batteryStore.stop()
             githubStore.pause()
             codexStore.stop()
@@ -188,6 +201,7 @@ final class DockAppModel {
             metricsStore.stop()
             storageStore.stop()
             weatherStore.stop()
+            clockStore.stop()
             batteryStore.stop()
             githubStore.pause()
             codexStore.stop()
@@ -198,6 +212,7 @@ final class DockAppModel {
             metricsStore.stop()
             networkStore.stop()
             weatherStore.stop()
+            clockStore.stop()
             batteryStore.stop()
             githubStore.pause()
             codexStore.stop()
@@ -208,17 +223,30 @@ final class DockAppModel {
             metricsStore.stop()
             networkStore.stop()
             storageStore.stop()
+            clockStore.stop()
             codexStore.stop()
             claudeCodeStore.stop()
             batteryStore.stop()
             githubStore.pause()
             searchConsoleStore.stop()
             weatherStore.start()
+        case .clock:
+            metricsStore.stop()
+            networkStore.stop()
+            storageStore.stop()
+            weatherStore.stop()
+            batteryStore.stop()
+            githubStore.pause()
+            codexStore.stop()
+            claudeCodeStore.stop()
+            searchConsoleStore.stop()
+            clockStore.start()
         case .batteries:
             metricsStore.stop()
             networkStore.stop()
             storageStore.stop()
             weatherStore.stop()
+            clockStore.stop()
             codexStore.stop()
             claudeCodeStore.stop()
             searchConsoleStore.stop()
@@ -229,6 +257,7 @@ final class DockAppModel {
             networkStore.stop()
             storageStore.stop()
             weatherStore.stop()
+            clockStore.stop()
             batteryStore.stop()
             codexStore.stop()
             claudeCodeStore.stop()
@@ -239,6 +268,7 @@ final class DockAppModel {
             networkStore.stop()
             storageStore.stop()
             weatherStore.stop()
+            clockStore.stop()
             batteryStore.stop()
             githubStore.pause()
             claudeCodeStore.stop()
@@ -249,6 +279,7 @@ final class DockAppModel {
             networkStore.stop()
             storageStore.stop()
             weatherStore.stop()
+            clockStore.stop()
             batteryStore.stop()
             githubStore.pause()
             codexStore.stop()
@@ -260,6 +291,7 @@ final class DockAppModel {
             networkStore.stop()
             storageStore.stop()
             weatherStore.stop()
+            clockStore.stop()
             batteryStore.stop()
             githubStore.pause()
             codexStore.stop()
@@ -322,6 +354,15 @@ final class DockAppModel {
 
         weatherStore.start()
         await weatherStore.refresh()
+    }
+
+    /// Re-synchronizes the visible time immediately after wake or unlock.
+    func refreshActiveClockAfterResume() {
+        guard isRunning, preferences.activeFeature == .clock else {
+            return
+        }
+
+        clockStore.refresh()
     }
 
     /// Re-enumerates live power sources after sleep, unlock, and device churn.

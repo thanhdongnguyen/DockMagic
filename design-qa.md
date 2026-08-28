@@ -1,3 +1,66 @@
+# DockMagic Claude native usage dashboard — Option 1 design QA
+
+## Final result
+
+`passed`
+
+The selected Option 1 is implemented as the 440 × 760 pt Claude Code hover
+dashboard. The production view uses native Claude observations for quota,
+tokens, observed cost, model usage, Ship momentum, tasks, and goals. No
+actionable P0, P1, or P2 visual differences remain.
+
+## Visual truth and runtime state
+
+- Source visual truth: `/Users/dongnt/.codex/generated_images/01a04424-45f2-7983-8b76-9aa56e519b77/exec-c4735965-7bfc-4eff-aecd-a8592a8cebae.png` (954 × 1649 px).
+- Final implementation: `/Users/dongnt/.codex/visualizations/2026/08/27/01a04424-45f2-7983-8b76-9aa56e519b77/claude-dashboard-implementation-final.png` (880 × 1520 px).
+- Full comparison input: `/Users/dongnt/.codex/visualizations/2026/08/27/01a04424-45f2-7983-8b76-9aa56e519b77/claude-dashboard-comparison-final.png` (1760 × 1520 px; normalized source left, production SwiftUI component right).
+- Focused header/quota/chart comparison: `/Users/dongnt/.codex/visualizations/2026/08/27/01a04424-45f2-7983-8b76-9aa56e519b77/claude-dashboard-comparison-top.png` (1760 × 760 px).
+- Focused Ship/models/active-work comparison: `/Users/dongnt/.codex/visualizations/2026/08/27/01a04424-45f2-7983-8b76-9aa56e519b77/claude-dashboard-comparison-bottom.png` (1760 × 700 px).
+- Viewport: 440 × 760 pt at 2× Retina density. The source was Lanczos-normalized to 880 × 1520 px before comparison; no crop or device frame was added.
+- State: Dark; 8.2M observed 30-day tokens; $38.42 observed estimated cost; 74% five-hour remaining; 41% weekly remaining; Tokens selected; Shipper 55; two active tasks and one active goal.
+- Final implementation evidence was rendered by launching the built Debug app and rasterizing the production SwiftUI component after AppKit finished launching. The temporary QA-only launch hook was removed immediately after capture.
+
+## Findings
+
+No remaining P0/P1/P2 findings.
+
+- Fonts and typography: native SF typography preserves the target hierarchy, weights, numeric emphasis, compact labels, monospaced metrics, date range, and truncation behavior. Token and USD formatting is deterministic (`1.28M`, `$38.42`), and model versions retain their decimal (`Claude Haiku 4.5`).
+- Spacing and layout rhythm: header, quota rows, chart, Ship gauge, ranked model rows, and active-work rows follow the target order and fill the 440 × 760 pt panel without clipping or scroll dependency. Separators replace the earlier stack of boxed cards.
+- Colors and tokens: the view uses DockMagic semantic surfaces, text, outlines, and one Claude clay action accent. Processing states use the existing semantic processing role. There are no gradients, glows, direct RGB/hex colors, or feature-local palettes.
+- Image quality and assets: the existing Claude raster logo and native SF Symbols remain sharp at 2×. The Ship gauge is a native data visualization, not a substitute for a missing image asset.
+- Copy and content: headings, quota language, Tokens/Cost control, Ship explanation, model columns, task/goal state, and partial-cost labels remain understandable without the design prompt. The generated `MAX` badge is intentionally omitted because Claude's passive native payload does not report a reliable subscription tier.
+- Interactions and states: Tokens/Cost changes the chart data; live, stale, unavailable, missing-window, Increased Contrast, Reduce Transparency, Light, Dark, and grayscale states are covered by deterministic renderer tests. Empty sections report that no real native data has been observed instead of inserting fixtures into production.
+- Accessibility: the dashboard, metric selector, quota rows, chart buckets, Ship score, models, tasks, and goals expose spoken labels/values. Selection and information are not communicated by color alone.
+- Accepted P3 differences: production uses DockMagic's native capsule selector and semantic processing color, and adds current model/context provenance in the header. These are existing product-system conventions and do not change the selected information hierarchy.
+
+## Comparison history
+
+### Iteration 1
+
+- P1: Ship momentum reused the blue Codex rank-ladder card, materially changing the selected Claude visual and introducing the wrong action accent.
+- P2: Daily usage, models, Ship, and Active work were boxed into compressed cards, leaving a large unused lower region and drifting from the target's separator rhythm.
+- P2: the QA fixture did not match the source's 8.2M / $38.42 state, making visual comparison imprecise.
+- Fix: introduced the Claude clay semicircle gauge with the shared Codex formula, removed the extra ladder and boxed section surfaces, expanded the chart/rows, and aligned the deterministic QA state with the source.
+- Post-fix evidence: `claude-dashboard-comparison-pass2.png`.
+
+### Iteration 2
+
+- P2: the usage bars lacked a numeric vertical scale, so magnitude was less legible than the source.
+- P2: model normalization produced `Claude Haiku 4 5`, and today's 1.28M value was rounded to 1.3M.
+- Fix: added three semantic grid lines and numeric axis labels, preserved dotted model versions, used deterministic POSIX compact-token formatting with two significant decimal places, and restored exact active-work count copy.
+- Post-fix evidence: `claude-dashboard-comparison-final.png`, `claude-dashboard-comparison-top.png`, and `claude-dashboard-comparison-bottom.png`.
+
+## Verification
+
+- Native parser/history/bridge/model-cost/chart/source-contract/render coverage was added in `DockMagicTests`. The final direct XCTest run passed 13/13 Claude tests with zero failures, including bridge round-trip, quota and context parsing, local token/model aggregation, active task and goal parsing, mixed-model cost attribution, Tokens/Cost alignment, stale/live store behavior, automatic setup, privacy/color contracts, and presentation formatting.
+- The hosted appearance renderer passed for Light, Dark, Increased Contrast, Reduce Transparency, grayscale, stale, unavailable, missing weekly quota, Tokens, and Cost states before the final chart-label fidelity refinements. The post-refinement production component was then rendered from the built app and inspected in the final same-input comparison listed above. A subsequent clean hosted-XCTest rerun launched DockMagic but Xcode's test service did not attach the test bundle, so that infrastructure attempt is not counted as a product pass or failure.
+- The real native bridge was installed into `~/.claude/settings.json` without invoking a Claude turn. Both `statusLine` and `subagentStatusLine` commands resolve to DockMagic-owned wrappers; scripts are mode `0700`, and per-session directories are mode `0700`. A read-only production telemetry probe correctly reported `source=localHistory`, `useful=false`, zero sessions/tasks/goals, and no status snapshot because this machine has not produced a post-install Claude response. The dashboard therefore shows an honest unavailable/empty state until real usage arrives.
+- The signed Debug app built and stayed running through `./script/build_and_run.sh --verify`. The earlier unsigned Debug build and test-target build also passed. Existing Sendable warnings in concurrent Clock/Settings work are outside this feature.
+- Final `git diff --check`, project-file `plutil -lint`, privacy review, and source scan passed. The Claude dashboard contains no prohibited gradient, direct RGB/hex/system color, QA launch hook, or production fixture path.
+- Browser and console checks are not applicable to this native SwiftUI/AppKit hover dashboard.
+
+final result: passed
+
 # DockMagic Codex dashboard capture — Option 1 design QA
 
 ## Final result
@@ -50,6 +113,78 @@ No remaining P0/P1/P2 findings.
 - Final Debug build, signing, launch, and process verification via `./script/build_and_run.sh --verify`: passed.
 - Computer Use runtime inspection hung while reading the app state, so it is not claimed as evidence. The direct nonactivating-panel event test provides the runtime interaction proof instead.
 - Browser and console checks: not applicable to this native SwiftUI/AppKit feature.
+
+final result: passed
+
+# DockMagic Weather hover dashboard — Option 1 design QA
+
+## Final result
+
+`passed`
+
+The selected Weather content hierarchy now lives in DockMagic's native hover
+dashboard, not in Weather Settings. Settings has been restored to the production
+Dock preview and Open-Meteo attribution. No actionable P0, P1, or P2 visual
+findings remain.
+
+## Visual truth and runtime state
+
+- Original source visual truth: `/Users/dongnt/.codex/generated_images/01a04458-e8c5-7e21-b86e-096fec146293/exec-4986934a-5529-45ca-8e2a-30a061844807.png` (1587 × 991 px).
+- User feedback screenshot: `/Users/dongnt/.codex/visualizations/2026/08/27/01a04458-e8c5-7e21-b86e-096fec146293/weather-hover-before-compact-feedback.png` (908 × 1056 px, representing the previous `440 × 522 pt` panel at 2× plus surrounding capture pixels).
+- Product-surface adaptation: Weather preserves the selected content hierarchy inside DockMagic's existing hover chrome, with a content-fit `440 × 420 pt` frame rather than inheriting Codex's taller panel.
+- Final Dark implementation: `/Users/dongnt/.codex/visualizations/2026/08/27/01a04458-e8c5-7e21-b86e-096fec146293/weather-hover-brand-attachments/0C11CD87-9540-4078-BF81-F06228AF4444.png` (880 × 840 px at 2×).
+- Final Light implementation: `/Users/dongnt/.codex/visualizations/2026/08/27/01a04458-e8c5-7e21-b86e-096fec146293/weather-hover-brand-attachments/F0D29409-4D24-4D3F-AE7A-7B5BD536000A.png` (880 × 840 px at 2×).
+- Increased Contrast, Reduce Transparency, and grayscale: `06CEFBEF-ECF2-49C8-A7D9-C2750B7E14A3.png`, `13CDC4FF-4111-4435-A2CD-D1291AB9B16C.png`, and `A04B8787-0F48-457F-9F1A-D8A84B4CC694.png` in the brand attachments directory.
+- State snapshots: stale `9DE0AEF7-46C3-4CF1-8D3F-AFB83F270348.png`, loading `33E583B2-EF33-4C54-BA4D-CF3CE5069745.png`, and unavailable `80B50AF8-F5D8-4D33-8B1D-25440253F262.png` in the same directory.
+- Full comparison input: `/Users/dongnt/.codex/visualizations/2026/08/27/01a04458-e8c5-7e21-b86e-096fec146293/weather-hover-compact-design-qa-comparison.png` (1760 × 1072 px; feedback screenshot left, compact production panel right, top aligned).
+- State: Dark; Ho Chi Minh City; no live freshness label; Light drizzle; seven forecast days from August 29 through September 4, 2026.
+
+## Findings
+
+No remaining P0/P1/P2 findings.
+
+- Placement and hierarchy: Weather routes through `DockHoverCoordinator` and `DockHoverChrome`, matching Codex hover behavior and pointer placement. Its content-fit height is 102 pt shorter than Codex while preserving the header, current-condition hero, today's high/low, humidity, wind, divider, seven-day strip, attribution, and pointer.
+- Settings scope: Weather Settings once again contains `Weather Dock preview`, Temperature, Conditions, Location, and attribution only; it does not embed the weekly dashboard.
+- Typography and density: the compact rounded numerals, seven equal forecast columns, monochrome/hierarchical SF Symbols, and restrained dividers remain legible at the fixed hover size without truncation.
+- Colors and tokens: the production component uses semantic `DesignTheme` roles only. The full-color Weather.app icon is confined to the bounded header identity region, matching Settings; the fallback is the system multicolor Weather symbol. It adds no direct RGB/hex/system-color literal, gradient, glow, decorative tinted surface, or feature-local palette.
+- Accessibility: the dashboard, header, current conditions, forecast strip, every forecast day, unavailable state, and attribution have stable identifiers or combined spoken labels. State is expressed through text and symbols, never color alone.
+- Appearance: Light, Dark, Increased Contrast, Reduce Transparency, and grayscale renders remain readable. Stale, loading, and unavailable variants preserve the same panel geometry and provide explicit textual state.
+- Attribution: `Open-Meteo · CC BY 4.0` remains visible and linked in both Weather Settings and the hover dashboard.
+
+## Comparison history
+
+### Iteration 1
+
+- P1: the initial build placed the seven-day dashboard inside Weather Settings, which contradicted the requested Codex-style hover interaction.
+- Fix: restored the original Settings preview, moved the weekly content into `WeatherHoverDashboardView`, and added Weather to the existing hover capability and placement routing.
+
+### Iteration 2
+
+- P2: the unavailable body hid the provider error behind the location placeholder, and the first cloud-slash symbol produced an empty visual slot in the rendered macOS snapshot.
+- Fix: show the actual error message and use the verified semantic warning triangle for the unavailable state.
+- Post-fix evidence: the comparison and eight verified XCTest snapshots listed above.
+
+### Iteration 3
+
+- P2: the `440 × 522 pt` frame left approximately 102 pt of unused vertical space below the Open-Meteo attribution in the user's real Dock-hover capture.
+- Fix: changed only Weather's panel height to `420 pt`; Codex remains `522 pt`. The live content now ends with normal bottom padding, and loading, unavailable, stale, Light, Dark, Increased Contrast, Reduce Transparency, and grayscale states continue to fit without clipping.
+- Post-fix evidence: `weather-hover-compact-design-qa-comparison.png` and the eight compact XCTest snapshots listed above.
+
+### Iteration 4
+
+- P3 requested refinement: the live header repeated freshness text at the upper right and used a monochrome weather glyph, unlike the colored Weather identity shown in Settings.
+- Fix: removed the live freshness label and reused Settings' Apple Weather application icon lookup, with the same multicolor SF Symbol fallback when Weather.app is unavailable. Stale and unavailable status labels remain visible because they communicate real semantic state.
+- Post-fix evidence: the eight `weather-hover-brand-attachments` snapshots listed above; Dark and Light both show the colored Weather icon without right-side live text.
+
+## Verification
+
+- Targeted integration tests passed for hover capability, compact panel placement, Open-Meteo request/forecast parsing, and all Weather hover render variants. Final result bundle: `/tmp/dockmagic-weather-hover-compact-derived/Logs/Test/Test-DockMagic-2026.08.29_00-53-34-+0700.xcresult`.
+- The final render-only pass after the unavailable-state correction also passed. Result bundle: `/tmp/dockmagic-weather-hover-derived/Logs/Test/Test-DockMagic-2026.08.29_00-48-07-+0700.xcresult`.
+- The final header refinement render pass passed for all eight appearance and availability states. Result bundle: `/tmp/dockmagic-weather-hover-brand-derived/Logs/Test/Test-DockMagic-2026.08.29_00-59-49-+0700.xcresult`.
+- Full unsigned Debug build passed as part of the final test run with `CODE_SIGNING_ALLOWED=NO`; output: `/tmp/dockmagic-weather-hover-brand-derived/Build/Products/Debug/DockMagic.app`.
+- Standalone Swift typecheck passed for the production Weather hover component with DockMagic design-system sources.
+- `plutil -lint DockMagic/DockMagic.xcodeproj/project.pbxproj` and `git diff --check` passed before final documentation updates; final checks are rerun at handoff.
+- Browser checks are not applicable to this native SwiftUI/AppKit component.
 
 final result: passed
 

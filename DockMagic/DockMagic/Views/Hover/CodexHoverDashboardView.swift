@@ -52,58 +52,67 @@ struct DockHoverDashboardRoot: View {
     }
 
     var body: some View {
-        DockMagicThemeRoot(
-            content: DockHoverChrome(
-                pointerEdge: pointerEdge,
-                panelSize: panelSize
-            ) {
-                switch appModel.preferences.activeFeature {
-                case .systemMetrics:
-                    SystemMetricsHoverDashboardView(
-                        current: appModel.metricsStore.current,
-                        history: appModel.metricsStore.history,
-                        processes: appModel.metricsStore.currentProcesses,
-                        appearance: appModel.preferences.systemMetricsAppearance,
-                        systemErrorDescription: appModel.metricsStore
-                            .lastErrorDescription,
-                        processErrorDescription: appModel.metricsStore
-                            .lastProcessErrorDescription
-                    )
-                case .codex:
-                    CodexHoverDashboardView(
-                        state: appModel.codexStore.state,
-                        dailyDetailLoader: { date in
-                            try await appModel.codexStore.loadDailyTokenDetail(
-                                for: date
+        Group {
+            if appModel.preferences.activeFeature.hasHoverDashboard {
+                DockMagicThemeRoot(
+                    content: DockHoverChrome(
+                        pointerEdge: pointerEdge,
+                        panelSize: panelSize
+                    ) {
+                        switch appModel.preferences.activeFeature {
+                        case .systemMetrics:
+                            SystemMetricsHoverDashboardView(
+                                current: appModel.metricsStore.current,
+                                history: appModel.metricsStore.history,
+                                processes: appModel.metricsStore.currentProcesses,
+                                appearance: appModel.preferences
+                                    .systemMetricsAppearance,
+                                systemErrorDescription: appModel.metricsStore
+                                    .lastErrorDescription,
+                                processErrorDescription: appModel.metricsStore
+                                    .lastProcessErrorDescription
                             )
-                        },
-                        initialHoveredBucketID: initialHoveredBucketID,
-                        initialSelectedDailyBucketID:
-                            initialSelectedDailyBucketID,
-                        initialIntensityHoveredBucketID:
-                            initialIntensityHoveredBucketID,
-                        captureConfiguration: showsCaptureControls
-                            ? CodexDashboardCaptureConfiguration(
-                                pointerEdge: pointerEdge,
-                                panelSize: panelSize,
-                                appearanceMode: appearanceMode
+                        case .weather:
+                            WeatherHoverDashboardView(
+                                state: appModel.weatherStore.state,
+                                locationPlaceholder: appModel.weatherStore
+                                    .locationPreviewValue
                             )
-                            : nil,
-                        initialCaptureMenuPresented:
-                            initialCaptureMenuPresented
-                    )
-                case .claudeCode:
-                    ClaudeCodeHoverDashboardView(
-                        state: appModel.claudeCodeStore.state
-                    )
-                default:
-                    DockHoverFeatureSummaryView(
-                        feature: appModel.preferences.activeFeature
-                    )
-                }
-            },
-            appearanceMode: appearanceMode
-        )
+                        case .codex:
+                            CodexHoverDashboardView(
+                                state: appModel.codexStore.state,
+                                dailyDetailLoader: { date in
+                                    try await appModel.codexStore
+                                        .loadDailyTokenDetail(for: date)
+                                },
+                                initialHoveredBucketID: initialHoveredBucketID,
+                                initialSelectedDailyBucketID:
+                                    initialSelectedDailyBucketID,
+                                initialIntensityHoveredBucketID:
+                                    initialIntensityHoveredBucketID,
+                                captureConfiguration: showsCaptureControls
+                                    ? CodexDashboardCaptureConfiguration(
+                                        pointerEdge: pointerEdge,
+                                        panelSize: panelSize,
+                                        appearanceMode: appearanceMode
+                                    )
+                                    : nil,
+                                initialCaptureMenuPresented:
+                                    initialCaptureMenuPresented
+                            )
+                        case .claudeCode:
+                            ClaudeCodeHoverDashboardView(
+                                state: appModel.claudeCodeStore.state
+                            )
+                        case .dockMagic, .network, .storage, .clock,
+                             .batteries, .github, .searchConsole:
+                            EmptyView()
+                        }
+                    },
+                    appearanceMode: appearanceMode
+                )
+            }
+        }
         .frame(
             width: panelSize.width,
             height: panelSize.height
@@ -114,6 +123,12 @@ struct DockHoverDashboardRoot: View {
 
 @MainActor
 struct CodexHoverDashboardView: View {
+    private enum CaptureAction {
+        case save
+        case copy
+        case share
+    }
+
     let state: CodexUsageState
     let dailyDetailLoader: (
         @MainActor @Sendable (Date) async throws -> CodexDailyTokenDetail?
@@ -128,6 +143,7 @@ struct CodexHoverDashboardView: View {
     @State private var dailyDetailLoadState: CodexDailyTokenDetailLoadState
     @State private var isCaptureButtonHovered = false
     @State private var isCaptureMenuPresented: Bool
+    @State private var hoveredCaptureAction: CaptureAction?
     @State private var captureErrorText: String?
     @State private var pendingShareURL: URL?
 
@@ -344,20 +360,22 @@ struct CodexHoverDashboardView: View {
 
             VStack(spacing: 1) {
                 captureMenuRow(
+                    captureAction: .save,
                     title: "Save 4× PNG",
                     subtitle: capturePixelSizeLabel,
                     systemImage: "photo",
-                    isPrimary: true,
                     accessibilityHint:
                         "Opens a save panel for the high-resolution PNG",
                     action: saveDashboard
                 )
                 captureMenuRow(
+                    captureAction: .copy,
                     title: "Copy image",
                     systemImage: "doc.on.doc",
                     action: copyDashboard
                 )
                 captureMenuRow(
+                    captureAction: .share,
                     title: "Share…",
                     systemImage: "square.and.arrow.up",
                     action: shareDashboard
@@ -398,24 +416,36 @@ struct CodexHoverDashboardView: View {
     }
 
     private func captureMenuRow(
+        captureAction: CaptureAction,
         title: String,
         subtitle: String? = nil,
         systemImage: String,
-        isPrimary: Bool = false,
         accessibilityHint: String? = nil,
         action: @escaping @MainActor () -> Void
     ) -> some View {
-        Button(action: action) {
+        let isActive = activeCaptureAction == captureAction
+
+        return Button(action: action) {
             HStack(spacing: 8) {
                 Image(systemName: systemImage)
                     .symbolRenderingMode(.monochrome)
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(
+                        .system(
+                            size: 11,
+                            weight: isActive ? .bold : .medium
+                        )
+                    )
                     .frame(width: 16)
                     .accessibilityHidden(true)
 
                 VStack(alignment: .leading, spacing: 1) {
                     Text(title)
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(
+                            .system(
+                                size: 11,
+                                weight: isActive ? .bold : .medium
+                            )
+                        )
 
                     if let subtitle {
                         Text(subtitle)
@@ -426,13 +456,22 @@ struct CodexHoverDashboardView: View {
 
                 Spacer(minLength: 0)
             }
-            .foregroundStyle(isPrimary ? theme.onAction : theme.textPrimary)
+            .foregroundStyle(
+                isActive ? theme.textPrimary : theme.textSecondary
+            )
             .padding(.horizontal, 8)
             .frame(maxWidth: .infinity, minHeight: subtitle == nil ? 26 : 36)
             .background {
-                if isPrimary {
+                if isActive {
                     RoundedRectangle(cornerRadius: 7, style: .continuous)
-                        .fill(theme.action)
+                        .fill(theme.outlineStrong.opacity(0.18))
+                        .overlay {
+                            RoundedRectangle(
+                                cornerRadius: 7,
+                                style: .continuous
+                            )
+                            .strokeBorder(theme.outlineStrong, lineWidth: 1)
+                        }
                 }
             }
             .contentShape(
@@ -440,12 +479,27 @@ struct CodexHoverDashboardView: View {
             )
         }
         .buttonStyle(.plain)
+        .onHover { isHovering in
+            if isHovering {
+                hoveredCaptureAction = captureAction
+            } else if hoveredCaptureAction == captureAction {
+                hoveredCaptureAction = nil
+            }
+        }
         .accessibilityLabel(title)
         .accessibilityValue(subtitle ?? "")
         .accessibilityHint(accessibilityHint ?? "")
     }
 
+    private var activeCaptureAction: CaptureAction {
+        hoveredCaptureAction ?? .save
+    }
+
     private func setCaptureMenuPresented(_ isPresented: Bool) {
+        if !isPresented {
+            hoveredCaptureAction = nil
+        }
+
         if reduceMotion {
             isCaptureMenuPresented = isPresented
         } else {
@@ -1978,36 +2032,6 @@ struct UsageLimitHoverRow: View {
         default:
             return theme.textPrimary
         }
-    }
-}
-
-private struct DockHoverFeatureSummaryView: View {
-    let feature: DockFeature
-
-    @Environment(\.designTheme) private var theme
-
-    var body: some View {
-        VStack(spacing: 14) {
-            Image(systemName: feature.systemImage)
-                .symbolRenderingMode(.monochrome)
-                .font(.system(size: 34, weight: .semibold))
-                .foregroundStyle(theme.actionForeground)
-                .accessibilityHidden(true)
-
-            Text(feature.title)
-                .font(.system(size: 21, weight: .bold))
-                .foregroundStyle(theme.textPrimary)
-
-            Text(feature.detail)
-                .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(theme.textSecondary)
-
-            Text("Detailed hover dashboard coming next")
-                .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(theme.textTertiary)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .accessibilityElement(children: .combine)
     }
 }
 

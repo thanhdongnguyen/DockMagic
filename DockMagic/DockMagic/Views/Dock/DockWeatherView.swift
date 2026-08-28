@@ -272,33 +272,3 @@ private struct WeatherPalette {
         }
     }
 }
-
-private extension WeatherCondition {
-    func symbolName(isDaylight: Bool?) -> String {
-        let daylight = isDaylight != false
-        return switch self {
-        case .clear, .hot:
-            daylight ? "sun.max.fill" : "moon.stars.fill"
-        case .mostlyClear:
-            daylight ? "sun.horizon.fill" : "moon.stars.fill"
-        case .partlyCloudy:
-            daylight ? "cloud.sun.fill" : "cloud.moon.fill"
-        case .cloudy, .unknown:
-            "cloud.fill"
-        case .fog:
-            "cloud.fog.fill"
-        case .wind:
-            "wind"
-        case .drizzle:
-            "cloud.drizzle.fill"
-        case .rain:
-            "cloud.rain.fill"
-        case .sleet:
-            "cloud.sleet.fill"
-        case .snow, .cold:
-            "cloud.snow.fill"
-        case .thunderstorm:
-            "cloud.bolt.rain.fill"
-        }
-    }
-}

@@ -14,21 +14,24 @@ Default open-access endpoint:
 https://api.open-meteo.com/v1/forecast
 ```
 
-One request retrieves both the current conditions and the daily summary:
+One request retrieves the current conditions and a seven-day daily forecast:
 
 ```text
 latitude=<lat>
 longitude=<lon>
-current=temperature_2m,apparent_temperature,weather_code,is_day
-daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max
+current=temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,is_day,wind_speed_10m
+daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max
 temperature_unit=celsius
+wind_speed_unit=kmh
 timezone=auto
-forecast_days=1
+forecast_days=7
 ```
 
-These fields map to `WeatherSnapshot`; `weather_code` uses Open-Meteo's official
-WMO table. Temperature, precipitation probability, coordinates, and the HTTP
-response are validated before reaching the UI.
+These fields map to the current values and `DailyWeatherForecast` entries in
+`WeatherSnapshot`; `weather_code` uses Open-Meteo's official WMO table. The
+provider validates aligned seven-day arrays, dates, temperature, humidity,
+wind, precipitation probability, coordinates, and the HTTP response before
+the values reach the UI.
 
 Official sources: [Open-Meteo Forecast API](https://open-meteo.com/en/docs),
 [pricing/authentication](https://open-meteo.com/en/pricing),
@@ -55,9 +58,10 @@ choose how to provision the key. A key embedded in the desktop binary or
 Info.plist can be extracted; a DockMagic-controlled proxy provides a stronger
 security boundary when the key must remain secret.
 
-Open-Meteo data is licensed under CC BY 4.0. Weather Settings always displays
-the `Open-Meteo · CC BY 4.0` link. This attribution is a product contract and
-must not be removed when simplifying the UI.
+Open-Meteo data is licensed under CC BY 4.0. Weather Settings and the Weather
+hover dashboard always display the `Open-Meteo · CC BY 4.0` link. This
+attribution is a product contract and must not be removed when simplifying the
+UI.
 
 ## Location, polling, and state
 
@@ -76,7 +80,7 @@ for direct Developer ID distribution; it does not require App Sandbox or Mac
 App Store distribution.
 
 Core Location reverse-geocodes the coordinates into a locality and country name
-for the `Location` row in the Weather Dock preview. If reverse geocoding does
+for the Dock preview and Weather hover dashboard. If reverse geocoding does
 not return a name within three seconds, the app cancels this step and uses a
 locality inferred from the Open-Meteo time zone before falling back to
 `Current Location`. Name lookup must not hold the entire refresh cycle
@@ -103,6 +107,13 @@ Weather checks again and refreshes automatically.
   a clock badge.
 - Before the first successful refresh, Dock and Settings report `unavailable`
   rather than creating placeholder data.
+
+When Weather is active and the optional Dock-hover dashboard is enabled,
+DockMagic presents the seven-day view through the same native hover panel and
+placement coordinator as Codex. The `440 × 420 pt` dashboard shows current
+conditions, today's high/low, humidity, wind, seven daily forecasts,
+stale/unavailable status, and attribution. Weather Settings continues to
+show the production Dock renderer preview rather than embedding this dashboard.
 
 ## Privacy
 
@@ -132,7 +143,8 @@ old cached data remains stale.
 - Integration: call the real endpoint with public test coordinates without
   depending on the test machine's Location permission.
 - Runtime: launch a locally signed app and verify the Location prompt,
-  allow/deny flows, a real refresh, and attribution in Settings.
+  allow/deny flows, a real refresh, Dock-hover placement, the seven-day panel,
+  and attribution in Settings and hover UI.
 - Release: verify the plan and license, Developer ID, Hardened Runtime,
   notarization, Gatekeeper, and real pixels in the system Dock.
 

@@ -7,6 +7,7 @@ enum DockFeature: String, CaseIterable, Codable, Identifiable, Sendable {
     case network
     case storage
     case weather
+    case clock
     case batteries
     case github
     case codex
@@ -29,6 +30,8 @@ enum DockFeature: String, CaseIterable, Codable, Identifiable, Sendable {
             "Storage"
         case .weather:
             "Weather"
+        case .clock:
+            "Clock"
         case .batteries:
             "Batteries"
         case .github:
@@ -54,6 +57,8 @@ enum DockFeature: String, CaseIterable, Codable, Identifiable, Sendable {
             "Startup disk usage"
         case .weather:
             "Current conditions from Open-Meteo"
+        case .clock:
+            "Local time or another location"
         case .batteries:
             "Battery levels for your Mac and connected devices"
         case .github:
@@ -79,6 +84,8 @@ enum DockFeature: String, CaseIterable, Codable, Identifiable, Sendable {
             "internaldrive.fill"
         case .weather:
             "cloud.sun.fill"
+        case .clock:
+            "clock.fill"
         case .batteries:
             "battery.75percent"
         case .github:
@@ -90,6 +97,169 @@ enum DockFeature: String, CaseIterable, Codable, Identifiable, Sendable {
         case .searchConsole:
             "magnifyingglass"
         }
+    }
+
+    var hasHoverDashboard: Bool {
+        switch self {
+        case .systemMetrics, .weather, .codex, .claudeCode:
+            true
+        case .dockMagic, .network, .storage, .clock, .batteries,
+             .github, .searchConsole:
+            false
+        }
+    }
+}
+
+enum DockClockDisplayStyle: String, CaseIterable, Codable, Identifiable,
+    Sendable
+{
+    case analog
+    case digital
+    case splitFlap
+
+    var id: Self { self }
+
+    var title: String {
+        switch self {
+        case .analog:
+            "Analog"
+        case .digital:
+            "Digital"
+        case .splitFlap:
+            "Split-flap"
+        }
+    }
+
+    var detail: String {
+        switch self {
+        case .analog:
+            "Show hour, minute, and second hands."
+        case .digital:
+            "Show large stacked 24-hour digits."
+        case .splitFlap:
+            "Show four flat mechanical-style digit cells."
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .analog:
+            "clock"
+        case .digital:
+            "textformat.123"
+        case .splitFlap:
+            "rectangle.split.2x2"
+        }
+    }
+}
+
+struct DockClockConfiguration: Codable, Equatable, Sendable {
+    private(set) var displayStyle: DockClockDisplayStyle
+    private(set) var followsSystemTimeZone: Bool
+    private(set) var timeZoneIdentifier: String
+
+    init(
+        displayStyle: DockClockDisplayStyle = .digital,
+        followsSystemTimeZone: Bool = true,
+        timeZoneIdentifier: String = TimeZone.autoupdatingCurrent.identifier
+    ) {
+        self.displayStyle = displayStyle
+        self.followsSystemTimeZone = followsSystemTimeZone
+        self.timeZoneIdentifier = Self.normalizedTimeZoneIdentifier(
+            timeZoneIdentifier
+        )
+    }
+
+    var resolvedTimeZone: TimeZone {
+        if followsSystemTimeZone {
+            return .autoupdatingCurrent
+        }
+        return TimeZone(identifier: timeZoneIdentifier) ?? .autoupdatingCurrent
+    }
+
+    var effectiveTimeZoneIdentifier: String {
+        resolvedTimeZone.identifier
+    }
+
+    mutating func setDisplayStyle(_ value: DockClockDisplayStyle) {
+        displayStyle = value
+    }
+
+    mutating func setFollowsSystemTimeZone(_ value: Bool) {
+        followsSystemTimeZone = value
+    }
+
+    mutating func setTimeZoneIdentifier(_ value: String) {
+        timeZoneIdentifier = Self.normalizedTimeZoneIdentifier(value)
+    }
+
+    func presentationDate(for date: Date) -> Date {
+        let interval = date.timeIntervalSince1970
+        let unit: TimeInterval = displayStyle == .analog ? 1 : 60
+        return Date(timeIntervalSince1970: floor(interval / unit) * unit)
+    }
+
+    private static func normalizedTimeZoneIdentifier(_ value: String) -> String {
+        guard TimeZone(identifier: value) != nil else {
+            return TimeZone.autoupdatingCurrent.identifier
+        }
+        return value
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case displayStyle
+        case followsSystemTimeZone
+        case timeZoneIdentifier
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            displayStyle: try container.decodeIfPresent(
+                DockClockDisplayStyle.self,
+                forKey: .displayStyle
+            ) ?? .digital,
+            followsSystemTimeZone: try container.decodeIfPresent(
+                Bool.self,
+                forKey: .followsSystemTimeZone
+            ) ?? true,
+            timeZoneIdentifier: try container.decodeIfPresent(
+                String.self,
+                forKey: .timeZoneIdentifier
+            ) ?? TimeZone.autoupdatingCurrent.identifier
+        )
+    }
+}
+
+enum DockClockFormatting {
+    static func locationTitle(for timeZone: TimeZone) -> String {
+        locationTitle(for: timeZone.identifier)
+    }
+
+    static func locationTitle(for identifier: String) -> String {
+        let components = identifier.split(separator: "/")
+        let city = components.last.map(String.init) ?? identifier
+        return city.replacingOccurrences(of: "_", with: " ")
+    }
+
+    static func regionTitle(for identifier: String) -> String? {
+        let components = identifier.split(separator: "/")
+        guard components.count > 1 else {
+            return nil
+        }
+        return String(components.first!).replacingOccurrences(of: "_", with: " ")
+    }
+
+    static func offsetTitle(for timeZone: TimeZone, at date: Date) -> String {
+        let totalMinutes = timeZone.secondsFromGMT(for: date) / 60
+        let sign = totalMinutes >= 0 ? "+" : "−"
+        let absoluteMinutes = abs(totalMinutes)
+        return String(
+            format: "UTC%@%02d:%02d",
+            sign,
+            absoluteMinutes / 60,
+            absoluteMinutes % 60
+        )
     }
 }
 
@@ -360,6 +530,8 @@ struct DockGitHubAppearance: Codable, Equatable, Sendable {
 }
 
 enum DockFeatureDefaults {
+    static let clockConfiguration = DockClockConfiguration()
+
     static let systemMetricsAppearance = DockRingAppearance(
         outerColor: DockColor(red: 1, green: 0.552_941, blue: 0.156_863),
         innerColor: DockColor(red: 0, green: 0.752_941, blue: 0.909_804),
@@ -415,6 +587,7 @@ enum DockTilePresentation: Equatable, Sendable {
         errorDescription: String?
     )
     case weather(state: WeatherState)
+    case clock(date: Date, configuration: DockClockConfiguration)
     case batteries(snapshot: BatteryMetricsSnapshot, errorDescription: String?)
     case github(
         history: [GitHubRepositorySnapshot],

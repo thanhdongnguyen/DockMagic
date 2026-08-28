@@ -13,7 +13,7 @@ protocol WeatherSnapshotCaching: Sendable {
 struct UserDefaultsWeatherSnapshotCache: WeatherSnapshotCaching, @unchecked Sendable {
     // A new namespace prevents legacy Apple Weather/Shortcut snapshots from
     // being displayed under Open-Meteo attribution.
-    static let cacheKey = "DockMagicOpenMeteoWeatherSnapshotCacheV1"
+    static let cacheKey = "DockMagicOpenMeteoWeatherSnapshotCacheV2"
 
     let defaults: UserDefaults
 

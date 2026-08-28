@@ -16,6 +16,7 @@ struct DesignTheme {
     let dockBackgroundRaised: Color
     let dockBackgroundInset: Color
     let dockOutline: Color
+    let dockForeground: Color
     let warning: Color
     let warningForeground: Color
     let onWarning: Color

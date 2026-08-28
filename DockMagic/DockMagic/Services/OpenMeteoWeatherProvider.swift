@@ -484,15 +484,16 @@ struct OpenMeteoWeatherProvider: WeatherSnapshotProviding,
             ),
             URLQueryItem(
                 name: "current",
-                value: "temperature_2m,apparent_temperature,weather_code,is_day"
+                value: "temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,is_day,wind_speed_10m"
             ),
             URLQueryItem(
                 name: "daily",
-                value: "temperature_2m_max,temperature_2m_min,precipitation_probability_max"
+                value: "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max"
             ),
             URLQueryItem(name: "temperature_unit", value: "celsius"),
+            URLQueryItem(name: "wind_speed_unit", value: "kmh"),
             URLQueryItem(name: "timezone", value: "auto"),
-            URLQueryItem(name: "forecast_days", value: "1")
+            URLQueryItem(name: "forecast_days", value: "7")
         ]
         if let apiKey, !apiKey.isEmpty {
             queryItems.append(URLQueryItem(name: "apikey", value: apiKey))
@@ -561,18 +562,17 @@ struct OpenMeteoWeatherProvider: WeatherSnapshotProviding,
         }
 
         let feelsLike = try validatedTemperature(response.current.apparentTemperature)
-        let high = try validatedTemperature(response.daily.temperature2MMax.first ?? nil)
-        let low = try validatedTemperature(response.daily.temperature2MMin.first ?? nil)
-        let precipitationPercent = response.daily.precipitationProbabilityMax.first ?? nil
-        let precipitationChance: Double?
-        if let precipitationPercent {
-            guard precipitationPercent.isFinite,
-                  (0 ... 100).contains(precipitationPercent) else {
-                throw OpenMeteoWeatherError.invalidPayload
-            }
-            precipitationChance = precipitationPercent / 100
-        } else {
-            precipitationChance = nil
+        let relativeHumidity = try validatedPercentage(
+            response.current.relativeHumidity2M
+        )
+        let windSpeedKPH = try validatedNonnegative(response.current.windSpeed10M)
+        let forecast = try dailyForecast(
+            from: response.daily,
+            timezone: response.timezone,
+            utcOffsetSeconds: response.utcOffsetSeconds
+        )
+        guard let today = forecast.first else {
+            throw OpenMeteoWeatherError.invalidPayload
         }
 
         let weather = OpenMeteoWeatherCode.metadata(for: response.current.weatherCode)
@@ -590,9 +590,12 @@ struct OpenMeteoWeatherProvider: WeatherSnapshotProviding,
             feelsLikeCelsius: feelsLike,
             conditionDescription: weather.description,
             condition: weather.condition,
-            highCelsius: high,
-            lowCelsius: low,
-            precipitationChance: precipitationChance,
+            highCelsius: today.highCelsius,
+            lowCelsius: today.lowCelsius,
+            precipitationChance: today.precipitationChance,
+            relativeHumidity: relativeHumidity,
+            windSpeedKPH: windSpeedKPH,
+            forecast: forecast,
             isDaylight: response.current.isDay.map { $0 == 1 },
             observedAt: observedAt,
             fetchedAt: fetchedAt
@@ -635,6 +638,68 @@ struct OpenMeteoWeatherProvider: WeatherSnapshotProviding,
         return value
     }
 
+    private static func validatedPercentage(_ value: Double?) throws -> Double? {
+        guard let value else {
+            return nil
+        }
+        guard value.isFinite, (0 ... 100).contains(value) else {
+            throw OpenMeteoWeatherError.invalidPayload
+        }
+        return value / 100
+    }
+
+    private static func validatedNonnegative(_ value: Double?) throws -> Double? {
+        guard let value else {
+            return nil
+        }
+        guard value.isFinite, (0 ... 500).contains(value) else {
+            throw OpenMeteoWeatherError.invalidPayload
+        }
+        return value
+    }
+
+    private static func dailyForecast(
+        from daily: OpenMeteoForecastResponse.Daily,
+        timezone: String?,
+        utcOffsetSeconds: Int
+    ) throws -> [DailyWeatherForecast] {
+        let count = daily.time.count
+        guard count == 7,
+              daily.weatherCode.count == count,
+              daily.temperature2MMax.count == count,
+              daily.temperature2MMin.count == count,
+              daily.precipitationProbabilityMax.count == count
+        else {
+            throw OpenMeteoWeatherError.invalidPayload
+        }
+
+        let forecast = try (0 ..< count).map { index in
+            guard let date = dailyDate(
+                daily.time[index],
+                timezone: timezone,
+                utcOffsetSeconds: utcOffsetSeconds
+            ), let weatherCode = daily.weatherCode[index]
+            else {
+                throw OpenMeteoWeatherError.invalidPayload
+            }
+            let weather = OpenMeteoWeatherCode.metadata(for: weatherCode)
+            return DailyWeatherForecast(
+                date: date,
+                conditionDescription: weather.description,
+                condition: weather.condition,
+                highCelsius: try validatedTemperature(daily.temperature2MMax[index]),
+                lowCelsius: try validatedTemperature(daily.temperature2MMin[index]),
+                precipitationChance: try validatedPercentage(
+                    daily.precipitationProbabilityMax[index]
+                )
+            )
+        }
+        guard Set(forecast.map(\.date)).count == count else {
+            throw OpenMeteoWeatherError.invalidPayload
+        }
+        return forecast
+    }
+
     private static func isValidTemperature(_ value: Double) -> Bool {
         value.isFinite && (-100 ... 100).contains(value)
     }
@@ -655,6 +720,20 @@ struct OpenMeteoWeatherProvider: WeatherSnapshotProviding,
         }
         return nil
     }
+
+    private static func dailyDate(
+        _ value: String,
+        timezone: String?,
+        utcOffsetSeconds: Int
+    ) -> Date? {
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = timezone.flatMap(TimeZone.init(identifier:))
+            ?? TimeZone(secondsFromGMT: utcOffsetSeconds)
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter.date(from: value)
+    }
 }
 
 struct OpenMeteoForecastResponse: Decodable, Sendable {
@@ -667,24 +746,32 @@ struct OpenMeteoForecastResponse: Decodable, Sendable {
         let time: String
         let temperature2M: Double
         let apparentTemperature: Double?
+        let relativeHumidity2M: Double?
         let weatherCode: Int
         let isDay: Int?
+        let windSpeed10M: Double?
 
         enum CodingKeys: String, CodingKey {
             case time
             case temperature2M = "temperature_2m"
             case apparentTemperature = "apparent_temperature"
+            case relativeHumidity2M = "relative_humidity_2m"
             case weatherCode = "weather_code"
             case isDay = "is_day"
+            case windSpeed10M = "wind_speed_10m"
         }
     }
 
     struct Daily: Decodable, Sendable {
+        let time: [String]
+        let weatherCode: [Int?]
         let temperature2MMax: [Double?]
         let temperature2MMin: [Double?]
         let precipitationProbabilityMax: [Double?]
 
         enum CodingKeys: String, CodingKey {
+            case time
+            case weatherCode = "weather_code"
             case temperature2MMax = "temperature_2m_max"
             case temperature2MMin = "temperature_2m_min"
             case precipitationProbabilityMax = "precipitation_probability_max"

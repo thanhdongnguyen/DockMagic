@@ -4,6 +4,7 @@ import Observation
 @MainActor
 @Observable
 final class DockPreferencesStore {
+    static let clockConfigurationKey = "DockMagicClockConfiguration"
     static let systemMetricsAppearanceKey = "DockMagicSystemMetricsAppearance"
     static let networkAppearanceKey = "DockMagicNetworkAppearance"
     static let storageAppearanceKey = "DockMagicStorageAppearance"
@@ -27,6 +28,7 @@ final class DockPreferencesStore {
         }
     }
 
+    private(set) var clockConfiguration: DockClockConfiguration
     private(set) var systemMetricsAppearance: DockRingAppearance
     private(set) var networkAppearance: DockNetworkAppearance
     private(set) var storageAppearance: DockSingleRingAppearance
@@ -99,6 +101,12 @@ final class DockPreferencesStore {
         activeFeature = defaults.string(forKey: DockFeature.storageKey)
             .flatMap(DockFeature.init(rawValue:))
             ?? .systemMetrics
+        clockConfiguration = Self.decodeValue(
+            DockClockConfiguration.self,
+            from: defaults,
+            key: Self.clockConfigurationKey,
+            fallback: DockFeatureDefaults.clockConfiguration
+        )
         systemMetricsAppearance = Self.decodeAppearance(
             from: defaults,
             key: Self.systemMetricsAppearanceKey,
@@ -146,6 +154,21 @@ final class DockPreferencesStore {
             defaults.object(
                 forKey: Self.dockHoverDashboardEnabledKey
             ) as? Bool ?? false
+    }
+
+    func setClockDisplayStyle(_ value: DockClockDisplayStyle) {
+        clockConfiguration.setDisplayStyle(value)
+        persistClockConfiguration()
+    }
+
+    func setClockFollowsSystemTimeZone(_ value: Bool) {
+        clockConfiguration.setFollowsSystemTimeZone(value)
+        persistClockConfiguration()
+    }
+
+    func setClockTimeZoneIdentifier(_ value: String) {
+        clockConfiguration.setTimeZoneIdentifier(value)
+        persistClockConfiguration()
     }
 
     func setSystemMetricsOuterColor(_ color: DockColor) {
@@ -301,6 +324,14 @@ final class DockPreferencesStore {
         claudeCodeAppearance = DockFeatureDefaults.claudeCodeAppearance
         claudeCodeAppearance.setDisplayStyle(displayStyle)
         persistClaudeCodeAppearance()
+    }
+
+    private func persistClockConfiguration() {
+        Self.encodeValue(
+            clockConfiguration,
+            to: defaults,
+            key: Self.clockConfigurationKey
+        )
     }
 
     private func persistSystemMetricsAppearance() {

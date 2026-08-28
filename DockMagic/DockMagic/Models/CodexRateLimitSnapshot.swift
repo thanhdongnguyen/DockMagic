@@ -146,6 +146,124 @@ struct CodexRecentTaskActivity: Codable, Equatable, Sendable {
     let isPartial: Bool
 }
 
+struct ClaudeCodeContextUsage: Codable, Equatable, Sendable {
+    let totalInputTokens: Int64?
+    let totalOutputTokens: Int64?
+    let contextWindowSize: Int64?
+    let usedPercent: Double?
+    let remainingPercent: Double?
+    let currentUsage: CodexTokenBreakdown?
+
+    var usedTokens: Int64? {
+        guard let currentUsage else { return nil }
+        return currentUsage.totalTokens
+    }
+}
+
+struct ClaudeCodeSessionUsage: Codable, Equatable, Sendable {
+    let sessionID: String?
+    let sessionName: String?
+    let modelID: String?
+    let modelDisplayName: String?
+    let agentName: String?
+    let claudeCodeVersion: String?
+    let estimatedCostUSD: Double?
+    let totalDurationMilliseconds: Int64?
+    let totalAPIDurationMilliseconds: Int64?
+    let totalLinesAdded: Int64?
+    let totalLinesRemoved: Int64?
+    let context: ClaudeCodeContextUsage?
+    let observedAt: Date
+}
+
+struct ClaudeCodeDailyCostUsage: Codable, Equatable, Identifiable, Sendable {
+    let startDate: Date
+    let estimatedCostUSD: Double
+
+    var id: Date { startDate }
+}
+
+struct ClaudeCodeModelCostUsage: Codable, Equatable, Identifiable, Sendable {
+    let model: String
+    let estimatedCostUSD: Double
+
+    var id: String { model }
+}
+
+enum ClaudeCodeTaskState: String, Codable, Equatable, Sendable {
+    case pending
+    case running
+    case paused
+    case completed
+    case failed
+    case stopped
+    case unknown
+
+    var isActive: Bool {
+        switch self {
+        case .pending, .running, .paused:
+            true
+        case .completed, .failed, .stopped, .unknown:
+            false
+        }
+    }
+}
+
+struct ClaudeCodeActiveTask: Codable, Equatable, Identifiable, Sendable {
+    let id: String
+    let sessionID: String?
+    let name: String
+    let kind: String?
+    let state: ClaudeCodeTaskState
+    let description: String?
+    let label: String?
+    let startedAt: Date?
+    let tokenCount: Int64?
+    let lastToolName: String?
+    let observedAt: Date
+}
+
+enum ClaudeCodeGoalState: String, Codable, Equatable, Sendable {
+    case active
+    case paused
+    case blocked
+    case limited
+    case complete
+}
+
+struct ClaudeCodeActiveGoal: Codable, Equatable, Identifiable, Sendable {
+    let sessionID: String
+    let objective: String
+    let state: ClaudeCodeGoalState
+    let iterations: Int?
+    let lastReason: String?
+    let createdAt: Date?
+    let updatedAt: Date
+    let tokenBudget: Int64?
+    let tokensUsed: Int64?
+    let timeUsedSeconds: Int64?
+
+    var id: String { sessionID }
+}
+
+enum ClaudeCodeTelemetrySource: String, Codable, Equatable, Sendable {
+    case statusLine
+    case localHistory
+    case statusLineAndLocalHistory
+}
+
+struct ClaudeCodeTelemetrySnapshot: Codable, Equatable, Sendable {
+    let source: ClaudeCodeTelemetrySource
+    let currentSession: ClaudeCodeSessionUsage?
+    let observedSessionCount: Int
+    let dailyCosts: [ClaudeCodeDailyCostUsage]
+    let modelCosts: [ClaudeCodeModelCostUsage]
+    let activeTasks: [ClaudeCodeActiveTask]
+    let activeGoals: [ClaudeCodeActiveGoal]
+    let historyIsPartial: Bool
+    let costIsPartial: Bool
+}
+
 struct CodexRateLimitSnapshot: Codable, Equatable, Sendable {
     let planType: String?
     let limitID: String?
@@ -153,6 +271,7 @@ struct CodexRateLimitSnapshot: Codable, Equatable, Sendable {
     let weekly: CodexRateLimitWindow?
     let tokenUsage: CodexAccountTokenUsage?
     let recentTaskActivity: CodexRecentTaskActivity?
+    let claudeTelemetry: ClaudeCodeTelemetrySnapshot?
     let fetchedAt: Date
 
     init(
@@ -162,6 +281,7 @@ struct CodexRateLimitSnapshot: Codable, Equatable, Sendable {
         weekly: CodexRateLimitWindow?,
         tokenUsage: CodexAccountTokenUsage? = nil,
         recentTaskActivity: CodexRecentTaskActivity? = nil,
+        claudeTelemetry: ClaudeCodeTelemetrySnapshot? = nil,
         fetchedAt: Date
     ) {
         self.planType = planType
@@ -170,6 +290,7 @@ struct CodexRateLimitSnapshot: Codable, Equatable, Sendable {
         self.weekly = weekly
         self.tokenUsage = tokenUsage
         self.recentTaskActivity = recentTaskActivity
+        self.claudeTelemetry = claudeTelemetry
         self.fetchedAt = fetchedAt
     }
 

@@ -39,6 +39,7 @@
 		D7A000000000000000000008 /* CodexDailyTokenDetailLoader.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7B000000000000000000008 /* CodexDailyTokenDetailLoader.swift */; };
 		D8A000000000000000000001 /* ClaudeCodeRateLimitProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8B000000000000000000001 /* ClaudeCodeRateLimitProvider.swift */; };
 		D8A000000000000000000002 /* ClaudeCodeUsageStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8B000000000000000000002 /* ClaudeCodeUsageStore.swift */; };
+		D8A000000000000000000003 /* ClaudeCodeLocalTelemetryReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8B000000000000000000003 /* ClaudeCodeLocalTelemetryReader.swift */; };
 		D9A000000000000000000001 /* WeatherSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9B000000000000000000001 /* WeatherSnapshot.swift */; };
 		D9A000000000000000000002 /* OpenMeteoWeatherProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9B000000000000000000002 /* OpenMeteoWeatherProvider.swift */; };
 		D9A000000000000000000003 /* WeatherStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9B000000000000000000003 /* WeatherStore.swift */; };
@@ -72,8 +73,12 @@
 		A1A000000000000000000005 /* SearchConsoleStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B000000000000000000005 /* SearchConsoleStore.swift */; };
 		A1A000000000000000000006 /* DockSearchConsoleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B000000000000000000006 /* DockSearchConsoleView.swift */; };
 		A1A000000000000000000007 /* SearchConsoleSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B000000000000000000007 /* SearchConsoleSettingsView.swift */; };
+		E1A000000000000000000001 /* WeatherHoverDashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1B000000000000000000001 /* WeatherHoverDashboardView.swift */; };
 		A1A000000000000000000008 /* SearchConsoleFeatureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B000000000000000000008 /* SearchConsoleFeatureTests.swift */; };
 		B2A000000000000000000001 /* DockIconRenderingRules.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2B000000000000000000001 /* DockIconRenderingRules.swift */; };
+		B4A000000000000000000001 /* ClockStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4B000000000000000000001 /* ClockStore.swift */; };
+		B4A000000000000000000002 /* DockClockView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4B000000000000000000002 /* DockClockView.swift */; };
+		B4A000000000000000000003 /* ClockSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4B000000000000000000003 /* ClockSettingsView.swift */; };
 		C3A000000000000000000001 /* DockHoverCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3B000000000000000000001 /* DockHoverCoordinator.swift */; };
 		C3A000000000000000000002 /* CodexHoverDashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3B000000000000000000002 /* CodexHoverDashboardView.swift */; };
 		C3A000000000000000000003 /* ClaudeCodeHoverDashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3B000000000000000000003 /* ClaudeCodeHoverDashboardView.swift */; };
@@ -136,6 +141,7 @@
 		D7B000000000000000000008 /* CodexDailyTokenDetailLoader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexDailyTokenDetailLoader.swift; sourceTree = "<group>"; };
 		D8B000000000000000000001 /* ClaudeCodeRateLimitProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeCodeRateLimitProvider.swift; sourceTree = "<group>"; };
 		D8B000000000000000000002 /* ClaudeCodeUsageStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeCodeUsageStore.swift; sourceTree = "<group>"; };
+		D8B000000000000000000003 /* ClaudeCodeLocalTelemetryReader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeCodeLocalTelemetryReader.swift; sourceTree = "<group>"; };
 		D9B000000000000000000001 /* WeatherSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeatherSnapshot.swift; sourceTree = "<group>"; };
 		D9B000000000000000000002 /* OpenMeteoWeatherProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenMeteoWeatherProvider.swift; sourceTree = "<group>"; };
 		D9B000000000000000000003 /* WeatherStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeatherStore.swift; sourceTree = "<group>"; };
@@ -169,8 +175,12 @@
 		A1B000000000000000000005 /* SearchConsoleStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchConsoleStore.swift; sourceTree = "<group>"; };
 		A1B000000000000000000006 /* DockSearchConsoleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DockSearchConsoleView.swift; sourceTree = "<group>"; };
 		A1B000000000000000000007 /* SearchConsoleSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchConsoleSettingsView.swift; sourceTree = "<group>"; };
+		E1B000000000000000000001 /* WeatherHoverDashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeatherHoverDashboardView.swift; sourceTree = "<group>"; };
 		A1B000000000000000000008 /* SearchConsoleFeatureTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchConsoleFeatureTests.swift; sourceTree = "<group>"; };
 		B2B000000000000000000001 /* DockIconRenderingRules.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DockIconRenderingRules.swift; sourceTree = "<group>"; };
+		B4B000000000000000000001 /* ClockStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClockStore.swift; sourceTree = "<group>"; };
+		B4B000000000000000000002 /* DockClockView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DockClockView.swift; sourceTree = "<group>"; };
+		B4B000000000000000000003 /* ClockSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClockSettingsView.swift; sourceTree = "<group>"; };
 		C3B000000000000000000001 /* DockHoverCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DockHoverCoordinator.swift; sourceTree = "<group>"; };
 		C3B000000000000000000002 /* CodexHoverDashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexHoverDashboardView.swift; sourceTree = "<group>"; };
 		C3B000000000000000000003 /* ClaudeCodeHoverDashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeCodeHoverDashboardView.swift; sourceTree = "<group>"; };
@@ -306,6 +316,7 @@
 				B2B000000000000000000001 /* DockIconRenderingRules.swift */,
 				A1B000000000000000000004 /* SearchConsoleAPIClient.swift */,
 				E0B000000000000000000002 /* BatteryMetricsSampler.swift */,
+				D8B000000000000000000003 /* ClaudeCodeLocalTelemetryReader.swift */,
 				D8B000000000000000000001 /* ClaudeCodeRateLimitProvider.swift */,
 				D7B000000000000000000003 /* CodexRateLimitProvider.swift */,
 				D0C100000000000000000004 /* DockTileController.swift */,
@@ -324,6 +335,7 @@
 		D0C200000000000000000004 /* Stores */ = {
 			isa = PBXGroup;
 			children = (
+				B4B000000000000000000001 /* ClockStore.swift */,
 				A1B000000000000000000005 /* SearchConsoleStore.swift */,
 				E0B000000000000000000003 /* BatteryMetricsStore.swift */,
 				D8B000000000000000000002 /* ClaudeCodeUsageStore.swift */,
@@ -352,6 +364,7 @@
 		D0C200000000000000000006 /* Dock */ = {
 			isa = PBXGroup;
 			children = (
+				B4B000000000000000000002 /* DockClockView.swift */,
 				A1B000000000000000000006 /* DockSearchConsoleView.swift */,
 				E0B000000000000000000004 /* DockBatteryView.swift */,
 				F0B000000000000000000002 /* DockGitHubView.swift */,
@@ -366,6 +379,7 @@
 		D0C200000000000000000008 /* Settings */ = {
 			isa = PBXGroup;
 			children = (
+				B4B000000000000000000003 /* ClockSettingsView.swift */,
 				A1B000000000000000000007 /* SearchConsoleSettingsView.swift */,
 				F0B000000000000000000003 /* GitHubSettingsView.swift */,
 				DAB000000000000000000009 /* NetworkHistoryChart.swift */,
@@ -377,6 +391,7 @@
 		C3C000000000000000000001 /* Hover */ = {
 			isa = PBXGroup;
 			children = (
+				E1B000000000000000000001 /* WeatherHoverDashboardView.swift */,
 				C3B000000000000000000002 /* CodexHoverDashboardView.swift */,
 				C3B000000000000000000005 /* CodexDailyTokenDetailView.swift */,
 				C3B000000000000000000003 /* ClaudeCodeHoverDashboardView.swift */,
@@ -558,12 +573,16 @@
 				C3A000000000000000000003 /* ClaudeCodeHoverDashboardView.swift in Sources */,
 				C3A000000000000000000004 /* CodexDashboardCaptureService.swift in Sources */,
 				B2A000000000000000000001 /* DockIconRenderingRules.swift in Sources */,
+				B4A000000000000000000001 /* ClockStore.swift in Sources */,
+				B4A000000000000000000002 /* DockClockView.swift in Sources */,
+				B4A000000000000000000003 /* ClockSettingsView.swift in Sources */,
 				A1A000000000000000000001 /* SearchConsoleModels.swift in Sources */,
 				A1A000000000000000000002 /* SearchConsoleConfigurationRecord.swift in Sources */,
 				A1A000000000000000000004 /* SearchConsoleAPIClient.swift in Sources */,
 				A1A000000000000000000005 /* SearchConsoleStore.swift in Sources */,
 				A1A000000000000000000006 /* DockSearchConsoleView.swift in Sources */,
 				A1A000000000000000000007 /* SearchConsoleSettingsView.swift in Sources */,
+				E1A000000000000000000001 /* WeatherHoverDashboardView.swift in Sources */,
 				03AB4D71301BB7F7006D74C0 /* DockMagicApp.swift in Sources */,
 				D0C000000000000000000001 /* SystemMetricsSnapshot.swift in Sources */,
 				D0C000000000000000000002 /* SystemMetricsSampler.swift in Sources */,
@@ -589,6 +608,7 @@
 				D7A000000000000000000006 /* DockAppModel.swift in Sources */,
 				D7A000000000000000000007 /* SettingsWindowRouter.swift in Sources */,
 				D8A000000000000000000001 /* ClaudeCodeRateLimitProvider.swift in Sources */,
+				D8A000000000000000000003 /* ClaudeCodeLocalTelemetryReader.swift in Sources */,
 				D8A000000000000000000002 /* ClaudeCodeUsageStore.swift in Sources */,
 				D9A000000000000000000001 /* WeatherSnapshot.swift in Sources */,
 				D9A000000000000000000002 /* OpenMeteoWeatherProvider.swift in Sources */,

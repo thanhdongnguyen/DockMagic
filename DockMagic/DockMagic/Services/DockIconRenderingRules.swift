@@ -47,16 +47,27 @@ enum DockIconRenderingRules {
 }
 
 @MainActor
-struct DockApplicationIconRenderer {
+protocol DockApplicationIconRendering {
     func render(
         presentation: DockTilePresentation,
-        appearanceMode: DSAppearanceMode
+        appearanceMode: DSAppearanceMode,
+        clockTransition: DockClockTransition?
+    ) -> NSImage?
+}
+
+@MainActor
+struct DockApplicationIconRenderer: DockApplicationIconRendering {
+    func render(
+        presentation: DockTilePresentation,
+        appearanceMode: DSAppearanceMode,
+        clockTransition: DockClockTransition? = nil
     ) -> NSImage? {
         let renderer = ImageRenderer(
             content: DockMagicThemeRoot(
                 content: DockTileView(
                     presentation: presentation,
-                    animatesChanges: false
+                    animatesChanges: false,
+                    clockTransition: clockTransition
                 )
                 .environment(\.displayScale, DockIconRenderingRules.rasterScale),
                 appearanceMode: appearanceMode

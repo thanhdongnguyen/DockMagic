@@ -3,6 +3,17 @@ import SwiftUI
 struct DockTileView: View {
     let presentation: DockTilePresentation
     let animatesChanges: Bool
+    let clockTransition: DockClockTransition?
+
+    init(
+        presentation: DockTilePresentation,
+        animatesChanges: Bool,
+        clockTransition: DockClockTransition? = nil
+    ) {
+        self.presentation = presentation
+        self.animatesChanges = animatesChanges
+        self.clockTransition = clockTransition
+    }
 
     var body: some View {
         switch presentation {
@@ -32,6 +43,12 @@ struct DockTileView: View {
             DockWeatherView(
                 state: state,
                 animatesChanges: animatesChanges
+            )
+        case let .clock(date, configuration):
+            DockClockView(
+                date: date,
+                configuration: configuration,
+                transition: clockTransition
             )
         case let .batteries(snapshot, errorDescription):
             DockBatteryView(

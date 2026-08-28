@@ -196,7 +196,7 @@ keyboard traversal, Reduce Motion, and final system Dock compositor output.
 
 ### Settings owned by DockMagic
 
-One Settings `WindowGroup` with eight destinations:
+One Settings `WindowGroup` with seven destinations:
 
 1. General — appearance and the active Dock feature.
 2. CPU & RAM — preview, Chart/Numbers, colors, ring widths, and live metrics.
@@ -205,7 +205,6 @@ One Settings `WindowGroup` with eight destinations:
 5. Weather — preview, freshness, permission/setup, refresh, and attribution.
 6. Codex — quota preview, Chart/Numbers, CLI detection/selection, and refresh.
 7. Claude Code — quota preview, Chart/Numbers, status-line bridge, and refresh.
-8. About — version, privacy, distribution, and appearance summary.
 
 ### Dock owned by DockMagic
 
@@ -225,7 +224,7 @@ DockMagic does not skin these surfaces.
 | --- | --- | --- |
 | Foundation | Mode persistence/fallback, color mapping, concentric radius, and surface glass eligibility | Unit assertions |
 | Appearance render | System, Light, and Dark with glass fallback; Reduce Transparency and Increased Contrast | Offscreen render + window-only image attachments + sampled-pixel difference assertions |
-| Settings | Eight destinations in all three modes, appearance persistence, active-feature icon/exclusivity, Chart/Numbers controls, and production preview | Unit render + signed XCUI identifiers/values/clicks |
+| Settings | Seven destinations in all three modes, appearance persistence, active-feature icon/exclusivity, Chart/Numbers controls, and production preview | Unit render + signed XCUI identifiers/values/clicks |
 | Dock | Logo; CPU/RAM; Network; Storage; Weather; Codex; and Claude in valid states, all three modes, Chart/Numbers, and `32/48/64/128 pt` | Renderer matrix + non-text contrast assertions |
 | Accessibility | Label/value/identifier, selected/active state, Reduce Transparency, and Increased Contrast | XCUI/AX + render/contrast assertions; disabled states, keyboard/VoiceOver, and Reduce Motion remain a manual audit |
 | Build | Debug build with a macOS 14 target and Xcode 15.4; the compiler-gated native adapter does not break the older toolchain | Clean isolated DerivedData build |

@@ -1,4 +1,5 @@
 import AppKit
+import CoreImage
 import SwiftUI
 import XCTest
 @testable import DockMagic
@@ -310,6 +311,7 @@ final class DockMagicTests: XCTestCase {
                 .network,
                 .storage,
                 .weather,
+                .clock,
                 .batteries,
                 .github,
                 .codex,
@@ -322,10 +324,18 @@ final class DockMagicTests: XCTestCase {
         XCTAssertEqual(DockFeature.network.title, "Network")
         XCTAssertEqual(DockFeature.storage.title, "Storage")
         XCTAssertEqual(DockFeature.weather.title, "Weather")
+        XCTAssertEqual(DockFeature.clock.title, "Clock")
         XCTAssertEqual(DockFeature.github.title, "GitHub")
         XCTAssertEqual(DockFeature.codex.title, "Codex")
         XCTAssertEqual(DockFeature.claudeCode.title, "Claude Code")
         XCTAssertEqual(DockFeature.searchConsole.title, "Search Console")
+    }
+
+    func testOnlyImplementedFeaturesExposeHoverDashboards() {
+        XCTAssertEqual(
+            DockFeature.allCases.filter(\.hasHoverDashboard),
+            [.systemMetrics, .weather, .codex, .claudeCode]
+        )
     }
 
     @MainActor
@@ -355,6 +365,12 @@ final class DockMagicTests: XCTestCase {
             store.githubAppearance,
             DockFeatureDefaults.githubAppearance
         )
+        XCTAssertEqual(
+            store.clockConfiguration,
+            DockFeatureDefaults.clockConfiguration
+        )
+        XCTAssertTrue(store.clockConfiguration.followsSystemTimeZone)
+        XCTAssertEqual(store.clockConfiguration.displayStyle, .digital)
         XCTAssertEqual(store.githubRepositoryURL, "")
 
         store.activeFeature = .network
@@ -374,6 +390,9 @@ final class DockMagicTests: XCTestCase {
         )
         store.setStorageWidth(0.21)
         store.setStorageDisplayStyle(.numeric)
+        store.setClockDisplayStyle(.splitFlap)
+        store.setClockFollowsSystemTimeZone(false)
+        store.setClockTimeZoneIdentifier("America/New_York")
         store.githubRepositoryURL = "https://github.com/apple/swift"
         store.setGitHubStarColor(
             DockColor(red: 0.9, green: 0.6, blue: 0.2)
@@ -402,6 +421,12 @@ final class DockMagicTests: XCTestCase {
         XCTAssertEqual(restored.storageAppearance.color.hex, "#4D6680")
         XCTAssertEqual(restored.storageAppearance.width, 0.21)
         XCTAssertEqual(restored.storageAppearance.displayStyle, .numeric)
+        XCTAssertEqual(restored.clockConfiguration.displayStyle, .splitFlap)
+        XCTAssertFalse(restored.clockConfiguration.followsSystemTimeZone)
+        XCTAssertEqual(
+            restored.clockConfiguration.timeZoneIdentifier,
+            "America/New_York"
+        )
         XCTAssertEqual(
             restored.githubRepositoryURL,
             "https://github.com/apple/swift"
@@ -416,6 +441,86 @@ final class DockMagicTests: XCTestCase {
         XCTAssertEqual(restored.codexExecutablePath, "/opt/homebrew/bin/codex")
         XCTAssertFalse(restored.automaticallyConfigureClaudeCode)
         XCTAssertTrue(restored.isDockHoverDashboardEnabled)
+    }
+
+    func testClockConfigurationNormalizesTimeZonesAndUpdatePrecision() throws {
+        let source = Date(timeIntervalSince1970: 12_345.875)
+        var configuration = DockClockConfiguration(
+            displayStyle: .digital,
+            followsSystemTimeZone: false,
+            timeZoneIdentifier: "Asia/Kathmandu"
+        )
+
+        XCTAssertEqual(configuration.resolvedTimeZone.identifier, "Asia/Kathmandu")
+        XCTAssertEqual(
+            configuration.presentationDate(for: source),
+            Date(timeIntervalSince1970: 12_300)
+        )
+        XCTAssertEqual(
+            DockClockFormatting.locationTitle(for: "America/Los_Angeles"),
+            "Los Angeles"
+        )
+        XCTAssertEqual(
+            DockClockFormatting.regionTitle(for: "America/Los_Angeles"),
+            "America"
+        )
+        XCTAssertEqual(
+            DockClockFormatting.offsetTitle(
+                for: try XCTUnwrap(TimeZone(secondsFromGMT: 5 * 3_600 + 45 * 60)),
+                at: source
+            ),
+            "UTC+05:45"
+        )
+
+        configuration.setDisplayStyle(.analog)
+        XCTAssertEqual(
+            configuration.presentationDate(for: source),
+            Date(timeIntervalSince1970: 12_345)
+        )
+
+        configuration.setTimeZoneIdentifier("not/a-real-time-zone")
+        XCTAssertEqual(
+            configuration.timeZoneIdentifier,
+            TimeZone.autoupdatingCurrent.identifier
+        )
+        configuration.setFollowsSystemTimeZone(true)
+        XCTAssertEqual(
+            configuration.resolvedTimeZone.identifier,
+            TimeZone.autoupdatingCurrent.identifier
+        )
+    }
+
+    @MainActor
+    func testClockStoreTicksStopsAndRefreshesDeterministically() async throws {
+        var timestamp: TimeInterval = 100
+        let store = ClockStore(
+            initialDate: Date(timeIntervalSince1970: 0),
+            updateInterval: .milliseconds(10),
+            now: {
+                timestamp += 1
+                return Date(timeIntervalSince1970: timestamp)
+            }
+        )
+
+        store.start()
+        XCTAssertTrue(store.isMonitoring)
+        XCTAssertEqual(store.currentDate, Date(timeIntervalSince1970: 101))
+        try await waitUntil {
+            store.currentDate >= Date(timeIntervalSince1970: 102)
+        }
+
+        store.stop()
+        let stoppedDate = store.currentDate
+        XCTAssertFalse(store.isMonitoring)
+        try await Task.sleep(for: .milliseconds(35))
+        XCTAssertEqual(store.currentDate, stoppedDate)
+
+        store.refresh()
+        XCTAssertEqual(
+            store.currentDate,
+            Date(timeIntervalSince1970: timestamp)
+        )
+        XCTAssertGreaterThan(store.currentDate, stoppedDate)
     }
 
     @MainActor
@@ -522,6 +627,18 @@ final class DockMagicTests: XCTestCase {
         XCTAssertEqual(DockHoverPanelPlacement.standardPanelSize.width, 440)
         XCTAssertEqual(DockHoverPanelPlacement.standardPanelSize.height, 304)
         XCTAssertEqual(
+            DockHoverPanelPlacement.panelSize(for: .weather),
+            DockHoverPanelPlacement.weatherPanelSize
+        )
+        XCTAssertEqual(
+            DockHoverPanelPlacement.weatherPanelSize.height,
+            420
+        )
+        XCTAssertLessThan(
+            DockHoverPanelPlacement.weatherPanelSize.height,
+            DockHoverPanelPlacement.codexPanelSize.height
+        )
+        XCTAssertEqual(
             DockHoverPanelPlacement.panelSize(for: .codex).height,
             522
         )
@@ -529,7 +646,7 @@ final class DockMagicTests: XCTestCase {
             DockHoverPanelPlacement.panelSize(for: .claudeCode),
             DockHoverPanelPlacement.claudeCodePanelSize
         )
-        XCTAssertLessThan(
+        XCTAssertGreaterThan(
             DockHoverPanelPlacement.claudeCodePanelSize.height,
             DockHoverPanelPlacement.codexPanelSize.height
         )
@@ -682,6 +799,10 @@ final class DockMagicTests: XCTestCase {
             Data("still-not-json".utf8),
             forKey: DockPreferencesStore.claudeCodeAppearanceKey
         )
+        defaults.set(
+            Data("clock-not-json".utf8),
+            forKey: DockPreferencesStore.clockConfigurationKey
+        )
 
         let store = DockPreferencesStore(defaults: defaults)
         XCTAssertEqual(store.activeFeature, .systemMetrics)
@@ -708,6 +829,10 @@ final class DockMagicTests: XCTestCase {
         XCTAssertEqual(
             store.claudeCodeAppearance,
             DockFeatureDefaults.claudeCodeAppearance
+        )
+        XCTAssertEqual(
+            store.clockConfiguration,
+            DockFeatureDefaults.clockConfiguration
         )
     }
 
@@ -750,8 +875,110 @@ final class DockMagicTests: XCTestCase {
         }
     }
 
+    func testClaudeCodeParserMapsNativeSessionCostContextAndModel() throws {
+        let fetchedAt = Date(timeIntervalSince1970: 2_000_000_100)
+        let data = Data(
+            """
+            {
+              "session_id": "session-123",
+              "session_name": "Telemetry work",
+              "version": "2.1.219",
+              "model": {
+                "id": "claude-sonnet-4-5",
+                "display_name": "Sonnet 4.5"
+              },
+              "cost": {
+                "total_cost_usd": 1.625,
+                "total_duration_ms": 120000,
+                "total_api_duration_ms": 42000,
+                "total_lines_added": 80,
+                "total_lines_removed": 12
+              },
+              "context_window": {
+                "total_input_tokens": 42000,
+                "total_output_tokens": 8000,
+                "context_window_size": 200000,
+                "used_percentage": 31.5,
+                "remaining_percentage": 68.5,
+                "current_usage": {
+                  "input_tokens": 12000,
+                  "output_tokens": 2500,
+                  "cache_read_input_tokens": 18000,
+                  "cache_creation_input_tokens": 1400
+                }
+              }
+            }
+            """.utf8
+        )
+
+        let snapshot = try ClaudeCodeRateLimitParser.parse(
+            data,
+            fetchedAt: fetchedAt
+        )
+        let session = try XCTUnwrap(
+            snapshot.claudeTelemetry?.currentSession
+        )
+        XCTAssertEqual(session.sessionID, "session-123")
+        XCTAssertEqual(session.sessionName, "Telemetry work")
+        XCTAssertEqual(session.modelID, "claude-sonnet-4-5")
+        XCTAssertEqual(session.modelDisplayName, "Sonnet 4.5")
+        XCTAssertEqual(session.estimatedCostUSD, 1.625)
+        XCTAssertEqual(session.totalLinesAdded, 80)
+        XCTAssertEqual(session.context?.usedPercent, 31.5)
+        XCTAssertEqual(session.context?.currentUsage?.inputTokens, 12_000)
+        XCTAssertEqual(session.context?.currentUsage?.cachedInputTokens, 18_000)
+        XCTAssertEqual(session.context?.currentUsage?.cacheWriteInputTokens, 1_400)
+        XCTAssertEqual(session.context?.currentUsage?.outputTokens, 2_500)
+        XCTAssertEqual(session.context?.currentUsage?.totalTokens, 33_900)
+        XCTAssertNil(snapshot.fiveHour)
+        XCTAssertNil(snapshot.weekly)
+    }
+
+    func testClaudeCodeTaskSnapshotParserKeepsOnlyActiveNativeTasks() {
+        let observedAt = Date(timeIntervalSince1970: 2_000_000_000)
+        let data = Data(
+            """
+            {
+              "session_id": "session-123",
+              "tasks": [
+                {
+                  "id": "running-task",
+                  "name": "Research telemetry",
+                  "type": "Explore",
+                  "status": "running",
+                  "description": "Inspect native fields",
+                  "startTime": 2000000000000,
+                  "tokenCount": 18000,
+                  "lastToolName": "Read"
+                },
+                {
+                  "id": "done-task",
+                  "name": "Already done",
+                  "status": "completed",
+                  "tokenCount": 4000
+                }
+              ]
+            }
+            """.utf8
+        )
+
+        let tasks = ClaudeCodeTaskSnapshotParser.parse(
+            data,
+            observedAt: observedAt
+        )
+        XCTAssertEqual(tasks.count, 1)
+        XCTAssertEqual(tasks.first?.id, "running-task")
+        XCTAssertEqual(tasks.first?.state, .running)
+        XCTAssertEqual(tasks.first?.kind, "Explore")
+        XCTAssertEqual(tasks.first?.tokenCount, 18_000)
+        XCTAssertEqual(
+            tasks.first?.startedAt,
+            Date(timeIntervalSince1970: 2_000_000_000)
+        )
+    }
+
     @MainActor
-    func testClaudeCodeBridgeCachesOnlyRateLimitsAndRestoresStatusLine() throws {
+    func testClaudeCodeBridgeCachesNativeTelemetryAndRestoresStatusLines() throws {
         let homeDirectory = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString, isDirectory: true)
         let claudeDirectory = homeDirectory.appendingPathComponent(
@@ -770,9 +997,14 @@ final class DockMagicTests: XCTestCase {
             "command": "/usr/bin/printf preserved",
             "padding": 2
         ]
+        let originalSubagentStatusLine: [String: Any] = [
+            "type": "command",
+            "command": "/usr/bin/printf agent-preserved"
+        ]
         let settings: [String: Any] = [
             "theme": "light",
-            "statusLine": originalStatusLine
+            "statusLine": originalStatusLine,
+            "subagentStatusLine": originalSubagentStatusLine
         ]
         try JSONSerialization.data(withJSONObject: settings)
             .write(to: settingsURL)
@@ -812,13 +1044,61 @@ final class DockMagicTests: XCTestCase {
         let cachedData = try Data(contentsOf: bridge.snapshotURL)
         let cachedText = String(decoding: cachedData, as: UTF8.self)
         XCTAssertTrue(cachedText.contains("five_hour"))
-        XCTAssertFalse(cachedText.contains("private-session"))
-        XCTAssertFalse(cachedText.contains("/private/project"))
+        XCTAssertTrue(cachedText.contains("private-session"))
+        XCTAssertTrue(cachedText.contains("/private/project"))
         XCTAssertNoThrow(try ClaudeCodeRateLimitParser.parse(cachedData))
+        let perSessionSnapshot = claudeDirectory
+            .appendingPathComponent("dockmagic-status-sessions")
+            .appendingPathComponent("private-session.json")
+        XCTAssertEqual(try Data(contentsOf: perSessionSnapshot), input)
+
+        let subagentScriptURL = claudeDirectory.appendingPathComponent(
+            "dockmagic-subagent-statusline.sh"
+        )
+        let subagentInput = Data(
+            """
+            {"session_id":"private-session","tasks":[{"id":"task-1","name":"Research","status":"running","tokenCount":1200}]}
+            """.utf8
+        )
+        let subagentProcess = Process()
+        let subagentStandardInput = Pipe()
+        let subagentStandardOutput = Pipe()
+        subagentProcess.executableURL = subagentScriptURL
+        subagentProcess.standardInput = subagentStandardInput
+        subagentProcess.standardOutput = subagentStandardOutput
+        try subagentProcess.run()
+        try subagentStandardInput.fileHandleForWriting.write(
+            contentsOf: subagentInput
+        )
+        try subagentStandardInput.fileHandleForWriting.close()
+        subagentProcess.waitUntilExit()
+        XCTAssertEqual(subagentProcess.terminationStatus, 0)
+        XCTAssertEqual(
+            String(
+                data: subagentStandardOutput.fileHandleForReading
+                    .readDataToEndOfFile(),
+                encoding: .utf8
+            ),
+            "agent-preserved"
+        )
+        let taskSnapshotURL = claudeDirectory.appendingPathComponent(
+            "dockmagic-subagents.json"
+        )
+        XCTAssertEqual(try Data(contentsOf: taskSnapshotURL), subagentInput)
+        XCTAssertEqual(
+            ClaudeCodeTaskSnapshotParser.parse(
+                try Data(contentsOf: taskSnapshotURL),
+                observedAt: .now
+            ).first?.id,
+            "task-1"
+        )
 
         try bridge.uninstall()
         XCTAssertFalse(bridge.isInstalled())
         XCTAssertFalse(FileManager.default.fileExists(atPath: scriptURL.path))
+        XCTAssertFalse(
+            FileManager.default.fileExists(atPath: subagentScriptURL.path)
+        )
         XCTAssertFalse(
             FileManager.default.fileExists(atPath: bridge.snapshotURL.path)
         )
@@ -832,7 +1112,233 @@ final class DockMagicTests: XCTestCase {
             "/usr/bin/printf preserved"
         )
         XCTAssertEqual(restoredStatusLine["padding"] as? Int, 2)
+        let restoredSubagentStatusLine = restoredObject[
+            "subagentStatusLine"
+        ] as! [String: Any]
+        XCTAssertEqual(
+            restoredSubagentStatusLine["command"] as? String,
+            "/usr/bin/printf agent-preserved"
+        )
         XCTAssertEqual(restoredObject["theme"] as? String, "light")
+    }
+
+    func testClaudeCodeLocalHistoryAggregatesRealUsageModelsTasksAndGoal() throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let now = Date(timeIntervalSince1970: 2_000_000_000)
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let projects = root.appendingPathComponent("projects", isDirectory: true)
+        let project = projects.appendingPathComponent("sample", isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: project,
+            withIntermediateDirectories: true
+        )
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let currentTimestamp = ISO8601DateFormatter().string(
+            from: now.addingTimeInterval(-86_400)
+        )
+        let currentTranscript = [
+            """
+            {"type":"user","sessionId":"current-session","timestamp":"\(currentTimestamp)","message":{"role":"user","content":"private prompt that the reader must ignore"}}
+            """,
+            """
+            {"type":"assistant","sessionId":"current-session","timestamp":"\(currentTimestamp)","uuid":"usage-1","message":{"role":"assistant","model":"claude-sonnet-4-5","usage":{"input_tokens":100,"output_tokens":20,"cache_read_input_tokens":300,"cache_creation_input_tokens":40},"content":[{"type":"text","text":"private answer that the reader must ignore"}]}}
+            """,
+            """
+            {"type":"assistant","sessionId":"current-session","timestamp":"\(currentTimestamp)","uuid":"usage-1","message":{"role":"assistant","model":"claude-sonnet-4-5","usage":{"input_tokens":100,"output_tokens":20,"cache_read_input_tokens":300,"cache_creation_input_tokens":40},"content":[]}}
+            """,
+            """
+            {"type":"assistant","sessionId":"current-session","timestamp":"\(currentTimestamp)","uuid":"synthetic","message":{"role":"assistant","model":"<synthetic>","usage":{"input_tokens":999999,"output_tokens":999999},"content":[]}}
+            """,
+            """
+            {"type":"active_goal","sessionId":"current-session","timestamp":"\(currentTimestamp)","value":{"condition":"Ship native telemetry","iterations":3,"last_reason":"continue","set_at":1999990000}}
+            """,
+            """
+            {"type":"system","subtype":"task_started","sessionId":"current-session","timestamp":"\(currentTimestamp)","task_id":"task-1","description":"Inspect Claude data","subagent_type":"Explore"}
+            """
+        ].joined(separator: "\n")
+        let currentURL = project.appendingPathComponent("current.jsonl")
+        try Data(currentTranscript.utf8).write(to: currentURL)
+
+        let previousDate = now.addingTimeInterval(-9 * 86_400)
+        let previousTimestamp = ISO8601DateFormatter().string(from: previousDate)
+        let previousTranscript = """
+        {"type":"assistant","sessionId":"previous-session","timestamp":"\(previousTimestamp)","uuid":"usage-2","message":{"role":"assistant","model":"claude-opus-4-1","usage":{"input_tokens":50,"output_tokens":10,"cache_read_input_tokens":0,"cache_creation_input_tokens":5},"content":[]}}
+        """
+        let previousURL = project.appendingPathComponent("previous.jsonl")
+        try Data(previousTranscript.utf8).write(to: previousURL)
+        for url in [currentURL, previousURL] {
+            try FileManager.default.setAttributes(
+                [.modificationDate: now],
+                ofItemAtPath: url.path
+            )
+        }
+
+        let result = ClaudeCodeLocalHistoryReader(
+            projectsDirectoryURL: projects,
+            now: now,
+            calendar: calendar
+        ).read()
+
+        XCTAssertEqual(
+            result.tokenUsage?.dailyUsageBuckets.reduce(0) {
+                $0 + $1.tokens
+            },
+            525
+        )
+        XCTAssertEqual(
+            result.tokenUsage?.modelUsage?.map(\.model),
+            ["claude-sonnet-4-5", "claude-opus-4-1"]
+        )
+        XCTAssertEqual(
+            result.tokenUsage?.modelUsage?.map(\.tokens),
+            [460, 65]
+        )
+        XCTAssertEqual(result.recentTaskActivity?.currentWeekCount, 1)
+        XCTAssertEqual(result.recentTaskActivity?.previousWeekCount, 1)
+        XCTAssertEqual(result.activeGoals.first?.objective, "Ship native telemetry")
+        XCTAssertEqual(result.activeGoals.first?.iterations, 3)
+        XCTAssertTrue(result.activeTasks.isEmpty)
+    }
+
+    func testClaudeCodeUsageChartAlignsTokensAndObservedCostsByDay() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let now = Date(timeIntervalSince1970: 2_000_000_000)
+        let today = calendar.startOfDay(for: now)
+        let tokenUsage = CodexAccountTokenUsage(
+            lifetimeTokens: nil,
+            peakDailyTokens: 120,
+            currentStreakDays: nil,
+            longestStreakDays: nil,
+            longestRunningTurnSeconds: nil,
+            dailyUsageBuckets: [
+                CodexTokenUsageDailyBucket(
+                    startDate: today,
+                    tokens: 120
+                )
+            ]
+        )
+        let costs = [
+            ClaudeCodeDailyCostUsage(
+                startDate: today,
+                estimatedCostUSD: 1.25
+            )
+        ]
+
+        let tokenBuckets = ClaudeCodeHoverDashboardPresentation.chartBuckets(
+            tokenUsage: tokenUsage,
+            dailyCosts: costs,
+            metric: "Tokens",
+            now: now,
+            calendar: calendar
+        )
+        let costBuckets = ClaudeCodeHoverDashboardPresentation.chartBuckets(
+            tokenUsage: tokenUsage,
+            dailyCosts: costs,
+            metric: "Cost",
+            now: now,
+            calendar: calendar
+        )
+
+        XCTAssertEqual(tokenBuckets.count, 7)
+        XCTAssertEqual(tokenBuckets.last?.value, 120)
+        XCTAssertEqual(costBuckets.count, 7)
+        XCTAssertEqual(costBuckets.last?.value, 1.25)
+        XCTAssertTrue(costBuckets.last?.accessibilityValue.contains("$1.25") == true)
+        XCTAssertEqual(
+            ClaudeCodeHoverDashboardPresentation.tokenLabel(1_280_000),
+            "1.28M"
+        )
+        XCTAssertEqual(
+            ClaudeCodeHoverDashboardPresentation.modelLabel(
+                "claude-haiku-4-5"
+            ),
+            "Claude Haiku 4.5"
+        )
+    }
+
+    func testClaudeCodeModelCostRequiresSingleModelSessionEvidence() throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let now = Date(timeIntervalSince1970: 2_000_000_000)
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let sessions = root.appendingPathComponent("sessions", isDirectory: true)
+        let tasks = root.appendingPathComponent("tasks", isDirectory: true)
+        let projects = root.appendingPathComponent("projects", isDirectory: true)
+        let project = projects.appendingPathComponent("sample", isDirectory: true)
+        for directory in [sessions, tasks, project] {
+            try FileManager.default.createDirectory(
+                at: directory,
+                withIntermediateDirectories: true
+            )
+        }
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let timestamp = ISO8601DateFormatter().string(
+            from: now.addingTimeInterval(-60)
+        )
+        let transcript = [
+            """
+            {"type":"assistant","sessionId":"single-model","timestamp":"\(timestamp)","uuid":"single-1","message":{"model":"claude-sonnet-4-5","usage":{"input_tokens":10,"output_tokens":2}}}
+            """,
+            """
+            {"type":"assistant","sessionId":"switched-model","timestamp":"\(timestamp)","uuid":"switch-1","message":{"model":"claude-sonnet-4-5","usage":{"input_tokens":10,"output_tokens":2}}}
+            """,
+            """
+            {"type":"assistant","sessionId":"switched-model","timestamp":"\(timestamp)","uuid":"switch-2","message":{"model":"claude-opus-4-1","usage":{"input_tokens":10,"output_tokens":2}}}
+            """
+        ].joined(separator: "\n")
+        let transcriptURL = project.appendingPathComponent("usage.jsonl")
+        try Data(transcript.utf8).write(to: transcriptURL)
+
+        let snapshots: [(String, Double, String)] = [
+            ("single-model", 1.5, "claude-sonnet-4-5"),
+            ("switched-model", 2.0, "claude-opus-4-1")
+        ]
+        for (sessionID, cost, model) in snapshots {
+            let data = Data(
+                """
+                {"session_id":"\(sessionID)","model":{"id":"\(model)"},"cost":{"total_cost_usd":\(cost)}}
+                """.utf8
+            )
+            let url = sessions.appendingPathComponent("\(sessionID).json")
+            try data.write(to: url)
+            try FileManager.default.setAttributes(
+                [.modificationDate: now],
+                ofItemAtPath: url.path
+            )
+        }
+        try FileManager.default.setAttributes(
+            [.modificationDate: now],
+            ofItemAtPath: transcriptURL.path
+        )
+
+        let result = ClaudeCodeLocalTelemetryReader(
+            snapshotURL: root.appendingPathComponent("latest.json"),
+            sessionSnapshotsDirectoryURL: sessions,
+            taskSnapshotURL: root.appendingPathComponent("latest-tasks.json"),
+            taskSnapshotsDirectoryURL: tasks,
+            projectsDirectoryURL: projects,
+            now: now,
+            calendar: calendar
+        ).read()
+
+        XCTAssertEqual(
+            result.dailyCosts.reduce(0) { $0 + $1.estimatedCostUSD },
+            3.5,
+            accuracy: 0.0001
+        )
+        XCTAssertEqual(result.modelCosts.count, 1)
+        XCTAssertEqual(result.modelCosts.first?.model, "claude-sonnet-4-5")
+        XCTAssertEqual(
+            result.modelCosts.first?.estimatedCostUSD ?? 0,
+            1.5,
+            accuracy: 0.0001
+        )
     }
 
     func testCodexParserMapsFiveHourAndWeeklyRemainingValues() throws {
@@ -1918,6 +2424,22 @@ final class DockMagicTests: XCTestCase {
         XCTAssertEqual(snapshot.highCelsius, 33)
         XCTAssertEqual(snapshot.lowCelsius, 26)
         XCTAssertEqual(snapshot.precipitationChance, 0.25)
+        XCTAssertEqual(snapshot.relativeHumidity, 0.89)
+        XCTAssertEqual(snapshot.windSpeedKPH, 12.9)
+        XCTAssertEqual(snapshot.forecast.count, 7)
+        XCTAssertEqual(snapshot.forecast.first?.condition, .partlyCloudy)
+        XCTAssertEqual(snapshot.forecast.last?.condition, .thunderstorm)
+        XCTAssertEqual(snapshot.forecast.last?.highCelsius, 34)
+        XCTAssertEqual(snapshot.forecast.last?.precipitationChance, 0.75)
+        var forecastCalendar = Calendar(identifier: .gregorian)
+        forecastCalendar.timeZone = TimeZone(identifier: "Asia/Ho_Chi_Minh")!
+        XCTAssertEqual(
+            forecastCalendar.dateComponents(
+                [.year, .month, .day],
+                from: try XCTUnwrap(snapshot.forecast.last?.date)
+            ),
+            DateComponents(year: 1970, month: 1, day: 7)
+        )
         XCTAssertEqual(snapshot.isDaylight, true)
         XCTAssertEqual(snapshot.observedAt, Date(timeIntervalSince1970: 1_800))
         XCTAssertEqual(snapshot.fetchedAt, fetchedAt)
@@ -1934,14 +2456,15 @@ final class DockMagicTests: XCTestCase {
         XCTAssertEqual(query["longitude"]!, "106.629700")
         XCTAssertEqual(
             query["current"]!,
-            "temperature_2m,apparent_temperature,weather_code,is_day"
+            "temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,is_day,wind_speed_10m"
         )
         XCTAssertEqual(
             query["daily"]!,
-            "temperature_2m_max,temperature_2m_min,precipitation_probability_max"
+            "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max"
         )
+        XCTAssertEqual(query["wind_speed_unit"]!, "kmh")
         XCTAssertEqual(query["timezone"]!, "auto")
-        XCTAssertEqual(query["forecast_days"]!, "1")
+        XCTAssertEqual(query["forecast_days"]!, "7")
         XCTAssertNil(query["apikey"] ?? nil)
         XCTAssertEqual(request.timeoutInterval, 20)
         XCTAssertEqual(request.cachePolicy, .reloadIgnoringLocalCacheData)
@@ -2004,6 +2527,34 @@ final class DockMagicTests: XCTestCase {
         )
 
         XCTAssertEqual(snapshot.location, "Ho Chi Minh")
+    }
+
+    func testOpenMeteoRejectsMisalignedDailyForecastArrays() throws {
+        let decoded = try JSONDecoder().decode(
+            OpenMeteoForecastResponse.self,
+            from: openMeteoFixture()
+        )
+        let response = OpenMeteoForecastResponse(
+            utcOffsetSeconds: decoded.utcOffsetSeconds,
+            timezone: decoded.timezone,
+            current: decoded.current,
+            daily: OpenMeteoForecastResponse.Daily(
+                time: ["1970-01-01", "1970-01-02"],
+                weatherCode: [2],
+                temperature2MMax: [33, 32],
+                temperature2MMin: [26, 25],
+                precipitationProbabilityMax: [25, 60]
+            )
+        )
+
+        XCTAssertThrowsError(
+            try OpenMeteoWeatherProvider.makeSnapshot(
+                from: response,
+                fetchedAt: Date(timeIntervalSince1970: 2_000)
+            )
+        ) { error in
+            XCTAssertEqual(error as? OpenMeteoWeatherError, .invalidPayload)
+        }
     }
 
     @MainActor
@@ -2101,6 +2652,104 @@ final class DockMagicTests: XCTestCase {
         XCTAssertEqual(OpenMeteoWeatherCode.metadata(for: 86).condition, .snow)
         XCTAssertEqual(OpenMeteoWeatherCode.metadata(for: 99).condition, .thunderstorm)
         XCTAssertEqual(OpenMeteoWeatherCode.metadata(for: -1).condition, .unknown)
+    }
+
+    @MainActor
+    func testWeatherHoverDashboardRendersWeekAndAvailabilityStates() throws {
+        let now = Date(timeIntervalSince1970: 1_787_978_800)
+        let snapshot = sampleWeatherSnapshot(
+            condition: .drizzle,
+            conditionDescription: "Light drizzle",
+            observedAt: now,
+            fetchedAt: now
+        )
+        let variants: [(
+            label: String,
+            state: WeatherState,
+            mode: DSAppearanceMode,
+            appearance: NSAppearance.Name,
+            overrides: DSAccessibilityOverrides,
+            grayscale: Bool
+        )] = [
+            ("Live Dark", .live(snapshot), .dark, .darkAqua, .init(), false),
+            ("Live Light", .live(snapshot), .light, .aqua, .init(), false),
+            (
+                "Increased Contrast",
+                .live(snapshot),
+                .dark,
+                .accessibilityHighContrastDarkAqua,
+                .init(increaseContrast: true),
+                false
+            ),
+            (
+                "Reduced Transparency",
+                .live(snapshot),
+                .dark,
+                .darkAqua,
+                .init(reduceTransparency: true),
+                false
+            ),
+            ("Grayscale", .live(snapshot), .dark, .darkAqua, .init(), true),
+            (
+                "Saved Forecast",
+                .stale(snapshot, message: "Network unavailable"),
+                .dark,
+                .darkAqua,
+                .init(),
+                false
+            ),
+            ("Loading", .loading, .dark, .darkAqua, .init(), false),
+            (
+                "Unavailable",
+                .unavailable(message: "Location access denied"),
+                .dark,
+                .darkAqua,
+                .init(),
+                false
+            )
+        ]
+
+        var renderings: [Data] = []
+        for variant in variants {
+            var view = AnyView(
+                DockMagicThemeRoot(
+                    content: DockHoverChrome(
+                        pointerEdge: .bottom,
+                        panelSize: DockHoverPanelPlacement.weatherPanelSize
+                    ) {
+                        WeatherHoverDashboardView(
+                            state: variant.state,
+                            locationPlaceholder: "Ho Chi Minh City",
+                            now: now
+                        )
+                    },
+                    appearanceMode: variant.mode
+                )
+                .environment(
+                    \.dsAccessibilityOverrides,
+                    variant.overrides
+                )
+            )
+            if variant.grayscale {
+                view = AnyView(view.grayscale(1))
+            }
+
+            let data = try renderPNG(
+                of: view,
+                size: DockHoverPanelPlacement.weatherPanelSize,
+                appearanceName: variant.appearance,
+                name: "Weather Hover — \(variant.label)"
+            )
+            XCTAssertGreaterThan(
+                data.count,
+                10_000,
+                "\(variant.label) should render a non-empty dashboard."
+            )
+            attachPNG(data, name: "Weather Hover — \(variant.label)")
+            renderings.append(data)
+        }
+
+        XCTAssertGreaterThanOrEqual(Set(renderings).count, 6)
     }
 
     @MainActor
@@ -2373,6 +3022,10 @@ final class DockMagicTests: XCTestCase {
             cache: InMemoryWeatherCache(),
             pollingInterval: .seconds(60)
         )
+        let clock = ClockStore(
+            initialDate: Date(timeIntervalSince1970: 1_900_000_000),
+            updateInterval: .seconds(60)
+        )
         let claudeCodeBridge = StubClaudeCodeBridge(installed: false)
         let claudeCode = ClaudeCodeUsageStore(
             provider: ScriptedClaudeCodeProvider([
@@ -2387,6 +3040,7 @@ final class DockMagicTests: XCTestCase {
             networkStore: network,
             storageStore: storage,
             weatherStore: weather,
+            clockStore: clock,
             codexStore: codex,
             claudeCodeStore: claudeCode
         )
@@ -2396,6 +3050,7 @@ final class DockMagicTests: XCTestCase {
         XCTAssertFalse(network.isMonitoring)
         XCTAssertFalse(storage.isMonitoring)
         XCTAssertFalse(weather.isMonitoring)
+        XCTAssertFalse(clock.isMonitoring)
         XCTAssertFalse(codex.isMonitoring)
         XCTAssertFalse(claudeCode.isMonitoring)
 
@@ -2405,6 +3060,7 @@ final class DockMagicTests: XCTestCase {
                 && !network.isMonitoring
                 && !storage.isMonitoring
                 && !weather.isMonitoring
+                && !clock.isMonitoring
                 && !codex.isMonitoring
                 && !claudeCode.isMonitoring
         }
@@ -2415,6 +3071,7 @@ final class DockMagicTests: XCTestCase {
                 && !metrics.isMonitoring
                 && !storage.isMonitoring
                 && !weather.isMonitoring
+                && !clock.isMonitoring
                 && !codex.isMonitoring
                 && !claudeCode.isMonitoring
         }
@@ -2425,6 +3082,7 @@ final class DockMagicTests: XCTestCase {
                 && !metrics.isMonitoring
                 && !network.isMonitoring
                 && !weather.isMonitoring
+                && !clock.isMonitoring
                 && !codex.isMonitoring
                 && !claudeCode.isMonitoring
         }
@@ -2441,8 +3099,23 @@ final class DockMagicTests: XCTestCase {
         XCTAssertFalse(metrics.isMonitoring)
         XCTAssertFalse(network.isMonitoring)
         XCTAssertFalse(storage.isMonitoring)
+        XCTAssertFalse(clock.isMonitoring)
         XCTAssertFalse(codex.isMonitoring)
         XCTAssertFalse(claudeCode.isMonitoring)
+
+        preferences.activeFeature = .clock
+        try await waitUntil {
+            clock.isMonitoring
+                && !metrics.isMonitoring
+                && !network.isMonitoring
+                && !storage.isMonitoring
+                && !weather.isMonitoring
+                && !codex.isMonitoring
+                && !claudeCode.isMonitoring
+        }
+
+        XCTAssertTrue(clock.isMonitoring)
+        XCTAssertFalse(weather.isMonitoring)
 
         preferences.activeFeature = .codex
         try await waitUntil {
@@ -2451,6 +3124,7 @@ final class DockMagicTests: XCTestCase {
                 && !network.isMonitoring
                 && !storage.isMonitoring
                 && !weather.isMonitoring
+                && !clock.isMonitoring
         }
 
         XCTAssertTrue(codex.isMonitoring)
@@ -2458,6 +3132,7 @@ final class DockMagicTests: XCTestCase {
         XCTAssertFalse(network.isMonitoring)
         XCTAssertFalse(storage.isMonitoring)
         XCTAssertFalse(weather.isMonitoring)
+        XCTAssertFalse(clock.isMonitoring)
         XCTAssertFalse(claudeCode.isMonitoring)
         try await waitUntil {
             codex.resolvedExecutablePath == "/usr/bin/true"
@@ -2471,6 +3146,7 @@ final class DockMagicTests: XCTestCase {
                 && !network.isMonitoring
                 && !storage.isMonitoring
                 && !weather.isMonitoring
+                && !clock.isMonitoring
                 && !codex.isMonitoring
         }
         try await waitUntil {
@@ -2484,6 +3160,7 @@ final class DockMagicTests: XCTestCase {
         XCTAssertFalse(network.isMonitoring)
         XCTAssertFalse(storage.isMonitoring)
         XCTAssertFalse(weather.isMonitoring)
+        XCTAssertFalse(clock.isMonitoring)
         XCTAssertFalse(codex.isMonitoring)
 
         appModel.stop()
@@ -2491,6 +3168,7 @@ final class DockMagicTests: XCTestCase {
         XCTAssertFalse(network.isMonitoring)
         XCTAssertFalse(storage.isMonitoring)
         XCTAssertFalse(weather.isMonitoring)
+        XCTAssertFalse(clock.isMonitoring)
         XCTAssertFalse(codex.isMonitoring)
         XCTAssertFalse(claudeCode.isMonitoring)
     }
@@ -2532,6 +3210,22 @@ final class DockMagicTests: XCTestCase {
             return XCTFail("Expected the Weather Dock presentation.")
         }
         XCTAssertEqual(state, .idle)
+
+        appModel.preferences.setClockDisplayStyle(.splitFlap)
+        appModel.preferences.setClockFollowsSystemTimeZone(false)
+        appModel.preferences.setClockTimeZoneIdentifier("Asia/Ho_Chi_Minh")
+        appModel.preferences.activeFeature = .clock
+        guard case let .clock(date, configuration) = appModel.dockPresentation else {
+            return XCTFail("Expected the Clock Dock presentation.")
+        }
+        XCTAssertEqual(configuration.displayStyle, .splitFlap)
+        XCTAssertFalse(configuration.followsSystemTimeZone)
+        XCTAssertEqual(configuration.timeZoneIdentifier, "Asia/Ho_Chi_Minh")
+        XCTAssertEqual(
+            date.timeIntervalSince1970.truncatingRemainder(dividingBy: 60),
+            0,
+            accuracy: 0.000_001
+        )
 
         appModel.preferences.activeFeature = .codex
         guard case let .codex(state, codexAppearance) = appModel.dockPresentation else {
@@ -2937,6 +3631,175 @@ final class DockMagicTests: XCTestCase {
         assertHighResolutionApplicationIcon(application.applicationIconImage)
     }
 
+    func testClockAnimationTimelineProducesBoundedStyleSpecificFrames() {
+        let previousDate = Date(timeIntervalSince1970: 1_777_777_680)
+        let timeline = DockClockAnimationTimeline(
+            digitalFrameCount: 3,
+            splitFlapFrameCount: 5,
+            frameInterval: .zero
+        )
+
+        XCTAssertTrue(
+            timeline.transitions(
+                previousDate: previousDate,
+                style: .analog
+            ).isEmpty
+        )
+
+        let digital = timeline.transitions(
+            previousDate: previousDate,
+            style: .digital
+        )
+        XCTAssertEqual(digital.count, 3)
+        XCTAssertEqual(digital.map(\.previousDate), Array(repeating: previousDate, count: 3))
+        XCTAssertEqual(digital[0].progress, 1.0 / 3.0, accuracy: 0.000_001)
+        XCTAssertEqual(digital[1].progress, 2.0 / 3.0, accuracy: 0.000_001)
+        XCTAssertEqual(digital[2].progress, 1, accuracy: 0.000_001)
+
+        let splitFlap = timeline.transitions(
+            previousDate: previousDate,
+            style: .splitFlap
+        )
+        XCTAssertEqual(splitFlap.count, 5)
+        XCTAssertEqual(splitFlap.first?.progress, 0.2)
+        XCTAssertEqual(splitFlap.last?.progress, 1)
+
+        XCTAssertEqual(
+            DockClockTransition(previousDate: previousDate, progress: -1).progress,
+            0
+        )
+        XCTAssertEqual(
+            DockClockTransition(previousDate: previousDate, progress: 2).progress,
+            1
+        )
+    }
+
+    @MainActor
+    func testDockTileControllerAnimatesClockMinuteChangesAndHonorsReduceMotion() async throws {
+        let previousDate = Date(timeIntervalSince1970: 1_777_777_680)
+        let digitalConfiguration = DockClockConfiguration(
+            displayStyle: .digital,
+            followsSystemTimeZone: false,
+            timeZoneIdentifier: "UTC"
+        )
+        let splitFlapConfiguration = DockClockConfiguration(
+            displayStyle: .splitFlap,
+            followsSystemTimeZone: false,
+            timeZoneIdentifier: "UTC"
+        )
+        let timeline = DockClockAnimationTimeline(
+            digitalFrameCount: 3,
+            splitFlapFrameCount: 4,
+            frameInterval: .zero
+        )
+        let renderer = SpyDockApplicationIconRenderer()
+        let dockTile = SpyDockTile()
+        let controller = DockTileController(
+            dockTile: dockTile,
+            application: SpyApplicationIconDisplay(),
+            initialPresentation: .clock(
+                date: previousDate,
+                configuration: digitalConfiguration
+            ),
+            appearanceStore: makeAppearanceDefaults(.light),
+            iconRenderer: renderer,
+            clockAnimationTimeline: timeline,
+            reduceMotionProvider: { false }
+        )
+
+        XCTAssertEqual(renderer.clockTransitions.count, 1)
+        XCTAssertNil(renderer.clockTransitions[0])
+
+        controller.update(
+            presentation: .clock(
+                date: previousDate.addingTimeInterval(60),
+                configuration: digitalConfiguration
+            )
+        )
+        XCTAssertTrue(controller.isAnimatingClock)
+        try await waitUntil { !controller.isAnimatingClock }
+
+        let digitalFrames = renderer.clockTransitions
+            .dropFirst()
+            .compactMap { $0 }
+        XCTAssertEqual(digitalFrames.map(\.progress), [1.0 / 3.0, 2.0 / 3.0, 1])
+        XCTAssertEqual(dockTile.displayCallCount, 4)
+
+        controller.update(
+            presentation: .clock(
+                date: previousDate.addingTimeInterval(60),
+                configuration: splitFlapConfiguration
+            )
+        )
+        XCTAssertFalse(controller.isAnimatingClock)
+        XCTAssertNil(renderer.clockTransitions.last!)
+
+        let splitFlapStart = renderer.clockTransitions.count
+        controller.update(
+            presentation: .clock(
+                date: previousDate.addingTimeInterval(120),
+                configuration: splitFlapConfiguration
+            )
+        )
+        try await waitUntil { !controller.isAnimatingClock }
+        let splitFlapFrames = renderer.clockTransitions
+            .dropFirst(splitFlapStart)
+            .compactMap { $0 }
+        XCTAssertEqual(splitFlapFrames.map(\.progress), [0.25, 0.5, 0.75, 1])
+
+        let reducedRenderer = SpyDockApplicationIconRenderer()
+        let reducedController = DockTileController(
+            dockTile: SpyDockTile(),
+            application: SpyApplicationIconDisplay(),
+            initialPresentation: .clock(
+                date: previousDate,
+                configuration: digitalConfiguration
+            ),
+            appearanceStore: makeAppearanceDefaults(.light),
+            iconRenderer: reducedRenderer,
+            clockAnimationTimeline: timeline,
+            reduceMotionProvider: { true }
+        )
+        reducedController.update(
+            presentation: .clock(
+                date: previousDate.addingTimeInterval(60),
+                configuration: digitalConfiguration
+            )
+        )
+
+        XCTAssertFalse(reducedController.isAnimatingClock)
+        XCTAssertEqual(reducedRenderer.clockTransitions.count, 2)
+        XCTAssertNil(reducedRenderer.clockTransitions.last!)
+
+        let cancellableRenderer = SpyDockApplicationIconRenderer()
+        let cancellableController = DockTileController(
+            dockTile: SpyDockTile(),
+            application: SpyApplicationIconDisplay(),
+            initialPresentation: .clock(
+                date: previousDate,
+                configuration: digitalConfiguration
+            ),
+            appearanceStore: makeAppearanceDefaults(.light),
+            iconRenderer: cancellableRenderer,
+            clockAnimationTimeline: DockClockAnimationTimeline(
+                digitalFrameCount: 3,
+                splitFlapFrameCount: 3,
+                frameInterval: .seconds(30)
+            ),
+            reduceMotionProvider: { false }
+        )
+        cancellableController.update(
+            presentation: .clock(
+                date: previousDate.addingTimeInterval(60),
+                configuration: digitalConfiguration
+            )
+        )
+        XCTAssertTrue(cancellableController.isAnimatingClock)
+        cancellableController.update(presentation: .dockMagic)
+        XCTAssertFalse(cancellableController.isAnimatingClock)
+        XCTAssertNil(cancellableRenderer.clockTransitions.last!)
+    }
+
     private func assertHighResolutionApplicationIcon(
         _ image: NSImage?,
         file: StaticString = #filePath,
@@ -3063,6 +3926,39 @@ final class DockMagicTests: XCTestCase {
                 )
             ),
             ("Weather", .weather(state: .live(sampleWeatherSnapshot()))),
+            (
+                "Clock analog",
+                .clock(
+                    date: Date(timeIntervalSince1970: 1_777_777_745),
+                    configuration: DockClockConfiguration(
+                        displayStyle: .analog,
+                        followsSystemTimeZone: false,
+                        timeZoneIdentifier: "Asia/Ho_Chi_Minh"
+                    )
+                )
+            ),
+            (
+                "Clock digital",
+                .clock(
+                    date: Date(timeIntervalSince1970: 1_777_777_740),
+                    configuration: DockClockConfiguration(
+                        displayStyle: .digital,
+                        followsSystemTimeZone: false,
+                        timeZoneIdentifier: "Asia/Ho_Chi_Minh"
+                    )
+                )
+            ),
+            (
+                "Clock split-flap",
+                .clock(
+                    date: Date(timeIntervalSince1970: 1_777_777_740),
+                    configuration: DockClockConfiguration(
+                        displayStyle: .splitFlap,
+                        followsSystemTimeZone: false,
+                        timeZoneIdentifier: "Asia/Ho_Chi_Minh"
+                    )
+                )
+            ),
             (
                 "Batteries",
                 .batteries(snapshot: batterySnapshot, errorDescription: nil)
@@ -3365,6 +4261,12 @@ final class DockMagicTests: XCTestCase {
                     "DSDockBackgroundRaised",
                     "DSDockBackgroundInset"
                 ] {
+                    assertContrast(
+                        "DSDockForeground",
+                        on: backgroundName,
+                        minimum: 4.5,
+                        appearance: "\(appearanceLabel) Dock foreground"
+                    )
                     assertContrast(
                         "DSDockTrack",
                         on: backgroundName,
@@ -3878,21 +4780,41 @@ final class DockMagicTests: XCTestCase {
         XCTAssertGreaterThan(detailGrayscale.count, 12_000)
         attachPNG(detailGrayscale, name: detailGrayscaleName)
 
-        let captureMenuName = "Codex Hover — Capture Menu"
-        let captureMenu = try renderPNG(
+        for (index, variant) in variants.enumerated() {
+            let (label, mode, appearanceName) = variant
+            let captureMenuName = "Codex Hover — Capture Menu — \(label)"
+            let captureMenu = try renderPNG(
+                of: DockHoverDashboardRoot(
+                    appModel: appModel,
+                    pointerEdge: .bottom,
+                    appearanceMode: mode,
+                    initialCaptureMenuPresented: true
+                ),
+                size: DockHoverPanelPlacement.codexPanelSize,
+                appearanceName: appearanceName,
+                name: captureMenuName
+            )
+            XCTAssertGreaterThan(captureMenu.count, 12_000)
+            XCTAssertNotEqual(captureMenu, renderedVariants[index])
+            attachPNG(captureMenu, name: captureMenuName)
+        }
+
+        let captureMenuGrayscaleName =
+            "Codex Hover — Capture Menu — Grayscale"
+        let captureMenuGrayscale = try renderPNG(
             of: DockHoverDashboardRoot(
                 appModel: appModel,
                 pointerEdge: .bottom,
                 appearanceMode: .dark,
                 initialCaptureMenuPresented: true
-            ),
+            )
+            .grayscale(1),
             size: DockHoverPanelPlacement.codexPanelSize,
             appearanceName: .darkAqua,
-            name: captureMenuName
+            name: captureMenuGrayscaleName
         )
-        XCTAssertGreaterThan(captureMenu.count, 12_000)
-        XCTAssertNotEqual(captureMenu, renderedVariants[0])
-        attachPNG(captureMenu, name: captureMenuName)
+        XCTAssertGreaterThan(captureMenuGrayscale.count, 12_000)
+        attachPNG(captureMenuGrayscale, name: captureMenuGrayscaleName)
     }
 
     @MainActor
@@ -4106,6 +5028,33 @@ final class DockMagicTests: XCTestCase {
         }
         XCTAssertNotEqual(renderedVariants[0], renderedVariants[1])
 
+        let costName = "Claude Code Hover — Cost Metric — Dark"
+        let costData = try renderPNG(
+            of: DockMagicThemeRoot(
+                content: DockHoverChrome(
+                    pointerEdge: .bottom,
+                    panelSize: DockHoverPanelPlacement.claudeCodePanelSize
+                ) {
+                    ClaudeCodeHoverDashboardView(
+                        state: .live(liveSnapshot),
+                        now: renderNow,
+                        initialMetric: "Cost"
+                    )
+                },
+                appearanceMode: .dark
+            )
+            .frame(
+                width: DockHoverPanelPlacement.claudeCodePanelSize.width,
+                height: DockHoverPanelPlacement.claudeCodePanelSize.height
+            ),
+            size: DockHoverPanelPlacement.claudeCodePanelSize,
+            appearanceName: .darkAqua,
+            name: costName
+        )
+        XCTAssertGreaterThan(costData.count, 12_000)
+        XCTAssertNotEqual(costData, renderedVariants[0])
+        attachPNG(costData, name: costName)
+
         let staleSnapshot = CodexRateLimitSnapshot(
             planType: nil,
             limitID: liveSnapshot.limitID,
@@ -4309,10 +5258,15 @@ final class DockMagicTests: XCTestCase {
 
         XCTAssertTrue(source.contains("Image(\"ClaudeCodeLogo\")"))
         XCTAssertTrue(source.contains("UsageLimitHoverRow("))
-        XCTAssertTrue(source.contains("ClaudeCodeQuotaChart("))
         XCTAssertTrue(source.contains("ProjectTheme.claudeCodeUsage"))
-        XCTAssertTrue(source.contains("Remaining quota"))
-        XCTAssertTrue(source.contains("Claude Code statusLine"))
+        XCTAssertTrue(source.contains("Daily usage"))
+        XCTAssertTrue(source.contains("Top models"))
+        XCTAssertTrue(source.contains("Ship momentum"))
+        XCTAssertTrue(source.contains("ClaudeCodeShipMomentumGauge("))
+        XCTAssertTrue(source.contains("Active work"))
+        XCTAssertTrue(source.contains("observed est."))
+        XCTAssertTrue(source.contains("case tokens = \"Tokens\""))
+        XCTAssertTrue(source.contains("case cost = \"Cost\""))
         XCTAssertTrue(source.contains("dockHover.claudeCode"))
         XCTAssertTrue(source.contains(".symbolRenderingMode(.monochrome)"))
         XCTAssertTrue(source.contains("theme.opaqueSurfaceInset"))
@@ -4581,6 +5535,14 @@ final class DockMagicTests: XCTestCase {
         XCTAssertTrue(source.contains("Share…"))
         XCTAssertTrue(source.contains("codex.capture.button"))
         XCTAssertTrue(source.contains("codex.capture.menu"))
+        XCTAssertTrue(
+            source.contains("hoveredCaptureAction = captureAction")
+        )
+        XCTAssertTrue(source.contains("hoveredCaptureAction ?? .save"))
+        XCTAssertTrue(
+            source.contains(".fill(theme.outlineStrong.opacity(0.18))")
+        )
+        XCTAssertFalse(source.contains("isPrimary: true"))
         XCTAssertFalse(
             source.contains(".help(Self.fullDateLabel(bucket.startDate))")
         )
@@ -5062,6 +6024,39 @@ final class DockMagicTests: XCTestCase {
                 .weather(state: .unavailable(message: "Location access denied"))
             ),
             (
+                "Clock Analog",
+                .clock(
+                    date: Date(timeIntervalSince1970: 1_777_777_745),
+                    configuration: DockClockConfiguration(
+                        displayStyle: .analog,
+                        followsSystemTimeZone: false,
+                        timeZoneIdentifier: "Asia/Ho_Chi_Minh"
+                    )
+                )
+            ),
+            (
+                "Clock Digital",
+                .clock(
+                    date: Date(timeIntervalSince1970: 1_777_777_740),
+                    configuration: DockClockConfiguration(
+                        displayStyle: .digital,
+                        followsSystemTimeZone: false,
+                        timeZoneIdentifier: "Asia/Ho_Chi_Minh"
+                    )
+                )
+            ),
+            (
+                "Clock Split-flap",
+                .clock(
+                    date: Date(timeIntervalSince1970: 1_777_777_740),
+                    configuration: DockClockConfiguration(
+                        displayStyle: .splitFlap,
+                        followsSystemTimeZone: false,
+                        timeZoneIdentifier: "Asia/Ho_Chi_Minh"
+                    )
+                )
+            ),
+            (
                 "Codex Idle",
                 .codex(
                     state: .idle,
@@ -5184,6 +6179,341 @@ final class DockMagicTests: XCTestCase {
                 )
             }
         }
+    }
+
+    @MainActor
+    func testClockStylesRenderAcrossAppearanceAndAccessibilityVariants() throws {
+        let date = Date(timeIntervalSince1970: 1_777_777_745)
+        let size = NSSize(width: 128, height: 128)
+        var lightRenders: [DockClockDisplayStyle: Data] = [:]
+
+        for style in DockClockDisplayStyle.allCases {
+            let configuration = DockClockConfiguration(
+                displayStyle: style,
+                followsSystemTimeZone: false,
+                timeZoneIdentifier: "Asia/Ho_Chi_Minh"
+            )
+            let presentation = DockTilePresentation.clock(
+                date: configuration.presentationDate(for: date),
+                configuration: configuration
+            )
+            let lightName = "Clock — \(style.title) — Light"
+            let light = try renderPNG(
+                of: DockMagicThemeRoot(
+                    content: DockTileView(
+                        presentation: presentation,
+                        animatesChanges: false
+                    ),
+                    appearanceMode: .light
+                ),
+                size: size,
+                appearanceName: .aqua,
+                name: lightName
+            )
+            let darkName = "Clock — \(style.title) — Dark"
+            let dark = try renderPNG(
+                of: DockMagicThemeRoot(
+                    content: DockTileView(
+                        presentation: presentation,
+                        animatesChanges: false
+                    ),
+                    appearanceMode: .dark
+                ),
+                size: size,
+                appearanceName: .darkAqua,
+                name: darkName
+            )
+            let contrastName = "Clock — \(style.title) — Increased Contrast"
+            let increasedContrast = try renderPNG(
+                of: DockMagicThemeRoot(
+                    content: DockTileView(
+                        presentation: presentation,
+                        animatesChanges: false
+                    ),
+                    appearanceMode: .light
+                )
+                .environment(
+                    \.dsAccessibilityOverrides,
+                    DSAccessibilityOverrides(increaseContrast: true)
+                ),
+                size: size,
+                appearanceName: .aqua,
+                name: contrastName
+            )
+            let transparencyName = "Clock — \(style.title) — Reduced Transparency"
+            let reducedTransparency = try renderPNG(
+                of: DockMagicThemeRoot(
+                    content: DockTileView(
+                        presentation: presentation,
+                        animatesChanges: false
+                    ),
+                    appearanceMode: .light
+                )
+                .environment(
+                    \.dsAccessibilityOverrides,
+                    DSAccessibilityOverrides(reduceTransparency: true)
+                ),
+                size: size,
+                appearanceName: .aqua,
+                name: transparencyName
+            )
+            let grayscaleName = "Clock — \(style.title) — Grayscale"
+            let grayscale = try grayscalePNG(light, name: grayscaleName)
+
+            let variants = [
+                (lightName, light),
+                (darkName, dark),
+                (contrastName, increasedContrast),
+                (transparencyName, reducedTransparency),
+                (grayscaleName, grayscale)
+            ]
+            for (name, data) in variants {
+                XCTAssertGreaterThan(
+                    data.count,
+                    1_000,
+                    "\(name) should render a non-empty Clock image."
+                )
+                let lifetime: XCTAttachment.Lifetime =
+                    name == lightName || name == darkName
+                    ? .keepAlways
+                    : .deleteOnSuccess
+                attachPNG(data, name: name, lifetime: lifetime)
+            }
+            XCTAssertNotEqual(light, increasedContrast)
+            XCTAssertEqual(
+                light,
+                reducedTransparency,
+                "Clock uses only opaque Dock surfaces, so Reduce Transparency must not remove information."
+            )
+            XCTAssertNotEqual(light, grayscale)
+            lightRenders[style] = light
+        }
+
+        XCTAssertNotEqual(lightRenders[.analog], lightRenders[.digital])
+        XCTAssertNotEqual(lightRenders[.digital], lightRenders[.splitFlap])
+        XCTAssertNotEqual(lightRenders[.analog], lightRenders[.splitFlap])
+    }
+
+    @MainActor
+    func testClockDigitalAndSplitFlapTransitionFramesRenderDistinctly() throws {
+        let previousDate = Date(timeIntervalSince1970: 1_777_777_680)
+        let date = previousDate.addingTimeInterval(60)
+        let size = NSSize(width: 128, height: 128)
+
+        for style in [DockClockDisplayStyle.digital, .splitFlap] {
+            let configuration = DockClockConfiguration(
+                displayStyle: style,
+                followsSystemTimeZone: false,
+                timeZoneIdentifier: "UTC"
+            )
+            let previousPresentation = DockTilePresentation.clock(
+                date: previousDate,
+                configuration: configuration
+            )
+            let presentation = DockTilePresentation.clock(
+                date: date,
+                configuration: configuration
+            )
+            let previous = try renderPNG(
+                of: DockMagicThemeRoot(
+                    content: DockTileView(
+                        presentation: previousPresentation,
+                        animatesChanges: false
+                    ),
+                    appearanceMode: .dark
+                ),
+                size: size,
+                appearanceName: .darkAqua,
+                name: "Clock animation — \(style.title) — Previous"
+            )
+            let early = try renderPNG(
+                of: DockMagicThemeRoot(
+                    content: DockTileView(
+                        presentation: presentation,
+                        animatesChanges: false,
+                        clockTransition: DockClockTransition(
+                            previousDate: previousDate,
+                            progress: 0.25
+                        )
+                    ),
+                    appearanceMode: .dark
+                ),
+                size: size,
+                appearanceName: .darkAqua,
+                name: "Clock animation — \(style.title) — Early"
+            )
+            let late = try renderPNG(
+                of: DockMagicThemeRoot(
+                    content: DockTileView(
+                        presentation: presentation,
+                        animatesChanges: false,
+                        clockTransition: DockClockTransition(
+                            previousDate: previousDate,
+                            progress: 0.75
+                        )
+                    ),
+                    appearanceMode: .dark
+                ),
+                size: size,
+                appearanceName: .darkAqua,
+                name: "Clock animation — \(style.title) — Late"
+            )
+            let settled = try renderPNG(
+                of: DockMagicThemeRoot(
+                    content: DockTileView(
+                        presentation: presentation,
+                        animatesChanges: false
+                    ),
+                    appearanceMode: .dark
+                ),
+                size: size,
+                appearanceName: .darkAqua,
+                name: "Clock animation — \(style.title) — Settled"
+            )
+            let reducedMotion = try renderPNG(
+                of: DockMagicThemeRoot(
+                    content: DockTileView(
+                        presentation: presentation,
+                        animatesChanges: false,
+                        clockTransition: DockClockTransition(
+                            previousDate: previousDate,
+                            progress: 0.5
+                        )
+                    ),
+                    appearanceMode: .dark
+                )
+                .environment(
+                    \.dsAccessibilityOverrides,
+                    DSAccessibilityOverrides(reduceMotion: true)
+                ),
+                size: size,
+                appearanceName: .darkAqua,
+                name: "Clock animation — \(style.title) — Reduce Motion"
+            )
+
+            XCTAssertNotEqual(previous, early)
+            XCTAssertNotEqual(early, late)
+            XCTAssertNotEqual(late, settled)
+            XCTAssertEqual(reducedMotion, settled)
+            attachPNG(
+                early,
+                name: "Clock animation — \(style.title) — Early",
+                lifetime: .keepAlways
+            )
+            attachPNG(
+                late,
+                name: "Clock animation — \(style.title) — Late",
+                lifetime: .keepAlways
+            )
+        }
+    }
+
+    @MainActor
+    func testClockAnimationFramesPreserveApplicationIconSourceContract() throws {
+        let previousDate = Date(timeIntervalSince1970: 1_777_777_680)
+        let date = previousDate.addingTimeInterval(60)
+        let renderer = DockApplicationIconRenderer()
+
+        for style in [DockClockDisplayStyle.digital, .splitFlap] {
+            let presentation = DockTilePresentation.clock(
+                date: date,
+                configuration: DockClockConfiguration(
+                    displayStyle: style,
+                    followsSystemTimeZone: false,
+                    timeZoneIdentifier: "UTC"
+                )
+            )
+            let early = try XCTUnwrap(
+                renderer.render(
+                    presentation: presentation,
+                    appearanceMode: .dark,
+                    clockTransition: DockClockTransition(
+                        previousDate: previousDate,
+                        progress: 0.25
+                    )
+                )
+            )
+            let late = try XCTUnwrap(
+                renderer.render(
+                    presentation: presentation,
+                    appearanceMode: .dark,
+                    clockTransition: DockClockTransition(
+                        previousDate: previousDate,
+                        progress: 0.75
+                    )
+                )
+            )
+
+            XCTAssertTrue(DockIconRenderingRules.satisfiesSourceContract(early))
+            XCTAssertTrue(DockIconRenderingRules.satisfiesSourceContract(late))
+            XCTAssertNotEqual(early.tiffRepresentation, late.tiffRepresentation)
+        }
+    }
+
+    @MainActor
+    func testClockSettingsRenderGeneralAndLocationChoices() throws {
+        let appModel = makeAppModel()
+        defer { appModel.stop() }
+        appModel.preferences.activeFeature = .clock
+        let defaults = makeAppearanceDefaults(.light)
+        let size = NSSize(width: 1_020, height: 740)
+
+        let generalName = "Settings — General — Clock Active"
+        let general = try renderPNG(
+            of: DockMagicThemeRoot(
+                content: SettingsView(
+                    appModel: appModel,
+                    initialDestination: .general
+                )
+                .defaultAppStorage(defaults),
+                appearanceMode: .light
+            ),
+            size: size,
+            appearanceName: .aqua,
+            name: generalName
+        )
+        let currentName = "Settings — Clock — Current Location"
+        let currentLocation = try renderPNG(
+            of: DockMagicThemeRoot(
+                content: SettingsView(
+                    appModel: appModel,
+                    initialDestination: .clock
+                )
+                .defaultAppStorage(defaults),
+                appearanceMode: .light
+            ),
+            size: size,
+            appearanceName: .aqua,
+            name: currentName
+        )
+
+        appModel.preferences.setClockDisplayStyle(.splitFlap)
+        appModel.preferences.setClockFollowsSystemTimeZone(false)
+        appModel.preferences.setClockTimeZoneIdentifier("America/New_York")
+        let customName = "Settings — Clock — New York Split-flap"
+        let customLocation = try renderPNG(
+            of: DockMagicThemeRoot(
+                content: SettingsView(
+                    appModel: appModel,
+                    initialDestination: .clock
+                )
+                .defaultAppStorage(defaults),
+                appearanceMode: .light
+            ),
+            size: size,
+            appearanceName: .aqua,
+            name: customName
+        )
+
+        for (name, data) in [
+            (generalName, general),
+            (currentName, currentLocation),
+            (customName, customLocation)
+        ] {
+            XCTAssertGreaterThan(data.count, 10_000)
+            attachPNG(data, name: name)
+        }
+        XCTAssertNotEqual(currentLocation, customLocation)
     }
 
     @MainActor
@@ -5414,7 +6744,27 @@ final class DockMagicTests: XCTestCase {
         observedAt: Date = .now,
         fetchedAt: Date = .now
     ) -> WeatherSnapshot {
-        WeatherSnapshot(
+        let startOfDay = Calendar.current.startOfDay(for: observedAt)
+        let forecast = (0 ..< 7).compactMap { dayOffset -> DailyWeatherForecast? in
+            guard let date = Calendar.current.date(
+                byAdding: .day,
+                value: dayOffset,
+                to: startOfDay
+            ) else {
+                return nil
+            }
+            return DailyWeatherForecast(
+                date: date,
+                conditionDescription: dayOffset == 0
+                    ? conditionDescription
+                    : "Thunderstorm",
+                condition: dayOffset == 0 ? condition : .thunderstorm,
+                highCelsius: Double(33 - (dayOffset % 3)),
+                lowCelsius: Double(25 + (dayOffset % 2)),
+                precipitationChance: Double(20 + dayOffset * 10) / 100
+            )
+        }
+        return WeatherSnapshot(
             location: "Ho Chi Minh City",
             temperatureCelsius: 29,
             feelsLikeCelsius: 32,
@@ -5423,6 +6773,9 @@ final class DockMagicTests: XCTestCase {
             highCelsius: 33,
             lowCelsius: 26,
             precipitationChance: 0.2,
+            relativeHumidity: 0.76,
+            windSpeedKPH: 13,
+            forecast: forecast,
             isDaylight: isDaylight,
             observedAt: observedAt,
             fetchedAt: fetchedAt
@@ -5445,28 +6798,37 @@ final class DockMagicTests: XCTestCase {
                 "interval": "seconds",
                 "temperature_2m": "°C",
                 "apparent_temperature": "°C",
+                "relative_humidity_2m": "%",
                 "weather_code": "wmo code",
-                "is_day": ""
+                "is_day": "",
+                "wind_speed_10m": "km/h"
               },
               "current": {
                 "time": "1970-01-01T07:30",
                 "interval": 900,
                 "temperature_2m": 29.4,
                 "apparent_temperature": 32,
+                "relative_humidity_2m": 89,
                 "weather_code": 2,
-                "is_day": 1
+                "is_day": 1,
+                "wind_speed_10m": 12.9
               },
               "daily_units": {
                 "time": "iso8601",
+                "weather_code": "wmo code",
                 "temperature_2m_max": "°C",
                 "temperature_2m_min": "°C",
                 "precipitation_probability_max": "%"
               },
               "daily": {
-                "time": ["1970-01-01"],
-                "temperature_2m_max": [33],
-                "temperature_2m_min": [26],
-                "precipitation_probability_max": [25]
+                "time": [
+                  "1970-01-01", "1970-01-02", "1970-01-03", "1970-01-04",
+                  "1970-01-05", "1970-01-06", "1970-01-07"
+                ],
+                "weather_code": [2, 95, 61, 80, 3, 51, 99],
+                "temperature_2m_max": [33, 32, 31, 32, 33, 33, 34],
+                "temperature_2m_min": [26, 25, 25, 24, 24, 25, 26],
+                "precipitation_probability_max": [25, 60, 55, 70, 40, 65, 75]
               }
             }
             """.utf8
@@ -5971,6 +7333,29 @@ final class DockMagicTests: XCTestCase {
         add(attachment)
     }
 
+    private func grayscalePNG(_ data: Data, name: String) throws -> Data {
+        guard let input = CIImage(data: data),
+              let filter = CIFilter(name: "CIColorControls") else {
+            XCTFail("Unable to decode \(name) for grayscale verification.")
+            throw RenderingError.grayscaleConversionFailed
+        }
+        filter.setValue(input, forKey: kCIInputImageKey)
+        filter.setValue(0, forKey: kCIInputSaturationKey)
+        guard let output = filter.outputImage,
+              let cgImage = CIContext().createCGImage(
+                output,
+                from: output.extent
+              ),
+              let encoded = NSBitmapImageRep(cgImage: cgImage).representation(
+                using: .png,
+                properties: [:]
+              ) else {
+            XCTFail("Unable to encode grayscale verification for \(name).")
+            throw RenderingError.grayscaleConversionFailed
+        }
+        return encoded
+    }
+
     @MainActor
     private func firstSubview<ViewType: NSView>(
         of type: ViewType.Type,
@@ -5997,6 +7382,7 @@ final class DockMagicTests: XCTestCase {
 
     private enum RenderingError: Error {
         case bitmapAllocationFailed
+        case grayscaleConversionFailed
         case pngEncodingFailed
     }
 }
@@ -6530,4 +7916,20 @@ private final class SpyDockTile: NSDockTile {
 @MainActor
 private final class SpyApplicationIconDisplay: ApplicationIconDisplaying {
     var applicationIconImage: NSImage!
+}
+
+@MainActor
+private final class SpyDockApplicationIconRenderer:
+    DockApplicationIconRendering
+{
+    private(set) var clockTransitions: [DockClockTransition?] = []
+
+    func render(
+        presentation: DockTilePresentation,
+        appearanceMode: DSAppearanceMode,
+        clockTransition: DockClockTransition?
+    ) -> NSImage? {
+        clockTransitions.append(clockTransition)
+        return nil
+    }
 }

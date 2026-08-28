@@ -23,6 +23,7 @@ enum ProjectTheme {
         dockBackgroundRaised: Color("DSDockBackgroundRaised"),
         dockBackgroundInset: Color("DSDockBackgroundInset"),
         dockOutline: Color("DSDockOutline"),
+        dockForeground: Color("DSDockForeground"),
         warning: Color("DSWarning"),
         warningForeground: Color("DSWarningForeground"),
         onWarning: Color("DSOnWarning"),
@@ -143,13 +144,16 @@ private struct DSAppearanceModeKey: EnvironmentKey {
 struct DSAccessibilityOverrides: Equatable, Sendable {
     var reduceTransparency: Bool?
     var increaseContrast: Bool?
+    var reduceMotion: Bool?
 
     init(
         reduceTransparency: Bool? = nil,
-        increaseContrast: Bool? = nil
+        increaseContrast: Bool? = nil,
+        reduceMotion: Bool? = nil
     ) {
         self.reduceTransparency = reduceTransparency
         self.increaseContrast = increaseContrast
+        self.reduceMotion = reduceMotion
     }
 }
 

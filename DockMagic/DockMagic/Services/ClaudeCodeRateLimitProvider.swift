@@ -26,34 +26,70 @@ protocol ClaudeCodeRateLimitProviding: Sendable {
 
 struct ClaudeCodeStatusLineRateLimitProvider: ClaudeCodeRateLimitProviding {
     let snapshotURL: URL
+    let sessionSnapshotsDirectoryURL: URL
+    let taskSnapshotURL: URL
+    let taskSnapshotsDirectoryURL: URL
+    let projectsDirectoryURL: URL
+    let now: @Sendable () -> Date
 
     init(
         snapshotURL: URL = FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent(".claude/dockmagic-usage.json")
+            .appendingPathComponent(".claude/dockmagic-usage.json"),
+        sessionSnapshotsDirectoryURL: URL = FileManager.default
+            .homeDirectoryForCurrentUser
+            .appendingPathComponent(".claude/dockmagic-status-sessions"),
+        taskSnapshotURL: URL = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(".claude/dockmagic-subagents.json"),
+        taskSnapshotsDirectoryURL: URL = FileManager.default
+            .homeDirectoryForCurrentUser
+            .appendingPathComponent(".claude/dockmagic-task-sessions"),
+        projectsDirectoryURL: URL = FileManager.default
+            .homeDirectoryForCurrentUser
+            .appendingPathComponent(".claude/projects"),
+        now: @escaping @Sendable () -> Date = { Date() }
     ) {
         self.snapshotURL = snapshotURL
+        self.sessionSnapshotsDirectoryURL = sessionSnapshotsDirectoryURL
+        self.taskSnapshotURL = taskSnapshotURL
+        self.taskSnapshotsDirectoryURL = taskSnapshotsDirectoryURL
+        self.projectsDirectoryURL = projectsDirectoryURL
+        self.now = now
     }
 
     func fetchRateLimits() async throws -> ClaudeCodeRateLimitSnapshot {
-        let snapshotURL = snapshotURL
+        let reader = ClaudeCodeLocalTelemetryReader(
+            snapshotURL: snapshotURL,
+            sessionSnapshotsDirectoryURL: sessionSnapshotsDirectoryURL,
+            taskSnapshotURL: taskSnapshotURL,
+            taskSnapshotsDirectoryURL: taskSnapshotsDirectoryURL,
+            projectsDirectoryURL: projectsDirectoryURL,
+            now: now()
+        )
         return try await Task.detached(priority: .utility) {
-            let data: Data
-            do {
-                data = try Data(contentsOf: snapshotURL)
-            } catch let error as CocoaError
-                where error.code == .fileReadNoSuchFile {
+            let result = reader.read()
+            guard result.hasUsefulData else {
                 throw ClaudeCodeRateLimitProviderError.snapshotMissing
-            } catch {
-                throw ClaudeCodeRateLimitProviderError.invalidSnapshot
             }
-
-            let attributes = try? FileManager.default.attributesOfItem(
-                atPath: snapshotURL.path
+            let telemetry = ClaudeCodeTelemetrySnapshot(
+                source: result.source,
+                currentSession: result.currentSession,
+                observedSessionCount: result.observedSessionCount,
+                dailyCosts: result.dailyCosts,
+                modelCosts: result.modelCosts,
+                activeTasks: result.activeTasks,
+                activeGoals: result.activeGoals,
+                historyIsPartial: true,
+                costIsPartial: true
             )
-            let fetchedAt = attributes?[.modificationDate] as? Date ?? .now
-            return try ClaudeCodeRateLimitParser.parse(
-                data,
-                fetchedAt: fetchedAt
+            return ClaudeCodeRateLimitSnapshot(
+                planType: nil,
+                limitID: "claude-code-local",
+                fiveHour: result.parsedStatus?.fiveHour,
+                weekly: result.parsedStatus?.weekly,
+                tokenUsage: result.tokenUsage,
+                recentTaskActivity: result.recentTaskActivity,
+                claudeTelemetry: telemetry,
+                fetchedAt: result.fetchedAt
             )
         }.value
     }
@@ -64,60 +100,47 @@ enum ClaudeCodeRateLimitParser {
         _ data: Data,
         fetchedAt: Date = .now
     ) throws -> ClaudeCodeRateLimitSnapshot {
-        guard
-            let object = try? JSONSerialization.jsonObject(with: data),
-            let root = object as? [String: Any]
-        else {
-            throw ClaudeCodeRateLimitProviderError.invalidSnapshot
+        let parsed = try ClaudeCodeStatusLineTelemetryParser.parse(
+            data,
+            observedAt: fetchedAt
+        )
+        guard parsed.hasUsefulData else {
+            throw ClaudeCodeRateLimitProviderError.supportedWindowsMissing
         }
 
-        let rateLimits = root["rate_limits"] as? [String: Any] ?? root
-        let fiveHour = parseWindow(
-            rateLimits["five_hour"],
-            kind: .fiveHour,
-            durationMinutes: 300
-        )
-        let weekly = parseWindow(
-            rateLimits["seven_day"],
-            kind: .weekly,
-            durationMinutes: 10_080
-        )
-
-        guard fiveHour != nil || weekly != nil else {
-            throw ClaudeCodeRateLimitProviderError.supportedWindowsMissing
+        let telemetry = parsed.session.map { session in
+            ClaudeCodeTelemetrySnapshot(
+                source: .statusLine,
+                currentSession: session,
+                observedSessionCount: session.sessionID == nil ? 0 : 1,
+                dailyCosts: session.estimatedCostUSD.map {
+                    [ClaudeCodeDailyCostUsage(
+                        startDate: Calendar.current.startOfDay(for: fetchedAt),
+                        estimatedCostUSD: $0
+                    )]
+                } ?? [],
+                modelCosts: session.estimatedCostUSD.map { cost in
+                    [ClaudeCodeModelCostUsage(
+                        model: session.modelDisplayName
+                            ?? session.modelID
+                            ?? "Unknown model",
+                        estimatedCostUSD: cost
+                    )]
+                } ?? [],
+                activeTasks: [],
+                activeGoals: [],
+                historyIsPartial: true,
+                costIsPartial: true
+            )
         }
 
         return ClaudeCodeRateLimitSnapshot(
             planType: nil,
             limitID: "claude-code",
-            fiveHour: fiveHour,
-            weekly: weekly,
+            fiveHour: parsed.fiveHour,
+            weekly: parsed.weekly,
+            claudeTelemetry: telemetry,
             fetchedAt: fetchedAt
-        )
-    }
-
-    private static func parseWindow(
-        _ value: Any?,
-        kind: ClaudeCodeRateLimitWindowKind,
-        durationMinutes: Int
-    ) -> ClaudeCodeRateLimitWindow? {
-        guard
-            let dictionary = value as? [String: Any],
-            let usedPercentage = dictionary["used_percentage"] as? NSNumber
-        else {
-            return nil
-        }
-
-        let normalized = min(max(usedPercentage.doubleValue, 0), 100)
-        let resetsAt = (dictionary["resets_at"] as? NSNumber).map {
-            Date(timeIntervalSince1970: $0.doubleValue)
-        }
-
-        return ClaudeCodeRateLimitWindow(
-            kind: kind,
-            usedPercent: Int(normalized.rounded()),
-            windowDurationMinutes: durationMinutes,
-            resetsAt: resetsAt
         )
     }
 }
@@ -158,6 +181,10 @@ struct ClaudeCodeStatusLineBridge: ClaudeCodeStatusLineBridging {
     private let claudeDirectory: URL
     private let settingsURL: URL
     private let scriptURL: URL
+    private let subagentScriptURL: URL
+    private let sessionSnapshotsDirectoryURL: URL
+    private let taskSnapshotURL: URL
+    private let taskSnapshotsDirectoryURL: URL
     private let backupURL: URL
 
     init(
@@ -173,8 +200,22 @@ struct ClaudeCodeStatusLineBridge: ClaudeCodeStatusLineBridging {
         scriptURL = claudeDirectory.appendingPathComponent(
             "dockmagic-statusline.sh"
         )
+        subagentScriptURL = claudeDirectory.appendingPathComponent(
+            "dockmagic-subagent-statusline.sh"
+        )
         snapshotURL = claudeDirectory.appendingPathComponent(
             "dockmagic-usage.json"
+        )
+        sessionSnapshotsDirectoryURL = claudeDirectory.appendingPathComponent(
+            "dockmagic-status-sessions",
+            isDirectory: true
+        )
+        taskSnapshotURL = claudeDirectory.appendingPathComponent(
+            "dockmagic-subagents.json"
+        )
+        taskSnapshotsDirectoryURL = claudeDirectory.appendingPathComponent(
+            "dockmagic-task-sessions",
+            isDirectory: true
         )
         backupURL = claudeDirectory.appendingPathComponent(
             "dockmagic-statusline-backup.json"
@@ -185,13 +226,21 @@ struct ClaudeCodeStatusLineBridge: ClaudeCodeStatusLineBridging {
         guard
             let settings = try? readSettings(),
             let statusLine = settings["statusLine"] as? [String: Any],
-            let command = statusLine["command"] as? String
+            let statusCommand = statusLine["command"] as? String,
+            let subagentStatusLine = settings["subagentStatusLine"]
+                as? [String: Any],
+            let subagentCommand = subagentStatusLine["command"] as? String
         else {
             return false
         }
 
-        return isBridgeCommand(command)
+        return isBridgeCommand(statusCommand, scriptURL: scriptURL)
+            && isBridgeCommand(
+                subagentCommand,
+                scriptURL: subagentScriptURL
+            )
             && fileManager.isExecutableFile(atPath: scriptURL.path)
+            && fileManager.isExecutableFile(atPath: subagentScriptURL.path)
     }
 
     func install() throws {
@@ -200,6 +249,19 @@ struct ClaudeCodeStatusLineBridge: ClaudeCodeStatusLineBridging {
                 at: claudeDirectory,
                 withIntermediateDirectories: true
             )
+            for directory in [
+                sessionSnapshotsDirectoryURL,
+                taskSnapshotsDirectoryURL
+            ] {
+                try fileManager.createDirectory(
+                    at: directory,
+                    withIntermediateDirectories: true
+                )
+                try fileManager.setAttributes(
+                    [.posixPermissions: 0o700],
+                    ofItemAtPath: directory.path
+                )
+            }
 
             var settings = try readSettings()
             if settings["disableAllHooks"] as? Bool == true {
@@ -207,28 +269,53 @@ struct ClaudeCodeStatusLineBridge: ClaudeCodeStatusLineBridging {
             }
 
             let existingStatusLine = settings["statusLine"]
-            let existingCommand = try statusLineCommand(
+            let existingSubagentStatusLine = settings["subagentStatusLine"]
+            let existingStatusCommand = try statusLineCommand(
                 from: existingStatusLine
             )
-            let wasInstalled = existingCommand.map(isBridgeCommand) ?? false
-            let originalStatusLine: Any?
+            let existingSubagentCommand = try statusLineCommand(
+                from: existingSubagentStatusLine
+            )
+            let statusWasInstalled = existingStatusCommand.map {
+                isBridgeCommand($0, scriptURL: scriptURL)
+            } ?? false
+            let subagentWasInstalled = existingSubagentCommand.map {
+                isBridgeCommand($0, scriptURL: subagentScriptURL)
+            } ?? false
+            let backup = try readBackup()
+            let originalStatusLine = statusWasInstalled
+                ? backup.statusLine
+                : existingStatusLine
+            let originalSubagentStatusLine = subagentWasInstalled
+                ? backup.subagentStatusLine
+                : existingSubagentStatusLine
+            try writeBackup(
+                statusLine: originalStatusLine,
+                subagentStatusLine: originalSubagentStatusLine
+            )
 
-            if wasInstalled {
-                originalStatusLine = try readBackupStatusLine()
-            } else {
-                originalStatusLine = existingStatusLine
-                try writeBackup(statusLine: existingStatusLine)
-            }
-
-            let originalCommand = try statusLineCommand(
+            let originalStatusCommand = try statusLineCommand(
                 from: originalStatusLine
             )
-            try writeBridgeScript(originalCommand: originalCommand)
+            let originalSubagentCommand = try statusLineCommand(
+                from: originalSubagentStatusLine
+            )
+            try writeBridgeScript(originalCommand: originalStatusCommand)
+            try writeSubagentBridgeScript(
+                originalCommand: originalSubagentCommand
+            )
 
             var statusLine = existingStatusLine as? [String: Any] ?? [:]
             statusLine["type"] = "command"
             statusLine["command"] = Self.shellQuoted(scriptURL.path)
             settings["statusLine"] = statusLine
+            var subagentStatusLine = existingSubagentStatusLine
+                as? [String: Any] ?? [:]
+            subagentStatusLine["type"] = "command"
+            subagentStatusLine["command"] = Self.shellQuoted(
+                subagentScriptURL.path
+            )
+            settings["subagentStatusLine"] = subagentStatusLine
             try writeJSONObject(settings, to: settingsURL, permissions: 0o600)
         } catch let error as ClaudeCodeStatusLineBridgeError {
             throw error
@@ -242,24 +329,45 @@ struct ClaudeCodeStatusLineBridge: ClaudeCodeStatusLineBridging {
     func uninstall() throws {
         do {
             var settings = try readSettings()
+            let backup = try readBackup()
             if
                 let statusLine = settings["statusLine"] as? [String: Any],
                 let command = statusLine["command"] as? String,
-                isBridgeCommand(command)
+                isBridgeCommand(command, scriptURL: scriptURL)
             {
-                if let originalStatusLine = try readBackupStatusLine() {
+                if let originalStatusLine = backup.statusLine {
                     settings["statusLine"] = originalStatusLine
                 } else {
                     settings.removeValue(forKey: "statusLine")
                 }
-                try writeJSONObject(
-                    settings,
-                    to: settingsURL,
-                    permissions: 0o600
-                )
             }
+            if
+                let statusLine = settings["subagentStatusLine"]
+                    as? [String: Any],
+                let command = statusLine["command"] as? String,
+                isBridgeCommand(command, scriptURL: subagentScriptURL)
+            {
+                if let originalStatusLine = backup.subagentStatusLine {
+                    settings["subagentStatusLine"] = originalStatusLine
+                } else {
+                    settings.removeValue(forKey: "subagentStatusLine")
+                }
+            }
+            try writeJSONObject(
+                settings,
+                to: settingsURL,
+                permissions: 0o600
+            )
 
-            for url in [scriptURL, snapshotURL, backupURL] {
+            for url in [
+                scriptURL,
+                subagentScriptURL,
+                snapshotURL,
+                taskSnapshotURL,
+                sessionSnapshotsDirectoryURL,
+                taskSnapshotsDirectoryURL,
+                backupURL
+            ] {
                 if fileManager.fileExists(atPath: url.path) {
                     try fileManager.removeItem(at: url)
                 }
@@ -303,22 +411,28 @@ struct ClaudeCodeStatusLineBridge: ClaudeCodeStatusLineBridging {
         return command
     }
 
-    private func isBridgeCommand(_ command: String) -> Bool {
+    private func isBridgeCommand(_ command: String, scriptURL: URL) -> Bool {
         command == scriptURL.path
             || command == Self.shellQuoted(scriptURL.path)
     }
 
-    private func writeBackup(statusLine: Any?) throws {
+    private func writeBackup(
+        statusLine: Any?,
+        subagentStatusLine: Any?
+    ) throws {
         try writeJSONObject(
-            ["statusLine": statusLine ?? NSNull()],
+            [
+                "statusLine": statusLine ?? NSNull(),
+                "subagentStatusLine": subagentStatusLine ?? NSNull()
+            ],
             to: backupURL,
             permissions: 0o600
         )
     }
 
-    private func readBackupStatusLine() throws -> Any? {
+    private func readBackup() throws -> BridgeBackup {
         guard fileManager.fileExists(atPath: backupURL.path) else {
-            return nil
+            return BridgeBackup(statusLine: nil, subagentStatusLine: nil)
         }
         guard
             let object = try? JSONSerialization.jsonObject(
@@ -328,8 +442,14 @@ struct ClaudeCodeStatusLineBridge: ClaudeCodeStatusLineBridging {
         else {
             throw ClaudeCodeStatusLineBridgeError.invalidSettings
         }
-        let value = backup["statusLine"]
-        return value is NSNull ? nil : value
+        let statusLine = backup["statusLine"]
+        let subagentStatusLine = backup["subagentStatusLine"]
+        return BridgeBackup(
+            statusLine: statusLine is NSNull ? nil : statusLine,
+            subagentStatusLine: subagentStatusLine is NSNull
+                ? nil
+                : subagentStatusLine
+        )
     }
 
     private func writeBridgeScript(originalCommand: String?) throws {
@@ -340,18 +460,39 @@ struct ClaudeCodeStatusLineBridge: ClaudeCodeStatusLineBridging {
         umask 077
 
         CACHE=\(Self.shellQuoted(snapshotURL.path))
+        CACHE_DIRECTORY=\(Self.shellQuoted(sessionSnapshotsDirectoryURL.path))
         ORIGINAL_COMMAND=\(original)
         INPUT_FILE=$(/usr/bin/mktemp "${TMPDIR:-/tmp}/dockmagic-statusline.XXXXXX") || exit 1
         CACHE_TEMP="${CACHE}.tmp.$$"
+        SESSION_TEMP=""
 
         cleanup() {
           /bin/rm -f "$INPUT_FILE" "$CACHE_TEMP"
+          if [ -n "$SESSION_TEMP" ]; then
+            /bin/rm -f "$SESSION_TEMP"
+          fi
         }
         trap cleanup EXIT HUP INT TERM
 
         /bin/cat > "$INPUT_FILE"
-        if /usr/bin/plutil -extract rate_limits json -o "$CACHE_TEMP" "$INPUT_FILE" >/dev/null 2>&1; then
+        if /usr/bin/plutil -convert binary1 -o /dev/null "$INPUT_FILE" \
+          >/dev/null 2>&1; then
+          /bin/cp "$INPUT_FILE" "$CACHE_TEMP"
+          /bin/chmod 600 "$CACHE_TEMP"
           /bin/mv -f "$CACHE_TEMP" "$CACHE"
+
+          SESSION_ID=$(/usr/bin/plutil -extract session_id raw -o - "$INPUT_FILE" 2>/dev/null || :)
+          case "$SESSION_ID" in
+            ''|*[!A-Za-z0-9_-]*) SESSION_ID='' ;;
+          esac
+          if [ -n "$SESSION_ID" ]; then
+            SESSION_CACHE="${CACHE_DIRECTORY}/${SESSION_ID}.json"
+            SESSION_TEMP="${SESSION_CACHE}.tmp.$$"
+            /bin/cp "$INPUT_FILE" "$SESSION_TEMP"
+            /bin/chmod 600 "$SESSION_TEMP"
+            /bin/mv -f "$SESSION_TEMP" "$SESSION_CACHE"
+            SESSION_TEMP=""
+          fi
         fi
 
         if [ -n "$ORIGINAL_COMMAND" ]; then
@@ -363,6 +504,66 @@ struct ClaudeCodeStatusLineBridge: ClaudeCodeStatusLineBridging {
         try fileManager.setAttributes(
             [.posixPermissions: 0o700],
             ofItemAtPath: scriptURL.path
+        )
+    }
+
+    private func writeSubagentBridgeScript(
+        originalCommand: String?
+    ) throws {
+        let original = Self.shellQuoted(originalCommand ?? "")
+        let script = """
+        #!/bin/sh
+        set -u
+        umask 077
+
+        CACHE=\(Self.shellQuoted(taskSnapshotURL.path))
+        CACHE_DIRECTORY=\(Self.shellQuoted(taskSnapshotsDirectoryURL.path))
+        ORIGINAL_COMMAND=\(original)
+        INPUT_FILE=$(/usr/bin/mktemp "${TMPDIR:-/tmp}/dockmagic-subagent-statusline.XXXXXX") || exit 1
+        CACHE_TEMP="${CACHE}.tmp.$$"
+        SESSION_TEMP=""
+
+        cleanup() {
+          /bin/rm -f "$INPUT_FILE" "$CACHE_TEMP"
+          if [ -n "$SESSION_TEMP" ]; then
+            /bin/rm -f "$SESSION_TEMP"
+          fi
+        }
+        trap cleanup EXIT HUP INT TERM
+
+        /bin/cat > "$INPUT_FILE"
+        if /usr/bin/plutil -convert binary1 -o /dev/null "$INPUT_FILE" \
+          >/dev/null 2>&1; then
+          /bin/cp "$INPUT_FILE" "$CACHE_TEMP"
+          /bin/chmod 600 "$CACHE_TEMP"
+          /bin/mv -f "$CACHE_TEMP" "$CACHE"
+
+          SESSION_ID=$(/usr/bin/plutil -extract session_id raw -o - "$INPUT_FILE" 2>/dev/null || :)
+          case "$SESSION_ID" in
+            ''|*[!A-Za-z0-9_-]*) SESSION_ID='' ;;
+          esac
+          if [ -n "$SESSION_ID" ]; then
+            SESSION_CACHE="${CACHE_DIRECTORY}/${SESSION_ID}.json"
+            SESSION_TEMP="${SESSION_CACHE}.tmp.$$"
+            /bin/cp "$INPUT_FILE" "$SESSION_TEMP"
+            /bin/chmod 600 "$SESSION_TEMP"
+            /bin/mv -f "$SESSION_TEMP" "$SESSION_CACHE"
+            SESSION_TEMP=""
+          fi
+        fi
+
+        if [ -n "$ORIGINAL_COMMAND" ]; then
+          /bin/sh -c "$ORIGINAL_COMMAND" < "$INPUT_FILE"
+        fi
+        """
+
+        try Data(script.utf8).write(
+            to: subagentScriptURL,
+            options: .atomic
+        )
+        try fileManager.setAttributes(
+            [.posixPermissions: 0o700],
+            ofItemAtPath: subagentScriptURL.path
         )
     }
 
@@ -384,5 +585,10 @@ struct ClaudeCodeStatusLineBridge: ClaudeCodeStatusLineBridging {
 
     private static func shellQuoted(_ value: String) -> String {
         "'\(value.replacingOccurrences(of: "'", with: "'\\\"'\\\"'"))'"
+    }
+
+    private struct BridgeBackup {
+        let statusLine: Any?
+        let subagentStatusLine: Any?
     }
 }

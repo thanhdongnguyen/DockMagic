@@ -54,10 +54,49 @@ enum WeatherCondition: String, Codable, CaseIterable, Sendable {
             .lowercased()
             .filter(\.isLetter)
     }
+
+    func symbolName(isDaylight: Bool? = true) -> String {
+        let daylight = isDaylight != false
+        return switch self {
+        case .clear, .hot:
+            daylight ? "sun.max.fill" : "moon.stars.fill"
+        case .mostlyClear:
+            daylight ? "sun.horizon.fill" : "moon.stars.fill"
+        case .partlyCloudy:
+            daylight ? "cloud.sun.fill" : "cloud.moon.fill"
+        case .cloudy, .unknown:
+            "cloud.fill"
+        case .fog:
+            "cloud.fog.fill"
+        case .wind:
+            "wind"
+        case .drizzle:
+            "cloud.drizzle.fill"
+        case .rain:
+            "cloud.rain.fill"
+        case .sleet:
+            "cloud.sleet.fill"
+        case .snow, .cold:
+            "cloud.snow.fill"
+        case .thunderstorm:
+            "cloud.bolt.rain.fill"
+        }
+    }
+}
+
+struct DailyWeatherForecast: Codable, Equatable, Sendable, Identifiable {
+    let date: Date
+    let conditionDescription: String
+    let condition: WeatherCondition
+    let highCelsius: Double?
+    let lowCelsius: Double?
+    let precipitationChance: Double?
+
+    var id: Date { date }
 }
 
 struct WeatherSnapshot: Codable, Equatable, Sendable {
-    static let schemaVersion = 1
+    static let schemaVersion = 2
 
     let location: String
     let temperatureCelsius: Double
@@ -67,6 +106,9 @@ struct WeatherSnapshot: Codable, Equatable, Sendable {
     let highCelsius: Double?
     let lowCelsius: Double?
     let precipitationChance: Double?
+    let relativeHumidity: Double?
+    let windSpeedKPH: Double?
+    let forecast: [DailyWeatherForecast]
     let isDaylight: Bool?
     let observedAt: Date
     let fetchedAt: Date

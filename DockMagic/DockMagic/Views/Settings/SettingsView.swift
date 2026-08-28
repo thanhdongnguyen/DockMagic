@@ -7,12 +7,12 @@ enum SettingsDestination: String, CaseIterable, Identifiable {
     case network
     case storage
     case weather
+    case clock
     case batteries
     case github
     case codex
     case claudeCode
     case searchConsole
-    case about
 
     var id: Self { self }
 
@@ -28,6 +28,8 @@ enum SettingsDestination: String, CaseIterable, Identifiable {
             "Storage"
         case .weather:
             "Weather"
+        case .clock:
+            "Clock"
         case .batteries:
             "Batteries"
         case .github:
@@ -38,8 +40,6 @@ enum SettingsDestination: String, CaseIterable, Identifiable {
             "Claude Code"
         case .searchConsole:
             "Search Console"
-        case .about:
-            "About"
         }
     }
 
@@ -55,6 +55,8 @@ enum SettingsDestination: String, CaseIterable, Identifiable {
             "Monitor usage on the startup disk."
         case .weather:
             "Show current conditions supplied by Open-Meteo."
+        case .clock:
+            "Show local time or the time at another location."
         case .batteries:
             "Monitor your Mac and connected devices."
         case .github:
@@ -65,8 +67,6 @@ enum SettingsDestination: String, CaseIterable, Identifiable {
             "Show remaining 5-hour and weekly Claude Code limits."
         case .searchConsole:
             "A focused view of your Google Search performance."
-        case .about:
-            "Version, privacy, and distribution details."
         }
     }
 
@@ -82,6 +82,8 @@ enum SettingsDestination: String, CaseIterable, Identifiable {
             "internaldrive.fill"
         case .weather:
             "cloud.sun.fill"
+        case .clock:
+            "clock.fill"
         case .batteries:
             "battery.75percent"
         case .github:
@@ -92,14 +94,12 @@ enum SettingsDestination: String, CaseIterable, Identifiable {
             "chevron.left.forwardslash.chevron.right"
         case .searchConsole:
             "magnifyingglass"
-        case .about:
-            "info.circle"
         }
     }
 
     var feature: DockFeature? {
         switch self {
-        case .general, .about:
+        case .general:
             nil
         case .systemMetrics:
             .systemMetrics
@@ -109,6 +109,8 @@ enum SettingsDestination: String, CaseIterable, Identifiable {
             .storage
         case .weather:
             .weather
+        case .clock:
+            .clock
         case .batteries:
             .batteries
         case .github:
@@ -171,12 +173,14 @@ struct SettingsView: View {
             case .weather:
                 appModel.weatherStore.refreshLocationAuthorizationStatus()
                 refreshWeather()
+            case .clock:
+                appModel.clockStore.start()
             case .batteries:
                 appModel.batteryStore.start()
             case .searchConsole:
                 appModel.searchConsoleStore.start()
             case .general, .systemMetrics, .network, .storage, .codex,
-                 .claudeCode, .github, .about:
+                 .claudeCode, .github:
                 if newDestination == .general {
                     launchAtLoginController.refresh()
                 }
@@ -186,7 +190,23 @@ struct SettingsView: View {
                 if appModel.preferences.activeFeature != .searchConsole {
                     appModel.searchConsoleStore.stop()
                 }
+                if appModel.preferences.activeFeature != .clock {
+                    appModel.clockStore.stop()
+                }
                 break
+            }
+
+            if newDestination != .clock,
+               appModel.preferences.activeFeature != .clock {
+                appModel.clockStore.stop()
+            }
+            if newDestination != .batteries,
+               appModel.preferences.activeFeature != .batteries {
+                appModel.batteryStore.stop()
+            }
+            if newDestination != .searchConsole,
+               appModel.preferences.activeFeature != .searchConsole {
+                appModel.searchConsoleStore.stop()
             }
         }
         .onDisappear {
@@ -195,6 +215,9 @@ struct SettingsView: View {
             }
             if appModel.preferences.activeFeature != .searchConsole {
                 appModel.searchConsoleStore.stop()
+            }
+            if appModel.preferences.activeFeature != .clock {
+                appModel.clockStore.stop()
             }
         }
         .onReceive(
@@ -240,16 +263,12 @@ struct SettingsView: View {
                     sidebarRow(.network)
                     sidebarRow(.storage)
                     sidebarRow(.weather)
+                    sidebarRow(.clock)
                     sidebarRow(.batteries)
                     sidebarRow(.github)
                     sidebarRow(.codex)
                     sidebarRow(.claudeCode)
                     sidebarRow(.searchConsole)
-
-                    DSDivider()
-                        .padding(.vertical, DSSpacing.small)
-
-                    sidebarRow(.about)
                 }
                 .padding(.horizontal, DSSpacing.medium)
                 .padding(.vertical, DSSpacing.small)
@@ -425,6 +444,8 @@ struct SettingsView: View {
             storageContent
         case .weather:
             weatherContent
+        case .clock:
+            clockContent
         case .batteries:
             batteriesContent
         case .github:
@@ -435,8 +456,6 @@ struct SettingsView: View {
             claudeCodeContent
         case .searchConsole:
             searchConsoleContent
-        case .about:
-            aboutContent
         }
     }
 
@@ -509,23 +528,43 @@ struct SettingsView: View {
                 title: "Dock",
                 detail: "Choose the single feature DockMagic shows and updates in the Dock."
             ) {
-                DSSettingsRow(
-                    title: "Active Dock Feature",
-                    detail: appModel.preferences.activeFeature.detail,
-                    systemImage: "dock.rectangle"
-                ) {
-                    ActiveDockFeaturePicker(selection: activeFeatureBinding)
+                VStack(spacing: DSSpacing.standard) {
+                    DSSettingsRow(
+                        title: "Active Dock Feature",
+                        detail: appModel.preferences.activeFeature.detail,
+                        systemImage: "dock.rectangle"
+                    ) {
+                        ActiveDockFeaturePicker(selection: activeFeatureBinding)
+                    }
+
+                    if appModel.preferences.activeFeature == .clock {
+                        DSDivider()
+                        DSSettingsRow(
+                            title: "Clock style",
+                            detail: appModel.preferences.clockConfiguration
+                                .displayStyle.detail,
+                            systemImage: appModel.preferences.clockConfiguration
+                                .displayStyle.systemImage
+                        ) {
+                            ClockDisplayStylePicker(
+                                selection: clockDisplayStyleBinding
+                            )
+                            .frame(width: 280)
+                        }
+                    }
                 }
             }
 
             DSSettingsSection(
                 title: "Dock hover dashboard",
-                detail: "Show a read-only dashboard above DockMagic when its Dock icon is hovered. Codex includes rate limits and a scrollable token chart for up to 30 days."
+                detail: "Available for CPU & RAM, Weather, Codex, and Claude Code. Clock and other Dock-only features never open a hover dashboard."
             ) {
                 VStack(spacing: DSSpacing.standard) {
                     DSSettingsRow(
                         title: "Show dashboard on Dock hover",
-                        detail: "Off by default. Requires Accessibility to detect only DockMagic's own Dock item and position."
+                        detail: appModel.preferences.activeFeature.hasHoverDashboard
+                            ? "Off by default. Requires Accessibility to detect only DockMagic's own Dock item and position."
+                            : "Unavailable while \(appModel.preferences.activeFeature.title) is active. Your preference is preserved for supported features."
                     ) {
                         Toggle(
                             "Show dashboard on Dock hover",
@@ -533,10 +572,14 @@ struct SettingsView: View {
                         )
                         .labelsHidden()
                         .toggleStyle(.switch)
+                        .disabled(
+                            !appModel.preferences.activeFeature.hasHoverDashboard
+                        )
                         .accessibilityIdentifier("settings.dockHover.toggle")
                     }
 
-                    if appModel.preferences.isDockHoverDashboardEnabled {
+                    if appModel.preferences.isDockHoverDashboardEnabled,
+                       appModel.preferences.activeFeature.hasHoverDashboard {
                         DSDivider()
 
                         HStack(alignment: .top, spacing: DSSpacing.medium) {
@@ -878,6 +921,17 @@ struct SettingsView: View {
         .padding(.horizontal, DSSpacing.compact)
     }
 
+    private var clockContent: some View {
+        ClockSettingsView(
+            date: appModel.clockStore.currentDate,
+            configuration: appModel.preferences.clockConfiguration,
+            isActive: appModel.preferences.activeFeature == .clock,
+            displayStyle: clockDisplayStyleBinding,
+            followsSystemTimeZone: clockFollowsSystemTimeZoneBinding,
+            timeZoneIdentifier: clockTimeZoneIdentifierBinding
+        )
+    }
+
     private var batteriesContent: some View {
         VStack(spacing: DSSpacing.section) {
             DSSettingsSection(
@@ -1054,43 +1108,6 @@ struct SettingsView: View {
         }
     }
 
-    private var aboutContent: some View {
-        VStack(spacing: DSSpacing.section) {
-            DSSettingsSection(
-                title: "DockMagic",
-                detail: "A focused macOS utility that turns its own Dock icon into live information."
-            ) {
-                LabeledContent("Version", value: "1.0")
-                LabeledContent("Appearance", value: appearanceMode.title)
-                LabeledContent(
-                    "Features",
-                    value: "CPU & RAM, Network, Storage, Weather, Batteries, GitHub, Codex, Claude Code"
-                )
-            }
-
-            DSSettingsSection(
-                title: "Distribution",
-                detail: "DockMagic is distributed directly instead of through the Mac App Store."
-            ) {
-                DSStatusCard(
-                    title: "Release hardening required",
-                    detail: "Production builds should use Developer ID signing, Hardened Runtime, notarization, and stapling.",
-                    systemImage: "checkmark.shield.fill",
-                    role: .information
-                )
-            }
-
-            DSSettingsSection(
-                title: "Data boundaries",
-                detail: "CPU, memory, network, storage, and battery metrics remain local. GitHub receives the configured repository path every 15 minutes while active; Weather sends current coordinates to Open-Meteo; Codex uses the automatically detected CLI for rate limits and aggregate account token totals; Claude Code uses a local status line snapshot containing only rate_limits."
-            ) {
-                Text("Battery status is read from public local macOS power-source and device-registry APIs; DockMagic does not pair with devices or retain a connection history. It stores only the last successful weather result and up to seven days of GitHub count history. An optional GitHub token is kept only in macOS Keychain. DockMagic reads Codex's aggregate daily and lifetime token counts, but does not inspect prompts, conversations, transcripts, or Claude Code OAuth tokens. Open-Meteo data is used under CC BY 4.0.")
-                    .font(DSTypography.body)
-                    .foregroundStyle(theme.textSecondary)
-            }
-        }
-    }
-
     private func featurePreviewSection<Preview: View, Values: View>(
         title: String,
         detail: String,
@@ -1132,8 +1149,8 @@ struct SettingsView: View {
                 case .searchConsole:
                     destination = .searchConsole
                     appModel.searchConsoleStore.start()
-                case .dockMagic, .systemMetrics, .network, .storage, .codex,
-                     .claudeCode:
+                case .dockMagic, .systemMetrics, .network, .storage, .clock,
+                     .codex, .claudeCode:
                     break
                 }
             }
@@ -1201,6 +1218,29 @@ struct SettingsView: View {
                     object: newMode
                 )
             }
+        )
+    }
+
+    private var clockDisplayStyleBinding: Binding<DockClockDisplayStyle> {
+        Binding(
+            get: { appModel.preferences.clockConfiguration.displayStyle },
+            set: { appModel.preferences.setClockDisplayStyle($0) }
+        )
+    }
+
+    private var clockFollowsSystemTimeZoneBinding: Binding<Bool> {
+        Binding(
+            get: {
+                appModel.preferences.clockConfiguration.followsSystemTimeZone
+            },
+            set: { appModel.preferences.setClockFollowsSystemTimeZone($0) }
+        )
+    }
+
+    private var clockTimeZoneIdentifierBinding: Binding<String> {
+        Binding(
+            get: { appModel.preferences.clockConfiguration.timeZoneIdentifier },
+            set: { appModel.preferences.setClockTimeZoneIdentifier($0) }
         )
     }
 
@@ -1774,7 +1814,7 @@ private struct DockFeatureIcon: View {
                         )
                         .fill(theme.surfaceChrome)
                     )
-            case .systemMetrics, .network, .storage:
+            case .systemMetrics, .network, .storage, .clock:
                 Image(systemName: featureSystemImage)
                     .font(.system(size: size * 0.58, weight: .semibold))
                     .foregroundStyle(theme.processingForeground)
@@ -1816,6 +1856,8 @@ private struct DockFeatureIcon: View {
             "internaldrive.fill"
         case .weather:
             "cloud.sun.fill"
+        case .clock:
+            "clock.fill"
         case .batteries:
             "battery.75percent"
         case .github:

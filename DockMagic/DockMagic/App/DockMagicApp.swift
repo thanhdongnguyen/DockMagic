@@ -221,6 +221,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         ) { [weak self] _ in
             Task { @MainActor [weak self] in
                 await self?.appModel.refreshActiveWeatherAfterResume()
+                self?.appModel.refreshActiveClockAfterResume()
                 await self?.appModel.refreshActiveBatteriesAfterResume()
                 await self?.appModel.refreshActiveGitHubAfterResume()
             }
@@ -232,6 +233,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         ) { [weak self] _ in
             Task { @MainActor [weak self] in
                 await self?.appModel.refreshActiveWeatherAfterResume()
+                self?.appModel.refreshActiveClockAfterResume()
                 await self?.appModel.refreshActiveBatteriesAfterResume()
                 await self?.appModel.refreshActiveGitHubAfterResume()
             }
@@ -300,6 +302,8 @@ private final class DockFeatureMenuController: NSObject {
             #selector(selectStorage(_:))
         case .weather:
             #selector(selectWeather(_:))
+        case .clock:
+            #selector(selectClock(_:))
         case .batteries:
             #selector(selectBatteries(_:))
         case .github:
@@ -337,6 +341,10 @@ private final class DockFeatureMenuController: NSObject {
         select(.weather)
     }
 
+    @objc private func selectClock(_ sender: Any?) {
+        select(.clock)
+    }
+
     @objc private func selectBatteries(_ sender: Any?) {
         select(.batteries)
     }
@@ -361,6 +369,26 @@ private final class DockFeatureMenuController: NSObject {
 private struct DockMagicUITestWeatherProvider: WeatherSnapshotProviding {
     func fetchWeather() async throws -> WeatherSnapshot {
         let now = Date()
+        let startOfToday = Calendar.current.startOfDay(for: now)
+        let forecast = (0 ..< 7).compactMap { dayOffset -> DailyWeatherForecast? in
+            guard let date = Calendar.current.date(
+                byAdding: .day,
+                value: dayOffset,
+                to: startOfToday
+            ) else {
+                return nil
+            }
+            return DailyWeatherForecast(
+                date: date,
+                conditionDescription: dayOffset == 0
+                    ? "Partly cloudy"
+                    : "Thunderstorm",
+                condition: dayOffset == 0 ? .partlyCloudy : .thunderstorm,
+                highCelsius: Double(33 - (dayOffset % 3)),
+                lowCelsius: Double(25 + (dayOffset % 2)),
+                precipitationChance: Double(20 + dayOffset * 10) / 100
+            )
+        }
         return WeatherSnapshot(
             location: "Ho Chi Minh City, Vietnam",
             temperatureCelsius: 29,
@@ -370,6 +398,9 @@ private struct DockMagicUITestWeatherProvider: WeatherSnapshotProviding {
             highCelsius: 33,
             lowCelsius: 26,
             precipitationChance: 0.2,
+            relativeHumidity: 0.76,
+            windSpeedKPH: 13,
+            forecast: forecast,
             isDaylight: true,
             observedAt: now,
             fetchedAt: now

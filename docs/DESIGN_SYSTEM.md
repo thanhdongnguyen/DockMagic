@@ -58,7 +58,7 @@ pass before release.
 - Surface: `surface`, `surfaceRaised`, `surfaceInset`, `surfaceChrome`, and four
   opaque fallbacks.
 - Dock chrome: `dockTrack`, `dockBackgroundRaised`, `dockBackgroundInset`,
-  `dockOutline`.
+  `dockOutline`, `dockForeground`.
 
 Status always uses a semantic role. CPU, RAM, Network, Storage, Codex, and
 Claude Code renderer colors must not be reused as status colors because they
@@ -78,7 +78,7 @@ budget and bounded exceptions in `COLOR_DESIGN_SYSTEM.md`.
 | Radius | 8 / 12 / 16 / 24 pt, dynamic capsules, and concentric radii |
 | Spacing | 4 / 8 / 12 / 16 / 24 / 32 pt |
 | Typography | title 32, headline 20, panel 16, body/section 14, metadata 12, caption 11, metric 24 pt |
-| Motion | 0.12–0.16 s feedback, 0.32 s metric changes; respects Reduce Motion |
+| Motion | 0.12–0.16 s feedback, 0.32 s metric changes, and bounded 0.24–0.36 s Clock digit transitions; respects Reduce Motion |
 | Rows | content/action rows at least 46 pt; compact sidebar rows at least 30 pt; full-row content shapes and independent focus/selection |
 
 The surface hierarchy is `shell → panel → raised → inset → chrome`. Nested

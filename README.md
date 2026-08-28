@@ -93,8 +93,16 @@ Click any screenshot to view it at full resolution.
 - **Weather** renders the current temperature and condition for Dock sizes from
   `32...128 pt`; larger tiles also show the daily high and low. It uses the
   current macOS location, refreshes from Open-Meteo every ten minutes while
-  active, reverse-geocodes the place name for the Dock preview, and retains the
-  most recent successful result if a refresh fails.
+  active, reverse-geocodes the place name, opens a seven-day forecast dashboard
+  when the Dock tile is hovered, and retains the most recent successful result
+  if a refresh fails.
+- **Clock** renders Analog, stacked Digital, or Split-flap time directly in the
+  Dock. It follows the Mac's current time zone by default, can use another IANA
+  city/time zone without changing system settings, and requires no network or
+  additional Location permission. Digital rolls the changed row and Split-flap
+  mechanically flips only changed digits at each minute boundary; both settle
+  immediately when Reduce Motion is enabled. Clock is intentionally Dock-only
+  and never opens a hover dashboard.
 - **GitHub** displays repository stars and forks as a compact line chart or
   numeric tile. It refreshes the active repository every 15 minutes, retains up
   to seven days of count history, and uses conditional ETag requests. Public
@@ -105,18 +113,20 @@ Click any screenshot to view it at full resolution.
   `codex app-server --stdio` with the existing login. If the account does not
   return a five-hour window, DockMagic displays only the weekly value instead
   of inventing missing data.
-- **Claude Code** displays the same five-hour and weekly windows. DockMagic uses
-  Claude Code's official `statusLine` contract and caches only the
-  `rate_limits` object after a response. Selecting the feature installs the
+- **Claude Code** displays five-hour and weekly windows plus real local token,
+  model, observed-cost, context, subagent, task, goal, and Ship momentum data.
+  DockMagic uses Claude Code's official `statusLine` and `subagentStatusLine`
+  contracts together with local transcript metadata. Selecting the feature installs the
   default local bridge automatically, preserves any previous status-line
   command, and does not call internal OAuth endpoints. Its Dock-hover dashboard
-  shows quota reset times, the next reset, local snapshot freshness, and clear
-  stale/unavailable states; it does not invent token history that the supported
-  contract does not expose.
+  shows quota, a Tokens/Cost chart, top models, Ship momentum, and active work.
+  Missing or partial observations remain visibly unavailable instead of being
+  estimated from fabricated prices or activity.
 - **General settings** select exactly one feature to run and display in the
   Dock. CPU & RAM, Storage, GitHub, Codex, and Claude Code support `Chart` and
-  `Numbers` display styles. Colors and display choices are persisted and
-  applied to the active tile immediately.
+  `Numbers` display styles; Clock offers `Analog`, `Digital`, and `Split-flap`
+  in both General and Clock Settings. Colors and display choices are persisted
+  and applied to the active tile immediately.
 - **Appearance** supports System, Light, and Dark. Navigation chrome uses Liquid
   Glass where available and a material fallback on the current toolchain, while
   primary content remains opaque.
@@ -145,9 +155,11 @@ DockMagic is designed for direct distribution, not the Mac App Store.
 - The Codex integration does not read or store tokens, prompts, or account
   identifiers. It reads only the rate-limit response returned by the installed
   Codex CLI.
-- The Claude Code cache at `~/.claude/dockmagic-usage.json` contains only
-  `rate_limits`. DockMagic does not read transcripts or Claude Code OAuth
-  tokens. The only Keychain secret managed by the GitHub feature is the
+- Claude Code bridge snapshots and per-session observations stay under
+  `~/.claude/` with private permissions. DockMagic reads transcript metadata
+  needed for usage, model, task, and active-goal aggregation; it ignores prompt
+  and answer text except explicit task descriptions and goal objectives. It
+  never reads Claude Code OAuth tokens. The only Keychain secret managed by the GitHub feature is the
   optional token entered by the user.
 
 The core Dock renderer does not require Accessibility, Screen Recording, Full

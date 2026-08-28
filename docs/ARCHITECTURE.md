@@ -17,13 +17,15 @@ Settings uses a native `NavigationSplitView`:
   one ring.
 - `Weather`: responsive preview with location name, freshness state, and
   Open-Meteo attribution; there is no connection or Location/privacy section.
+- `Clock`: live Dock preview, Analog/Digital/Split-flap style, and a choice
+  between the Mac's current time zone and another IANA city/time zone. It has
+  no hover dashboard.
 - `Batteries`: live 2×2 Dock preview plus the Mac and every connected accessory
   for which macOS currently publishes battery data.
 - `Codex`: quota preview, display style, colors, and widths for the two rings;
   there are no connection controls.
 - `Claude Code`: quota preview, display style, colors, and widths for the two
   rings; there are no connection controls.
-- `About`: version, privacy, and distribution.
 
 ## 2. Ownership
 
@@ -41,6 +43,8 @@ Settings uses a native `NavigationSplitView`:
 | `StorageMetricsStore` / `StorageMetricsSampler` | Polls the startup volume every 5 seconds and calculates used/available/total capacity |
 | `WeatherStore` | Polls every 10 minutes, caches the snapshot, and owns live/stale/unavailable state |
 | `OpenMeteoWeatherProvider` | Obtains Core Location, calls the Forecast API, validates HTTP/JSON, and maps WMO codes |
+| `WeatherHoverDashboardView` | Renders current conditions, today's details, and the seven-day forecast inside shared Dock-hover chrome |
+| `ClockStore` | Owns the lightweight local timer, immediate wake refresh, and start/stop lifecycle |
 | `BatteryMetricsStore` | Re-enumerates live battery sources every 2 seconds and replaces disconnected devices atomically |
 | `SystemPowerSourceBatteryReader` | Reads the Mac's internal battery through public `IOPowerSources` APIs |
 | `IORegistryAccessoryBatteryReader` | Reads currently registered Bluetooth/USB accessory battery properties through public IOKit registry APIs |
@@ -53,8 +57,8 @@ Settings uses a native `NavigationSplitView`:
 | `ClaudeCodeStatusLineBridge` | Installs/removes the status-line wrapper and preserves the previous configuration |
 | `ClaudeCodeStatusLineRateLimitProvider` | Reads and parses only the local `rate_limits` cache |
 | `ClaudeCodeHoverDashboardView` | Renders quota rows, next reset, snapshot freshness, and all availability states without reading private session data |
-| `DockTileController` | Maintains one long-lived `NSHostingView`, updates its root view, and calls `NSDockTile.display()` |
-| `DockMetricsView` / `DockNetworkView` / `DockStorageView` / `DockWeatherView` / `DockBatteryView` / `DockGitHubView` / `CodexDockView` | Pure renderers driven by input models and appearance |
+| `DockTileController` | Renders the canonical high-resolution application icon, publishes minute-boundary Clock animation frames, and calls `NSDockTile.display()` |
+| `DockMetricsView` / `DockNetworkView` / `DockStorageView` / `DockWeatherView` / `DockClockView` / `DockBatteryView` / `DockGitHubView` / `CodexDockView` | Pure renderers driven by input models and appearance |
 | `SettingsView` | Preference UI; does not create timers or call Mach APIs |
 | `DesignSystem` / `ProjectTheme` | Tokens, components, semantic palette, and appearance-aware theme root |
 
@@ -91,6 +95,7 @@ flowchart LR
     A -->|"Network active"| R["NetworkMetricsStore 1 Hz"]
     A -->|"Storage active"| S["StorageMetricsStore 5 s"]
     A -->|"Weather active"| W["WeatherStore 10 min"]
+    A -->|"Clock active"| K["ClockStore 1 s"]
     A -->|"Batteries active"| B["BatteryMetricsStore 2 s"]
     A -->|"GitHub active"| G["GitHubRepositoryStore 15 min"]
     A -->|"Codex active"| C["CodexUsageStore 5 min"]
@@ -100,6 +105,8 @@ flowchart LR
     R --> D
     S --> D
     W --> D
+    W --> Y["WeatherHoverDashboardView"]
+    K --> D
     B --> D
     G --> D
     C --> D
@@ -218,10 +225,11 @@ and makes a one-shot `requestLocation()` call with three-kilometer accuracy and
 a 20-second timeout. The Developer ID app keeps Hardened Runtime enabled and
 signs with the public `com.apple.security.personal-information.location`
 entitlement so macOS can present the authorization prompt. One HTTPS request
-sends the coordinates and requests the
-current temperature, apparent temperature, WMO code, daylight state, daily
-high/low, and precipitation probability. The provider validates coordinates,
-HTTP status, schema, and value ranges before creating `WeatherSnapshot`.
+sends the coordinates and requests the current temperature, apparent
+temperature, humidity, wind speed, WMO code, daylight state, and seven daily
+weather-code/high/low/precipitation summaries. The provider validates
+coordinates, HTTP status, schema, aligned forecast arrays, dates, and value
+ranges before creating `WeatherSnapshot`.
 
 State contract:
 
@@ -246,6 +254,45 @@ endpoint accepts an `apikey` through provider configuration; a key embedded in
 a desktop binary must not be treated as secret. Weather Settings places
 `Open-Meteo · CC BY 4.0` directly below the production preview so attribution
 remains clear rather than being hidden at the end of setup.
+
+When Weather is active and Dock hover dashboards are enabled, the same snapshot
+also feeds `WeatherHoverDashboardView`. `DockHoverCoordinator` routes Weather
+through the shared native hover chrome used by Codex at `440 × 420 pt`; the
+panel exposes current conditions, today's high/low, humidity, wind, all seven
+forecast days, stale/unavailable status, and Open-Meteo
+attribution. Weather Settings remains a Dock-tile preview and does not embed
+this dashboard.
+
+### Clock
+
+Clock is a local, Dock-only feature. `DockClockConfiguration` persists one of
+three renderers—Analog, stacked 24-hour Digital, or four-cell Split-flap—and
+whether the display follows `TimeZone.autoupdatingCurrent` or a selected IANA
+time-zone identifier. Following the Mac means any automatic location-based
+time-zone update performed by macOS is picked up without DockMagic requesting
+Core Location access. Choosing another location changes only the Dock display;
+it does not change the Mac time zone and does not use the network.
+
+`ClockStore` runs only while Clock owns the Dock or while Clock Settings needs a
+live preview. Analog presentation dates are coalesced to one-second precision;
+Digital and Split-flap dates are coalesced to minute precision so the Dock
+renderer skips unchanged frames. Wake and session-unlock notifications refresh
+the visible time immediately.
+
+At a normal one-minute transition, `DockTileController` publishes a bounded
+high-resolution raster sequence because the system Dock consumes the canonical
+application icon rather than a live SwiftUI view. Digital uses nine frames to
+roll only the changed hour/minute row. Split-flap uses thirteen frames and a
+two-phase hinged rotation for each changed digit, with a small cascade when
+multiple digits change. The controller cancels an in-flight sequence when the
+feature, style, or appearance changes, skips animation after long sleep/time
+jumps, and publishes only the settled frame when macOS Reduce Motion is active.
+
+The Clock style control appears both in General when Clock is active and in the
+Clock feature page. The feature page owns the current/custom location choice and
+uses the same production renderer for its preview. Clock has no hover dashboard,
+no provider, no entitlement, and no external persistence beyond its style and
+time-zone preference.
 
 ## 9. Batteries
 
@@ -417,6 +464,8 @@ animations to provide immediate interaction feedback.
 - the System/Light/Dark appearance color scheme; glass chrome is the default in
   all three;
 - the active feature;
+- the Clock display style, current-time-zone choice, and selected IANA
+  identifier;
 - RGBA values, stroke widths, and Chart/Numbers display styles for CPU/RAM,
   Storage, Codex, and Claude Code;
 - RGBA values for the Network download and upload series;
@@ -455,12 +504,18 @@ Every change must be checked according to its risk:
    Weather/Open-Meteo requests/decoder/WMO variants, executable resolution,
    timeout/cancellation, live→stale/unavailable transitions, lifecycle
    exclusivity, Mach math, and Dock redraw.
-2. Renderer: Weather at `32/48/64/128 pt`; Network and Storage; and CPU, Codex,
-   and Claude Code in loading/live/weekly-only/stale/error states, including
-   Chart and Numbers at multiple tile sizes.
-3. UI: launch Settings with glass chrome, three appearance options, eight
-   sidebar destinations, active-feature icon/picker, numeric display controls,
-   and close→Dock activation→one Settings window.
+2. Renderer: Weather and all three Clock styles at `32/48/64/128 pt`, including
+   distinct early/late Digital and Split-flap transition frames plus their
+   Reduce Motion settled state; the
+   Weather hover dashboard in Light, Dark, Increased Contrast, Reduce
+   Transparency, grayscale, live/stale/loading/unavailable states; Network and
+   Storage; and CPU, Codex, and Claude Code in
+   loading/live/weekly-only/stale/error states, including Chart and Numbers at
+   multiple tile sizes.
+3. UI: launch Settings with glass chrome, three appearance options, every
+   sidebar destination, active-feature icon/picker, Clock style/location
+   controls, numeric display controls, and close→Dock activation→one Settings
+   window.
 4. Runtime: signed launch smoke test; process remains alive after Settings
    closes.
 5. Release: Developer ID, Hardened Runtime, notarization, Gatekeeper, and real

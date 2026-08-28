@@ -231,6 +231,7 @@ final class DockHoverCoordinator {
         configurationObservationActive = true
         withObservationTracking {
             _ = appModel.preferences.isDockHoverDashboardEnabled
+            _ = appModel.preferences.activeFeature
             _ = permissionController.state
         } onChange: { [weak self] in
             Task { @MainActor [weak self] in
@@ -246,9 +247,12 @@ final class DockHoverCoordinator {
 
     private func applyConfiguration() {
         let isEnabled = appModel.preferences.isDockHoverDashboardEnabled
+        let activeFeature = appModel.preferences.activeFeature
         permissionController.synchronize(isEnabled: isEnabled)
 
-        guard isEnabled, permissionController.state == .authorized else {
+        guard isEnabled,
+              permissionController.state == .authorized,
+              activeFeature.hasHoverDashboard else {
             dockObserver.stop()
             panelController.hide()
             return
@@ -649,8 +653,9 @@ enum DockHoverScreenGeometry {
 enum DockHoverPanelPlacement {
     static let standardPanelSize = CGSize(width: 440, height: 304)
     static let systemMetricsPanelSize = CGSize(width: 620, height: 474)
+    static let weatherPanelSize = CGSize(width: 440, height: 420)
     static let codexPanelSize = CGSize(width: 440, height: 522)
-    static let claudeCodePanelSize = CGSize(width: 440, height: 410)
+    static let claudeCodePanelSize = CGSize(width: 440, height: 760)
     static let pointerExtent: CGFloat = 10
     static let iconClearance: CGFloat = 2
     static let windowLevel = NSWindow.Level(
@@ -665,6 +670,8 @@ enum DockHoverPanelPlacement {
         switch feature {
         case .systemMetrics:
             systemMetricsPanelSize
+        case .weather:
+            weatherPanelSize
         case .codex:
             codexPanelSize
         case .claudeCode:
@@ -744,6 +751,11 @@ final class DockHoverPanelController {
     private var pendingHideTask: Task<Void, Never>?
 
     func show(anchor: DockHoverAnchor, appModel: DockAppModel) {
+        guard appModel.preferences.activeFeature.hasHoverDashboard else {
+            hide()
+            return
+        }
+
         pendingHideTask?.cancel()
         pendingHideTask = nil
         let panelSize = DockHoverPanelPlacement.panelSize(
