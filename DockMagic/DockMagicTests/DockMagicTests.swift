@@ -640,7 +640,7 @@ final class DockMagicTests: XCTestCase {
         )
         XCTAssertEqual(
             DockHoverPanelPlacement.panelSize(for: .codex).height,
-            522
+            556
         )
         XCTAssertEqual(
             DockHoverPanelPlacement.panelSize(for: .claudeCode),
@@ -649,6 +649,10 @@ final class DockMagicTests: XCTestCase {
         XCTAssertGreaterThan(
             DockHoverPanelPlacement.claudeCodePanelSize.height,
             DockHoverPanelPlacement.codexPanelSize.height
+        )
+        XCTAssertEqual(
+            DockHoverPanelPlacement.claudeCodePanelSize.height,
+            740
         )
     }
 
@@ -1016,9 +1020,25 @@ final class DockMagicTests: XCTestCase {
         let scriptURL = claudeDirectory.appendingPathComponent(
             "dockmagic-statusline.sh"
         )
+        let currentScript = try String(contentsOf: scriptURL, encoding: .utf8)
+        XCTAssertTrue(currentScript.contains("status-line bridge v2"))
+        XCTAssertTrue(currentScript.contains("/usr/bin/json_pp"))
+
+        try Data("#!/bin/sh\nexit 0\n".utf8).write(to: scriptURL)
+        try FileManager.default.setAttributes(
+            [.posixPermissions: 0o700],
+            ofItemAtPath: scriptURL.path
+        )
+        XCTAssertFalse(
+            bridge.isInstalled(),
+            "An outdated installed script must trigger automatic refresh."
+        )
+        try bridge.install()
+        XCTAssertTrue(bridge.isInstalled())
+
         let input = Data(
             """
-            {"session_id":"private-session","cwd":"/private/project","rate_limits":{"five_hour":{"used_percentage":20,"resets_at":2000000000},"seven_day":{"used_percentage":40,"resets_at":2000500000}}}
+            {"session_id":"private-session","cwd":"/private/project","context_window":{"current_usage":null},"rate_limits":{"five_hour":{"used_percentage":20,"resets_at":2000000000},"seven_day":{"used_percentage":40,"resets_at":2000500000}}}
             """.utf8
         )
         let process = Process()
@@ -1057,7 +1077,7 @@ final class DockMagicTests: XCTestCase {
         )
         let subagentInput = Data(
             """
-            {"session_id":"private-session","tasks":[{"id":"task-1","name":"Research","status":"running","tokenCount":1200}]}
+            {"session_id":"private-session","tasks":[{"id":"task-1","name":"Research","status":"running","description":null,"tokenCount":1200}]}
             """.utf8
         )
         let subagentProcess = Process()
@@ -1120,6 +1140,312 @@ final class DockMagicTests: XCTestCase {
             "/usr/bin/printf agent-preserved"
         )
         XCTAssertEqual(restoredObject["theme"] as? String, "light")
+    }
+
+    @MainActor
+    func testClaudeCodeActivityHookMergesFiltersPayloadAndUninstallsPrecisely()
+        throws {
+        let homeDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let claudeDirectory = homeDirectory.appendingPathComponent(
+            ".claude",
+            isDirectory: true
+        )
+        try FileManager.default.createDirectory(
+            at: claudeDirectory,
+            withIntermediateDirectories: true
+        )
+        defer { try? FileManager.default.removeItem(at: homeDirectory) }
+
+        let settingsURL = claudeDirectory.appendingPathComponent("settings.json")
+        let existingHandler: [String: Any] = [
+            "type": "command",
+            "command": "/usr/bin/true",
+            "timeout": 10
+        ]
+        let settings: [String: Any] = [
+            "theme": "dark",
+            "hooks": [
+                "PreToolUse": [[
+                    "matcher": "Bash",
+                    "hooks": [existingHandler]
+                ]],
+                "Stop": [[
+                    "matcher": "",
+                    "hooks": [[
+                        "type": "command",
+                        "command": "open -g raycast://confetti"
+                    ]]
+                ]]
+            ]
+        ]
+        try JSONSerialization.data(withJSONObject: settings)
+            .write(to: settingsURL)
+
+        let bridge = ClaudeCodeActivityHookBridge(
+            homeDirectory: homeDirectory
+        )
+        try bridge.install()
+        XCTAssertTrue(bridge.isInstalled())
+        try bridge.install()
+        XCTAssertTrue(bridge.isInstalled())
+
+        let supportedEvents = [
+            "SessionStart", "UserPromptSubmit", "PreToolUse", "PostToolUse",
+            "PostToolUseFailure", "PermissionRequest", "Notification",
+            "PostCompact", "SubagentStart", "SubagentStop", "TaskCreated",
+            "TaskCompleted",
+            "Stop", "StopFailure", "TeammateIdle", "SessionEnd"
+        ]
+        let installedSettings = try JSONSerialization.jsonObject(
+            with: Data(contentsOf: settingsURL)
+        ) as! [String: Any]
+        let installedHooks = installedSettings["hooks"] as! [String: Any]
+        for event in supportedEvents {
+            let groups = installedHooks[event] as! [[String: Any]]
+            let ownedHandlers = groups.flatMap { group in
+                group["hooks"] as? [[String: Any]] ?? []
+            }.filter { handler in
+                (handler["command"] as? String)?
+                    .contains("dockmagic-activity-hook.rb") == true
+            }
+            XCTAssertEqual(
+                ownedHandlers.count,
+                1,
+                "Reinstalling must not duplicate DockMagic's \(event) hook."
+            )
+            XCTAssertEqual(ownedHandlers.first?["async"] as? Bool, true)
+        }
+        let retainedPreToolGroups = installedHooks["PreToolUse"]
+            as! [[String: Any]]
+        XCTAssertTrue(
+            retainedPreToolGroups.flatMap {
+                $0["hooks"] as? [[String: Any]] ?? []
+            }.contains {
+                $0["command"] as? String == "/usr/bin/true"
+            }
+        )
+
+        let scriptURL = claudeDirectory.appendingPathComponent(
+            "dockmagic-activity-hook.rb"
+        )
+        func runHook(_ payload: String) throws {
+            let process = Process()
+            let input = Pipe()
+            process.executableURL = scriptURL
+            process.standardInput = input
+            process.standardOutput = FileHandle.nullDevice
+            process.standardError = FileHandle.nullDevice
+            try process.run()
+            try input.fileHandleForWriting.write(
+                contentsOf: Data(payload.utf8)
+            )
+            try input.fileHandleForWriting.close()
+            process.waitUntilExit()
+            XCTAssertEqual(process.terminationStatus, 0)
+        }
+
+        try runHook(
+            #"{"session_id":"session-1","hook_event_name":"SessionStart","cwd":"/private/project","transcript_path":"/private/transcript"}"#
+        )
+        try runHook(
+            #"{"session_id":"session-1","hook_event_name":"UserPromptSubmit","prompt":"do not persist me","tool_input":{"secret":"value"}}"#
+        )
+        try runHook(
+            #"{"session_id":"session-1","hook_event_name":"TaskCreated","task_id":"task-1","task_subject":"Implement realtime dashboard","task_description":"private detail"}"#
+        )
+        try runHook(
+            #"{"session_id":"session-1","hook_event_name":"SubagentStart","agent_id":"agent-1","agent_type":"Explore","prompt":"private agent prompt"}"#
+        )
+
+        let eventFiles = try FileManager.default.contentsOfDirectory(
+            at: bridge.eventsDirectoryURL,
+            includingPropertiesForKeys: nil
+        ).filter { $0.pathExtension == "json" }
+        XCTAssertEqual(eventFiles.count, 4)
+        let persistedPayload = try eventFiles.map {
+            String(decoding: try Data(contentsOf: $0), as: UTF8.self)
+        }.joined(separator: "\n")
+        for forbidden in [
+            "do not persist me", "/private/project", "/private/transcript",
+            "private detail", "private agent prompt", "tool_input", "prompt"
+        ] {
+            XCTAssertFalse(persistedPayload.contains(forbidden))
+        }
+        XCTAssertTrue(persistedPayload.contains("Implement realtime dashboard"))
+
+        let activity = ClaudeCodeActivitySnapshotReader(
+            eventsDirectoryURL: bridge.eventsDirectoryURL,
+            now: .now
+        ).read()
+        XCTAssertEqual(activity.activeTasks.count, 3)
+        XCTAssertEqual(
+            activity.activeTasks.first { $0.id.contains("task-1") }?.name,
+            "Implement realtime dashboard"
+        )
+        XCTAssertEqual(
+            activity.activeTasks.first { $0.id.contains("agent-1") }?.state,
+            .running
+        )
+        XCTAssertEqual(
+            activity.activeTasks.first { $0.id.hasPrefix("session:") }?.state,
+            .running
+        )
+
+        let scriptPermissions = try FileManager.default.attributesOfItem(
+            atPath: scriptURL.path
+        )[.posixPermissions] as? NSNumber
+        XCTAssertEqual(scriptPermissions?.intValue, 0o700)
+        for eventFile in eventFiles {
+            let permissions = try FileManager.default.attributesOfItem(
+                atPath: eventFile.path
+            )[.posixPermissions] as? NSNumber
+            XCTAssertEqual(permissions?.intValue, 0o600)
+        }
+
+        try bridge.uninstall()
+        XCTAssertFalse(bridge.isInstalled())
+        let restoredSettings = try JSONSerialization.jsonObject(
+            with: Data(contentsOf: settingsURL)
+        ) as! [String: Any]
+        let restoredHooks = restoredSettings["hooks"] as! [String: Any]
+        XCTAssertNil(restoredHooks["TaskCreated"])
+        XCTAssertTrue(
+            (restoredHooks["PreToolUse"] as! [[String: Any]]).flatMap {
+                $0["hooks"] as? [[String: Any]] ?? []
+            }.contains {
+                $0["command"] as? String == "/usr/bin/true"
+            }
+        )
+        XCTAssertEqual(restoredSettings["theme"] as? String, "dark")
+    }
+
+    func testClaudeCodeActivityReaderCompletesTasksAndStopsSessions() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: directory,
+            withIntermediateDirectories: true
+        )
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let now = Date(timeIntervalSince1970: 2_000_000_000)
+        let fixtures: [[String: Any]] = [
+            [
+                "schema_version": 1,
+                "observed_at_ms": now.addingTimeInterval(-4).timeIntervalSince1970 * 1_000,
+                "hook_event_name": "UserPromptSubmit",
+                "session_id": "session-1"
+            ],
+            [
+                "schema_version": 1,
+                "observed_at_ms": now.addingTimeInterval(-3).timeIntervalSince1970 * 1_000,
+                "hook_event_name": "TaskCreated",
+                "session_id": "session-1",
+                "task_id": "task-1",
+                "task_subject": "Ship realtime tracking"
+            ],
+            [
+                "schema_version": 1,
+                "observed_at_ms": now.addingTimeInterval(-2).timeIntervalSince1970 * 1_000,
+                "hook_event_name": "TaskCompleted",
+                "session_id": "session-1",
+                "task_id": "task-1"
+            ],
+            [
+                "schema_version": 1,
+                "observed_at_ms": now.addingTimeInterval(-1).timeIntervalSince1970 * 1_000,
+                "hook_event_name": "SessionEnd",
+                "session_id": "session-1"
+            ]
+        ]
+        for (index, fixture) in fixtures.enumerated() {
+            let url = directory.appendingPathComponent("event-\(index).json")
+            try JSONSerialization.data(withJSONObject: fixture).write(to: url)
+        }
+
+        let result = ClaudeCodeActivitySnapshotReader(
+            eventsDirectoryURL: directory,
+            now: now
+        ).read()
+        XCTAssertTrue(result.activeTasks.isEmpty)
+        let latestObservedAt = try XCTUnwrap(result.latestObservedAt)
+        XCTAssertEqual(
+            latestObservedAt.timeIntervalSince1970,
+            now.addingTimeInterval(-1).timeIntervalSince1970,
+            accuracy: 0.001
+        )
+    }
+
+    @MainActor
+    func testClaudeCodeActivityHookInstallPreservesUserConfiguration() throws {
+        let homeDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let claudeDirectory = homeDirectory.appendingPathComponent(
+            ".claude",
+            isDirectory: true
+        )
+        try FileManager.default.createDirectory(
+            at: claudeDirectory,
+            withIntermediateDirectories: true
+        )
+        defer { try? FileManager.default.removeItem(at: homeDirectory) }
+
+        let settingsURL = claudeDirectory.appendingPathComponent("settings.json")
+        let settings: [String: Any] = [
+            "theme": "dark",
+            "hooks": [
+                "PreToolUse": [[
+                    "matcher": "Bash",
+                    "hooks": [[
+                        "type": "command",
+                        "command": "/usr/bin/true"
+                    ]]
+                ]],
+                "Stop": [[
+                    "hooks": [[
+                        "type": "command",
+                        "command": "open -g raycast://confetti"
+                    ]]
+                ]]
+            ]
+        ]
+        try JSONSerialization.data(withJSONObject: settings)
+            .write(to: settingsURL)
+
+        func externalHookCommands() throws -> [String] {
+            let data = try Data(contentsOf: settingsURL)
+            let settings = try JSONSerialization.jsonObject(with: data)
+                as! [String: Any]
+            let hooks = settings["hooks"] as? [String: Any] ?? [:]
+            return hooks.values.flatMap { value -> [String] in
+                guard let groups = value as? [[String: Any]] else { return [] }
+                return groups.flatMap { group in
+                    (group["hooks"] as? [[String: Any]] ?? []).compactMap {
+                        $0["command"] as? String
+                    }
+                }
+            }
+            .filter { !$0.contains("dockmagic-activity-hook.rb") }
+            .sorted()
+        }
+
+        let externalCommandsBefore = try externalHookCommands()
+        let bridge = ClaudeCodeActivityHookBridge(
+            homeDirectory: homeDirectory
+        )
+        try bridge.install()
+
+        XCTAssertTrue(bridge.isInstalled())
+        XCTAssertEqual(try externalHookCommands(), externalCommandsBefore)
+        let installedSettings = try JSONSerialization.jsonObject(
+            with: Data(contentsOf: settingsURL)
+        ) as! [String: Any]
+        XCTAssertEqual(installedSettings["theme"] as? String, "dark")
+        let settingsText = String(
+            decoding: try Data(contentsOf: settingsURL),
+            as: UTF8.self
+        )
+        XCTAssertTrue(settingsText.contains("dockmagic-activity-hook.rb"))
     }
 
     func testClaudeCodeLocalHistoryAggregatesRealUsageModelsTasksAndGoal() throws {
@@ -1211,8 +1537,6 @@ final class DockMagicTests: XCTestCase {
         let tokenUsage = CodexAccountTokenUsage(
             lifetimeTokens: nil,
             peakDailyTokens: 120,
-            currentStreakDays: nil,
-            longestStreakDays: nil,
             longestRunningTurnSeconds: nil,
             dailyUsageBuckets: [
                 CodexTokenUsageDailyBucket(
@@ -1242,12 +1566,26 @@ final class DockMagicTests: XCTestCase {
             now: now,
             calendar: calendar
         )
+        let emptyBuckets = ClaudeCodeHoverDashboardPresentation.chartBuckets(
+            tokenUsage: nil,
+            dailyCosts: [],
+            metric: "Tokens",
+            now: now,
+            calendar: calendar
+        )
 
         XCTAssertEqual(tokenBuckets.count, 7)
         XCTAssertEqual(tokenBuckets.last?.value, 120)
         XCTAssertEqual(costBuckets.count, 7)
         XCTAssertEqual(costBuckets.last?.value, 1.25)
         XCTAssertTrue(costBuckets.last?.accessibilityValue.contains("$1.25") == true)
+        var localCalendar = calendar
+        localCalendar.timeZone = .current
+        XCTAssertEqual(emptyBuckets.count, 7)
+        XCTAssertTrue(
+            localCalendar.isDate(emptyBuckets.last!.startDate, inSameDayAs: now)
+        )
+        XCTAssertTrue(emptyBuckets.allSatisfy { $0.value == 0 })
         XCTAssertEqual(
             ClaudeCodeHoverDashboardPresentation.tokenLabel(1_280_000),
             "1.28M"
@@ -1341,6 +1679,113 @@ final class DockMagicTests: XCTestCase {
         )
     }
 
+    func testClaudeCodeLocalTelemetryRetainsUnexpiredRateLimitsWhenLatestStatusOmitsThem() throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let now = Date(timeIntervalSince1970: 2_000_000_000)
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let sessions = root.appendingPathComponent("sessions", isDirectory: true)
+        let tasks = root.appendingPathComponent("tasks", isDirectory: true)
+        let projects = root.appendingPathComponent("projects", isDirectory: true)
+        for directory in [sessions, tasks, projects] {
+            try FileManager.default.createDirectory(
+                at: directory,
+                withIntermediateDirectories: true
+            )
+        }
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let quotaURL = sessions.appendingPathComponent("quota-session.json")
+        try Data(
+            """
+            {"session_id":"quota-session","model":{"id":"claude-opus-5[1m]"},"rate_limits":{"five_hour":{"used_percentage":1,"resets_at":\(now.timeIntervalSince1970 + 3_600)},"seven_day":{"used_percentage":0,"resets_at":\(now.timeIntervalSince1970 + 86_400)}}}
+            """.utf8
+        ).write(to: quotaURL)
+        try FileManager.default.setAttributes(
+            [.modificationDate: now.addingTimeInterval(-120)],
+            ofItemAtPath: quotaURL.path
+        )
+
+        let latestURL = sessions.appendingPathComponent("latest-session.json")
+        try Data(
+            """
+            {"session_id":"latest-session","model":{"id":"claude-opus-5[1m]"},"cost":{"total_cost_usd":0},"rate_limits":null}
+            """.utf8
+        ).write(to: latestURL)
+        try FileManager.default.setAttributes(
+            [.modificationDate: now.addingTimeInterval(-60)],
+            ofItemAtPath: latestURL.path
+        )
+
+        let result = ClaudeCodeLocalTelemetryReader(
+            snapshotURL: root.appendingPathComponent("latest.json"),
+            sessionSnapshotsDirectoryURL: sessions,
+            taskSnapshotURL: root.appendingPathComponent("latest-tasks.json"),
+            taskSnapshotsDirectoryURL: tasks,
+            projectsDirectoryURL: projects,
+            now: now,
+            calendar: calendar
+        ).read()
+
+        XCTAssertEqual(result.currentSession?.sessionID, "latest-session")
+        XCTAssertEqual(result.parsedStatus?.fiveHour?.remainingFraction, 0.99)
+        XCTAssertEqual(result.parsedStatus?.weekly?.remainingFraction, 1)
+    }
+
+    func testClaudeCodeLocalTelemetryDoesNotRetainExpiredRateLimits() throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let now = Date(timeIntervalSince1970: 2_000_000_000)
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let sessions = root.appendingPathComponent("sessions", isDirectory: true)
+        let tasks = root.appendingPathComponent("tasks", isDirectory: true)
+        let projects = root.appendingPathComponent("projects", isDirectory: true)
+        for directory in [sessions, tasks, projects] {
+            try FileManager.default.createDirectory(
+                at: directory,
+                withIntermediateDirectories: true
+            )
+        }
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let expiredURL = sessions.appendingPathComponent("expired.json")
+        try Data(
+            """
+            {"session_id":"expired","rate_limits":{"five_hour":{"used_percentage":50,"resets_at":\(now.timeIntervalSince1970 - 1)},"seven_day":{"used_percentage":25,"resets_at":\(now.timeIntervalSince1970 - 1)}}}
+            """.utf8
+        ).write(to: expiredURL)
+        try FileManager.default.setAttributes(
+            [.modificationDate: now.addingTimeInterval(-120)],
+            ofItemAtPath: expiredURL.path
+        )
+
+        let latestURL = sessions.appendingPathComponent("latest.json")
+        try Data(
+            """
+            {"session_id":"latest","model":{"id":"claude-opus-5[1m]"}}
+            """.utf8
+        ).write(to: latestURL)
+        try FileManager.default.setAttributes(
+            [.modificationDate: now.addingTimeInterval(-60)],
+            ofItemAtPath: latestURL.path
+        )
+
+        let result = ClaudeCodeLocalTelemetryReader(
+            snapshotURL: root.appendingPathComponent("fallback.json"),
+            sessionSnapshotsDirectoryURL: sessions,
+            taskSnapshotURL: root.appendingPathComponent("latest-tasks.json"),
+            taskSnapshotsDirectoryURL: tasks,
+            projectsDirectoryURL: projects,
+            now: now,
+            calendar: calendar
+        ).read()
+
+        XCTAssertNil(result.parsedStatus?.fiveHour)
+        XCTAssertNil(result.parsedStatus?.weekly)
+    }
+
     func testCodexParserMapsFiveHourAndWeeklyRemainingValues() throws {
         let fetchedAt = Date(timeIntervalSince1970: 10)
         let snapshot = try CodexRateLimitParser.parseJSONLines(
@@ -1390,8 +1835,6 @@ final class DockMagicTests: XCTestCase {
         )
         XCTAssertEqual(snapshot.tokenUsage?.lifetimeTokens, 18_400_000)
         XCTAssertEqual(snapshot.tokenUsage?.peakDailyTokens, 1_560_000)
-        XCTAssertEqual(snapshot.tokenUsage?.currentStreakDays, 7)
-        XCTAssertEqual(snapshot.tokenUsage?.longestStreakDays, 28)
         XCTAssertEqual(
             snapshot.tokenUsage?.longestRunningTurnSeconds,
             1_460
@@ -1426,6 +1869,86 @@ final class DockMagicTests: XCTestCase {
         XCTAssertEqual(
             snapshotWithLocalDetail.tokenUsage?.localDailyDetails,
             [detail]
+        )
+    }
+
+    func testCodexParserUsesLocalTodayOnlyWhenAppServerOmitsIt() throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = .current
+        let fetchedAt = calendar.date(from: DateComponents(
+            year: 2026,
+            month: 8,
+            day: 25,
+            hour: 15
+        ))!
+        let today = calendar.startOfDay(for: fetchedAt)
+        let localDetail = CodexDailyTokenDetail(
+            startDate: today,
+            usage: CodexTokenBreakdown(
+                inputTokens: 1_200,
+                cachedInputTokens: 900,
+                cacheWriteInputTokens: 0,
+                outputTokens: 300,
+                reasoningOutputTokens: 100,
+                totalTokens: 1_500
+            ),
+            hourlyUsage: [],
+            modelUsage: [],
+            isPartial: false
+        )
+        let rateLimits = codexResponse(
+            fallback: rateLimitBucket(
+                limitID: "codex",
+                primaryDuration: 300,
+                primaryUsed: 20
+            )
+        )
+        let completedDays: [Int64] = [100, 200, 300, 400, 500, 600, 700]
+        let missingToday = try CodexRateLimitParser.parseJSONLines(
+            rateLimits + codexTokenUsageResponse(
+                lifetimeTokens: 10_000,
+                dailyTokens: completedDays
+            ),
+            fetchedAt: fetchedAt,
+            localDailyDetail: localDetail
+        )
+
+        XCTAssertEqual(
+            missingToday.tokenUsage?.dailyUsageBuckets.count,
+            completedDays.count + 1
+        )
+        XCTAssertTrue(
+            calendar.isDate(
+                missingToday.tokenUsage!.dailyUsageBuckets.last!.startDate,
+                inSameDayAs: fetchedAt
+            )
+        )
+        XCTAssertEqual(
+            missingToday.tokenUsage?.dailyUsageBuckets.last?.tokens,
+            1_500
+        )
+        XCTAssertEqual(
+            missingToday.tokenUsage?.localDailyDetails,
+            [localDetail]
+        )
+
+        let officialTodayTokens: Int64 = 2_400
+        let officialToday = try CodexRateLimitParser.parseJSONLines(
+            rateLimits + codexTokenUsageResponse(
+                lifetimeTokens: 10_000,
+                dailyTokens: completedDays + [officialTodayTokens]
+            ),
+            fetchedAt: fetchedAt,
+            localDailyDetail: localDetail
+        )
+        XCTAssertEqual(
+            officialToday.tokenUsage?.dailyUsageBuckets.count,
+            completedDays.count + 1
+        )
+        XCTAssertEqual(
+            officialToday.tokenUsage?.dailyUsageBuckets.last?.tokens,
+            officialTodayTokens,
+            "The official current-day bucket must replace, not add to, local usage."
         )
     }
 
@@ -2205,6 +2728,10 @@ final class DockMagicTests: XCTestCase {
     @MainActor
     func testCodexUsageStoreTransitionsFromLiveToStale() async {
         let snapshot = sampleCodexSnapshot()
+        let observedAt = Date(timeIntervalSince1970: 2_000)
+        let streakStore = TokenUsageStreakStore(
+            modelContainer: TokenUsageStreakStore.inMemoryContainer()
+        )
         let provider = ScriptedCodexProvider([
             .success(snapshot),
             .failure(CodexRateLimitProviderError.timedOut)
@@ -2212,18 +2739,23 @@ final class DockMagicTests: XCTestCase {
         let store = CodexUsageStore(
             provider: provider,
             locator: StubCodexLocator(),
-            pollingInterval: .seconds(60)
+            streakTracker: streakStore,
+            pollingInterval: .seconds(60),
+            now: { observedAt }
+        )
+        let expectedSnapshot = snapshot.withStreakSummary(
+            streakStore.summary(for: .codex, at: observedAt)
         )
 
         await store.refresh()
-        XCTAssertEqual(store.state, .live(snapshot))
+        XCTAssertEqual(store.state, .live(expectedSnapshot))
         XCTAssertEqual(store.resolvedExecutablePath, "/usr/bin/true")
 
         await store.refresh()
         guard case let .stale(staleSnapshot, message) = store.state else {
             return XCTFail("Expected stale state after a failed refresh.")
         }
-        XCTAssertEqual(staleSnapshot, snapshot)
+        XCTAssertEqual(staleSnapshot, expectedSnapshot)
         XCTAssertTrue(message.contains("time"))
     }
 
@@ -2280,11 +2812,17 @@ final class DockMagicTests: XCTestCase {
     @MainActor
     func testCodexUsageStoreDeduplicatesConcurrentRefreshes() async {
         let snapshot = sampleCodexSnapshot()
+        let observedAt = Date(timeIntervalSince1970: 2_000)
+        let streakStore = TokenUsageStreakStore(
+            modelContainer: TokenUsageStreakStore.inMemoryContainer()
+        )
         let provider = DelayedCodexProvider(snapshot: snapshot)
         let store = CodexUsageStore(
             provider: provider,
             locator: StubCodexLocator(),
-            pollingInterval: .seconds(60)
+            streakTracker: streakStore,
+            pollingInterval: .seconds(60),
+            now: { observedAt }
         )
 
         async let first: Void = store.refresh()
@@ -2293,7 +2831,12 @@ final class DockMagicTests: XCTestCase {
 
         let callCount = await provider.callCount
         XCTAssertEqual(callCount, 1)
-        XCTAssertEqual(store.state, .live(snapshot))
+        XCTAssertEqual(
+            store.state,
+            .live(snapshot.withStreakSummary(
+                streakStore.summary(for: .codex, at: observedAt)
+            ))
+        )
         XCTAssertFalse(store.isRefreshing)
     }
 
@@ -2305,10 +2848,16 @@ final class DockMagicTests: XCTestCase {
         defer { defaults.removePersistentDomain(forName: suiteName) }
         let preferences = DockPreferencesStore(defaults: defaults)
         let snapshot = sampleCodexSnapshot()
+        let observedAt = Date(timeIntervalSince1970: 2_000)
+        let streakStore = TokenUsageStreakStore(
+            modelContainer: TokenUsageStreakStore.inMemoryContainer()
+        )
         let store = CodexUsageStore(
             provider: ScriptedCodexProvider([.success(snapshot)]),
             locator: StubCodexLocator(),
-            pollingInterval: .seconds(60)
+            streakTracker: streakStore,
+            pollingInterval: .seconds(60),
+            now: { observedAt }
         )
         let appModel = DockAppModel(
             preferences: preferences,
@@ -2319,7 +2868,12 @@ final class DockMagicTests: XCTestCase {
 
         XCTAssertNil(preferences.codexExecutablePath)
         XCTAssertEqual(store.resolvedExecutablePath, "/usr/bin/true")
-        XCTAssertEqual(store.state, .live(snapshot))
+        XCTAssertEqual(
+            store.state,
+            .live(snapshot.withStreakSummary(
+                streakStore.summary(for: .codex, at: observedAt)
+            ))
+        )
     }
 
     @MainActor
@@ -2332,25 +2886,42 @@ final class DockMagicTests: XCTestCase {
             fetchedAt: Date(timeIntervalSince1970: 500)
         )
         let bridge = StubClaudeCodeBridge(installed: true)
+        let streakStore = TokenUsageStreakStore(
+            modelContainer: TokenUsageStreakStore.inMemoryContainer()
+        )
         let store = ClaudeCodeUsageStore(
             provider: ScriptedClaudeCodeProvider([
                 .success(freshSnapshot),
                 .success(staleSnapshot)
             ]),
             bridge: bridge,
+            activityHookBridge: StubClaudeCodeActivityHookBridge(
+                installed: true
+            ),
+            streakTracker: streakStore,
             pollingInterval: .seconds(60),
             staleAfter: 900,
             now: { now }
         )
 
         await store.refresh()
-        XCTAssertEqual(store.state, .live(freshSnapshot))
+        XCTAssertEqual(
+            store.state,
+            .live(freshSnapshot.withStreakSummary(
+                streakStore.summary(for: .claudeCode, at: now)
+            ))
+        )
 
         await store.refresh()
         guard case let .stale(snapshot, message) = store.state else {
             return XCTFail("Expected an old Claude Code cache to become stale.")
         }
-        XCTAssertEqual(snapshot, staleSnapshot)
+        XCTAssertEqual(
+            snapshot,
+            staleSnapshot.withStreakSummary(
+                streakStore.summary(for: .claudeCode, at: now)
+            )
+        )
         XCTAssertTrue(message.contains("older than 15 minutes"))
 
         bridge.installed = false
@@ -2370,10 +2941,19 @@ final class DockMagicTests: XCTestCase {
         let preferences = DockPreferencesStore(defaults: defaults)
         let snapshot = sampleClaudeCodeSnapshot()
         let bridge = StubClaudeCodeBridge(installed: false)
+        let observedAt = snapshot.fetchedAt
+        let streakStore = TokenUsageStreakStore(
+            modelContainer: TokenUsageStreakStore.inMemoryContainer()
+        )
         let store = ClaudeCodeUsageStore(
             provider: ScriptedClaudeCodeProvider([.success(snapshot)]),
             bridge: bridge,
-            pollingInterval: .seconds(60)
+            activityHookBridge: StubClaudeCodeActivityHookBridge(
+                installed: true
+            ),
+            streakTracker: streakStore,
+            pollingInterval: .seconds(60),
+            now: { observedAt }
         )
         let appModel = DockAppModel(
             preferences: preferences,
@@ -2384,7 +2964,12 @@ final class DockMagicTests: XCTestCase {
 
         XCTAssertTrue(bridge.installed)
         XCTAssertEqual(bridge.installCallCount, 1)
-        XCTAssertEqual(store.state, .live(snapshot))
+        XCTAssertEqual(
+            store.state,
+            .live(snapshot.withStreakSummary(
+                streakStore.summary(for: .claudeCode, at: observedAt)
+            ))
+        )
 
         preferences.automaticallyConfigureClaudeCode = false
         bridge.installed = false
@@ -2394,6 +2979,92 @@ final class DockMagicTests: XCTestCase {
             1,
             "An explicit opt-out must survive future automatic preparation."
         )
+    }
+
+    @MainActor
+    func testClaudeCodeActivityHookInstallsFromStoreAndRefreshes() async {
+        let now = Date(timeIntervalSince1970: 2_000)
+        let snapshot = sampleClaudeCodeSnapshot(fetchedAt: now)
+        let activityBridge = StubClaudeCodeActivityHookBridge(
+            installed: false,
+            eventsDirectoryURL: FileManager.default.temporaryDirectory
+                .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        )
+        defer {
+            try? FileManager.default.removeItem(
+                at: activityBridge.eventsDirectoryURL
+            )
+        }
+        let store = ClaudeCodeUsageStore(
+            provider: ScriptedClaudeCodeProvider([.success(snapshot)]),
+            bridge: StubClaudeCodeBridge(installed: true),
+            activityHookBridge: activityBridge,
+            streakTracker: TokenUsageStreakStore(
+                modelContainer: TokenUsageStreakStore.inMemoryContainer()
+            ),
+            pollingInterval: .seconds(60),
+            now: { now }
+        )
+
+        XCTAssertFalse(store.isActivityHookInstalled)
+        await store.installActivityHook()
+
+        XCTAssertTrue(store.isActivityHookInstalled)
+        XCTAssertEqual(activityBridge.installCallCount, 1)
+        XCTAssertNil(store.activityHookErrorText)
+        XCTAssertNotNil(store.state.snapshot)
+    }
+
+    @MainActor
+    func testClaudeCodeActivityDirectoryTriggersRealtimeRefresh() async throws {
+        let now = Date(timeIntervalSince1970: 2_000)
+        let first = sampleClaudeCodeSnapshot(
+            fetchedAt: now.addingTimeInterval(-10)
+        )
+        let second = sampleClaudeCodeSnapshot(fetchedAt: now)
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: directory,
+            withIntermediateDirectories: true
+        )
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let activityBridge = StubClaudeCodeActivityHookBridge(
+            installed: true,
+            eventsDirectoryURL: directory
+        )
+        let store = ClaudeCodeUsageStore(
+            provider: ScriptedClaudeCodeProvider([
+                .success(first),
+                .success(second)
+            ]),
+            bridge: StubClaudeCodeBridge(installed: true),
+            activityHookBridge: activityBridge,
+            streakTracker: TokenUsageStreakStore(
+                modelContainer: TokenUsageStreakStore.inMemoryContainer()
+            ),
+            pollingInterval: .seconds(60),
+            now: { now }
+        )
+        store.start()
+        defer { store.stop() }
+        try await waitUntil {
+            store.state.snapshot?.fetchedAt == first.fetchedAt
+        }
+
+        let event: [String: Any] = [
+            "schema_version": 1,
+            "observed_at_ms": now.timeIntervalSince1970 * 1_000,
+            "hook_event_name": "UserPromptSubmit",
+            "session_id": "session-1"
+        ]
+        try JSONSerialization.data(withJSONObject: event).write(
+            to: directory.appendingPathComponent("event-monitor.json")
+        )
+
+        try await waitUntil {
+            store.state.snapshot?.fetchedAt == second.fetchedAt
+        }
     }
 
     @MainActor
@@ -2995,7 +3666,7 @@ final class DockMagicTests: XCTestCase {
     }
 
     @MainActor
-    func testAppModelRunsOnlyTheSelectedFeature() async throws {
+    func testAppModelRunsSelectedFeatureAndBackgroundStreakCollection() async throws {
         let suiteName = "DockMagicTests.AppModel.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
         defer { defaults.removePersistentDomain(forName: suiteName) }
@@ -3032,6 +3703,9 @@ final class DockMagicTests: XCTestCase {
                 .success(sampleClaudeCodeSnapshot())
             ]),
             bridge: claudeCodeBridge,
+            activityHookBridge: StubClaudeCodeActivityHookBridge(
+                installed: false
+            ),
             pollingInterval: .seconds(60)
         )
         let appModel = DockAppModel(
@@ -3051,7 +3725,7 @@ final class DockMagicTests: XCTestCase {
         XCTAssertFalse(storage.isMonitoring)
         XCTAssertFalse(weather.isMonitoring)
         XCTAssertFalse(clock.isMonitoring)
-        XCTAssertFalse(codex.isMonitoring)
+        XCTAssertTrue(codex.isMonitoring)
         XCTAssertFalse(claudeCode.isMonitoring)
 
         preferences.activeFeature = .dockMagic
@@ -3061,7 +3735,7 @@ final class DockMagicTests: XCTestCase {
                 && !storage.isMonitoring
                 && !weather.isMonitoring
                 && !clock.isMonitoring
-                && !codex.isMonitoring
+                && codex.isMonitoring
                 && !claudeCode.isMonitoring
         }
 
@@ -3072,7 +3746,7 @@ final class DockMagicTests: XCTestCase {
                 && !storage.isMonitoring
                 && !weather.isMonitoring
                 && !clock.isMonitoring
-                && !codex.isMonitoring
+                && codex.isMonitoring
                 && !claudeCode.isMonitoring
         }
 
@@ -3083,7 +3757,7 @@ final class DockMagicTests: XCTestCase {
                 && !network.isMonitoring
                 && !weather.isMonitoring
                 && !clock.isMonitoring
-                && !codex.isMonitoring
+                && codex.isMonitoring
                 && !claudeCode.isMonitoring
         }
 
@@ -3100,7 +3774,7 @@ final class DockMagicTests: XCTestCase {
         XCTAssertFalse(network.isMonitoring)
         XCTAssertFalse(storage.isMonitoring)
         XCTAssertFalse(clock.isMonitoring)
-        XCTAssertFalse(codex.isMonitoring)
+        XCTAssertTrue(codex.isMonitoring)
         XCTAssertFalse(claudeCode.isMonitoring)
 
         preferences.activeFeature = .clock
@@ -3110,7 +3784,7 @@ final class DockMagicTests: XCTestCase {
                 && !network.isMonitoring
                 && !storage.isMonitoring
                 && !weather.isMonitoring
-                && !codex.isMonitoring
+                && codex.isMonitoring
                 && !claudeCode.isMonitoring
         }
 
@@ -3147,7 +3821,7 @@ final class DockMagicTests: XCTestCase {
                 && !storage.isMonitoring
                 && !weather.isMonitoring
                 && !clock.isMonitoring
-                && !codex.isMonitoring
+                && codex.isMonitoring
         }
         try await waitUntil {
             claudeCodeBridge.installed
@@ -3161,7 +3835,7 @@ final class DockMagicTests: XCTestCase {
         XCTAssertFalse(storage.isMonitoring)
         XCTAssertFalse(weather.isMonitoring)
         XCTAssertFalse(clock.isMonitoring)
-        XCTAssertFalse(codex.isMonitoring)
+        XCTAssertTrue(codex.isMonitoring)
 
         appModel.stop()
         XCTAssertFalse(metrics.isMonitoring)
@@ -3723,7 +4397,11 @@ final class DockMagicTests: XCTestCase {
             .dropFirst()
             .compactMap { $0 }
         XCTAssertEqual(digitalFrames.map(\.progress), [1.0 / 3.0, 2.0 / 3.0, 1])
-        XCTAssertEqual(dockTile.displayCallCount, 4)
+        XCTAssertNil(
+            renderer.clockTransitions.last!,
+            "Clock animation must publish a non-transitional settled frame last."
+        )
+        XCTAssertEqual(dockTile.displayCallCount, 5)
 
         controller.update(
             presentation: .clock(
@@ -3746,6 +4424,10 @@ final class DockMagicTests: XCTestCase {
             .dropFirst(splitFlapStart)
             .compactMap { $0 }
         XCTAssertEqual(splitFlapFrames.map(\.progress), [0.25, 0.5, 0.75, 1])
+        XCTAssertNil(
+            renderer.clockTransitions.last!,
+            "Split-flap must not leave its transformed progress-one frame on the Dock."
+        )
 
         let reducedRenderer = SpyDockApplicationIconRenderer()
         let reducedController = DockTileController(
@@ -4106,6 +4788,15 @@ final class DockMagicTests: XCTestCase {
         XCTAssertTrue(DSAppearanceMode.light.usesGlassMaterials)
         XCTAssertTrue(DSAppearanceMode.dark.usesGlassMaterials)
         XCTAssertEqual(DockDisplayStyle.allCases, [.chart, .numeric])
+        for style in DockDisplayStyle.allCases {
+            XCTAssertNotNil(
+                NSImage(
+                    systemSymbolName: style.systemImage,
+                    accessibilityDescription: style.title
+                ),
+                "Dock display style \(style) must use an SF Symbol available on macOS."
+            )
+        }
 
         XCTAssertFalse(DSSurfaceKind.shell.isGlassEligible)
         XCTAssertFalse(DSSurfaceKind.panel.isGlassEligible)
@@ -4469,6 +5160,209 @@ final class DockMagicTests: XCTestCase {
     }
 
     @MainActor
+    func testClaudeNumericDockKeepsLabelsWhenOnlyLocalTokenUsageExists() throws {
+        let now = Date(timeIntervalSince1970: 1_900_000_000)
+        let tokenOnlySnapshot = ClaudeCodeRateLimitSnapshot(
+            planType: nil,
+            limitID: "claude-code-local",
+            fiveHour: nil,
+            weekly: nil,
+            tokenUsage: CodexAccountTokenUsage(
+                lifetimeTokens: nil,
+                peakDailyTokens: 395_504,
+                longestRunningTurnSeconds: nil,
+                dailyUsageBuckets: [
+                    CodexTokenUsageDailyBucket(
+                        startDate: now,
+                        tokens: 395_504
+                    )
+                ],
+                modelUsage: [
+                    CodexModelTokenUsage(
+                        model: "claude-opus-5",
+                        tokens: 395_504
+                    )
+                ],
+                isModelUsagePartial: true
+            ),
+            fetchedAt: now
+        )
+        var appearance = DockFeatureDefaults.claudeCodeAppearance
+        appearance.setDisplayStyle(.numeric)
+
+        let tokenOnly = try renderPNG(
+            of: DockMagicThemeRoot(
+                content: DockClaudeCodeView(
+                    state: .live(tokenOnlySnapshot),
+                    appearance: appearance,
+                    animatesChanges: false
+                ),
+                appearanceMode: .light
+            ),
+            size: NSSize(width: 128, height: 128),
+            appearanceName: .aqua,
+            name: "Dock — Claude Code — Token-only Numbers"
+        )
+        let unavailable = try renderPNG(
+            of: DockMagicThemeRoot(
+                content: DockClaudeCodeView(
+                    state: .unavailable(message: "No quota snapshot"),
+                    appearance: appearance,
+                    animatesChanges: false
+                ),
+                appearanceMode: .light
+            ),
+            size: NSSize(width: 128, height: 128),
+            appearanceName: .aqua,
+            name: "Dock — Claude Code — Unavailable Numbers"
+        )
+
+        XCTAssertEqual(
+            tokenOnly,
+            unavailable,
+            "A live token-only snapshot must retain the 5H and 7D placeholders."
+        )
+        attachPNG(tokenOnly, name: "Dock — Claude Code — Token-only Numbers")
+    }
+
+    @MainActor
+    func testClaudeCodeRealLocalTelemetryRendersEndToEndWhenAvailable() async throws {
+        let renderNow = Date()
+        let store = ClaudeCodeUsageStore(
+            provider: ClaudeCodeStatusLineRateLimitProvider(),
+            bridge: StubClaudeCodeBridge(installed: true),
+            activityHookBridge: StubClaudeCodeActivityHookBridge(
+                installed: true
+            ),
+            streakTracker: TokenUsageStreakStore(
+                modelContainer: TokenUsageStreakStore.inMemoryContainer()
+            ),
+            pollingInterval: .seconds(60),
+            now: { renderNow }
+        )
+        await store.refresh()
+
+        guard let snapshot = store.state.snapshot else {
+            throw XCTSkip(
+                "No local Claude Code telemetry is available on this test host."
+            )
+        }
+        let tokenUsage = try XCTUnwrap(
+            snapshot.tokenUsage,
+            "Local Claude transcripts should produce token analytics."
+        )
+        XCTAssertGreaterThan(
+            tokenUsage.dailyUsageBuckets.reduce(Int64(0)) { $0 + $1.tokens },
+            0
+        )
+        let modelUsage = try XCTUnwrap(tokenUsage.modelUsage)
+        XCTAssertFalse(modelUsage.isEmpty)
+        XCTAssertNotNil(snapshot.streakSummary)
+        let telemetry = try XCTUnwrap(snapshot.claudeTelemetry)
+        XCTAssertTrue(
+            telemetry.source == .localHistory
+                || telemetry.source == .statusLineAndLocalHistory
+        )
+        XCTAssertTrue(telemetry.historyIsPartial)
+        XCTAssertFalse(
+            CodexHoverDashboardPresentation.topModels(from: tokenUsage).isEmpty
+        )
+        XCTAssertNotNil(
+            CodexHoverDashboardPresentation.shipMomentum(
+                in: snapshot,
+                now: renderNow
+            )
+        )
+
+        let suiteName = "DockMagicTests.ClaudeCodeRealE2E.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        defaults.set(
+            DockFeature.claudeCode.rawValue,
+            forKey: DockFeature.storageKey
+        )
+        let appModel = DockAppModel(
+            preferences: DockPreferencesStore(defaults: defaults),
+            claudeCodeStore: store
+        )
+
+        let hover = try renderPNG(
+            of: DockHoverDashboardRoot(
+                appModel: appModel,
+                pointerEdge: .bottom,
+                appearanceMode: .dark
+            ),
+            size: DockHoverPanelPlacement.claudeCodePanelSize,
+            appearanceName: .darkAqua,
+            name: "Claude Code E2E — Real Local Telemetry"
+        )
+        XCTAssertGreaterThan(hover.count, 12_000)
+        attachPNG(hover, name: "Claude Code E2E — Real Local Telemetry")
+
+        let cost = try renderPNG(
+            of: DockMagicThemeRoot(
+                content: DockHoverChrome(
+                    pointerEdge: .bottom,
+                    panelSize: DockHoverPanelPlacement.claudeCodePanelSize
+                ) {
+                    ClaudeCodeHoverDashboardView(
+                        state: store.state,
+                        now: renderNow,
+                        initialMetric: "Cost"
+                    )
+                },
+                appearanceMode: .dark
+            )
+            .frame(
+                width: DockHoverPanelPlacement.claudeCodePanelSize.width,
+                height: DockHoverPanelPlacement.claudeCodePanelSize.height
+            ),
+            size: DockHoverPanelPlacement.claudeCodePanelSize,
+            appearanceName: .darkAqua,
+            name: "Claude Code E2E — Real Local Cost State"
+        )
+        XCTAssertGreaterThan(cost.count, 12_000)
+        XCTAssertNotEqual(cost, hover)
+        attachPNG(cost, name: "Claude Code E2E — Real Local Cost State")
+
+        var numericAppearance = DockFeatureDefaults.claudeCodeAppearance
+        numericAppearance.setDisplayStyle(.numeric)
+        let numeric = try renderPNG(
+            of: DockMagicThemeRoot(
+                content: DockClaudeCodeView(
+                    state: store.state,
+                    appearance: numericAppearance,
+                    animatesChanges: false
+                ),
+                appearanceMode: .light
+            ),
+            size: NSSize(width: 128, height: 128),
+            appearanceName: .aqua,
+            name: "Claude Code E2E — Real Local Numbers"
+        )
+
+        var chartAppearance = numericAppearance
+        chartAppearance.setDisplayStyle(.chart)
+        let chart = try renderPNG(
+            of: DockMagicThemeRoot(
+                content: DockClaudeCodeView(
+                    state: store.state,
+                    appearance: chartAppearance,
+                    animatesChanges: false
+                ),
+                appearanceMode: .light
+            ),
+            size: NSSize(width: 128, height: 128),
+            appearanceName: .aqua,
+            name: "Claude Code E2E — Real Local Chart"
+        )
+        XCTAssertNotEqual(numeric, chart)
+        attachPNG(numeric, name: "Claude Code E2E — Real Local Numbers")
+        attachPNG(chart, name: "Claude Code E2E — Real Local Chart")
+    }
+
+    @MainActor
     func testCodexHoverDashboardMinimalColorRender() async throws {
         let suiteName = "DockMagicTests.CodexHoverRender.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
@@ -4822,7 +5716,7 @@ final class DockMagicTests: XCTestCase {
         let panelSize = DockHoverPanelPlacement.codexPanelSize
         let fixedNow = Date(timeIntervalSince1970: 1_777_000_000)
         let artifact = try CodexDashboardCaptureService.render(
-            state: .live(.hoverDesignPreview),
+            state: CodexUsageState.live(.hoverDesignPreview),
             configuration: CodexDashboardCaptureConfiguration(
                 pointerEdge: .bottom,
                 panelSize: panelSize,
@@ -4835,9 +5729,9 @@ final class DockMagicTests: XCTestCase {
         )
 
         XCTAssertEqual(artifact.pixelWidth, 1_760)
-        XCTAssertEqual(artifact.pixelHeight, 2_088)
+        XCTAssertEqual(artifact.pixelHeight, 2_224)
         XCTAssertEqual(representation.pixelsWide, 1_760)
-        XCTAssertEqual(representation.pixelsHigh, 2_088)
+        XCTAssertEqual(representation.pixelsHigh, 2_224)
         XCTAssertGreaterThan(artifact.pngData.count, 60_000)
         XCTAssertEqual(
             artifact.fileName,
@@ -4848,7 +5742,7 @@ final class DockMagicTests: XCTestCase {
         )
         XCTAssertEqual(
             CodexDashboardCaptureService.pixelSizeLabel(for: panelSize),
-            "1760 × 2088 px"
+            "1760 × 2224 px"
         )
 
         let pasteboard = NSPasteboard.withUniqueName()
@@ -4883,6 +5777,45 @@ final class DockMagicTests: XCTestCase {
         attachPNG(
             artifact.pngData,
             name: "Codex Dashboard — Exported 4× PNG"
+        )
+    }
+
+    @MainActor
+    func testClaudeCodeDashboardCaptureRendersCrispFourTimesPNG() throws {
+        let panelSize = DockHoverPanelPlacement.claudeCodePanelSize
+        let fixedNow = Date(timeIntervalSince1970: 1_777_000_000)
+        let artifact = try CodexDashboardCaptureService.renderClaudeCode(
+            state: .live(.claudeCodeHoverDesignPreview(now: fixedNow)),
+            configuration: CodexDashboardCaptureConfiguration(
+                pointerEdge: .bottom,
+                panelSize: panelSize,
+                appearanceMode: .dark
+            ),
+            now: fixedNow
+        )
+        let representation = try XCTUnwrap(
+            NSBitmapImageRep(data: artifact.pngData)
+        )
+        let dimensions = CodexDashboardCaptureService.pixelDimensions(
+            for: panelSize
+        )
+
+        XCTAssertEqual(artifact.pixelWidth, dimensions.width)
+        XCTAssertEqual(artifact.pixelHeight, dimensions.height)
+        XCTAssertEqual(representation.pixelsWide, dimensions.width)
+        XCTAssertEqual(representation.pixelsHigh, dimensions.height)
+        XCTAssertGreaterThan(artifact.pngData.count, 60_000)
+        XCTAssertEqual(
+            artifact.fileName,
+            CodexDashboardCaptureService.defaultClaudeCodeFileName(
+                at: fixedNow,
+                timeZone: .current
+            )
+        )
+        XCTAssertTrue(artifact.fileName.contains("Claude-Code"))
+        attachPNG(
+            artifact.pngData,
+            name: "Claude Code Dashboard — Exported 4× PNG"
         )
     }
 
@@ -4933,7 +5866,10 @@ final class DockMagicTests: XCTestCase {
             name: "Codex capture button before click"
         )
 
-        let clickLocation = NSPoint(x: 315, y: 497)
+        let clickLocation = NSPoint(
+            x: panelSize.width - 125,
+            y: panelSize.height - 33
+        )
         let down = try XCTUnwrap(NSEvent.mouseEvent(
             with: .leftMouseDown,
             location: clickLocation,
@@ -4979,6 +5915,700 @@ final class DockMagicTests: XCTestCase {
     }
 
     @MainActor
+    func testClaudeCodeActiveWorkInstallButtonInvokesAction() throws {
+        let panelSize = DockHoverPanelPlacement.claudeCodePanelSize
+        let fixedNow = Date(timeIntervalSince1970: 1_777_000_000)
+        var installCallCount = 0
+        let root = DockMagicThemeRoot(
+            content: DockHoverChrome(
+                pointerEdge: .bottom,
+                panelSize: panelSize
+            ) {
+                ClaudeCodeHoverDashboardView(
+                    state: .live(
+                        .claudeCodeHoverDesignPreview(now: fixedNow)
+                    ),
+                    now: fixedNow,
+                    isActivityHookInstalled: false,
+                    onInstallActivityHook: { installCallCount += 1 }
+                )
+            },
+            appearanceMode: .dark
+        )
+        .frame(width: panelSize.width, height: panelSize.height)
+        let hostingView = NSHostingView(rootView: root)
+        hostingView.frame = NSRect(origin: .zero, size: panelSize)
+        hostingView.appearance = NSAppearance(named: .darkAqua)
+        let panel = NSPanel(
+            contentRect: NSRect(origin: .zero, size: panelSize),
+            styleMask: [.borderless, .fullSizeContentView, .nonactivatingPanel],
+            backing: .buffered,
+            defer: false
+        )
+        panel.isReleasedWhenClosed = false
+        panel.setFrameOrigin(NSPoint(x: -20_000, y: -20_000))
+        panel.ignoresMouseEvents = false
+        panel.contentView = hostingView
+        panel.orderFront(nil)
+        defer {
+            panel.contentView = nil
+            panel.close()
+        }
+
+        RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.15))
+        hostingView.layoutSubtreeIfNeeded()
+        try sendPanelClick(
+            to: panel,
+            location: NSPoint(x: panelSize.width / 2, y: 62)
+        )
+        RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.1))
+
+        XCTAssertEqual(installCallCount, 1)
+    }
+
+    @MainActor
+    func testClaudeCodeCaptureButtonOpensMenuInNonactivatingPanel() throws {
+        let panelSize = DockHoverPanelPlacement.claudeCodePanelSize
+        let fixedNow = Date(timeIntervalSince1970: 1_777_000_000)
+        let configuration = CodexDashboardCaptureConfiguration(
+            pointerEdge: .bottom,
+            panelSize: panelSize,
+            appearanceMode: .dark
+        )
+        let root = DockMagicThemeRoot(
+            content: DockHoverChrome(
+                pointerEdge: .bottom,
+                panelSize: panelSize
+            ) {
+                ClaudeCodeHoverDashboardView(
+                    state: .live(
+                        .claudeCodeHoverDesignPreview(now: fixedNow)
+                    ),
+                    now: fixedNow,
+                    captureConfiguration: configuration
+                )
+            },
+            appearanceMode: .dark
+        )
+        .frame(width: panelSize.width, height: panelSize.height)
+        let hostingView = NSHostingView(rootView: root)
+        hostingView.frame = NSRect(origin: .zero, size: panelSize)
+        hostingView.appearance = NSAppearance(named: .darkAqua)
+        let panel = NSPanel(
+            contentRect: NSRect(origin: .zero, size: panelSize),
+            styleMask: [.borderless, .fullSizeContentView, .nonactivatingPanel],
+            backing: .buffered,
+            defer: false
+        )
+        panel.isReleasedWhenClosed = false
+        panel.setFrameOrigin(NSPoint(x: -20_000, y: -20_000))
+        panel.ignoresMouseEvents = false
+        panel.contentView = hostingView
+        panel.orderFront(nil)
+        defer {
+            panel.contentView = nil
+            panel.close()
+        }
+
+        RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.15))
+        hostingView.layoutSubtreeIfNeeded()
+        let before = try renderExistingViewPNG(
+            hostingView,
+            name: "Claude Code capture button before click"
+        )
+
+        let clickLocation = NSPoint(
+            x: panelSize.width - 31,
+            y: panelSize.height - 33
+        )
+        let down = try XCTUnwrap(NSEvent.mouseEvent(
+            with: .leftMouseDown,
+            location: clickLocation,
+            modifierFlags: [],
+            timestamp: 0,
+            windowNumber: panel.windowNumber,
+            context: nil,
+            eventNumber: 1,
+            clickCount: 1,
+            pressure: 1
+        ))
+        let up = try XCTUnwrap(NSEvent.mouseEvent(
+            with: .leftMouseUp,
+            location: clickLocation,
+            modifierFlags: [],
+            timestamp: 0.01,
+            windowNumber: panel.windowNumber,
+            context: nil,
+            eventNumber: 2,
+            clickCount: 1,
+            pressure: 0
+        ))
+        panel.sendEvent(down)
+        panel.sendEvent(up)
+        RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.2))
+        hostingView.layoutSubtreeIfNeeded()
+
+        let after = try renderExistingViewPNG(
+            hostingView,
+            name: "Claude Code capture menu after click"
+        )
+        XCTAssertNotEqual(before, after)
+        assertPixelDifference(
+            before,
+            after,
+            minimumChangedFraction: 0.008,
+            label: "Claude Code capture menu click state"
+        )
+        attachPNG(
+            after,
+            name: "Claude Code Hover — Capture Menu — Clicked"
+        )
+    }
+
+    @MainActor
+    func testStreakDashboardRendersBadgeCollectionAcrossServicesAndAccessibility() throws {
+        for milestone in TokenUsageStreakMilestone.allCases {
+            let image = try XCTUnwrap(
+                NSImage(named: NSImage.Name(milestone.assetName)),
+                "Missing streak badge asset \(milestone.assetName)"
+            )
+            XCTAssertGreaterThan(image.size.width, 500)
+            XCTAssertGreaterThan(image.size.height, 500)
+        }
+
+        let codexPanelSize = DockHoverPanelPlacement.codexPanelSize
+        let codexSnapshot = CodexRateLimitSnapshot.hoverDesignPreview
+        let codexOverviewName = "Codex Hover — Streak Strip — Dark"
+        let codexOverview = try renderPNG(
+            of: DockMagicThemeRoot(
+                content: DockHoverChrome(
+                    pointerEdge: .bottom,
+                    panelSize: codexPanelSize
+                ) {
+                    CodexHoverDashboardView(state: .live(codexSnapshot))
+                },
+                appearanceMode: .dark
+            )
+            .frame(width: codexPanelSize.width, height: codexPanelSize.height),
+            size: codexPanelSize,
+            appearanceName: .darkAqua,
+            name: codexOverviewName
+        )
+        attachPNG(codexOverview, name: codexOverviewName)
+
+        let codexDetailName = "Codex Hover — Streak Badges — Dark"
+        let codexDetail = try renderPNG(
+            of: DockMagicThemeRoot(
+                content: DockHoverChrome(
+                    pointerEdge: .bottom,
+                    panelSize: codexPanelSize
+                ) {
+                    CodexHoverDashboardView(
+                        state: .live(codexSnapshot),
+                        initialStreakDetailPresented: true
+                    )
+                },
+                appearanceMode: .dark
+            )
+            .frame(width: codexPanelSize.width, height: codexPanelSize.height),
+            size: codexPanelSize,
+            appearanceName: .darkAqua,
+            name: codexDetailName
+        )
+        XCTAssertGreaterThan(codexDetail.count, 25_000)
+        assertPixelDifference(
+            codexOverview,
+            codexDetail,
+            minimumChangedFraction: 0.18,
+            label: "Codex streak strip versus detail"
+        )
+        attachPNG(codexDetail, name: codexDetailName)
+
+        let codexLightName = "Codex Hover — Streak Badges — Light"
+        let codexLight = try renderPNG(
+            of: DockMagicThemeRoot(
+                content: DockHoverChrome(
+                    pointerEdge: .bottom,
+                    panelSize: codexPanelSize
+                ) {
+                    CodexHoverDashboardView(
+                        state: .live(codexSnapshot),
+                        initialStreakDetailPresented: true
+                    )
+                },
+                appearanceMode: .light
+            )
+            .frame(width: codexPanelSize.width, height: codexPanelSize.height),
+            size: codexPanelSize,
+            appearanceName: .aqua,
+            name: codexLightName
+        )
+        XCTAssertNotEqual(codexDetail, codexLight)
+        attachPNG(codexLight, name: codexLightName)
+
+        let codexContrastName = "Codex Hover — Streak Badges — Increased Contrast"
+        let codexContrast = try renderPNG(
+            of: DockMagicThemeRoot(
+                content: DockHoverChrome(
+                    pointerEdge: .bottom,
+                    panelSize: codexPanelSize
+                ) {
+                    CodexHoverDashboardView(
+                        state: .live(codexSnapshot),
+                        initialStreakDetailPresented: true
+                    )
+                },
+                appearanceMode: .dark
+            )
+            .environment(
+                \.dsAccessibilityOverrides,
+                DSAccessibilityOverrides(increaseContrast: true)
+            )
+            .frame(width: codexPanelSize.width, height: codexPanelSize.height),
+            size: codexPanelSize,
+            appearanceName: .darkAqua,
+            name: codexContrastName
+        )
+        attachPNG(codexContrast, name: codexContrastName)
+
+        let codexGrayscaleName = "Codex Hover — Streak Badges — Grayscale"
+        let codexGrayscale = try renderPNG(
+            of: DockMagicThemeRoot(
+                content: DockHoverChrome(
+                    pointerEdge: .bottom,
+                    panelSize: codexPanelSize
+                ) {
+                    CodexHoverDashboardView(
+                        state: .live(codexSnapshot),
+                        initialStreakDetailPresented: true
+                    )
+                },
+                appearanceMode: .dark
+            )
+            .grayscale(1)
+            .frame(width: codexPanelSize.width, height: codexPanelSize.height),
+            size: codexPanelSize,
+            appearanceName: .darkAqua,
+            name: codexGrayscaleName
+        )
+        attachPNG(codexGrayscale, name: codexGrayscaleName)
+
+        let codexTransparencyName =
+            "Codex Hover — Streak Badges — Reduced Transparency"
+        let codexTransparency = try renderPNG(
+            of: DockMagicThemeRoot(
+                content: DockHoverChrome(
+                    pointerEdge: .bottom,
+                    panelSize: codexPanelSize
+                ) {
+                    CodexHoverDashboardView(
+                        state: .live(codexSnapshot),
+                        initialStreakDetailPresented: true
+                    )
+                },
+                appearanceMode: .dark
+            )
+            .environment(
+                \.dsAccessibilityOverrides,
+                DSAccessibilityOverrides(reduceTransparency: true)
+            )
+            .frame(width: codexPanelSize.width, height: codexPanelSize.height),
+            size: codexPanelSize,
+            appearanceName: .darkAqua,
+            name: codexTransparencyName
+        )
+        attachPNG(codexTransparency, name: codexTransparencyName)
+
+        let resetDays = (0..<7).map { offset in
+            TokenUsageStreakDay(
+                date: Date(timeIntervalSince1970: 1_788_067_200)
+                    .addingTimeInterval(Double(offset - 6) * 86_400),
+                state: offset == 6 ? .todayPending : .unknown
+            )
+        }
+        let resetSummary = TokenUsageStreakSummary(
+            currentDays: 0,
+            bestDays: 730,
+            earnedBadge: .continuum,
+            previousBadge: .codexCore,
+            nextBadge: nil,
+            daysUntilNextBadge: nil,
+            recentDays: resetDays
+        )
+        let resetName = "Codex Hover — Continuum Earned — New Run"
+        let resetData = try renderPNG(
+            of: DockMagicThemeRoot(
+                content: DockHoverChrome(
+                    pointerEdge: .bottom,
+                    panelSize: codexPanelSize
+                ) {
+                    StreakDetailView(
+                        summary: resetSummary,
+                        brand: .codex,
+                        accent: ProjectTheme.current.action,
+                        onBack: {}
+                    )
+                },
+                appearanceMode: .dark
+            )
+            .frame(width: codexPanelSize.width, height: codexPanelSize.height),
+            size: codexPanelSize,
+            appearanceName: .darkAqua,
+            name: resetName
+        )
+        XCTAssertGreaterThan(resetData.count, 25_000)
+        XCTAssertNotEqual(resetData, codexDetail)
+        attachPNG(resetData, name: resetName)
+
+        let unavailableName = "Codex Hover — Streak Badges — Unavailable"
+        let unavailableData = try renderPNG(
+            of: DockMagicThemeRoot(
+                content: DockHoverChrome(
+                    pointerEdge: .bottom,
+                    panelSize: codexPanelSize
+                ) {
+                    StreakDetailView(
+                        summary: nil,
+                        brand: .codex,
+                        accent: ProjectTheme.current.action,
+                        onBack: {}
+                    )
+                },
+                appearanceMode: .dark
+            )
+            .frame(width: codexPanelSize.width, height: codexPanelSize.height),
+            size: codexPanelSize,
+            appearanceName: .darkAqua,
+            name: unavailableName
+        )
+        XCTAssertGreaterThan(unavailableData.count, 18_000)
+        attachPNG(unavailableData, name: unavailableName)
+
+        let claudePanelSize = DockHoverPanelPlacement.claudeCodePanelSize
+        let claudeSnapshot = CodexRateLimitSnapshot
+            .claudeCodeHoverDesignPreview(now: .now)
+        let claudeDetailName = "Claude Code Hover — Streak Badges — Dark"
+        let claudeDetail = try renderPNG(
+            of: DockMagicThemeRoot(
+                content: DockHoverChrome(
+                    pointerEdge: .bottom,
+                    panelSize: claudePanelSize
+                ) {
+                    ClaudeCodeHoverDashboardView(
+                        state: .live(claudeSnapshot),
+                        initialStreakDetailPresented: true
+                    )
+                },
+                appearanceMode: .dark
+            )
+            .frame(width: claudePanelSize.width, height: claudePanelSize.height),
+            size: claudePanelSize,
+            appearanceName: .darkAqua,
+            name: claudeDetailName
+        )
+        XCTAssertGreaterThan(claudeDetail.count, 25_000)
+        XCTAssertNotEqual(codexDetail, claudeDetail)
+        attachPNG(claudeDetail, name: claudeDetailName)
+    }
+
+    func testStreakDashboardSourceUsesBoundedBadgeArtAndSemanticChrome() throws {
+        let projectDirectory = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let sourceURL = projectDirectory.appendingPathComponent(
+            "DockMagic/Views/Hover/StreakDashboardViews.swift"
+        )
+        let source = try String(contentsOf: sourceURL, encoding: .utf8)
+        let forbiddenPatterns = [
+            "LinearGradient(",
+            "RadialGradient(",
+            "AngularGradient(",
+            "Color(red:",
+            "Color.white",
+            "Color.black",
+            ".shadow(color:"
+        ]
+
+        for pattern in forbiddenPatterns {
+            XCTAssertFalse(source.contains(pattern), "Streak UI must not contain \(pattern).")
+        }
+
+        XCTAssertTrue(source.contains("TokenUsageStreakMilestone.allCases"))
+        XCTAssertTrue(source.contains("StreakBadgeView("))
+        XCTAssertFalse(source.contains("private var serviceMark"))
+        XCTAssertFalse(source.contains("badgeLogoAssetName"))
+        XCTAssertFalse(source.contains("CodexBadgeLogo"))
+        XCTAssertTrue(source.contains("guard size <= 60 else { return .high }"))
+        XCTAssertTrue(source.contains("displayScale >= 2 ? .none : .medium"))
+        XCTAssertTrue(source.contains("dockHover.streak.open"))
+        XCTAssertTrue(source.contains("dockHover.streak.detail"))
+        XCTAssertTrue(source.contains("dockHover.streak.back"))
+        XCTAssertTrue(source.contains("dockHover.streak.celebration"))
+        XCTAssertTrue(source.contains("Returning to dashboard in a moment"))
+        XCTAssertTrue(source.contains("earned badges stay unlocked"))
+        XCTAssertTrue(source.contains("theme.opaqueSurfaceInset"))
+        XCTAssertTrue(source.contains("theme.selectionOutline"))
+    }
+
+    @MainActor
+    func testCodexStreakCelebrationFillsPanelAndAutomaticallyReturnsToOverview() throws {
+        let panelSize = DockHoverPanelPlacement.codexPanelSize
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "Asia/Ho_Chi_Minh")!
+        let now = calendar.date(from: DateComponents(
+            year: 2026,
+            month: 8,
+            day: 30,
+            hour: 18
+        ))!
+        let celebration = TokenUsageStreakCelebration(
+            provider: .codex,
+            dayKey: "2026-08-30",
+            achievedAt: now,
+            presentedAt: now,
+            summary: .fixture(
+                currentDays: 1,
+                bestDays: 1,
+                endingAt: now,
+                calendar: calendar
+            )
+        )
+        var dismissedID: String?
+        let root = DockMagicThemeRoot(
+            content: DockHoverChrome(
+                pointerEdge: .bottom,
+                panelSize: panelSize
+            ) {
+                CodexHoverDashboardView(
+                    state: .live(.hoverDesignPreview),
+                    now: now,
+                    initialStreakCelebration: celebration,
+                    streakCelebrationAutoDismissDelay: .milliseconds(320),
+                    onStreakCelebrationDismissed: { dismissedID = $0 }
+                )
+            },
+            appearanceMode: .dark
+        )
+        .frame(width: panelSize.width, height: panelSize.height)
+        let hostingView = NSHostingView(rootView: root)
+        hostingView.frame = NSRect(origin: .zero, size: panelSize)
+        hostingView.appearance = NSAppearance(named: .darkAqua)
+        let panel = NSPanel(
+            contentRect: NSRect(origin: .zero, size: panelSize),
+            styleMask: [.borderless, .fullSizeContentView, .nonactivatingPanel],
+            backing: .buffered,
+            defer: false
+        )
+        panel.isReleasedWhenClosed = false
+        panel.setFrameOrigin(NSPoint(x: -20_000, y: -20_000))
+        panel.contentView = hostingView
+        panel.orderFront(nil)
+        defer {
+            panel.contentView = nil
+            panel.close()
+        }
+
+        RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.12))
+        hostingView.layoutSubtreeIfNeeded()
+        let celebrationPNG = try renderExistingViewPNG(
+            hostingView,
+            name: "Codex full-panel streak celebration"
+        )
+        XCTAssertGreaterThan(celebrationPNG.count, 20_000)
+        attachPNG(
+            celebrationPNG,
+            name: "Codex Hover — Full-panel Streak Celebration"
+        )
+
+        RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.42))
+        hostingView.layoutSubtreeIfNeeded()
+        let overviewPNG = try renderExistingViewPNG(
+            hostingView,
+            name: "Codex overview after streak celebration"
+        )
+        XCTAssertEqual(dismissedID, celebration.id)
+        assertPixelDifference(
+            celebrationPNG,
+            overviewPNG,
+            minimumChangedFraction: 0.20,
+            label: "Full-panel celebration automatically returns to overview"
+        )
+        attachPNG(
+            overviewPNG,
+            name: "Codex Hover — Overview After Streak Celebration"
+        )
+    }
+
+    @MainActor
+    func testClaudeCodeStreakCelebrationFillsPanelAndAutomaticallyReturnsToOverview() throws {
+        let panelSize = DockHoverPanelPlacement.claudeCodePanelSize
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "Asia/Ho_Chi_Minh")!
+        let now = calendar.date(from: DateComponents(
+            year: 2026,
+            month: 8,
+            day: 30,
+            hour: 18
+        ))!
+        let celebration = TokenUsageStreakCelebration(
+            provider: .claudeCode,
+            dayKey: "2026-08-30",
+            achievedAt: now,
+            presentedAt: now,
+            summary: .fixture(
+                currentDays: 7,
+                bestDays: 7,
+                endingAt: now,
+                calendar: calendar
+            )
+        )
+        let snapshot = CodexRateLimitSnapshot
+            .claudeCodeHoverDesignPreview(now: now)
+        var dismissedID: String?
+        let root = DockMagicThemeRoot(
+            content: DockHoverChrome(
+                pointerEdge: .bottom,
+                panelSize: panelSize
+            ) {
+                ClaudeCodeHoverDashboardView(
+                    state: .live(snapshot),
+                    now: now,
+                    initialStreakCelebration: celebration,
+                    streakCelebrationAutoDismissDelay: .milliseconds(320),
+                    onStreakCelebrationDismissed: { dismissedID = $0 }
+                )
+            },
+            appearanceMode: .dark
+        )
+        .frame(width: panelSize.width, height: panelSize.height)
+        let hostingView = NSHostingView(rootView: root)
+        hostingView.frame = NSRect(origin: .zero, size: panelSize)
+        hostingView.appearance = NSAppearance(named: .darkAqua)
+        let panel = NSPanel(
+            contentRect: NSRect(origin: .zero, size: panelSize),
+            styleMask: [.borderless, .fullSizeContentView, .nonactivatingPanel],
+            backing: .buffered,
+            defer: false
+        )
+        panel.isReleasedWhenClosed = false
+        panel.setFrameOrigin(NSPoint(x: -20_000, y: -20_000))
+        panel.contentView = hostingView
+        panel.orderFront(nil)
+        defer {
+            panel.contentView = nil
+            panel.close()
+        }
+
+        RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.12))
+        hostingView.layoutSubtreeIfNeeded()
+        let celebrationPNG = try renderExistingViewPNG(
+            hostingView,
+            name: "Claude Code full-panel streak celebration"
+        )
+        XCTAssertGreaterThan(celebrationPNG.count, 20_000)
+        attachPNG(
+            celebrationPNG,
+            name: "Claude Code Hover — Full-panel Streak Celebration"
+        )
+
+        RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.42))
+        hostingView.layoutSubtreeIfNeeded()
+        let overviewPNG = try renderExistingViewPNG(
+            hostingView,
+            name: "Claude Code overview after streak celebration"
+        )
+        XCTAssertEqual(dismissedID, celebration.id)
+        assertPixelDifference(
+            celebrationPNG,
+            overviewPNG,
+            minimumChangedFraction: 0.20,
+            label: "Claude Code celebration automatically returns to overview"
+        )
+        attachPNG(
+            overviewPNG,
+            name: "Claude Code Hover — Overview After Streak Celebration"
+        )
+    }
+
+    @MainActor
+    func testCodexStreakStripOpensAndBackButtonClosesDetailInPanel() throws {
+        let panelSize = DockHoverPanelPlacement.codexPanelSize
+        let root = DockMagicThemeRoot(
+            content: DockHoverChrome(
+                pointerEdge: .bottom,
+                panelSize: panelSize
+            ) {
+                CodexHoverDashboardView(
+                    state: .live(.hoverDesignPreview),
+                    now: Date(timeIntervalSince1970: 1_788_067_200)
+                )
+            },
+            appearanceMode: .dark
+        )
+        .frame(width: panelSize.width, height: panelSize.height)
+        let hostingView = NSHostingView(rootView: root)
+        hostingView.frame = NSRect(origin: .zero, size: panelSize)
+        hostingView.appearance = NSAppearance(named: .darkAqua)
+        let panel = NSPanel(
+            contentRect: NSRect(origin: .zero, size: panelSize),
+            styleMask: [.borderless, .fullSizeContentView, .nonactivatingPanel],
+            backing: .buffered,
+            defer: false
+        )
+        panel.isReleasedWhenClosed = false
+        panel.setFrameOrigin(NSPoint(x: -20_000, y: -20_000))
+        panel.ignoresMouseEvents = false
+        panel.contentView = hostingView
+        panel.orderFront(nil)
+        defer {
+            panel.contentView = nil
+            panel.close()
+        }
+
+        RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.15))
+        hostingView.layoutSubtreeIfNeeded()
+        let overview = try renderExistingViewPNG(
+            hostingView,
+            name: "Codex streak strip before click"
+        )
+
+        try sendPanelClick(
+            to: panel,
+            location: NSPoint(x: panelSize.width / 2, y: 256)
+        )
+        RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.2))
+        hostingView.layoutSubtreeIfNeeded()
+        let detail = try renderExistingViewPNG(
+            hostingView,
+            name: "Codex streak detail after click"
+        )
+        assertPixelDifference(
+            overview,
+            detail,
+            minimumChangedFraction: 0.18,
+            label: "Streak strip click opens detail"
+        )
+        attachPNG(detail, name: "Codex Hover — Streak Detail — Clicked")
+
+        try sendPanelClick(
+            to: panel,
+            location: NSPoint(x: 34, y: panelSize.height - 35)
+        )
+        RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.2))
+        hostingView.layoutSubtreeIfNeeded()
+        let returnedOverview = try renderExistingViewPNG(
+            hostingView,
+            name: "Codex streak strip after back"
+        )
+        assertPixelDifference(
+            detail,
+            returnedOverview,
+            minimumChangedFraction: 0.18,
+            label: "Streak detail back button closes detail"
+        )
+    }
+
+    @MainActor
     func testClaudeCodeHoverDashboardRendersEveryDataState() async throws {
         let suiteName = "DockMagicTests.ClaudeCodeHoverRender.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
@@ -4995,6 +6625,9 @@ final class DockMagicTests: XCTestCase {
         let liveStore = ClaudeCodeUsageStore(
             provider: ScriptedClaudeCodeProvider([.success(liveSnapshot)]),
             bridge: StubClaudeCodeBridge(installed: true),
+            activityHookBridge: StubClaudeCodeActivityHookBridge(
+                installed: true
+            ),
             pollingInterval: .seconds(60),
             staleAfter: 900,
             now: { renderNow }
@@ -5065,6 +6698,9 @@ final class DockMagicTests: XCTestCase {
         let staleStore = ClaudeCodeUsageStore(
             provider: ScriptedClaudeCodeProvider([.success(staleSnapshot)]),
             bridge: StubClaudeCodeBridge(installed: true),
+            activityHookBridge: StubClaudeCodeActivityHookBridge(
+                installed: true
+            ),
             pollingInterval: .seconds(60),
             staleAfter: 900,
             now: { renderNow }
@@ -5092,6 +6728,9 @@ final class DockMagicTests: XCTestCase {
         let unavailableStore = ClaudeCodeUsageStore(
             provider: ScriptedClaudeCodeProvider([]),
             bridge: StubClaudeCodeBridge(installed: false),
+            activityHookBridge: StubClaudeCodeActivityHookBridge(
+                installed: false
+            ),
             pollingInterval: .seconds(60)
         )
         await unavailableStore.refresh()
@@ -5228,10 +6867,16 @@ final class DockMagicTests: XCTestCase {
         let projectDirectory = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()
             .deletingLastPathComponent()
-        let sourceURL = projectDirectory.appendingPathComponent(
-            "DockMagic/Views/Hover/ClaudeCodeHoverDashboardView.swift"
-        )
-        let source = try String(contentsOf: sourceURL, encoding: .utf8)
+        let sourcePaths = [
+            "DockMagic/Views/Hover/ClaudeCodeHoverDashboardView.swift",
+            "DockMagic/Views/Hover/ShipMomentumGaugeView.swift"
+        ]
+        let source = try sourcePaths.map { path in
+            try String(
+                contentsOf: projectDirectory.appendingPathComponent(path),
+                encoding: .utf8
+            )
+        }.joined(separator: "\n")
         let forbiddenPatterns = [
             "LinearGradient(",
             "RadialGradient(",
@@ -5260,14 +6905,29 @@ final class DockMagicTests: XCTestCase {
         XCTAssertTrue(source.contains("UsageLimitHoverRow("))
         XCTAssertTrue(source.contains("ProjectTheme.claudeCodeUsage"))
         XCTAssertTrue(source.contains("Daily usage"))
-        XCTAssertTrue(source.contains("Top models"))
-        XCTAssertTrue(source.contains("Ship momentum"))
-        XCTAssertTrue(source.contains("ClaudeCodeShipMomentumGauge("))
+        XCTAssertTrue(source.contains("CodexShipMomentumCard("))
+        XCTAssertTrue(source.contains("Enable realtime tracking"))
+        XCTAssertTrue(
+            source.contains("claudeCode.activeWork.install")
+        )
+        XCTAssertTrue(source.contains("CodexDailyIntensityCard("))
+        XCTAssertTrue(source.contains("CodexTopModelsCard("))
+        XCTAssertTrue(source.contains("private var usageInsights"))
+        XCTAssertTrue(
+            source.contains("dockHover.claudeCode.dailyIntensity")
+        )
+        XCTAssertTrue(source.contains("ShipMomentumFlameShape"))
         XCTAssertTrue(source.contains("Active work"))
-        XCTAssertTrue(source.contains("observed est."))
+        XCTAssertFalse(source.contains("headerMetric("))
+        XCTAssertFalse(source.contains("sessionSubtitle"))
         XCTAssertTrue(source.contains("case tokens = \"Tokens\""))
         XCTAssertTrue(source.contains("case cost = \"Cost\""))
         XCTAssertTrue(source.contains("dockHover.claudeCode"))
+        XCTAssertTrue(source.contains("claudeCode.capture.button"))
+        XCTAssertTrue(source.contains("claudeCode.capture.menu"))
+        XCTAssertTrue(source.contains("Share…"))
+        XCTAssertFalse(source.contains("\"Stale\""))
+        XCTAssertFalse(source.contains("exclamationmark.triangle"))
         XCTAssertTrue(source.contains(".symbolRenderingMode(.monochrome)"))
         XCTAssertTrue(source.contains("theme.opaqueSurfaceInset"))
     }
@@ -5307,8 +6967,6 @@ final class DockMagicTests: XCTestCase {
         let usage = CodexAccountTokenUsage(
             lifetimeTokens: nil,
             peakDailyTokens: nil,
-            currentStreakDays: nil,
-            longestStreakDays: nil,
             longestRunningTurnSeconds: nil,
             dailyUsageBuckets: buckets,
             modelUsage: [
@@ -5333,7 +6991,9 @@ final class DockMagicTests: XCTestCase {
         XCTAssertEqual(visibleWindows.map(\.kind), [.weekly])
 
         let visibleBuckets = CodexHoverDashboardPresentation.chartBuckets(
-            from: usage
+            from: usage,
+            now: buckets[34].startDate,
+            calendar: calendar
         )
         XCTAssertEqual(visibleBuckets.count, 30)
         XCTAssertEqual(visibleBuckets.first?.id, buckets[5].id)
@@ -5350,6 +7010,161 @@ final class DockMagicTests: XCTestCase {
             CodexHoverDashboardPresentation.resetLabel(for: weekly),
             "Resets Aug 28, 9:15 AM"
         )
+    }
+
+    func testCodexChartAlwaysIncludesTheCurrentLocalDay() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = .current
+        let now = calendar.date(from: DateComponents(
+            year: 2026,
+            month: 8,
+            day: 30,
+            hour: 15
+        ))!
+        let yesterday = calendar.date(
+            byAdding: .day,
+            value: -1,
+            to: now
+        )!
+        let usage = CodexAccountTokenUsage(
+            lifetimeTokens: nil,
+            peakDailyTokens: nil,
+            longestRunningTurnSeconds: nil,
+            dailyUsageBuckets: [
+                CodexTokenUsageDailyBucket(
+                    startDate: yesterday,
+                    tokens: 120
+                )
+            ]
+        )
+
+        let withoutUsage = CodexHoverDashboardPresentation.chartBuckets(
+            from: nil,
+            now: now,
+            calendar: calendar
+        )
+        XCTAssertEqual(withoutUsage.count, 30)
+        XCTAssertTrue(
+            calendar.isDate(withoutUsage.last!.startDate, inSameDayAs: now)
+        )
+        XCTAssertTrue(withoutUsage.allSatisfy { $0.tokens == 0 })
+
+        let staleUsage = CodexHoverDashboardPresentation.chartBuckets(
+            from: usage,
+            now: now,
+            calendar: calendar
+        )
+        XCTAssertEqual(staleUsage.count, 2)
+        XCTAssertTrue(
+            calendar.isDate(staleUsage.last!.startDate, inSameDayAs: now)
+        )
+        XCTAssertEqual(staleUsage.last?.tokens, 0)
+
+        let currentUsage = CodexAccountTokenUsage(
+            lifetimeTokens: nil,
+            peakDailyTokens: nil,
+            longestRunningTurnSeconds: nil,
+            dailyUsageBuckets: [
+                CodexTokenUsageDailyBucket(startDate: now, tokens: 240)
+            ]
+        )
+        let currentBuckets = CodexHoverDashboardPresentation.chartBuckets(
+            from: currentUsage,
+            now: now,
+            calendar: calendar
+        )
+        XCTAssertEqual(currentBuckets.count, 1)
+        XCTAssertEqual(currentBuckets[0].tokens, 240)
+    }
+
+    func testTokenUsageStreakMilestonesUseTheTenResearchedBoundaries() {
+        let milestones = TokenUsageStreakMilestone.allCases
+
+        XCTAssertEqual(milestones.count, 10)
+        XCTAssertEqual(
+            milestones.map(\.requiredDays),
+            [1, 3, 7, 14, 30, 60, 100, 180, 365, 730]
+        )
+        XCTAssertEqual(Set(milestones.map(\.title)).count, milestones.count)
+        XCTAssertEqual(
+            Set(milestones.map(\.assetName)).count,
+            milestones.count
+        )
+        XCTAssertEqual(TokenUsageStreakMilestone.codexCore.title, "Keystone")
+
+        for milestone in milestones {
+            XCTAssertEqual(
+                TokenUsageStreakMilestone.highestUnlocked(
+                    for: milestone.requiredDays
+                ),
+                milestone
+            )
+            if milestone.requiredDays > 1 {
+                XCTAssertNotEqual(
+                    TokenUsageStreakMilestone.highestUnlocked(
+                        for: milestone.requiredDays - 1
+                    ),
+                    milestone
+                )
+            }
+        }
+        XCTAssertNil(TokenUsageStreakMilestone.highestUnlocked(for: 0))
+        XCTAssertNil(TokenUsageStreakMilestone.nextLocked(after: 730))
+    }
+
+    func testTokenUsageStreakCalculatorKeepsBestAfterCurrentRunResets() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "Asia/Ho_Chi_Minh")!
+        let now = calendar.date(from: DateComponents(
+            year: 2026,
+            month: 8,
+            day: 30,
+            hour: 22
+        ))!
+        let start = calendar.date(
+            byAdding: .day,
+            value: -20,
+            to: now
+        )!
+        let records = (0..<14).map { offset in
+            let date = calendar.date(byAdding: .day, value: offset, to: start)!
+            let day = TokenUsageCalendarDay.containing(date, calendar: calendar)
+            return TokenUsageStreakRecordValue(
+                identifier: "codex|\(day.key)",
+                provider: .codex,
+                dayKey: day.key,
+                dayIndex: day.index,
+                tokenCount: 25,
+                firstObservedAt: date,
+                lastObservedAt: date
+            )
+        }
+
+        let summary = TokenUsageStreakCalculator.summary(
+            from: records,
+            now: now,
+            calendar: calendar
+        )
+
+        XCTAssertEqual(summary.currentDays, 0)
+        XCTAssertEqual(summary.bestDays, 14)
+        XCTAssertEqual(summary.earnedBadge, .builder)
+        XCTAssertEqual(summary.previousBadge, .loop)
+        XCTAssertEqual(summary.nextBadge, .flow)
+        XCTAssertEqual(summary.daysUntilNextBadge, 30)
+    }
+
+    func testTokenUsageStreakCalculatorKeepsTodayPending() {
+        let summary = TokenUsageStreakCalculator.summary(
+            from: [],
+            now: .now,
+            calendar: .current
+        )
+
+        XCTAssertEqual(summary.currentDays, 0)
+        XCTAssertEqual(summary.bestDays, 0)
+        XCTAssertEqual(summary.recentDays.last?.state, .todayPending)
+        XCTAssertFalse(summary.hasActivityToday)
     }
 
     func testCodexDailyDetailCachedInputStaysBounded() {
@@ -5375,7 +7190,7 @@ final class DockMagicTests: XCTestCase {
         )
     }
 
-    func testCodexShipMomentumCombinesTasksAndTokensAgainstPriorWeek() {
+    func testCodexShipMomentumUsesOnlyTokensFromTheCurrentLocalDay() {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = .current
         let fetchedAt = calendar.date(from: DateComponents(
@@ -5384,54 +7199,28 @@ final class DockMagicTests: XCTestCase {
             day: 25,
             hour: 12
         ))!
-        let start = calendar.date(from: DateComponents(
-            year: 2026,
-            month: 8,
-            day: 12,
-            hour: 12
-        ))!
-        let buckets = (0..<14).map { index in
+        let yesterday = calendar.date(
+            byAdding: .day,
+            value: -1,
+            to: fetchedAt
+        )!
+        let buckets = [
             CodexTokenUsageDailyBucket(
-                startDate: calendar.date(
-                    byAdding: .day,
-                    value: index,
-                    to: start
-                )!,
-                tokens: index < 7 ? 300 : 700
+                startDate: yesterday,
+                tokens: 900_000_000
+            ),
+            CodexTokenUsageDailyBucket(
+                startDate: fetchedAt,
+                tokens: 350_000_000
             )
-        }
+        ]
         let usage = CodexAccountTokenUsage(
             lifetimeTokens: nil,
             peakDailyTokens: nil,
-            currentStreakDays: nil,
-            longestStreakDays: nil,
             longestRunningTurnSeconds: nil,
             dailyUsageBuckets: buckets
         )
         let snapshot = CodexRateLimitSnapshot(
-            planType: "pro",
-            limitID: "codex",
-            fiveHour: nil,
-            weekly: nil,
-            tokenUsage: usage,
-            recentTaskActivity: CodexRecentTaskActivity(
-                currentWeekCount: 9,
-                previousWeekCount: 3,
-                isPartial: false
-            ),
-            fetchedAt: fetchedAt
-        )
-
-        let momentum = CodexHoverDashboardPresentation.shipMomentum(
-            in: snapshot
-        )
-        XCTAssertEqual(momentum?.currentTokens, 4_900)
-        XCTAssertEqual(momentum?.previousTokens, 2_100)
-        XCTAssertEqual(momentum?.currentTasks, 9)
-        XCTAssertEqual(momentum?.score, 73)
-        XCTAssertEqual(momentum?.rank, .accelerator)
-
-        let missingTaskSignal = CodexRateLimitSnapshot(
             planType: "pro",
             limitID: "codex",
             fiveHour: nil,
@@ -5444,26 +7233,633 @@ final class DockMagicTests: XCTestCase {
             ),
             fetchedAt: fetchedAt
         )
-        XCTAssertNil(
-            CodexHoverDashboardPresentation.shipMomentum(
-                in: missingTaskSignal
-            )
+
+        let momentum = CodexHoverDashboardPresentation.shipMomentum(
+            in: snapshot,
+            now: fetchedAt
         )
+        XCTAssertEqual(momentum?.todayTokens, 350_000_000)
+        XCTAssertEqual(momentum?.score, 60)
+        XCTAssertEqual(momentum?.rank, .shipper)
+
+        let nextDay = calendar.date(
+            byAdding: .day,
+            value: 1,
+            to: fetchedAt
+        )!
+        let resetSnapshot = CodexRateLimitSnapshot(
+            planType: "pro",
+            limitID: "codex",
+            fiveHour: nil,
+            weekly: nil,
+            tokenUsage: usage,
+            recentTaskActivity: nil,
+            fetchedAt: fetchedAt
+        )
+        let resetMomentum = CodexHoverDashboardPresentation.shipMomentum(
+            in: resetSnapshot,
+            now: nextDay
+        )
+        XCTAssertEqual(resetMomentum?.todayTokens, 0)
+        XCTAssertEqual(resetMomentum?.score, 0)
+        XCTAssertEqual(resetMomentum?.rank, .starter)
+    }
+
+    func testCodexShipMomentumMapsDailyTokenTiersToRankScoreBands() {
+        let cases: [(tokens: Int64, score: Int, rank: CodexShipRank)] = [
+            (0, 0, .starter),
+            (5_000_000, 5, .starter),
+            (9_999_999, 9, .starter),
+            (10_000_000, 10, .builder),
+            (30_000_000, 20, .builder),
+            (50_000_000, 30, .creator),
+            (125_000_000, 40, .creator),
+            (200_000_000, 50, .shipper),
+            (350_000_000, 60, .shipper),
+            (500_000_000, 70, .shipmaster),
+            (750_000_000, 80, .shipmaster),
+            (1_000_000_000, 89, .shipmaster),
+            (1_000_000_001, 100, .legend)
+        ]
+
+        for testCase in cases {
+            let score = CodexShipMomentum.score(
+                forTodayTokens: testCase.tokens
+            )
+            XCTAssertEqual(
+                score,
+                testCase.score,
+                "tokens: \(testCase.tokens)"
+            )
+            XCTAssertEqual(
+                CodexShipRank.rank(for: score),
+                testCase.rank,
+                "tokens: \(testCase.tokens)"
+            )
+        }
     }
 
     func testCodexShipMomentumRanksUseSixAscendingThresholds() {
-        XCTAssertEqual(CodexShipRank.rank(for: 0), .spark)
-        XCTAssertEqual(CodexShipRank.rank(for: 9), .spark)
+        XCTAssertEqual(CodexShipRank.rank(for: 0), .starter)
+        XCTAssertEqual(CodexShipRank.rank(for: 9), .starter)
         XCTAssertEqual(CodexShipRank.rank(for: 10), .builder)
         XCTAssertEqual(CodexShipRank.rank(for: 29), .builder)
-        XCTAssertEqual(CodexShipRank.rank(for: 30), .maker)
-        XCTAssertEqual(CodexShipRank.rank(for: 49), .maker)
+        XCTAssertEqual(CodexShipRank.rank(for: 30), .creator)
+        XCTAssertEqual(CodexShipRank.rank(for: 49), .creator)
         XCTAssertEqual(CodexShipRank.rank(for: 50), .shipper)
         XCTAssertEqual(CodexShipRank.rank(for: 69), .shipper)
-        XCTAssertEqual(CodexShipRank.rank(for: 70), .accelerator)
-        XCTAssertEqual(CodexShipRank.rank(for: 89), .accelerator)
-        XCTAssertEqual(CodexShipRank.rank(for: 90), .vanguard)
-        XCTAssertEqual(CodexShipRank.rank(for: 100), .vanguard)
+        XCTAssertEqual(CodexShipRank.rank(for: 70), .shipmaster)
+        XCTAssertEqual(CodexShipRank.rank(for: 89), .shipmaster)
+        XCTAssertEqual(CodexShipRank.rank(for: 90), .legend)
+        XCTAssertEqual(CodexShipRank.rank(for: 100), .legend)
+    }
+
+    func testShipMomentumGaugeProfilesEscalateAcrossEveryRank() {
+        let profiles = CodexShipRank.allCases.map(
+            ShipMomentumGaugeProfile.profile(for:)
+        )
+
+        for (lower, higher) in zip(profiles, profiles.dropFirst()) {
+            XCTAssertLessThan(lower.crestCount, higher.crestCount)
+            XCTAssertLessThan(lower.flameAmplitude, higher.flameAmplitude)
+            XCTAssertLessThan(lower.activeLineWidth, higher.activeLineWidth)
+            XCTAssertLessThan(lower.endpointDiameter, higher.endpointDiameter)
+            XCTAssertLessThan(lower.endpointPulse, higher.endpointPulse)
+            XCTAssertLessThanOrEqual(lower.emberCount, higher.emberCount)
+            XCTAssertLessThanOrEqual(lower.travelSpeed, higher.travelSpeed)
+            XCTAssertLessThan(lower.breathingRate, higher.breathingRate)
+            XCTAssertLessThan(lower.breathingDepth, higher.breathingDepth)
+            XCTAssertLessThan(lower.flickerDepth, higher.flickerDepth)
+            XCTAssertLessThan(
+                lower.crestHighlightOpacity,
+                higher.crestHighlightOpacity
+            )
+            XCTAssertLessThan(lower.rankBurstScale, higher.rankBurstScale)
+            XCTAssertLessThan(
+                lower.rankBurstDuration,
+                higher.rankBurstDuration
+            )
+        }
+
+        XCTAssertFalse(
+            profiles[CodexShipRank.shipper.rawValue].showsEchoContour
+        )
+        XCTAssertTrue(
+            profiles[CodexShipRank.shipmaster.rawValue].showsEchoContour
+        )
+        XCTAssertTrue(
+            profiles[CodexShipRank.legend.rawValue].showsEchoContour
+        )
+        XCTAssertEqual(
+            profiles[CodexShipRank.legend.rawValue].emberCount,
+            7
+        )
+        XCTAssertEqual(profiles[0].motionMode, .breathing)
+        XCTAssertEqual(profiles[2].motionMode, .breathing)
+        XCTAssertEqual(profiles[3].motionMode, .directional)
+        XCTAssertEqual(profiles[4].motionMode, .directional)
+        XCTAssertEqual(profiles[5].motionMode, .burst)
+        XCTAssertGreaterThan(profiles[3].travelSpeed, profiles[2].travelSpeed)
+    }
+
+    func testShipMomentumScore54AlwaysUsesShipperDirectionalDynamics() {
+        let dynamics = ShipMomentumGaugeDynamics.resolve(
+            score: 54,
+            fallbackRank: .creator
+        )
+
+        XCTAssertEqual(dynamics.rank, .shipper)
+        XCTAssertEqual(dynamics.motionMode, .directional)
+        XCTAssertEqual(dynamics.crestCount, 6)
+        XCTAssertGreaterThan(dynamics.travelSpeed, 0.75)
+        XCTAssertEqual(dynamics.tierProgress, 4.0 / 19.0, accuracy: 0.0001)
+    }
+
+    @MainActor
+    func testShipMomentumLivingFlameGaugeRendersAllRanksAndProviders() throws {
+        let scores = [5, 20, 40, 60, 80, 100]
+        let boardSize = NSSize(width: 940, height: 112)
+
+        func board(accent: Color) -> some View {
+            HStack(spacing: 12) {
+                ForEach(
+                    Array(CodexShipRank.allCases.enumerated()),
+                    id: \.element
+                ) { index, rank in
+                    VStack(spacing: 4) {
+                        ShipMomentumGauge(
+                            score: scores[index],
+                            rank: rank,
+                            accent: accent
+                        )
+                        .frame(width: 132, height: 64)
+
+                        Text(rank.title)
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundStyle(ProjectTheme.current.textPrimary)
+                    }
+                }
+            }
+            .padding(12)
+            .frame(width: boardSize.width, height: boardSize.height)
+            .background(ProjectTheme.current.opaqueSurfaceInset)
+            .environment(
+                \.dsAccessibilityOverrides,
+                DSAccessibilityOverrides(reduceMotion: true)
+            )
+        }
+
+        let variants: [(String, Color, DSAppearanceMode, NSAppearance.Name)] = [
+            ("Codex Dark", ProjectTheme.current.action, .dark, .darkAqua),
+            ("Codex Light", ProjectTheme.current.action, .light, .aqua),
+            (
+                "Claude Code Dark",
+                ProjectTheme.claudeCodeUsage,
+                .dark,
+                .darkAqua
+            )
+        ]
+
+        var rendered: [Data] = []
+        for (label, accent, mode, appearanceName) in variants {
+            let name = "Ship Momentum — Living Flame — \(label)"
+            let data = try renderPNG(
+                of: DockMagicThemeRoot(
+                    content: board(accent: accent),
+                    appearanceMode: mode
+                ),
+                size: boardSize,
+                appearanceName: appearanceName,
+                name: name
+            )
+            XCTAssertGreaterThan(data.count, 10_000)
+            attachPNG(data, name: name)
+            rendered.append(data)
+        }
+
+        XCTAssertNotEqual(rendered[0], rendered[1])
+        XCTAssertNotEqual(rendered[0], rendered[2])
+
+        let grayscaleName = "Ship Momentum — Living Flame — Grayscale"
+        let grayscale = try grayscalePNG(rendered[0], name: grayscaleName)
+        XCTAssertGreaterThan(grayscale.count, 8_000)
+        attachPNG(grayscale, name: grayscaleName)
+    }
+
+    @MainActor
+    func testLivingFlameLegendAnimatesAndReduceMotionFreezesIt() throws {
+        let size = NSSize(width: 136, height: 64)
+        let animatedRoot = DockMagicThemeRoot(
+            content: ShipMomentumGauge(
+                score: 100,
+                rank: .legend,
+                accent: ProjectTheme.current.action
+            )
+            .frame(width: size.width, height: size.height),
+            appearanceMode: .dark
+        )
+        .environment(
+            \.dsAccessibilityOverrides,
+            DSAccessibilityOverrides(reduceMotion: false)
+        )
+        let animatedView = NSHostingView(rootView: animatedRoot)
+        animatedView.frame = NSRect(origin: .zero, size: size)
+        animatedView.appearance = NSAppearance(named: .darkAqua)
+        let animatedWindow = NSWindow(
+            contentRect: NSRect(origin: .zero, size: size),
+            styleMask: [.borderless],
+            backing: .buffered,
+            defer: false
+        )
+        animatedWindow.appearance = NSAppearance(named: .darkAqua)
+        animatedWindow.isReleasedWhenClosed = false
+        animatedWindow.setFrameOrigin(NSPoint(x: -20_000, y: -20_000))
+        animatedWindow.contentView = animatedView
+        defer {
+            animatedWindow.contentView = nil
+            animatedWindow.close()
+        }
+
+        RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.5))
+        let animatedFrameA = try renderExistingViewPNG(
+            animatedView,
+            name: "Living Flame animated frame A"
+        )
+        RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.24))
+        let animatedFrameB = try renderExistingViewPNG(
+            animatedView,
+            name: "Living Flame animated frame B"
+        )
+        assertPixelDifference(
+            animatedFrameA,
+            animatedFrameB,
+            minimumChangedFraction: 0.002,
+            label: "Legend flame motion"
+        )
+
+        let reducedRoot = DockMagicThemeRoot(
+            content: ShipMomentumGauge(
+                score: 100,
+                rank: .legend,
+                accent: ProjectTheme.current.action
+            )
+            .frame(width: size.width, height: size.height),
+            appearanceMode: .dark
+        )
+        .environment(
+            \.dsAccessibilityOverrides,
+            DSAccessibilityOverrides(reduceMotion: true)
+        )
+        let reducedView = NSHostingView(rootView: reducedRoot)
+        reducedView.frame = NSRect(origin: .zero, size: size)
+        reducedView.appearance = NSAppearance(named: .darkAqua)
+        let reducedWindow = NSWindow(
+            contentRect: NSRect(origin: .zero, size: size),
+            styleMask: [.borderless],
+            backing: .buffered,
+            defer: false
+        )
+        reducedWindow.appearance = NSAppearance(named: .darkAqua)
+        reducedWindow.isReleasedWhenClosed = false
+        reducedWindow.setFrameOrigin(NSPoint(x: -20_000, y: -20_000))
+        reducedWindow.contentView = reducedView
+        defer {
+            reducedWindow.contentView = nil
+            reducedWindow.close()
+        }
+
+        RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.12))
+        let reducedFrameA = try renderExistingViewPNG(
+            reducedView,
+            name: "Living Flame reduced-motion frame A"
+        )
+        RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.24))
+        let reducedFrameB = try renderExistingViewPNG(
+            reducedView,
+            name: "Living Flame reduced-motion frame B"
+        )
+        XCTAssertEqual(reducedFrameA, reducedFrameB)
+    }
+
+    @MainActor
+    func testLivingFlameScore54HasVisibleDirectionalFlow() throws {
+        let size = NSSize(width: 136, height: 64)
+
+        func frame(at time: TimeInterval, rank: CodexShipRank) throws -> Data {
+            try renderPNG(
+                of: DockMagicThemeRoot(
+                    content: ShipMomentumGauge(
+                        score: 54,
+                        rank: rank,
+                        accent: ProjectTheme.current.action,
+                        animationTime: time
+                    )
+                    .frame(width: size.width, height: size.height),
+                    appearanceMode: .dark
+                )
+                .environment(
+                    \.dsAccessibilityOverrides,
+                    DSAccessibilityOverrides(reduceMotion: false)
+                ),
+                size: size,
+                appearanceName: .darkAqua,
+                name: "Living Flame score 54 at \(time)"
+            )
+        }
+
+        let times = (0..<8).map { 0.10 + Double($0) * 0.12 }
+        let frames = try times.enumerated().map { index, time in
+            let data = try frame(at: time, rank: .creator)
+            attachPNG(
+                data,
+                name: "Living Flame — Score 54 — Frame \(index + 1)"
+            )
+            return data
+        }
+        XCTAssertEqual(Set(frames).count, frames.count)
+        for (first, second) in zip(frames, frames.dropFirst()) {
+            assertPixelDifference(
+                first,
+                second,
+                minimumChangedFraction: 0.0025,
+                label: "Score 54 Shipper consecutive directional frames"
+            )
+        }
+
+        let frameA = frames[0]
+        let frameB = frames[2]
+        assertPixelDifference(
+            frameA,
+            frameB,
+            minimumChangedFraction: 0.006,
+            label: "Score 54 Shipper directional flow"
+        )
+
+        let creator = try renderPNG(
+            of: DockMagicThemeRoot(
+                content: ShipMomentumGauge(
+                    score: 49,
+                    rank: .creator,
+                    accent: ProjectTheme.current.action,
+                    animationTime: 0.10
+                )
+                .frame(width: size.width, height: size.height),
+                appearanceMode: .dark
+            ),
+            size: size,
+            appearanceName: .darkAqua,
+            name: "Living Flame score 49 Creator"
+        )
+        assertPixelDifference(
+            creator,
+            frameA,
+            minimumChangedFraction: 0.012,
+            label: "Creator 49 to Shipper 54 tier change"
+        )
+    }
+
+    @MainActor
+    func testMountedLivingFlameTransitionsFromCreator49ToShipper54() throws {
+        let size = NSSize(width: 136, height: 64)
+
+        func root(score: Int) -> some View {
+            DockMagicThemeRoot(
+                content: ShipMomentumGauge(
+                    score: score,
+                    rank: .creator,
+                    accent: ProjectTheme.current.action
+                )
+                .frame(width: size.width, height: size.height),
+                appearanceMode: .dark
+            )
+            .environment(
+                \.dsAccessibilityOverrides,
+                DSAccessibilityOverrides(reduceMotion: false)
+            )
+        }
+
+        let hostingView = NSHostingView(rootView: root(score: 49))
+        hostingView.frame = NSRect(origin: .zero, size: size)
+        hostingView.appearance = NSAppearance(named: .darkAqua)
+        let window = NSWindow(
+            contentRect: NSRect(origin: .zero, size: size),
+            styleMask: [.borderless],
+            backing: .buffered,
+            defer: false
+        )
+        window.appearance = NSAppearance(named: .darkAqua)
+        window.isReleasedWhenClosed = false
+        window.setFrameOrigin(NSPoint(x: -20_000, y: -20_000))
+        window.contentView = hostingView
+        defer {
+            window.contentView = nil
+            window.close()
+        }
+
+        RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.45))
+        let creator = try renderExistingViewPNG(
+            hostingView,
+            name: "Mounted Living Flame score 49"
+        )
+
+        hostingView.rootView = root(score: 54)
+        RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.12))
+        let shipperBurst = try renderExistingViewPNG(
+            hostingView,
+            name: "Mounted Living Flame score 54 burst"
+        )
+        assertPixelDifference(
+            creator,
+            shipperBurst,
+            minimumChangedFraction: 0.012,
+            label: "Mounted gauge changes tier at score 54"
+        )
+
+        RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.20))
+        let shipperFlow = try renderExistingViewPNG(
+            hostingView,
+            name: "Mounted Living Flame score 54 directional flow"
+        )
+        assertPixelDifference(
+            shipperBurst,
+            shipperFlow,
+            minimumChangedFraction: 0.0025,
+            label: "Mounted score 54 keeps flowing after tier transition"
+        )
+        attachPNG(
+            shipperFlow,
+            name: "Living Flame — Mounted Score 54 Shipper"
+        )
+    }
+
+    @MainActor
+    func testLivingFlameLegendRendersInCodexAndClaudeDashboards() throws {
+        let now = Date(timeIntervalSince1970: 1_788_067_200)
+        let source = CodexRateLimitSnapshot.hoverDesignPreview
+        let usage = try XCTUnwrap(source.tokenUsage)
+        let legendaryUsage = CodexAccountTokenUsage(
+            lifetimeTokens: usage.lifetimeTokens,
+            peakDailyTokens: 1_000_000_001,
+            longestRunningTurnSeconds: usage.longestRunningTurnSeconds,
+            dailyUsageBuckets: [
+                CodexTokenUsageDailyBucket(
+                    startDate: now,
+                    tokens: 1_000_000_001
+                )
+            ],
+            modelUsage: usage.modelUsage,
+            isModelUsagePartial: usage.isModelUsagePartial,
+            localDailyDetails: nil
+        )
+        let snapshot = CodexRateLimitSnapshot(
+            planType: source.planType,
+            limitID: source.limitID,
+            fiveHour: source.fiveHour,
+            weekly: source.weekly,
+            tokenUsage: legendaryUsage,
+            recentTaskActivity: source.recentTaskActivity,
+            claudeTelemetry: source.claudeTelemetry,
+            fetchedAt: now
+        )
+        let overrides = DSAccessibilityOverrides(reduceMotion: true)
+
+        let codexSize = DockHoverPanelPlacement.codexPanelSize
+        let codexName = "Codex Hover — Living Flame — Legend"
+        let codex = try renderPNG(
+            of: DockMagicThemeRoot(
+                content: DockHoverChrome(
+                    pointerEdge: .bottom,
+                    panelSize: codexSize
+                ) {
+                    CodexHoverDashboardView(
+                        state: .live(snapshot),
+                        now: now
+                    )
+                },
+                appearanceMode: .dark
+            )
+            .frame(width: codexSize.width, height: codexSize.height)
+            .environment(\.dsAccessibilityOverrides, overrides),
+            size: codexSize,
+            appearanceName: .darkAqua,
+            name: codexName
+        )
+        XCTAssertGreaterThan(codex.count, 20_000)
+        attachPNG(codex, name: codexName)
+
+        let claudeSize = DockHoverPanelPlacement.claudeCodePanelSize
+        let claudeName = "Claude Code Hover — Living Flame — Legend"
+        let claude = try renderPNG(
+            of: DockMagicThemeRoot(
+                content: DockHoverChrome(
+                    pointerEdge: .bottom,
+                    panelSize: claudeSize
+                ) {
+                    ClaudeCodeHoverDashboardView(
+                        state: .live(snapshot),
+                        now: now
+                    )
+                },
+                appearanceMode: .dark
+            )
+            .frame(width: claudeSize.width, height: claudeSize.height)
+            .environment(\.dsAccessibilityOverrides, overrides),
+            size: claudeSize,
+            appearanceName: .darkAqua,
+            name: claudeName
+        )
+        XCTAssertGreaterThan(claude.count, 25_000)
+        XCTAssertNotEqual(codex, claude)
+        attachPNG(claude, name: claudeName)
+    }
+
+    @MainActor
+    func testLivingFlameScore54RendersAsShipperInBothDashboards() throws {
+        let now = Date(timeIntervalSince1970: 1_788_067_200)
+        let source = CodexRateLimitSnapshot.hoverDesignPreview
+        let usage = try XCTUnwrap(source.tokenUsage)
+        let shipperUsage = CodexAccountTokenUsage(
+            lifetimeTokens: usage.lifetimeTokens,
+            peakDailyTokens: 260_000_000,
+            longestRunningTurnSeconds: usage.longestRunningTurnSeconds,
+            dailyUsageBuckets: [
+                CodexTokenUsageDailyBucket(
+                    startDate: now,
+                    tokens: 260_000_000
+                )
+            ],
+            modelUsage: usage.modelUsage,
+            isModelUsagePartial: usage.isModelUsagePartial,
+            localDailyDetails: nil
+        )
+        let snapshot = CodexRateLimitSnapshot(
+            planType: source.planType,
+            limitID: source.limitID,
+            fiveHour: source.fiveHour,
+            weekly: source.weekly,
+            tokenUsage: shipperUsage,
+            recentTaskActivity: source.recentTaskActivity,
+            claudeTelemetry: source.claudeTelemetry,
+            fetchedAt: now
+        )
+        let momentum = try XCTUnwrap(
+            CodexHoverDashboardPresentation.shipMomentum(
+                in: snapshot,
+                now: now
+            )
+        )
+        XCTAssertEqual(momentum.score, 54)
+        XCTAssertEqual(momentum.rank, .shipper)
+        let overrides = DSAccessibilityOverrides(reduceMotion: true)
+
+        let codexSize = DockHoverPanelPlacement.codexPanelSize
+        let codexName = "Codex Hover — Living Flame — Score 54 Shipper"
+        let codex = try renderPNG(
+            of: DockMagicThemeRoot(
+                content: DockHoverChrome(
+                    pointerEdge: .bottom,
+                    panelSize: codexSize
+                ) {
+                    CodexHoverDashboardView(
+                        state: .live(snapshot),
+                        now: now
+                    )
+                },
+                appearanceMode: .dark
+            )
+            .frame(width: codexSize.width, height: codexSize.height)
+            .environment(\.dsAccessibilityOverrides, overrides),
+            size: codexSize,
+            appearanceName: .darkAqua,
+            name: codexName
+        )
+        XCTAssertGreaterThan(codex.count, 20_000)
+        attachPNG(codex, name: codexName)
+
+        let claudeSize = DockHoverPanelPlacement.claudeCodePanelSize
+        let claudeName = "Claude Code Hover — Living Flame — Score 54 Shipper"
+        let claude = try renderPNG(
+            of: DockMagicThemeRoot(
+                content: DockHoverChrome(
+                    pointerEdge: .bottom,
+                    panelSize: claudeSize
+                ) {
+                    ClaudeCodeHoverDashboardView(
+                        state: .live(snapshot),
+                        now: now
+                    )
+                },
+                appearanceMode: .dark
+            )
+            .frame(width: claudeSize.width, height: claudeSize.height)
+            .environment(\.dsAccessibilityOverrides, overrides),
+            size: claudeSize,
+            appearanceName: .darkAqua,
+            name: claudeName
+        )
+        XCTAssertGreaterThan(claude.count, 25_000)
+        XCTAssertNotEqual(codex, claude)
+        attachPNG(claude, name: claudeName)
     }
 
     func testCodexHoverDashboardFollowsColorDesignSystemSourceContract() throws {
@@ -5472,7 +7868,8 @@ final class DockMagicTests: XCTestCase {
             .deletingLastPathComponent()
         let sourcePaths = [
             "DockMagic/Views/Hover/CodexHoverDashboardView.swift",
-            "DockMagic/Views/Hover/CodexDailyTokenDetailView.swift"
+            "DockMagic/Views/Hover/CodexDailyTokenDetailView.swift",
+            "DockMagic/Views/Hover/ShipMomentumGaugeView.swift"
         ]
         let source = try sourcePaths.map { path in
             try String(
@@ -5516,7 +7913,9 @@ final class DockMagicTests: XCTestCase {
         XCTAssertTrue(source.contains("Daily intensity"))
         XCTAssertTrue(source.contains("Top models"))
         XCTAssertTrue(source.contains("initialIntensityHoveredBucketID"))
-        XCTAssertTrue(source.contains("theme.action.opacity(0.10"))
+        XCTAssertTrue(
+            source.contains("(accent ?? theme.action).opacity(0.10")
+        )
         XCTAssertTrue(source.contains("CodexDailyTokenDetailView("))
         XCTAssertFalse(source.contains("Text(\"Local detail\")"))
         XCTAssertFalse(source.contains("Text(\"Partial\")"))
@@ -5547,11 +7946,15 @@ final class DockMagicTests: XCTestCase {
             source.contains(".help(Self.fullDateLabel(bucket.startDate))")
         )
         XCTAssertFalse(source.contains("Hovered date"))
-        XCTAssertTrue(source.contains("CodexGaugeArcShape"))
+        XCTAssertTrue(source.contains("ShipMomentumGauge("))
+        XCTAssertTrue(source.contains("ShipMomentumFlameShape"))
+        XCTAssertTrue(source.contains("TimelineView("))
+        XCTAssertTrue(source.contains("accessibilityReduceMotion"))
         XCTAssertTrue(source.contains("CodexShipRankLadder"))
         XCTAssertTrue(source.contains("CodexRankStepShape"))
         XCTAssertTrue(source.contains("case shipper"))
-        XCTAssertTrue(source.contains("case vanguard"))
+        XCTAssertTrue(source.contains("case shipmaster"))
+        XCTAssertTrue(source.contains("case legend"))
         XCTAssertFalse(source.contains("Equal weight: task starts + token activity"))
         XCTAssertFalse(source.contains("Steady"))
         XCTAssertFalse(source.contains("\"0–10\""))
@@ -6370,6 +8773,22 @@ final class DockMagicTests: XCTestCase {
                 appearanceName: .darkAqua,
                 name: "Clock animation — \(style.title) — Settled"
             )
+            let completedTransition = try renderPNG(
+                of: DockMagicThemeRoot(
+                    content: DockTileView(
+                        presentation: presentation,
+                        animatesChanges: false,
+                        clockTransition: DockClockTransition(
+                            previousDate: previousDate,
+                            progress: 1
+                        )
+                    ),
+                    appearanceMode: .dark
+                ),
+                size: size,
+                appearanceName: .darkAqua,
+                name: "Clock animation — \(style.title) — Completed"
+            )
             let reducedMotion = try renderPNG(
                 of: DockMagicThemeRoot(
                     content: DockTileView(
@@ -6394,6 +8813,11 @@ final class DockMagicTests: XCTestCase {
             XCTAssertNotEqual(previous, early)
             XCTAssertNotEqual(early, late)
             XCTAssertNotEqual(late, settled)
+            XCTAssertEqual(
+                completedTransition,
+                settled,
+                "A completed transition must render exactly like the crisp static clock face."
+            )
             XCTAssertEqual(reducedMotion, settled)
             attachPNG(
                 early,
@@ -6403,6 +8827,11 @@ final class DockMagicTests: XCTestCase {
             attachPNG(
                 late,
                 name: "Clock animation — \(style.title) — Late",
+                lifetime: .keepAlways
+            )
+            attachPNG(
+                completedTransition,
+                name: "Clock animation — \(style.title) — Completed",
                 lifetime: .keepAlways
             )
         }
@@ -6656,6 +9085,9 @@ final class DockMagicTests: XCTestCase {
                 .success(sampleClaudeCodeSnapshot())
             ]),
             bridge: StubClaudeCodeBridge(installed: true),
+            activityHookBridge: StubClaudeCodeActivityHookBridge(
+                installed: true
+            ),
             pollingInterval: .seconds(60)
         )
         return DockAppModel(
@@ -6874,7 +9306,8 @@ final class DockMagicTests: XCTestCase {
         lifetimeTokens: Int64,
         dailyTokens: [Int64]
     ) -> Data {
-        let calendar = Calendar(identifier: .gregorian)
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
         let startDate = calendar.date(from: DateComponents(
             year: 2026,
             month: 8,
@@ -6985,13 +9418,19 @@ final class DockMagicTests: XCTestCase {
     @MainActor
     private func waitUntil(
         timeout: Duration = .seconds(2),
+        file: StaticString = #filePath,
+        line: UInt = #line,
         condition: @escaping @MainActor () -> Bool
     ) async throws {
         let clock = ContinuousClock()
         let deadline = clock.now.advanced(by: timeout)
         while !condition() {
             if clock.now >= deadline {
-                XCTFail("Timed out waiting for condition.")
+                XCTFail(
+                    "Timed out waiting for condition.",
+                    file: file,
+                    line: line
+                )
                 return
             }
             try await Task.sleep(for: .milliseconds(10))
@@ -7226,6 +9665,34 @@ final class DockMagicTests: XCTestCase {
             file: file,
             line: line
         )
+    }
+
+    @MainActor
+    private func sendPanelClick(to panel: NSPanel, location: NSPoint) throws {
+        let down = try XCTUnwrap(NSEvent.mouseEvent(
+            with: .leftMouseDown,
+            location: location,
+            modifierFlags: [],
+            timestamp: 0,
+            windowNumber: panel.windowNumber,
+            context: nil,
+            eventNumber: 1,
+            clickCount: 1,
+            pressure: 1
+        ))
+        let up = try XCTUnwrap(NSEvent.mouseEvent(
+            with: .leftMouseUp,
+            location: location,
+            modifierFlags: [],
+            timestamp: 0.01,
+            windowNumber: panel.windowNumber,
+            context: nil,
+            eventNumber: 2,
+            clickCount: 1,
+            pressure: 0
+        ))
+        panel.sendEvent(down)
+        panel.sendEvent(up)
     }
 
     @MainActor
@@ -7880,6 +10347,42 @@ private final class StubClaudeCodeBridge: ClaudeCodeStatusLineBridging {
 
     func install() throws {
         installCallCount += 1
+        installed = true
+    }
+
+    func uninstall() throws {
+        uninstallCallCount += 1
+        installed = false
+    }
+}
+
+@MainActor
+private final class StubClaudeCodeActivityHookBridge:
+    ClaudeCodeActivityHookBridging {
+    var installed: Bool
+    private(set) var installCallCount = 0
+    private(set) var uninstallCallCount = 0
+    let eventsDirectoryURL: URL
+
+    init(
+        installed: Bool,
+        eventsDirectoryURL: URL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("dockmagic-claude-activity-test")
+    ) {
+        self.installed = installed
+        self.eventsDirectoryURL = eventsDirectoryURL
+    }
+
+    func isInstalled() -> Bool {
+        installed
+    }
+
+    func install() throws {
+        installCallCount += 1
+        try FileManager.default.createDirectory(
+            at: eventsDirectoryURL,
+            withIntermediateDirectories: true
+        )
         installed = true
     }
 

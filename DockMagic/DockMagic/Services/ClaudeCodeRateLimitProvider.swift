@@ -29,6 +29,7 @@ struct ClaudeCodeStatusLineRateLimitProvider: ClaudeCodeRateLimitProviding {
     let sessionSnapshotsDirectoryURL: URL
     let taskSnapshotURL: URL
     let taskSnapshotsDirectoryURL: URL
+    let activityEventsDirectoryURL: URL
     let projectsDirectoryURL: URL
     let now: @Sendable () -> Date
 
@@ -43,6 +44,9 @@ struct ClaudeCodeStatusLineRateLimitProvider: ClaudeCodeRateLimitProviding {
         taskSnapshotsDirectoryURL: URL = FileManager.default
             .homeDirectoryForCurrentUser
             .appendingPathComponent(".claude/dockmagic-task-sessions"),
+        activityEventsDirectoryURL: URL = FileManager.default
+            .homeDirectoryForCurrentUser
+            .appendingPathComponent(".claude/dockmagic-activity-events"),
         projectsDirectoryURL: URL = FileManager.default
             .homeDirectoryForCurrentUser
             .appendingPathComponent(".claude/projects"),
@@ -52,6 +56,7 @@ struct ClaudeCodeStatusLineRateLimitProvider: ClaudeCodeRateLimitProviding {
         self.sessionSnapshotsDirectoryURL = sessionSnapshotsDirectoryURL
         self.taskSnapshotURL = taskSnapshotURL
         self.taskSnapshotsDirectoryURL = taskSnapshotsDirectoryURL
+        self.activityEventsDirectoryURL = activityEventsDirectoryURL
         self.projectsDirectoryURL = projectsDirectoryURL
         self.now = now
     }
@@ -62,6 +67,7 @@ struct ClaudeCodeStatusLineRateLimitProvider: ClaudeCodeRateLimitProviding {
             sessionSnapshotsDirectoryURL: sessionSnapshotsDirectoryURL,
             taskSnapshotURL: taskSnapshotURL,
             taskSnapshotsDirectoryURL: taskSnapshotsDirectoryURL,
+            activityEventsDirectoryURL: activityEventsDirectoryURL,
             projectsDirectoryURL: projectsDirectoryURL,
             now: now()
         )
@@ -92,6 +98,377 @@ struct ClaudeCodeStatusLineRateLimitProvider: ClaudeCodeRateLimitProviding {
                 fetchedAt: result.fetchedAt
             )
         }.value
+    }
+}
+
+enum ClaudeCodeActivityHookBridgeError: LocalizedError, Equatable {
+    case invalidSettings
+    case hooksDisabled
+    case fileOperationFailed(String)
+
+    var errorDescription: String? {
+        switch self {
+        case .invalidSettings:
+            "Claude Code settings.json contains an unsupported hooks structure."
+        case .hooksDisabled:
+            "Claude Code has disableAllHooks enabled. Turn hooks back on before enabling realtime tracking."
+        case let .fileOperationFailed(message):
+            "DockMagic could not install Claude Code realtime tracking: \(message)"
+        }
+    }
+}
+
+@MainActor
+protocol ClaudeCodeActivityHookBridging {
+    var eventsDirectoryURL: URL { get }
+    func isInstalled() -> Bool
+    func install() throws
+    func uninstall() throws
+}
+
+/// Adds one isolated, asynchronous command hook to each Claude Code lifecycle
+/// event DockMagic understands. Existing hook groups are retained verbatim.
+@MainActor
+struct ClaudeCodeActivityHookBridge: ClaudeCodeActivityHookBridging {
+    private static let scriptVersionMarker =
+        "# DockMagic Claude activity hook v1"
+    private static let supportedEvents = [
+        "SessionStart",
+        "UserPromptSubmit",
+        "PreToolUse",
+        "PostToolUse",
+        "PostToolUseFailure",
+        "PermissionRequest",
+        "Notification",
+        "PostCompact",
+        "SubagentStart",
+        "SubagentStop",
+        "TaskCreated",
+        "TaskCompleted",
+        "Stop",
+        "StopFailure",
+        "TeammateIdle",
+        "SessionEnd"
+    ]
+
+    let eventsDirectoryURL: URL
+
+    private let fileManager: FileManager
+    private let claudeDirectory: URL
+    private let settingsURL: URL
+    private let scriptURL: URL
+
+    init(
+        homeDirectory: URL = FileManager.default.homeDirectoryForCurrentUser,
+        fileManager: FileManager = .default
+    ) {
+        self.fileManager = fileManager
+        claudeDirectory = homeDirectory.appendingPathComponent(
+            ".claude",
+            isDirectory: true
+        )
+        settingsURL = claudeDirectory.appendingPathComponent("settings.json")
+        scriptURL = claudeDirectory.appendingPathComponent(
+            "dockmagic-activity-hook.rb"
+        )
+        eventsDirectoryURL = claudeDirectory.appendingPathComponent(
+            "dockmagic-activity-events",
+            isDirectory: true
+        )
+    }
+
+    func isInstalled() -> Bool {
+        guard
+            let settings = try? readSettings(),
+            settings["disableAllHooks"] as? Bool != true,
+            fileManager.isExecutableFile(atPath: scriptURL.path),
+            scriptHasCurrentVersion()
+        else {
+            return false
+        }
+
+        return Self.supportedEvents.allSatisfy { event in
+            containsOwnedHook(in: settings, event: event)
+        }
+    }
+
+    func install() throws {
+        do {
+            try fileManager.createDirectory(
+                at: claudeDirectory,
+                withIntermediateDirectories: true
+            )
+            try fileManager.createDirectory(
+                at: eventsDirectoryURL,
+                withIntermediateDirectories: true
+            )
+            try fileManager.setAttributes(
+                [.posixPermissions: 0o700],
+                ofItemAtPath: eventsDirectoryURL.path
+            )
+
+            var settings = try readSettings()
+            if settings["disableAllHooks"] as? Bool == true {
+                throw ClaudeCodeActivityHookBridgeError.hooksDisabled
+            }
+
+            try writeScript()
+            var hooks = try hooksDictionary(from: settings["hooks"])
+            for event in Self.supportedEvents {
+                var groups = try hookGroups(from: hooks[event])
+                groups = try groups.compactMap(removingOwnedHook)
+                groups.append([
+                    "hooks": [[
+                        "type": "command",
+                        "command": ownedCommand,
+                        "async": true,
+                        "timeout": 5
+                    ]]
+                ])
+                hooks[event] = groups
+            }
+            settings["hooks"] = hooks
+            try writeJSONObject(settings, to: settingsURL, permissions: 0o600)
+        } catch let error as ClaudeCodeActivityHookBridgeError {
+            throw error
+        } catch {
+            throw ClaudeCodeActivityHookBridgeError.fileOperationFailed(
+                error.localizedDescription
+            )
+        }
+    }
+
+    func uninstall() throws {
+        do {
+            var settings = try readSettings()
+            var hooks = try hooksDictionary(from: settings["hooks"])
+            for event in Self.supportedEvents {
+                let groups = try hookGroups(from: hooks[event])
+                    .compactMap(removingOwnedHook)
+                if groups.isEmpty {
+                    hooks.removeValue(forKey: event)
+                } else {
+                    hooks[event] = groups
+                }
+            }
+            if hooks.isEmpty {
+                settings.removeValue(forKey: "hooks")
+            } else {
+                settings["hooks"] = hooks
+            }
+            try writeJSONObject(settings, to: settingsURL, permissions: 0o600)
+
+            for url in [scriptURL, eventsDirectoryURL]
+                where fileManager.fileExists(atPath: url.path) {
+                try fileManager.removeItem(at: url)
+            }
+        } catch let error as ClaudeCodeActivityHookBridgeError {
+            throw error
+        } catch {
+            throw ClaudeCodeActivityHookBridgeError.fileOperationFailed(
+                error.localizedDescription
+            )
+        }
+    }
+
+    private var ownedCommand: String {
+        Self.shellQuoted(scriptURL.path)
+    }
+
+    private func readSettings() throws -> [String: Any] {
+        guard fileManager.fileExists(atPath: settingsURL.path) else {
+            return [:]
+        }
+        guard
+            let object = try? JSONSerialization.jsonObject(
+                with: Data(contentsOf: settingsURL)
+            ),
+            let settings = object as? [String: Any]
+        else {
+            throw ClaudeCodeActivityHookBridgeError.invalidSettings
+        }
+        return settings
+    }
+
+    private func hooksDictionary(from value: Any?) throws -> [String: Any] {
+        guard let value else { return [:] }
+        guard let hooks = value as? [String: Any] else {
+            throw ClaudeCodeActivityHookBridgeError.invalidSettings
+        }
+        return hooks
+    }
+
+    private func hookGroups(from value: Any?) throws -> [[String: Any]] {
+        guard let value else { return [] }
+        guard let groups = value as? [[String: Any]] else {
+            throw ClaudeCodeActivityHookBridgeError.invalidSettings
+        }
+        return groups
+    }
+
+    private func containsOwnedHook(
+        in settings: [String: Any],
+        event: String
+    ) -> Bool {
+        guard
+            let hooks = settings["hooks"] as? [String: Any],
+            let groups = hooks[event] as? [[String: Any]]
+        else {
+            return false
+        }
+        return groups.contains { group in
+            guard let handlers = group["hooks"] as? [[String: Any]] else {
+                return false
+            }
+            return handlers.contains { isOwnedHandler($0) }
+        }
+    }
+
+    private func removingOwnedHook(
+        from group: [String: Any]
+    ) throws -> [String: Any]? {
+        guard let value = group["hooks"] else {
+            throw ClaudeCodeActivityHookBridgeError.invalidSettings
+        }
+        guard let handlers = value as? [[String: Any]] else {
+            throw ClaudeCodeActivityHookBridgeError.invalidSettings
+        }
+        let retainedHandlers = handlers.filter { !isOwnedHandler($0) }
+        guard !retainedHandlers.isEmpty else { return nil }
+        var retainedGroup = group
+        retainedGroup["hooks"] = retainedHandlers
+        return retainedGroup
+    }
+
+    private func isOwnedHandler(_ handler: [String: Any]) -> Bool {
+        guard let command = handler["command"] as? String else {
+            return false
+        }
+        return command == scriptURL.path || command == ownedCommand
+    }
+
+    private func writeScript() throws {
+        let eventsDirectoryLiteral = try Self.quotedLiteral(
+            eventsDirectoryURL.path
+        )
+        let supportedEventsLiteral = try Self.quotedLiteral(
+            Self.supportedEvents.joined(separator: "|")
+        )
+        let script = """
+        #!/usr/bin/ruby
+        \(Self.scriptVersionMarker)
+        require "json"
+        require "fileutils"
+
+        EVENT_DIRECTORY = \(eventsDirectoryLiteral)
+        SUPPORTED_EVENTS = \(supportedEventsLiteral).split("|").freeze
+        MAX_EVENT_FILES = 500
+
+        def clean_text(value, limit)
+          return nil unless value.is_a?(String)
+          text = value.gsub(/[[:cntrl:]]+/, " ").strip
+          return nil if text.empty?
+          text[0, limit]
+        end
+
+        def safe_identifier(value)
+          text = clean_text(value, 120)
+          return nil unless text
+          safe = text.gsub(/[^A-Za-z0-9_-]/, "")[0, 100]
+          safe.empty? ? nil : safe
+        end
+
+        temporary_path = nil
+        begin
+          raw = JSON.parse(STDIN.read)
+          event = clean_text(raw["hook_event_name"], 64)
+          session_id = safe_identifier(raw["session_id"])
+          exit 0 unless event && SUPPORTED_EVENTS.include?(event) && session_id
+
+          observed_at_ms = (Time.now.to_f * 1_000).round
+          record = {
+            "schema_version" => 1,
+            "observed_at_ms" => observed_at_ms,
+            "hook_event_name" => event,
+            "session_id" => session_id
+          }
+          {
+            "agent_id" => [raw["agent_id"], 100, true],
+            "agent_type" => [raw["agent_type"], 80, false],
+            "task_id" => [raw["task_id"], 100, true],
+            "task_subject" => [raw["task_subject"] || raw["active_form"], 120, false],
+            "tool_name" => [raw["tool_name"], 80, false],
+            "notification_type" => [raw["notification_type"], 80, false],
+            "teammate_name" => [raw["teammate_name"], 80, false]
+          }.each do |key, (value, limit, identifier)|
+            cleaned = identifier ? safe_identifier(value) : clean_text(value, limit)
+            record[key] = cleaned if cleaned
+          end
+
+          FileUtils.mkdir_p(EVENT_DIRECTORY, mode: 0700)
+          File.chmod(0700, EVENT_DIRECTORY)
+          suffix = "%020d-%d-%06d" % [observed_at_ms, Process.pid, rand(1_000_000)]
+          final_path = File.join(EVENT_DIRECTORY, "event-#{suffix}.json")
+          temporary_path = File.join(EVENT_DIRECTORY, ".event-#{suffix}.tmp")
+          File.open(temporary_path, File::WRONLY | File::CREAT | File::EXCL, 0600) do |file|
+            file.write(JSON.generate(record))
+            file.flush
+          end
+          File.rename(temporary_path, final_path)
+          temporary_path = nil
+
+          files = Dir.glob(File.join(EVENT_DIRECTORY, "event-*.json")).sort
+          files.first([files.length - MAX_EVENT_FILES, 0].max).each do |path|
+            File.delete(path) rescue nil
+          end
+        rescue StandardError
+          exit 0
+        ensure
+          File.delete(temporary_path) rescue nil if temporary_path
+        end
+        """
+
+        try Data(script.utf8).write(to: scriptURL, options: .atomic)
+        try fileManager.setAttributes(
+            [.posixPermissions: 0o700],
+            ofItemAtPath: scriptURL.path
+        )
+    }
+
+    private func scriptHasCurrentVersion() -> Bool {
+        guard let contents = try? String(contentsOf: scriptURL, encoding: .utf8)
+        else {
+            return false
+        }
+        return contents.contains(Self.scriptVersionMarker)
+    }
+
+    private func writeJSONObject(
+        _ object: Any,
+        to url: URL,
+        permissions: Int
+    ) throws {
+        let data = try JSONSerialization.data(
+            withJSONObject: object,
+            options: [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+        )
+        try data.write(to: url, options: .atomic)
+        try fileManager.setAttributes(
+            [.posixPermissions: permissions],
+            ofItemAtPath: url.path
+        )
+    }
+
+    private static func quotedLiteral(_ value: String) throws -> String {
+        let data = try JSONSerialization.data(
+            withJSONObject: value,
+            options: [.fragmentsAllowed, .withoutEscapingSlashes]
+        )
+        return String(decoding: data, as: UTF8.self)
+    }
+
+    private static func shellQuoted(_ value: String) -> String {
+        "'\(value.replacingOccurrences(of: "'", with: "'\\\"'\\\"'"))'"
     }
 }
 
@@ -175,6 +552,9 @@ protocol ClaudeCodeStatusLineBridging {
 
 @MainActor
 struct ClaudeCodeStatusLineBridge: ClaudeCodeStatusLineBridging {
+    private static let scriptVersionMarker =
+        "# DockMagic Claude status-line bridge v2"
+
     let snapshotURL: URL
 
     private let fileManager: FileManager
@@ -241,6 +621,8 @@ struct ClaudeCodeStatusLineBridge: ClaudeCodeStatusLineBridging {
             )
             && fileManager.isExecutableFile(atPath: scriptURL.path)
             && fileManager.isExecutableFile(atPath: subagentScriptURL.path)
+            && scriptHasCurrentVersion(at: scriptURL)
+            && scriptHasCurrentVersion(at: subagentScriptURL)
     }
 
     func install() throws {
@@ -456,6 +838,7 @@ struct ClaudeCodeStatusLineBridge: ClaudeCodeStatusLineBridging {
         let original = Self.shellQuoted(originalCommand ?? "")
         let script = """
         #!/bin/sh
+        \(Self.scriptVersionMarker)
         set -u
         umask 077
 
@@ -463,11 +846,12 @@ struct ClaudeCodeStatusLineBridge: ClaudeCodeStatusLineBridging {
         CACHE_DIRECTORY=\(Self.shellQuoted(sessionSnapshotsDirectoryURL.path))
         ORIGINAL_COMMAND=\(original)
         INPUT_FILE=$(/usr/bin/mktemp "${TMPDIR:-/tmp}/dockmagic-statusline.XXXXXX") || exit 1
+        VALIDATED_FILE="${INPUT_FILE}.validated"
         CACHE_TEMP="${CACHE}.tmp.$$"
         SESSION_TEMP=""
 
         cleanup() {
-          /bin/rm -f "$INPUT_FILE" "$CACHE_TEMP"
+          /bin/rm -f "$INPUT_FILE" "$VALIDATED_FILE" "$CACHE_TEMP"
           if [ -n "$SESSION_TEMP" ]; then
             /bin/rm -f "$SESSION_TEMP"
           fi
@@ -475,13 +859,14 @@ struct ClaudeCodeStatusLineBridge: ClaudeCodeStatusLineBridging {
         trap cleanup EXIT HUP INT TERM
 
         /bin/cat > "$INPUT_FILE"
-        if /usr/bin/plutil -convert binary1 -o /dev/null "$INPUT_FILE" \
-          >/dev/null 2>&1; then
+        # Claude's documented status-line JSON contains legitimate null values,
+        # which plutil rejects because property lists cannot represent null.
+        if /usr/bin/json_pp < "$INPUT_FILE" > "$VALIDATED_FILE" 2>/dev/null; then
           /bin/cp "$INPUT_FILE" "$CACHE_TEMP"
           /bin/chmod 600 "$CACHE_TEMP"
           /bin/mv -f "$CACHE_TEMP" "$CACHE"
 
-          SESSION_ID=$(/usr/bin/plutil -extract session_id raw -o - "$INPUT_FILE" 2>/dev/null || :)
+          SESSION_ID=$(/usr/bin/awk -F'"' '$2 == "session_id" { print $4; exit }' "$VALIDATED_FILE")
           case "$SESSION_ID" in
             ''|*[!A-Za-z0-9_-]*) SESSION_ID='' ;;
           esac
@@ -513,6 +898,7 @@ struct ClaudeCodeStatusLineBridge: ClaudeCodeStatusLineBridging {
         let original = Self.shellQuoted(originalCommand ?? "")
         let script = """
         #!/bin/sh
+        \(Self.scriptVersionMarker)
         set -u
         umask 077
 
@@ -520,11 +906,12 @@ struct ClaudeCodeStatusLineBridge: ClaudeCodeStatusLineBridging {
         CACHE_DIRECTORY=\(Self.shellQuoted(taskSnapshotsDirectoryURL.path))
         ORIGINAL_COMMAND=\(original)
         INPUT_FILE=$(/usr/bin/mktemp "${TMPDIR:-/tmp}/dockmagic-subagent-statusline.XXXXXX") || exit 1
+        VALIDATED_FILE="${INPUT_FILE}.validated"
         CACHE_TEMP="${CACHE}.tmp.$$"
         SESSION_TEMP=""
 
         cleanup() {
-          /bin/rm -f "$INPUT_FILE" "$CACHE_TEMP"
+          /bin/rm -f "$INPUT_FILE" "$VALIDATED_FILE" "$CACHE_TEMP"
           if [ -n "$SESSION_TEMP" ]; then
             /bin/rm -f "$SESSION_TEMP"
           fi
@@ -532,13 +919,13 @@ struct ClaudeCodeStatusLineBridge: ClaudeCodeStatusLineBridging {
         trap cleanup EXIT HUP INT TERM
 
         /bin/cat > "$INPUT_FILE"
-        if /usr/bin/plutil -convert binary1 -o /dev/null "$INPUT_FILE" \
-          >/dev/null 2>&1; then
+        # Subagent payloads may also contain JSON nulls for optional fields.
+        if /usr/bin/json_pp < "$INPUT_FILE" > "$VALIDATED_FILE" 2>/dev/null; then
           /bin/cp "$INPUT_FILE" "$CACHE_TEMP"
           /bin/chmod 600 "$CACHE_TEMP"
           /bin/mv -f "$CACHE_TEMP" "$CACHE"
 
-          SESSION_ID=$(/usr/bin/plutil -extract session_id raw -o - "$INPUT_FILE" 2>/dev/null || :)
+          SESSION_ID=$(/usr/bin/awk -F'"' '$2 == "session_id" { print $4; exit }' "$VALIDATED_FILE")
           case "$SESSION_ID" in
             ''|*[!A-Za-z0-9_-]*) SESSION_ID='' ;;
           esac
@@ -565,6 +952,15 @@ struct ClaudeCodeStatusLineBridge: ClaudeCodeStatusLineBridging {
             [.posixPermissions: 0o700],
             ofItemAtPath: subagentScriptURL.path
         )
+    }
+
+    private func scriptHasCurrentVersion(at url: URL) -> Bool {
+        guard
+            let contents = try? String(contentsOf: url, encoding: .utf8)
+        else {
+            return false
+        }
+        return contents.contains(Self.scriptVersionMarker)
     }
 
     private func writeJSONObject(

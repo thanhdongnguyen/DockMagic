@@ -9,14 +9,14 @@ OAuth endpoints or terminal scraping:
 
 ```text
 Claude native statusLine ─────── quota, model, cost, context, session
-Claude native subagentStatusLine ─ visible subagent/task state
+Claude lifecycle hooks ────────── realtime session, tool, subagent, task state
 ~/.claude/projects/**/*.jsonl ─── timestamps, model token usage, tasks, goals
                     │
                     ▼
         ClaudeCodeLocalTelemetryReader
                     │
                     ▼
-        ClaudeCodeUsageStore → Dock tile + 440×760 hover dashboard
+        ClaudeCodeUsageStore → Dock tile + 440×740 hover dashboard
 ```
 
 `claude-agent-acp` is not a passive attachment API for unrelated Claude CLI
@@ -36,10 +36,13 @@ From `statusLine` JSON:
   input/output/cache-read/cache-creation token counts;
 - `session_id`, optional `session_name`, `agent.name`, and Claude Code version.
 
-From `subagentStatusLine` JSON:
+From Claude Code lifecycle hook JSON:
 
-- visible task `id`, `name`, `type`, `status`, description, label, start time,
-  token count/samples, and last tool when present.
+- session start/end, prompt submission, stop, permission, and notification
+  events;
+- tool start/success/failure and the documented tool name;
+- subagent start/stop and teammate idle events;
+- native task creation/completion, task ID, and task subject.
 
 From local Claude transcripts:
 
@@ -69,16 +72,20 @@ Claude omits cost are not silently reconstructed.
 ## Ship momentum
 
 Ship momentum uses the same DockMagic formula as the Codex dashboard. It
-compares the latest seven calendar days with the prior seven:
+uses only token activity from the current local calendar day and resets on the
+next day:
 
-1. compute the current share of the two-week token total;
-2. compute the current share of the two-week root-session count;
-3. average those two shares and scale to `0...100`;
-4. map the score to Spark, Builder, Maker, Shipper, Accelerator, or Vanguard.
+1. `0..<10M` tokens maps linearly to score `0...9` and Starter;
+2. `10M..<50M` maps to `10...29` and Builder;
+3. `50M..<200M` maps to `30...49` and Creator;
+4. `200M..<500M` maps to `50...69` and Shipper;
+5. `500M...1B` maps to `70...89` and Shipmaster;
+6. more than `1B` maps to score `100` and Legend.
 
-It is an activity trend, not a productivity or quality rating. Claude local
-session counts are marked partial because deleted, moved, or unavailable
-transcripts cannot be counted.
+Claude's daily total includes input, output, cache-read, and cache-creation
+tokens from non-synthetic assistant usage records in local transcripts. Root
+session and task counts do not contribute. It is an activity indicator, not a
+productivity or quality rating.
 
 ## Bridge lifecycle
 
@@ -96,6 +103,20 @@ The wrappers do not call a model and do not use the network. `disableAllHooks`
 and workspace trust also gate status-line execution, so a missing first
 snapshot is reported as unavailable rather than guessed.
 
+## Realtime Active work hooks
+
+Active work is opt-in. Until its event integration is present, the dashboard
+shows **Enable realtime tracking**. Clicking it merges one DockMagic-owned,
+asynchronous command handler into every supported Claude lifecycle event. It
+does not replace, reorder, or rewrite handlers owned by other tools. Repeated
+installation is idempotent, and uninstall removes only DockMagic's handler.
+
+The handler stores a bounded set of at most 500 small event records under
+`~/.claude/dockmagic-activity-events`. A filesystem event monitor refreshes the
+store after a 75 ms debounce; the normal 15-second poll remains as a fallback.
+Session end, task completion, and subagent stop events remove the corresponding
+work from the active set.
+
 ## Privacy boundary
 
 Everything described here remains on the Mac. The raw documented status-line
@@ -106,15 +127,23 @@ It reads only telemetry fields and explicit task descriptions / active-goal
 objectives needed for the Active work section. DockMagic never reads Claude
 OAuth credentials.
 
+Activity-hook payloads are reduced before persistence. DockMagic keeps only the
+event name, generated observation time, sanitized session/agent/task IDs, task
+subject, agent type, tool name, notification type, and teammate name. Prompt
+text, transcript paths, working directories, tool inputs/results, assistant
+responses, and hook error payloads are never written to the activity-event
+directory. Files use `0600`; the containing directory uses `0700`.
+
 ## Freshness and limitations
 
-- Status and subagent snapshots update only when Claude Code invokes the
-  configured commands. A project-level override can prevent the global bridge
-  from running.
-- Visible subagent rows are treated as live for five minutes after their last
-  native observation; terminal task events remove completed work.
-- The local history window is 30 days for tokens/models and 14 days for Ship
-  momentum. Files older than 120 days or larger than 64 MiB are skipped.
+- Status snapshots and Active work events update only when Claude Code invokes
+  the configured commands. A project-level override can prevent the global
+  integration from running.
+- Hook-backed active rows expire after 30 minutes without a lifecycle event;
+  terminal task, subagent, and session events remove completed work sooner.
+- The local history window is 30 days for tokens/models. Ship momentum uses
+  only today's bucket. Files older than 120 days or larger than 64 MiB are
+  skipped.
 - Claude Desktop does not emit Claude Code status-line input.
 - Subscription quota and native session cost are different measurements; the
   dashboard labels each independently.
@@ -130,6 +159,7 @@ OAuth credentials.
 ## Primary sources
 
 - [Claude Code status lines and subagent status lines](https://code.claude.com/docs/en/statusline)
+- [Claude Code hooks](https://code.claude.com/docs/en/hooks)
 - [Claude Code commands](https://code.claude.com/docs/en/commands)
 - [Claude Code cost and usage](https://code.claude.com/docs/en/costs)
 - [`claude-agent-acp` source](https://github.com/agentclientprotocol/claude-agent-acp)

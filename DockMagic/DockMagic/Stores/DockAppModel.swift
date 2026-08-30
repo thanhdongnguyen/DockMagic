@@ -12,6 +12,7 @@ final class DockAppModel {
     let clockStore: ClockStore
     let batteryStore: BatteryMetricsStore
     let githubStore: GitHubRepositoryStore
+    let streakStore: TokenUsageStreakStore
     let codexStore: CodexUsageStore
     let claudeCodeStore: ClaudeCodeUsageStore
     let searchConsoleStore: SearchConsoleStore
@@ -33,6 +34,7 @@ final class DockAppModel {
         clockStore: ClockStore? = nil,
         batteryStore: BatteryMetricsStore? = nil,
         githubStore: GitHubRepositoryStore? = nil,
+        streakStore: TokenUsageStreakStore? = nil,
         codexStore: CodexUsageStore? = nil,
         claudeCodeStore: ClaudeCodeUsageStore? = nil,
         searchConsoleStore: SearchConsoleStore? = nil
@@ -46,10 +48,15 @@ final class DockAppModel {
         self.clockStore = clockStore ?? ClockStore()
         self.batteryStore = batteryStore ?? BatteryMetricsStore()
         self.githubStore = githubStore ?? GitHubRepositoryStore()
+        let streakStore = streakStore ?? TokenUsageStreakStore()
+        self.streakStore = streakStore
         self.codexStore = codexStore ?? CodexUsageStore(
+            streakTracker: streakStore,
             executableOverridePath: preferences.codexExecutablePath
         )
-        self.claudeCodeStore = claudeCodeStore ?? ClaudeCodeUsageStore()
+        self.claudeCodeStore = claudeCodeStore ?? ClaudeCodeUsageStore(
+            streakTracker: streakStore
+        )
         self.searchConsoleStore = searchConsoleStore ?? SearchConsoleStore()
         self.githubStore.configure(
             repositoryURL: preferences.githubRepositoryURL
@@ -183,8 +190,6 @@ final class DockAppModel {
             clockStore.stop()
             batteryStore.stop()
             githubStore.pause()
-            codexStore.stop()
-            claudeCodeStore.stop()
             searchConsoleStore.stop()
         case .systemMetrics:
             networkStore.stop()
@@ -193,8 +198,6 @@ final class DockAppModel {
             clockStore.stop()
             batteryStore.stop()
             githubStore.pause()
-            codexStore.stop()
-            claudeCodeStore.stop()
             searchConsoleStore.stop()
             metricsStore.start()
         case .network:
@@ -204,8 +207,6 @@ final class DockAppModel {
             clockStore.stop()
             batteryStore.stop()
             githubStore.pause()
-            codexStore.stop()
-            claudeCodeStore.stop()
             searchConsoleStore.stop()
             networkStore.start()
         case .storage:
@@ -215,8 +216,6 @@ final class DockAppModel {
             clockStore.stop()
             batteryStore.stop()
             githubStore.pause()
-            codexStore.stop()
-            claudeCodeStore.stop()
             searchConsoleStore.stop()
             storageStore.start()
         case .weather:
@@ -224,8 +223,6 @@ final class DockAppModel {
             networkStore.stop()
             storageStore.stop()
             clockStore.stop()
-            codexStore.stop()
-            claudeCodeStore.stop()
             batteryStore.stop()
             githubStore.pause()
             searchConsoleStore.stop()
@@ -237,8 +234,6 @@ final class DockAppModel {
             weatherStore.stop()
             batteryStore.stop()
             githubStore.pause()
-            codexStore.stop()
-            claudeCodeStore.stop()
             searchConsoleStore.stop()
             clockStore.start()
         case .batteries:
@@ -247,8 +242,6 @@ final class DockAppModel {
             storageStore.stop()
             weatherStore.stop()
             clockStore.stop()
-            codexStore.stop()
-            claudeCodeStore.stop()
             searchConsoleStore.stop()
             githubStore.pause()
             batteryStore.start()
@@ -259,8 +252,6 @@ final class DockAppModel {
             weatherStore.stop()
             clockStore.stop()
             batteryStore.stop()
-            codexStore.stop()
-            claudeCodeStore.stop()
             searchConsoleStore.stop()
             githubStore.start()
         case .codex:
@@ -271,7 +262,6 @@ final class DockAppModel {
             clockStore.stop()
             batteryStore.stop()
             githubStore.pause()
-            claudeCodeStore.stop()
             searchConsoleStore.stop()
             codexStore.start()
         case .claudeCode:
@@ -282,7 +272,6 @@ final class DockAppModel {
             clockStore.stop()
             batteryStore.stop()
             githubStore.pause()
-            codexStore.stop()
             searchConsoleStore.stop()
             claudeCodeStore.start()
             scheduleAutomaticClaudeCodeSetup()
@@ -294,9 +283,15 @@ final class DockAppModel {
             clockStore.stop()
             batteryStore.stop()
             githubStore.pause()
-            codexStore.stop()
-            claudeCodeStore.stop()
             searchConsoleStore.start()
+        }
+
+        // Streak collection is a DockMagic responsibility, independent of
+        // which feature currently owns the Dock. Codex is always sampled in
+        // the background; Claude Code is sampled whenever its bridge exists.
+        codexStore.start()
+        if claudeCodeStore.isBridgeInstalled {
+            claudeCodeStore.start()
         }
     }
 

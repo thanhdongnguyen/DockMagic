@@ -418,7 +418,7 @@ final class GitHubFeatureTests: XCTestCase {
         )
     }
 
-    func testAppModelRunsGitHubOnlyWhenActiveAndRoutesHistoryToDock() async {
+    func testAppModelRunsGitHubWithBackgroundStreakCollection() async {
         let suite = "DockMagicTests.GitHub.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suite)!
         defaults.removePersistentDomain(forName: suite)
@@ -454,8 +454,11 @@ final class GitHubFeatureTests: XCTestCase {
         XCTAssertFalse(appModel.storageStore.isMonitoring)
         XCTAssertFalse(appModel.weatherStore.isMonitoring)
         XCTAssertFalse(appModel.batteryStore.isMonitoring)
-        XCTAssertFalse(appModel.codexStore.isMonitoring)
-        XCTAssertFalse(appModel.claudeCodeStore.isMonitoring)
+        XCTAssertTrue(appModel.codexStore.isMonitoring)
+        XCTAssertEqual(
+            appModel.claudeCodeStore.isMonitoring,
+            appModel.claudeCodeStore.isBridgeInstalled
+        )
         guard case let .github(history, _, error) = appModel.dockPresentation else {
             return XCTFail("Expected GitHub Dock presentation")
         }

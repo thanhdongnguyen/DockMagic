@@ -1,724 +1,570 @@
-# DockMagic Claude native usage dashboard — Option 1 design QA
+# Ship Momentum Living Flame V2 Design QA
 
-## Final result
+## Comparison target
 
-`passed`
+- Source visual truth:
+  `/Users/dongnt/.codex/generated_images/01a0506d-f806-73f2-953d-5c6a29f5bca2/exec-c98c80e1-d024-40dd-8ba3-e3f88bb977fe.png`
+- Source pixels: 1402 × 1122. This is the selected Living Flame concept board,
+  not a production dashboard viewport.
+- Combined six-rank progression comparison:
+  `/Users/dongnt/.codex/visualizations/2026/08/30/01a0506d-f806-73f2-953d-5c6a29f5bca2/living-flame-v2-progression-comparison.png`
+- Combined source/motion comparison for score 54 Shipper:
+  `/Users/dongnt/.codex/visualizations/2026/08/30/01a0506d-f806-73f2-953d-5c6a29f5bca2/living-flame-v2-shipper-motion-comparison.png`
+- Production score-54 dashboard comparison:
+  `/Users/dongnt/.codex/visualizations/2026/08/30/01a0506d-f806-73f2-953d-5c6a29f5bca2/living-flame-v2-score54-dashboards.png`
+- Production motion preview:
+  `/Users/dongnt/.codex/visualizations/2026/08/30/01a0506d-f806-73f2-953d-5c6a29f5bca2/shipper-54-directional-flow.gif`
+- Production Codex viewport: 440 × 556 pt, captured at 2× as 880 × 1112 px.
+- Production Claude Code viewport: 440 × 760 pt, captured at 2× as 880 ×
+  1520 px. Standalone gauge evidence is 136 × 64 pt, captured at 2× as
+  272 × 128 px.
+- Primary reported state: Dark appearance, score 54, Shipper, and 260,000,000
+  local daily tokens. Legend score 100 and Reduce Motion are additional states.
 
-The selected Option 1 is implemented as the 440 × 760 pt Claude Code hover
-dashboard. The production view uses native Claude observations for quota,
-tokens, observed cost, model usage, Ship momentum, tasks, and goals. No
-actionable P0, P1, or P2 visual differences remain.
+## Full-view comparison evidence
 
-## Visual truth and runtime state
+The selected source, six-rank production board, eight consecutive score-54
+frames, and both full dashboards were inspected in combined comparison inputs
+on 2026-08-30. The implementation now preserves the concept's key visual and
+motion hierarchy: organic asymmetric flame crests, a neutral semicircular
+track, a ringed moving endpoint, directional flow beginning at Shipper, and
+upper-rank echo contours and embers. Codex uses its action accent while Claude
+Code uses its existing provider usage accent.
 
-- Source visual truth: `/Users/dongnt/.codex/generated_images/01a04424-45f2-7983-8b76-9aa56e519b77/exec-c4735965-7bfc-4eff-aecd-a8592a8cebae.png` (954 × 1649 px).
-- Final implementation: `/Users/dongnt/.codex/visualizations/2026/08/27/01a04424-45f2-7983-8b76-9aa56e519b77/claude-dashboard-implementation-final.png` (880 × 1520 px).
-- Full comparison input: `/Users/dongnt/.codex/visualizations/2026/08/27/01a04424-45f2-7983-8b76-9aa56e519b77/claude-dashboard-comparison-final.png` (1760 × 1520 px; normalized source left, production SwiftUI component right).
-- Focused header/quota/chart comparison: `/Users/dongnt/.codex/visualizations/2026/08/27/01a04424-45f2-7983-8b76-9aa56e519b77/claude-dashboard-comparison-top.png` (1760 × 760 px).
-- Focused Ship/models/active-work comparison: `/Users/dongnt/.codex/visualizations/2026/08/27/01a04424-45f2-7983-8b76-9aa56e519b77/claude-dashboard-comparison-bottom.png` (1760 × 700 px).
-- Viewport: 440 × 760 pt at 2× Retina density. The source was Lanczos-normalized to 880 × 1520 px before comparison; no crop or device frame was added.
-- State: Dark; 8.2M observed 30-day tokens; $38.42 observed estimated cost; 74% five-hour remaining; 41% weekly remaining; Tokens selected; Shipper 55; two active tasks and one active goal.
-- Final implementation evidence was rendered by launching the built Debug app and rasterizing the production SwiftUI component after AppKit finished launching. The temporary QA-only launch hook was removed immediately after capture.
+The concept's orange/yellow outline is intentionally adapted to DockMagic's
+neutral-first color contract: one solid provider accent forms the flame and a
+neutral semantic highlight defines the crest. The concept also treats rank as
+the primary quantity, while production keeps the approved daily-token score
+and precise arc fraction visible. These are explicit system and data-contract
+adaptations, not fidelity defects.
 
-## Findings
+## Focused-region comparison evidence
 
-No remaining P0/P1/P2 findings.
+- Score 54: the eight-frame comparison shows six high-amplitude crests moving
+  consistently toward the live endpoint. Consecutive frames have measurable
+  pixel differences and are visibly distinct at normal dashboard size.
+- Live tier transition: one mounted `NSHostingView` was updated from Creator
+  score 49 to Shipper score 54 while deliberately retaining a stale Creator
+  fallback rank. It changed silhouette, produced the Shipper entry burst, and
+  continued directional motion without reopening the dashboard.
+- Rank progression: Starter, Builder, and Creator breathe in place; Shipper
+  and Shipmaster gain directional travel; Legend adds surge pulses, eleven
+  crests, a neutral echo contour, and seven drifting embers.
+- Dashboard fit: the 132 × 56 pt Codex gauge and 136 × 64 pt Claude gauge fit
+  without clipping the score, rank ladder, token total, section dividers, or
+  adjacent dashboard content.
 
-- Fonts and typography: native SF typography preserves the target hierarchy, weights, numeric emphasis, compact labels, monospaced metrics, date range, and truncation behavior. Token and USD formatting is deterministic (`1.28M`, `$38.42`), and model versions retain their decimal (`Claude Haiku 4.5`).
-- Spacing and layout rhythm: header, quota rows, chart, Ship gauge, ranked model rows, and active-work rows follow the target order and fill the 440 × 760 pt panel without clipping or scroll dependency. Separators replace the earlier stack of boxed cards.
-- Colors and tokens: the view uses DockMagic semantic surfaces, text, outlines, and one Claude clay action accent. Processing states use the existing semantic processing role. There are no gradients, glows, direct RGB/hex colors, or feature-local palettes.
-- Image quality and assets: the existing Claude raster logo and native SF Symbols remain sharp at 2×. The Ship gauge is a native data visualization, not a substitute for a missing image asset.
-- Copy and content: headings, quota language, Tokens/Cost control, Ship explanation, model columns, task/goal state, and partial-cost labels remain understandable without the design prompt. The generated `MAX` badge is intentionally omitted because Claude's passive native payload does not report a reliable subscription tier.
-- Interactions and states: Tokens/Cost changes the chart data; live, stale, unavailable, missing-window, Increased Contrast, Reduce Transparency, Light, Dark, and grayscale states are covered by deterministic renderer tests. Empty sections report that no real native data has been observed instead of inserting fixtures into production.
-- Accessibility: the dashboard, metric selector, quota rows, chart buckets, Ship score, models, tasks, and goals expose spoken labels/values. Selection and information are not communicated by color alone.
-- Accepted P3 differences: production uses DockMagic's native capsule selector and semantic processing color, and adds current model/context provenance in the header. These are existing product-system conventions and do not change the selected information hierarchy.
+## Required fidelity surfaces
 
-## Comparison history
+- Fonts and typography: the established macOS rounded numeric score and
+  dashboard hierarchy remain unchanged. No tested label wraps or truncates.
+- Spacing and layout: both panels retain their existing section order, margins,
+  card radii, and density. Only the shared gauge renderer changed.
+- Colors and tokens: chrome remains neutral plus one provider accent. Repository
+  scans found no gradient, colored glow, direct RGB, direct system color, or
+  feature-local palette in the shared renderer or either integration.
+- Shape and image quality: the gauge is scalable native SwiftUI vector geometry
+  at up to 60 fps. No third-party animation dependency was added because the
+  result is data-driven, provider-themed, sharper at both dashboard sizes, and
+  can honor Reduce Motion exactly.
+- Copy and content: score, rank, token total, and daily reset copy follow the
+  approved token-only contract. The UI makes no productivity or quality claim.
+- States and interactions: all six ranks, both providers, Codex Dark/Light,
+  Claude Dark, grayscale, unavailable data, score fill, rank-entry burst,
+  ongoing Shipper/Legend motion, and deterministic Reduce Motion were covered.
+- Accessibility: rank and score remain readable without animation or color.
+  Reduce Motion freezes fill, pulse, crest travel, burst, and ember drift on a
+  deterministic silhouette. Full-dashboard suites also cover Increased
+  Contrast and Reduced Transparency.
 
-### Iteration 1
+## Findings and iteration history
 
-- P1: Ship momentum reused the blue Codex rank-ladder card, materially changing the selected Claude visual and introducing the wrong action accent.
-- P2: Daily usage, models, Ship, and Active work were boxed into compressed cards, leaving a large unused lower region and drifting from the target's separator rhythm.
-- P2: the QA fixture did not match the source's 8.2M / $38.42 state, making visual comparison imprecise.
-- Fix: introduced the Claude clay semicircle gauge with the shared Codex formula, removed the extra ladder and boxed section surfaces, expanded the chart/rows, and aligned the deterministic QA state with the source.
-- Post-fix evidence: `claude-dashboard-comparison-pass2.png`.
+### Pass 1 — superseded
 
-### Iteration 2
+- [P1] The passed fallback rank could override the updated score, allowing a
+  score of 54 to retain Creator animation after a live dashboard refresh.
+- [P2] A capped 24 fps rounded sine wave with low amplitude and slow travel made
+  the old Shipper motion appear static and unlike the selected flame design.
 
-- P2: the usage bars lacked a numeric vertical scale, so magnitude was less legible than the source.
-- P2: model normalization produced `Claude Haiku 4 5`, and today's 1.28M value was rounded to 1.3M.
-- Fix: added three semantic grid lines and numeric axis labels, preserved dotted model versions, used deterministic POSIX compact-token formatting with two significant decimal places, and restored exact active-work count copy.
-- Post-fix evidence: `claude-dashboard-comparison-final.png`, `claude-dashboard-comparison-top.png`, and `claude-dashboard-comparison-bottom.png`.
+### Pass 2 — passed
 
-## Verification
-
-- Native parser/history/bridge/model-cost/chart/source-contract/render coverage was added in `DockMagicTests`. The final direct XCTest run passed 13/13 Claude tests with zero failures, including bridge round-trip, quota and context parsing, local token/model aggregation, active task and goal parsing, mixed-model cost attribution, Tokens/Cost alignment, stale/live store behavior, automatic setup, privacy/color contracts, and presentation formatting.
-- The hosted appearance renderer passed for Light, Dark, Increased Contrast, Reduce Transparency, grayscale, stale, unavailable, missing weekly quota, Tokens, and Cost states before the final chart-label fidelity refinements. The post-refinement production component was then rendered from the built app and inspected in the final same-input comparison listed above. A subsequent clean hosted-XCTest rerun launched DockMagic but Xcode's test service did not attach the test bundle, so that infrastructure attempt is not counted as a product pass or failure.
-- The real native bridge was installed into `~/.claude/settings.json` without invoking a Claude turn. Both `statusLine` and `subagentStatusLine` commands resolve to DockMagic-owned wrappers; scripts are mode `0700`, and per-session directories are mode `0700`. A read-only production telemetry probe correctly reported `source=localHistory`, `useful=false`, zero sessions/tasks/goals, and no status snapshot because this machine has not produced a post-install Claude response. The dashboard therefore shows an honest unavailable/empty state until real usage arrives.
-- The signed Debug app built and stayed running through `./script/build_and_run.sh --verify`. The earlier unsigned Debug build and test-target build also passed. Existing Sendable warnings in concurrent Clock/Settings work are outside this feature.
-- Final `git diff --check`, project-file `plutil -lint`, privacy review, and source scan passed. The Claude dashboard contains no prohibited gradient, direct RGB/hex/system color, QA launch hook, or production fixture path.
-- Browser and console checks are not applicable to this native SwiftUI/AppKit hover dashboard.
-
-final result: passed
-
-# DockMagic Codex dashboard capture — Option 1 design QA
-
-## Final result
-
-`passed`
-
-The selected Option 1 is implemented as a compact share control in the Codex header. Its menu offers Save 4× PNG, Copy image, and Share… while the generated image contains only the clean dashboard. The 440 × 522 pt component exports as a lossless 1760 × 2088 px PNG. No actionable P0, P1, or P2 visual differences remain.
-
-## Visual truth and interaction states
-
-- Selected source: `/Users/dongnt/.codex/generated_images/01a03c0c-2a63-7d13-ad45-fd5b800f6232/exec-99571dac-1dfe-439c-90ad-6fad97874c73.png`.
-- Normalized source: `/Users/dongnt/.codex/visualizations/2026/08/26/01a03c0c-2a63-7d13-ad45-fd5b800f6232/codex-capture-reference-normalized.png` (880 × 1044 px).
-- Final deterministic menu: `/Users/dongnt/.codex/visualizations/2026/08/26/01a03c0c-2a63-7d13-ad45-fd5b800f6232/codex-capture-menu-final.png` (880 × 1044 px).
-- Menu opened by a real mouse event in a nonactivating `NSPanel`: `/Users/dongnt/.codex/visualizations/2026/08/26/01a03c0c-2a63-7d13-ad45-fd5b800f6232/codex-capture-menu-clicked.png` (880 × 1044 px).
-- Full comparison input: `/Users/dongnt/.codex/visualizations/2026/08/26/01a03c0c-2a63-7d13-ad45-fd5b800f6232/codex-capture-comparison.png` (1760 × 1044 px; source left, implementation right).
-- Focused comparison input: `/Users/dongnt/.codex/visualizations/2026/08/26/01a03c0c-2a63-7d13-ad45-fd5b800f6232/codex-capture-focused-comparison.png` (1760 × 330 px).
-- Final clean export: `/Users/dongnt/.codex/visualizations/2026/08/26/01a03c0c-2a63-7d13-ad45-fd5b800f6232/codex-capture-export-4x-final.png` (1760 × 2088 px).
-- State: Dark; Pro; capture menu open; real component viewport 440 × 522 pt; QA snapshots at 2×; exported PNG at 4×.
-
-## Findings
-
-No remaining P0/P1/P2 findings.
-
-- Typography and copy: the menu preserves the selected hierarchy and exact primary actions. `1760 × 2088 px` makes export quality explicit before saving.
-- Spacing and layout rhythm: the 26 pt header control fits between the plan/status region and lifetime usage. The compact 146 pt menu aligns to that control and does not resize the dashboard.
-- Colors and tokens: the menu uses DockMagic semantic raised-surface, outline, action, on-action, and text roles. It introduces no direct RGB value, new feature palette, decorative tint, or gradient.
-- Image quality: the renderer creates an explicit 4× bitmap, validates its pixel dimensions, and writes lossless PNG bytes. The clean export excludes the capture button and menu, then lets Daily tokens settle on its latest bucket before rasterization.
-- Interactions: Save uses a native `NSSavePanel`; Copy places the same PNG bytes on the pasteboard; Share gives the system sharing picker a temporary file containing those exact bytes. Repeated Share actions reset correctly even when the generated URL is the same.
-- Accessibility: the header control and menu have labels, hints, and identifiers; Escape closes the menu; Reduce Motion disables its scale/fade animation.
-
-## Comparison history
-
-### Iteration 1
-
-- P2: the first implementation menu was wider and taller than the selected compact treatment.
-- Fix: reduced the menu to 146 pt, tightened row heights and padding, and added the small pointer aligned to the header control.
-
-### Iteration 2
-
-- Post-fix evidence: `codex-capture-comparison.png` and `codex-capture-focused-comparison.png`.
-- Result: share-button placement, menu hierarchy, row density, pointer alignment, icons, labels, and export-size copy match the selected direction. Production intentionally uses `theme.onAction` for accessible action text rather than copying ImageGen's hard-coded white.
-
-## Verification
-
-- `testCodexCaptureButtonOpensMenuInNonactivatingPanel`: passed after sending actual mouse down/up events to the production control; the clicked-state attachment visibly contains the menu.
-- `testCodexDashboardCaptureRendersCrispFourTimesPNG`: passed for exact 1760 × 2088 dimensions, PNG output, deterministic naming, exact pasteboard bytes, and exact share-file bytes.
-- `testCodexHoverDashboardFollowsColorDesignSystemSourceContract`: passed.
-- Final targeted result bundle: `/tmp/dockmagic-codex-capture-tests-20260826-5.xcresult` (3/3 passed).
-- `git diff --check`: passed. Source scan found no prohibited gradient or direct color literal in the capture implementation; only `Color.clear` exists elsewhere in the dashboard renderer.
-- Final Debug build, signing, launch, and process verification via `./script/build_and_run.sh --verify`: passed.
-- Computer Use runtime inspection hung while reading the app state, so it is not claimed as evidence. The direct nonactivating-panel event test provides the runtime interaction proof instead.
-- Browser and console checks: not applicable to this native SwiftUI/AppKit feature.
+- Score-derived rank is now authoritative. The renderer refreshes at up to
+  60 fps and uses rank-specific breathing, directional, and burst profiles.
+- The focused regression passed 13/13 tests, including token/day boundaries,
+  all six rank profiles, eight deterministic score-54 frames, mounted 49 → 54
+  transition, exact Reduce Motion frame equality, and both full dashboards.
+- The unsigned optimized Release build passed with the shared renderer compiled
+  into the production app target. Source scans and `git diff --check` passed.
+- No actionable P0, P1, P2, or P3 findings remain.
 
 final result: passed
 
-# DockMagic Weather hover dashboard — Option 1 design QA
+---
 
-## Final result
+# Full-panel Streak Celebration Design QA
 
-`passed`
+## Comparison target
 
-The selected Weather content hierarchy now lives in DockMagic's native hover
-dashboard, not in Weather Settings. Settings has been restored to the production
-Dock preview and Open-Meteo attribution. No actionable P0, P1, or P2 visual
-findings remain.
+- Source visual truth:
+  `/Users/dongnt/.codex/generated_images/01a05066-9393-7ad0-88f9-5fa2e414d47e/exec-8eddd005-1c00-42a0-aa48-dcd43caa8411.png`
+- Source pixels: 1151 × 1366.
+- Production Codex Dark:
+  `docs/streak-concepts/codex-streak-celebration-dark.png`
+- Production Codex Light:
+  `docs/streak-concepts/codex-streak-celebration-light.png`
+- Production Claude Code Dark:
+  `docs/streak-concepts/claude-streak-celebration-dark.png`
+- Production Claude Code Light:
+  `docs/streak-concepts/claude-streak-celebration-light.png`
+- Codex viewport: 440 × 522 pt, captured at 4× as 1760 × 2088 px.
+- Claude Code viewport: 440 × 760 pt, captured at 4× as 1760 × 3040 px.
+- State: Codex day 1 / First Prompt; Claude Code day 8 / Loop. The
+  celebration is held for 60 seconds only in the deterministic renderer;
+  production dismisses after 2.8 seconds.
+- Density normalization: the source was proportionally scaled and padded to
+  1760 × 2088 before the full-view comparison. Production was not cropped.
 
-## Visual truth and runtime state
+## Full-view comparison evidence
 
-- Original source visual truth: `/Users/dongnt/.codex/generated_images/01a04458-e8c5-7e21-b86e-096fec146293/exec-4986934a-5529-45ca-8e2a-30a061844807.png` (1587 × 991 px).
-- User feedback screenshot: `/Users/dongnt/.codex/visualizations/2026/08/27/01a04458-e8c5-7e21-b86e-096fec146293/weather-hover-before-compact-feedback.png` (908 × 1056 px, representing the previous `440 × 522 pt` panel at 2× plus surrounding capture pixels).
-- Product-surface adaptation: Weather preserves the selected content hierarchy inside DockMagic's existing hover chrome, with a content-fit `440 × 420 pt` frame rather than inheriting Codex's taller panel.
-- Final Dark implementation: `/Users/dongnt/.codex/visualizations/2026/08/27/01a04458-e8c5-7e21-b86e-096fec146293/weather-hover-brand-attachments/0C11CD87-9540-4078-BF81-F06228AF4444.png` (880 × 840 px at 2×).
-- Final Light implementation: `/Users/dongnt/.codex/visualizations/2026/08/27/01a04458-e8c5-7e21-b86e-096fec146293/weather-hover-brand-attachments/F0D29409-4D24-4D3F-AE7A-7B5BD536000A.png` (880 × 840 px at 2×).
-- Increased Contrast, Reduce Transparency, and grayscale: `06CEFBEF-ECF2-49C8-A7D9-C2750B7E14A3.png`, `13CDC4FF-4111-4435-A2CD-D1291AB9B16C.png`, and `A04B8787-0F48-457F-9F1A-D8A84B4CC694.png` in the brand attachments directory.
-- State snapshots: stale `9DE0AEF7-46C3-4CF1-8D3F-AFB83F270348.png`, loading `33E583B2-EF33-4C54-BA4D-CF3CE5069745.png`, and unavailable `80B50AF8-F5D8-4D33-8B1D-25440253F262.png` in the same directory.
-- Full comparison input: `/Users/dongnt/.codex/visualizations/2026/08/27/01a04458-e8c5-7e21-b86e-096fec146293/weather-hover-compact-design-qa-comparison.png` (1760 × 1072 px; feedback screenshot left, compact production panel right, top aligned).
-- State: Dark; Ho Chi Minh City; no live freshness label; Light drizzle; seven forecast days from August 29 through September 4, 2026.
+- Combined source and Codex implementation:
+  `docs/streak-concepts/streak-celebration-reference-comparison.png`.
+- The source and production render were inspected together in the same image
+  input on 2026-08-30. The implementation preserves the full-panel stage,
+  service header, large current badge, secured-state headline, seven-day row,
+  next milestone, quiet CTA, and timed-return footer.
+- Source-only glow and background falloff were intentionally omitted because
+  DockMagic's normative color contract forbids colored glow and gradients.
+  Hierarchy is retained through scale, spacing, typography, outline, and one
+  provider accent.
+
+## Focused-region comparison evidence
+
+- Accessibility contact sheet:
+  `docs/streak-concepts/streak-celebration-accessibility-contact-sheet.png`.
+  Reading order is Dark, Light, Increased Contrast / Reduced Transparency,
+  grayscale simulation, Reduce Motion.
+- Claude Code's 440 × 760 pt panel was checked independently in Dark and Light.
+  It uses the same celebration hierarchy, its own logo and orange action
+  accent, and a milestone-specific hero scale that keeps Loop clear of the
+  `TODAY'S STREAK` label.
+- The final First Prompt hero was compared at production size after measuring
+  its alpha bounds. Its smaller painted area is compensated without changing
+  the collection/strip rendering of the same asset.
+
+## Required fidelity surfaces
+
+- Fonts and typography: existing macOS system typography and rounded numeric
+  treatment are retained. The headline, milestone copy, weekdays, CTA, and
+  footer remain single-line in both dashboard widths.
+- Spacing and layout: celebration content replaces the complete dashboard body
+  rather than occupying a nested card. Header identity remains anchored at the
+  top and the timed-return affordance remains anchored at the bottom.
+- Colors and tokens: chrome uses semantic `DesignTheme` roles. Codex uses the
+  action accent; Claude Code uses its existing provider accent. Multi-color art
+  is confined to the bounded badge identity region. Source scans found no
+  gradient, colored glow, direct RGB, direct system color, or feature-local
+  palette in the celebration view.
+- Shape and image quality: current milestone art comes from the existing 1024 ×
+  1024 alpha badge assets. Per-asset hero scaling accounts for different alpha
+  bounds without cropping, stretching, or altering the detail/collection sizes.
+- Copy and content: the UI says exactly what happened, identifies the current
+  milestone, shows the recent day states, and describes the next achievable
+  badge without productivity claims or punitive reset language.
+- States and interactions: full-panel celebration, automatic 2.8-second return,
+  Escape dismissal, and `View badges` drill-in are wired for Codex and Claude
+  Code. Reduce Motion removes scale animation and uses opacity only.
+- Accessibility: unknown and completed days retain `?` and check symbols plus
+  weekday initials, so state is not color-only. The celebration and CTA have
+  stable accessibility identifiers and combined spoken labels.
+- Persistence: the claim timestamp is stored on DockMagic's SwiftData streak
+  record. A provider/day celebration can be claimed once, only after today's
+  local token use has produced an active streak record.
 
 ## Findings
 
-No remaining P0/P1/P2 findings.
-
-- Placement and hierarchy: Weather routes through `DockHoverCoordinator` and `DockHoverChrome`, matching Codex hover behavior and pointer placement. Its content-fit height is 102 pt shorter than Codex while preserving the header, current-condition hero, today's high/low, humidity, wind, divider, seven-day strip, attribution, and pointer.
-- Settings scope: Weather Settings once again contains `Weather Dock preview`, Temperature, Conditions, Location, and attribution only; it does not embed the weekly dashboard.
-- Typography and density: the compact rounded numerals, seven equal forecast columns, monochrome/hierarchical SF Symbols, and restrained dividers remain legible at the fixed hover size without truncation.
-- Colors and tokens: the production component uses semantic `DesignTheme` roles only. The full-color Weather.app icon is confined to the bounded header identity region, matching Settings; the fallback is the system multicolor Weather symbol. It adds no direct RGB/hex/system-color literal, gradient, glow, decorative tinted surface, or feature-local palette.
-- Accessibility: the dashboard, header, current conditions, forecast strip, every forecast day, unavailable state, and attribution have stable identifiers or combined spoken labels. State is expressed through text and symbols, never color alone.
-- Appearance: Light, Dark, Increased Contrast, Reduce Transparency, and grayscale renders remain readable. Stale, loading, and unavailable variants preserve the same panel geometry and provide explicit textual state.
-- Attribution: `Open-Meteo · CC BY 4.0` remains visible and linked in both Weather Settings and the hover dashboard.
+No actionable P0, P1, or P2 findings remain.
 
 ## Comparison history
 
-### Iteration 1
+### Pass 1 — superseded
 
-- P1: the initial build placed the seven-day dashboard inside Weather Settings, which contradicted the requested Codex-style hover interaction.
-- Fix: restored the original Settings preview, moved the weekly content into `WeatherHoverDashboardView`, and added Weather to the existing hover capability and placement routing.
+- [P2] Neutral rays crossed the eyebrow label, the generic Codex logo renderer
+  exposed transparent fringe, and native progress styling produced a gray fill.
+- Fix: removed near-vertical rays, matched the existing Codex crop, and replaced
+  native progress rendering with a semantic capsule rail.
 
-### Iteration 2
+### Pass 2 — superseded
 
-- P2: the unavailable body hid the provider error behind the location placeholder, and the first cloud-slash symbol produced an empty visual slot in the rendered macOS snapshot.
-- Fix: show the actual error message and use the verified semantic warning triangle for the unavailable state.
-- Post-fix evidence: the comparison and eight verified XCTest snapshots listed above.
+- [P2] The First Prompt badge was visibly smaller than the selected source
+  because its painted alpha bounds occupy less of the 1024 × 1024 canvas.
+- Fix: promoted the celebration badge to a measured hero size and applied a
+  bounded art scale while preserving the original asset.
 
-### Iteration 3
+### Pass 3 — superseded
 
-- P2: the `440 × 522 pt` frame left approximately 102 pt of unused vertical space below the Open-Meteo attribution in the user's real Dock-hover capture.
-- Fix: changed only Weather's panel height to `420 pt`; Codex remains `522 pt`. The live content now ends with normal bottom padding, and loading, unavailable, stale, Light, Dark, Increased Contrast, Reduce Transparency, and grayscale states continue to fit without clipping.
-- Post-fix evidence: `weather-hover-compact-design-qa-comparison.png` and the eight compact XCTest snapshots listed above.
+- [P2] Applying the First Prompt compensation to every badge caused the fuller
+  Loop artwork to approach the Claude Code eyebrow label.
+- Fix: added milestone-specific hero scaling. First Prompt, Spark, and Builder
+  receive only the compensation they need; fuller badge canvases render at 1×.
 
-### Iteration 4
+### Pass 4 — passed
 
-- P3 requested refinement: the live header repeated freshness text at the upper right and used a monochrome weather glyph, unlike the colored Weather identity shown in Settings.
-- Fix: removed the live freshness label and reused Settings' Apple Weather application icon lookup, with the same multicolor SF Symbol fallback when Weather.app is unavailable. Stale and unavailable status labels remain visible because they communicate real semantic state.
-- Post-fix evidence: the eight `weather-hover-brand-attachments` snapshots listed above; Dark and Light both show the colored Weather icon without right-side live text.
+- The normalized side-by-side comparison shows the intended hierarchy and
+  badge prominence with no overlap, clipping, broken wrapping, or color-only
+  state.
+- Dark, Light, Increased Contrast, Reduced Transparency, grayscale, and Reduce
+  Motion evidence remains legible. Codex and Claude Code renders retain their
+  own identity without introducing a second chrome palette.
+- `TokenUsageStreakStoreTests` passed 7/7, including both once-per-provider/day
+  celebration claim tests. The unsigned Debug build passed.
+- The AppKit-hosted automatic-return image test remains present, but Xcode 17's
+  visual test host stalled during isolated execution before reporting an
+  assertion. The production renderer and source-level interaction wiring were
+  used for this visual pass; this is a test-host limitation, not a visible
+  product finding.
 
-## Verification
+## Follow-up polish
 
-- Targeted integration tests passed for hover capability, compact panel placement, Open-Meteo request/forecast parsing, and all Weather hover render variants. Final result bundle: `/tmp/dockmagic-weather-hover-compact-derived/Logs/Test/Test-DockMagic-2026.08.29_00-53-34-+0700.xcresult`.
-- The final render-only pass after the unavailable-state correction also passed. Result bundle: `/tmp/dockmagic-weather-hover-derived/Logs/Test/Test-DockMagic-2026.08.29_00-48-07-+0700.xcresult`.
-- The final header refinement render pass passed for all eight appearance and availability states. Result bundle: `/tmp/dockmagic-weather-hover-brand-derived/Logs/Test/Test-DockMagic-2026.08.29_00-59-49-+0700.xcresult`.
-- Full unsigned Debug build passed as part of the final test run with `CODE_SIGNING_ALLOWED=NO`; output: `/tmp/dockmagic-weather-hover-brand-derived/Build/Products/Debug/DockMagic.app`.
-- Standalone Swift typecheck passed for the production Weather hover component with DockMagic design-system sources.
-- `plutil -lint DockMagic/DockMagic.xcodeproj/project.pbxproj` and `git diff --check` passed before final documentation updates; final checks are rerun at handoff.
-- Browser checks are not applicable to this native SwiftUI/AppKit component.
+- [P3] If DockMagic later adds a user preference for celebration duration, keep
+  the current 2.8-second value as the default and preserve immediate Escape and
+  `View badges` control.
 
 final result: passed
 
-# DockMagic Daily intensity in-panel tooltip — design QA
+---
 
-## Final result
+# Streak Dashboard Design QA
 
-`passed`
+## Comparison target
 
-Daily intensity now renders its own SwiftUI tooltip inside the Dock hover card instead of depending on the native `.help` mechanism, which did not appear in DockMagic's nonactivating panel. Hovering a cell displays its full date in the card's lower open area, horizontally follows the hovered column, keeps Best day visible, and does not intercept pointer events. No actionable P0, P1, or P2 visual differences remain.
+- Source visual truth: `docs/streak-concepts/codex-streak-continuity-strip-selected.png`
+- Source pixels: 1545 × 1018. This is an approved three-panel concept board,
+  not a single production viewport.
+- Production Codex overview:
+  `docs/streak-concepts/codex-streak-implementation-overview.png`
+- Production Codex detail:
+  `docs/streak-concepts/codex-streak-implementation-detail.png`
+- Production Claude Code detail:
+  `docs/streak-concepts/claude-streak-implementation-detail.png`
+- Codex viewport: 440 × 522 pt, captured at 2× as 880 × 1044 px.
+- Claude Code viewport: 440 × 760 pt, captured at 2× as 880 × 1520 px.
+- Theme/state: Dark appearance. Codex fixture is current 7 / best 28;
+  Claude fixture is current 8 / best 12. The concept board uses current 14 /
+  best 28, so numeric and recent-day differences are fixture differences rather
+  than layout drift.
+- Density normalization: production captures share the same 2× AppKit backing
+  density. The composite concept was reviewed at full size for hierarchy and
+  art direction; no pixel-distance claim is made across the mixed-scale board.
 
-## Visual truth and interaction states
+## Full-view comparison evidence
 
-- User-reported runtime failure is the primary source truth: hovering individual cells did not show the date when the implementation depended on native `.help`.
-- Previous deterministic hover without a visible tooltip: `/Users/dongnt/.codex/visualizations/2026/08/26/01a03c0c-2a63-7d13-ad45-fd5b800f6232/codex-intensity-tooltip-hover-render.png` (880 × 1044 px for a 440 × 522 pt Retina component).
-- Updated deterministic hover with the in-panel tooltip: `/Users/dongnt/.codex/visualizations/2026/08/26/01a03c0c-2a63-7d13-ad45-fd5b800f6232/codex-intensity-custom-tooltip-hover.png` (880 × 1044 px).
-- Full-view comparison input: `/Users/dongnt/.codex/visualizations/2026/08/26/01a03c0c-2a63-7d13-ad45-fd5b800f6232/codex-intensity-custom-tooltip-full-comparison.png` (1760 × 1044 px; failed behavior left, updated behavior right).
-- Focused comparison input: `/Users/dongnt/.codex/visualizations/2026/08/26/01a03c0c-2a63-7d13-ad45-fd5b800f6232/codex-intensity-custom-tooltip-comparison.png` (800 × 210 px; failed behavior left, updated behavior right).
-- State: Dark; deterministic Aug 22 cell hover; tooltip `Aug 22, 2026`; Best Aug 20 remains visible.
+The source board and the three production captures were opened together in the
+same comparison input on 2026-08-30. The implementation preserves the approved
+composition: identity and limits first, daily usage second, a shallow streak
+strip immediately after the chart, then the existing dashboard content. Both
+service variants share the information architecture while retaining their own
+logo and single usage accent.
+
+The production detail intentionally expands the concept's current-badge panel
+into the requested collection view. It keeps the large current badge and
+current/best/next hierarchy above recent activity, then exposes all ten badges
+in milestone order. This is a deliberate product expansion, not a fidelity
+error.
+
+## Focused-region comparison evidence
+
+- Continuity strip: compared the source Codex and Claude strips with the 62 pt
+  production strip. Badge, current run, seven day markers, next milestone, and
+  chevron retain the same left-to-right scan. The production adds explicit
+  unknown and today-pending shapes so state is not inferred or color-only.
+- Badge hero and collection: inspected generated art at 48, 58, and 112 pt in
+  Dark, Light, and grayscale contact-sheet renders. All ten source PNGs are
+  1024 × 1024 with real alpha and remain distinct at the production sizes.
+  Each is now a complete Interlock Crown milestone symbol. SwiftUI renders the
+  authored asset directly; no Codex/Claude logo, blank medallion, or runtime
+  identity layer remains inside the badge.
+- Lower Codex insights: the revised overview shows all three Top models rows and
+  the complete Daily intensity footer inside the unchanged 440 × 522 pt panel.
+
+## Required fidelity surfaces
+
+- Fonts and typography: production uses the existing macOS system family,
+  rounded digits, dashboard weights, and optical hierarchy. Labels remain on
+  one line at the tested viewport; no truncation or broken wrapping is visible.
+- Spacing and layout rhythm: outer panel geometry, inset margins, 8–10 pt card
+  radii, thin neutral outlines, and section rhythm match the current dashboard.
+  No persistent control or model row is clipped after the second pass.
+- Colors and tokens: SwiftUI chrome is neutral plus `theme.action` for Codex or
+  `DSClaudeCodeUsage` for Claude. Multi-color enamel is confined to badge
+  artwork. No code gradient, colored glow, direct RGB, decorative tinted card,
+  or feature-local palette was introduced. Selected and locked states also use
+  outline, label, symbol, and emphasis changes.
+- Image quality and asset fidelity: badge silhouettes are individual generated
+  raster assets with alpha, not crops from a concept sheet. Background
+  extraction leaves transparent corners and one connected artifact. Every
+  asset has a finished interlocking center with no empty identity socket.
+- Copy and content: copy describes token activity without claiming
+  productivity. Reset copy protects best streak and earned badges; unavailable
+  copy does not imply a missed day. Milestone names and day thresholds match the
+  research specification.
+- Icons and affordances: disclosure chevron, lock, check, today-pending marker,
+  and back control use consistent monochrome SF Symbols. The strip is a full-row
+  button with help and accessibility text.
+- States and interactions: live, locked/unlocked, current selection, reset with
+  permanent Continuum unlock, unavailable, Increased Contrast, and Reduced
+  Transparency remain covered by the existing view/state implementation. The
+  new artwork was rechecked at 112 pt Dark, 58 pt Light, and 48 pt grayscale.
+- Accessibility: badge labels include name, requirement, and lock state. Recent
+  days expose dates and textual state. Markers differ by icon, outline, dash,
+  and fill in addition to color. The implementation respects the system Reduce
+  Motion environment by removing navigation animation.
 
 ## Findings
 
-No remaining P0/P1/P2 findings.
-
-- Typography and copy: the tooltip uses compact native SF text, semibold weight, monospaced digits, the full `MMM d, yyyy` date, and no unrelated token copy. It remains readable without wrapping.
-- Spacing and layout rhythm: the tooltip occupies the card's existing lower open area and does not move the header, grid, endpoint labels, legend, adjacent Top models card, or overall 440 × 522 pt dashboard.
-- Colors and visual tokens: the tooltip uses DockMagic's existing raised opaque surface, primary text, and strong neutral outline. The blue intensity scale and selected-cell action outline remain unchanged; no gradient or feature-local palette was added.
-- Image quality and assets: no image asset is required. Tooltip, grid, and outline are native SwiftUI geometry and remain crisp at Retina density.
-- Interaction and accessibility: local `@State` follows each cell's `.onHover`; the tooltip is rendered from that same hovered bucket, clamped inside the card at both horizontal edges, and uses `.allowsHitTesting(false)` so it cannot break hover tracking. Each cell retains its date accessibility label and token-count value.
+No actionable P0, P1, or P2 findings remain.
 
 ## Comparison history
 
-### Iteration 1
+### Pass 1 — superseded
 
-- P1: native `.help` existed in source but did not produce a visible tooltip in the real nonactivating Dock panel, so the requested hover behavior was unavailable.
-- Fix: replaced the cell-level `.help` dependency with a visible in-panel SwiftUI tooltip driven directly by the existing hovered-cell state.
+- The original badge system composited the active service logo into a central
+  recess. The Signal Architecture redesign replaces that composition with
+  self-contained, service-neutral milestone artwork; service identity remains
+  in the dashboard header.
+- [P2] Final Top models row clipped in the Codex overview.
+  Evidence: the first 440 × 522 capture cut the third row at the panel edge.
+  Fix: compacted only the two lower insight cards' internal spacing and row
+  height while preserving the panel, chart, strip, and Ship momentum hierarchy.
 
-### Iteration 2
+### Pass 2 — blocked
 
-- Post-fix evidence: `codex-intensity-custom-tooltip-full-comparison.png` and `codex-intensity-custom-tooltip-comparison.png`.
-- Result: the full date is visibly rendered during hover, Best remains fixed, the selected cell remains outlined, and the tooltip fits without clipping or layout movement.
+- Post-fix evidence:
+  `/tmp/dockmagic-streak-ui-attachments-v2/7B6F14E2-0248-40A3-AD7B-03A5DE1FBBF5.png`
+  and
+  `/tmp/dockmagic-streak-ui-attachments-v2/D6A86F5B-A40A-47A5-8CA3-3515E901D593.png`.
+- The logo core is clean at hero and collection sizes, and all existing lower
+  insight content is visible in the static render.
+- [P2] The real nonactivating-panel host still overflowed vertically by about
+  15 pt, clipping the header hit region and causing the existing Capture click
+  test to miss.
+  Fix: reduced overview section spacing by 1 pt and the token plot by 8 pt for
+  one- and two-limit states. This retains every section and leaves the strip at
+  its selected 62 pt prominence.
 
-## Verification
+### Pass 3 — passed
 
-- `testCodexHoverDashboardFollowsColorDesignSystemSourceContract`: passed, including custom tooltip rendering, non-hit-testing behavior, and removal of cell-level native `.help`.
-- `testCodexHoverDashboardMinimalColorRender`: passed for normal and deterministic intensity-cell-hover states; the hover attachment visibly contains `Aug 22, 2026`.
-- Targeted result bundle: `/tmp/dockmagic-codex-intensity-custom-tooltip-tests.xcresult` (2/2 passed).
-- `git diff --check`: passed.
-- Debug build, signing, launch, and process verification via `./script/build_and_run.sh --verify`: passed; the rebuilt DockMagic process remained running.
-- Browser and console checks: not applicable to this native SwiftUI/AppKit component.
+- Post-fix evidence:
+  `docs/streak-concepts/codex-streak-implementation-overview.png`,
+  `docs/streak-concepts/codex-streak-implementation-capture-menu.png`,
+  and
+  `docs/streak-concepts/codex-streak-implementation-detail.png`.
+- The entire header, chart, streak strip, Ship momentum, and both lower insight
+  cards fit the unchanged 440 × 522 pt host. Capture, streak open, and Back all
+  pass real panel-click tests. The final combined comparison found no new
+  P0/P1/P2 issue.
+
+### Pass 4 — Signal Architecture replacement
+
+- Production evidence:
+  `docs/streak-concepts/signal-architecture-production-contact-sheet.png`.
+- The selected 365-day Signal Architecture reference and the complete
+  production set were inspected together. Material, palette, routing, joinery,
+  and keystone language remain consistent while the silhouette progresses from
+  one module to two interlocked cycles.
+- `./script/build_and_run.sh --verify` passed: the app compiled, linked the new
+  `Assets.car`, launched, and stayed running.
+- Focused model/mapping and source/design-system tests passed through the built
+  XCTest bundle. Xcode 17's hosted test coordinator repeatedly waited for
+  workers to materialize, so the full dashboard render test could not be
+  rerun in its app-hosted environment. Direct execution reaches the render test
+  but correctly lacks the app bundle's named assets; this is classified as an
+  environment/test-host limitation, not an assertion or product regression.
+
+## Open questions
+
+- The concept's previous/current/next carousel was replaced by the complete
+  collection requested for production. If a focused one-badge sharing flow is
+  added later, the carousel can become a separate drill-down without changing
+  this overview/detail structure.
+
+## Implementation checklist
+
+- [x] Shared continuity strip in Codex and Claude Code.
+- [x] In-panel detail and Back interaction.
+- [x] Ten permanent milestone badges and locked states.
+- [x] Shared logo-free badge art; Codex/Claude Code identity remains in the
+  existing dashboard header.
+- [x] 112 pt Dark, 58 pt Light, and 48 pt grayscale production-art QA.
+- [x] Reset, unavailable, and maximum-tier evidence.
+- [x] Source scans for color and gradient violations.
+
+## Follow-up polish
+
+- [P3] A later earned-date field could make historical badges more personal,
+  but upstream usage currently does not provide a trustworthy unlock timestamp.
+
+## Pass 5 — Victory Crest replacement
+
+- Source target:
+  `docs/streak-concepts/pinterest-v2/victory-crest-claude.png`.
+- Production-size evidence:
+  `docs/streak-concepts/pinterest-v2/victory-crest-production-contact-sheet.png`.
+- Native combined comparison:
+  `docs/streak-concepts/pinterest-v2/victory-crest-native-comparison.png`.
+- Native captures: Codex 440 × 522 pt / 880 × 1044 px and Claude Code
+  440 × 760 pt / 880 × 1520 px, both at 2× AppKit backing density.
+- States inspected together: Codex Dark, Codex Light, Codex grayscale-check,
+  and Claude Code Dark. Separate app-hosted render attachments cover Increased
+  Contrast, Reduced Transparency, unavailable, reset with Continuum retained,
+  and the compact overview strip.
+- Focused badge evidence: the contact sheet compares both service marks at
+  112 pt, paired collection assets at 58 pt, and paired grayscale assets at
+  48 pt. No extra crop was required because every badge is shown at the exact
+  production sizes in one input.
+
+### Fidelity review
+
+- Typography and copy remain the established DockMagic system hierarchy; no
+  badge text or generated numeral is baked into raster artwork.
+- Spacing and layout rhythm are unchanged. The 112 pt hero and 58 pt collection
+  slots remain centered, and the full Claude Code ten-badge collection fits its
+  existing 440 × 760 pt panel.
+- Color remains bounded to authored badge enamel and the exact service logo.
+  Interface chrome continues to use semantic theme roles with no new gradient,
+  glow, direct color literal, or decorative tinted card.
+- All ten 1024 × 1024 frame PNGs retain genuine alpha, transparent corners,
+  one connected silhouette, and a centered blank identity medallion.
+- Codex and Claude Code use the same milestone frames, while exact runtime
+  marks provide service identity without relying on generated logo imitations.
+- Locked, selected, earned, unavailable, reset, and compact states retain
+  outline, symbol, label, opacity, and structure cues; state never depends on
+  badge color alone.
+
+### Iteration history
+
+- Initial production contact-sheet pass used a 17% service mark. At 48–58 pt it
+  was too quiet relative to the medallion, a P2 identity-legibility issue.
+- Post-fix composition uses 22% at every badge size. The second contact sheet
+  and app-hosted render comparison show both marks clearly without touching the
+  medallion rim. No P0, P1, or P2 findings remain.
+- `./script/build_and_run.sh --verify` succeeded and launched the signed Debug
+  app. The targeted app-hosted render test passed in 1.894 seconds.
+- The semantic-chrome source guard and the researched ten-milestone boundary
+  test also passed in the app-hosted XCTest environment.
 
 final result: passed
 
-# DockMagic Daily intensity native tooltip — design QA
+---
 
-## Final result
+## Pass 6 — Interlock Crown logo-free replacement
 
-`passed`
+- Selected source target:
+  `docs/streak-concepts/pinterest-v3/ideation/interlock-crown.png`.
+- Production-size evidence:
+  `docs/streak-concepts/pinterest-v3/interlock-crown-production-contact-sheet.png`.
+- Native combined comparison:
+  `docs/streak-concepts/pinterest-v3/interlock-crown-native-comparison.png`.
+- Native captures: Codex 440 × 522 pt / 880 × 1044 px and Claude Code
+  440 × 760 pt / 880 × 1520 px at 2× AppKit backing density.
+- The source target and Codex Dark, Claude Code Dark, Codex Light, and Codex
+  grayscale-check renders were inspected together in one comparison input.
+  Separate app-hosted attachments cover Increased Contrast, Reduced
+  Transparency, unavailable, reset with Continuum retained, and compact-strip
+  states.
 
-The Daily intensity header now keeps the Best-day capsule fixed while each intensity cell exposes its full calendar date through the native macOS tooltip. Hover still gives the active cell a visible outline, but no longer replaces or covers the most-used-day value. No actionable P0, P1, or P2 visual differences remain.
+### Fidelity review
 
-## Visual truth and interaction states
+- The selected Builder artwork is used unchanged as the 14-day badge. The
+  remaining nine assets preserve its warm copper rim, graphite chassis, broad
+  ivory/cobalt enamel, angular joinery, and connected silhouette.
+- The interlocking structure is now the complete symbol. No badge contains a
+  Codex logo, Claude Code logo, generated logo, circle, blank medallion, or
+  runtime service-mark overlay. Provider identity remains visible only in the
+  dashboard header.
+- Milestone progression remains legible through shape: crossed ribbons,
+  chevron, closed knot, full crown, swept weave, directional crown, triple
+  crown, buttress braid, five-facet keystone, and distilled vertical spine.
+- The ten 1024 × 1024 RGBA assets retain genuine alpha, transparent corners,
+  one connected artifact, and readable silhouettes at 112, 58, and 48 pt.
+- Layout, typography, copy, and interaction geometry are unchanged. The
+  authored badge palette stays bounded inside the artwork; SwiftUI chrome still
+  uses semantic theme roles with no new gradient, glow, direct color literal,
+  or decorative tinted card.
+- Locked, selected, earned, unavailable, and reset states continue to use
+  lock/check symbols, labels, outlines, opacity, and position in addition to
+  color. The grayscale contact-sheet row preserves distinct structures.
 
-- User feedback is the primary source truth: the hovered date must appear as a tooltip and must not replace the Best-day value in the card header.
-- Previous hovered implementation: `/Users/dongnt/.codex/visualizations/2026/08/26/01a03c0c-2a63-7d13-ad45-fd5b800f6232/codex-intensity-blue-hover.png` (880 × 1044 px for a 440 × 522 pt Retina component).
-- Updated normal implementation: `/Users/dongnt/.codex/visualizations/2026/08/26/01a03c0c-2a63-7d13-ad45-fd5b800f6232/codex-intensity-tooltip-normal.png` (880 × 1044 px).
-- Updated deterministic cell-hover implementation: `/Users/dongnt/.codex/visualizations/2026/08/26/01a03c0c-2a63-7d13-ad45-fd5b800f6232/codex-intensity-tooltip-hover-render.png` (880 × 1044 px).
-- Full-view comparison input: `/Users/dongnt/.codex/visualizations/2026/08/26/01a03c0c-2a63-7d13-ad45-fd5b800f6232/codex-intensity-tooltip-full-comparison.png` (1760 × 1044 px; previous hover left, updated hover right).
-- Focused comparison input: `/Users/dongnt/.codex/visualizations/2026/08/26/01a03c0c-2a63-7d13-ad45-fd5b800f6232/codex-intensity-tooltip-comparison.png` (800 × 150 px; previous hover left, updated hover right).
-- State: Dark; deterministic Aug 22 cell hover; Best Aug 20 remains visible.
+### Iteration history
 
-## Findings
+- [P2] The first Continuum attempt formed a horizontal infinity/bow-tie motif,
+  which broke the selected crown language and made the final tier ambiguous.
+- Fix: one targeted retry replaced it with six paired enamel facets converging
+  on a tall graphite/copper master spine. The corrected asset appears in both
+  production-size and native reset evidence.
+- `./script/build_and_run.sh --verify` succeeded.
+- `testStreakDashboardRendersBadgeCollectionAcrossServicesAndAccessibility`
+  passed in 1.799 seconds and produced all nine native attachments.
+- `testStreakDashboardSourceUsesBoundedBadgeArtAndSemanticChrome` and
+  `testTokenUsageStreakMilestonesUseTheTenResearchedBoundaries` passed in the
+  app-hosted XCTest environment.
 
-No remaining P0/P1/P2 findings.
-
-- Typography and copy: `Best Aug 20` remains readable in its original capsule during hover. The native tooltip uses the full `MMM d, yyyy` date format and does not add unrelated copy.
-- Spacing and layout rhythm: the header no longer changes content or color when a cell is hovered. Card size, grid position, legend, adjacent Top models card, and complete dashboard geometry are unchanged.
-- Colors and visual tokens: the existing five-step semantic action-blue scale is unchanged. Hover continues to use the existing action-foreground outline and the tooltip uses the native macOS presentation rather than a new feature-local surface color.
-- Image quality and assets: no new asset is required; all cells and outlines remain native SwiftUI geometry at Retina density.
-- Interaction and accessibility: every intensity cell has a native `.help` tooltip containing its full date, a visible hover outline, an accessibility date label, and a token-count accessibility value. The Best-day capsule is independent of the local hovered-cell state.
-- Evidence limitation: the native AppKit tooltip window is system-owned and is not included in an offscreen `NSHostingView` PNG. Computer Use could not read the nonactivating Dock panel in the available runtime, so the tooltip contract is verified by the production modifier and focused source/render tests rather than a fabricated screenshot.
-
-## Comparison history
-
-### Iteration 1
-
-- P2: the hovered date replaced the Best-day capsule in the upper-right corner, hiding the most-used-day value and mixing two independent meanings in one location.
-- Fix: made the Best-day capsule unconditional whenever Best data exists and moved the hovered date to the cell's native macOS `.help` tooltip.
-
-### Iteration 2
-
-- Post-fix evidence: `codex-intensity-tooltip-full-comparison.png` and `codex-intensity-tooltip-comparison.png`.
-- Result: the hovered cell remains identifiable by outline, Best Aug 20 remains fixed, and no dashboard content shifts or clips.
-
-## Verification
-
-- `testCodexHoverDashboardFollowsColorDesignSystemSourceContract`: passed, including native full-date tooltip presence and absence of the old `Hovered date` header branch.
-- `testCodexHoverDashboardMinimalColorRender`: passed for normal and deterministic intensity-cell-hover states.
-- Targeted result bundle: `/tmp/dockmagic-codex-intensity-tooltip-tests.xcresult` (2/2 passed).
-- Source diff validation: `git diff --check` passed.
-- Debug build, signing, launch, and process verification via `./script/build_and_run.sh --verify`: passed; the rebuilt DockMagic process remained running.
-- Browser and console checks: not applicable to this native SwiftUI/AppKit component.
-
-final result: passed
-
-# DockMagic Daily intensity blue scale and hover date — design QA
-
-## Final result
-
-`passed`
-
-The compact Daily intensity supplement now uses DockMagic's existing semantic action blue from low to high intensity and replaces the Best-day capsule with the hovered calendar date while the pointer is over a cell. The card remains in its existing position below Ship momentum, keeps the same dimensions and hierarchy, and does not disturb the adjacent Top models card. No actionable P0, P1, or P2 visual differences remain.
-
-## Visual truth and interaction states
-
-- Previous implementation source: `/Users/dongnt/.codex/visualizations/2026/08/26/01a03c0c-2a63-7d13-ad45-fd5b800f6232/codex-option3-implementation-final-v2.png` (880 × 1044 px for a 440 × 522 pt Retina component).
-- Updated Dark implementation: `/Users/dongnt/.codex/visualizations/2026/08/26/01a03c0c-2a63-7d13-ad45-fd5b800f6232/codex-intensity-blue-dark.png` (880 × 1044 px).
-- Hovered Aug 22 state: `/Users/dongnt/.codex/visualizations/2026/08/26/01a03c0c-2a63-7d13-ad45-fd5b800f6232/codex-intensity-blue-hover.png` (880 × 1044 px).
-- Before/after comparison input: `/Users/dongnt/.codex/visualizations/2026/08/26/01a03c0c-2a63-7d13-ad45-fd5b800f6232/codex-intensity-blue-comparison.png` (1760 × 1044 px; previous neutral scale left, updated blue scale right).
-- Focused normal/hover comparison: `/Users/dongnt/.codex/visualizations/2026/08/26/01a03c0c-2a63-7d13-ad45-fd5b800f6232/codex-intensity-blue-card-states.png` (800 × 210 px; normal left, Aug 22 hover right).
-- Deterministic state: Dark; the normal card identifies Best Aug 20; the interaction render hovers Aug 22.
-
-## Findings
-
-No remaining P0/P1/P2 findings.
-
-- Typography and copy: title, Best-day capsule, date endpoints, legend, and hovered `MMM d` label remain readable without clipping or wrapping at the real 440 pt dashboard width.
-- Layout and rhythm: hover changes only the trailing capsule and selected-cell outline. It does not resize the card, move surrounding content, or alter the adjacent Top models list.
-- Colors and tokens: the five levels use `theme.action` at increasing opacity from 0.10 through 0.86. This reuses DockMagic's existing action accent inside the quantitative renderer rather than introducing a local palette, decorative tint, or gradient.
-- Interaction and accessibility: every cell updates the visible date capsule on pointer hover and receives a distinct outline. Exact date and token count remain available through Help and accessibility values, so the state does not depend on color alone.
-- Image quality and assets: no image asset is required; the grid, outlines, and capsules remain crisp native SwiftUI geometry at Retina density.
-
-## Comparison history
-
-### Iteration 1
-
-- P2: the neutral intensity scale appeared too dark and visually disconnected from the blue quantitative accents already used elsewhere in the Codex dashboard.
-- P2: the first deterministic hover render reused the large Daily tokens chart hover state, which changed an unrelated chart and could clip the offscreen render.
-- Fixes: moved the five-level scale to semantic action blue and gave Daily intensity an independent local hover state with a visible date capsule and cell outline.
-
-### Iteration 2
-
-- Post-fix evidence: `codex-intensity-blue-comparison.png` and `codex-intensity-blue-card-states.png`.
-- Result: the scale now reads clearly from light to dark blue, the hovered date is immediately visible, and the full dashboard remains stable with no actionable P0/P1/P2 mismatch.
-
-## Verification
-
-- `testCodexHoverDashboardFollowsColorDesignSystemSourceContract`: passed, including the semantic action-blue source contract and visible hover-date label.
-- `testCodexHoverDashboardMinimalColorRender`: passed for the normal and Daily-intensity-hover render states.
-- Final post-cleanup targeted result bundle: `/tmp/dockmagic-codex-intensity-blue-tests-final-4.xcresult` (2/2 passed).
-- Source diff validation: `git diff --check` passed.
-- Debug build, signing, launch, and process verification via `./script/build_and_run.sh --verify`: passed; DockMagic remained running after launch.
-- Browser and console checks: not applicable to this native SwiftUI/AppKit component.
+No actionable P0, P1, P2, or P3 findings remain.
 
 final result: passed
 
-# DockMagic Codex usage supplements — Option 3 design QA
-
-## Final result
-
-`passed`
-
-The selected Option 3 is implemented as two compact, equal-height supplements directly below the existing Ship momentum card: a 30-day Daily intensity grid and a three-row Top models list ranked by token usage. The production dashboard keeps the real 440 pt Dock-hover width, its existing hierarchy, and DockMagic's neutral-first color contract. No actionable P0, P1, or P2 visual differences remain.
-
-## Visual truth and runtime state
-
-- Selected source: `/Users/dongnt/.codex/generated_images/01a03c0c-2a63-7d13-ad45-fd5b800f6232/exec-2c0849a2-ed59-42a7-b192-3488e9c32e31.png` (1153 × 1364 px).
-- Normalized source: `/Users/dongnt/.codex/visualizations/2026/08/26/01a03c0c-2a63-7d13-ad45-fd5b800f6232/codex-option3-reference-normalized.png` (880 × 1044 px).
-- Final Dark implementation: `/Users/dongnt/.codex/visualizations/2026/08/26/01a03c0c-2a63-7d13-ad45-fd5b800f6232/codex-option3-implementation-final-v2.png` (880 × 1044 px for a 440 × 522 pt Retina component).
-- Combined comparison input: `/Users/dongnt/.codex/visualizations/2026/08/26/01a03c0c-2a63-7d13-ad45-fd5b800f6232/codex-option3-comparison-final-v2.png` (1760 × 1044 px; normalized source left, implementation right).
-- Additional render states are attached to `/tmp/dockmagic-codex-option3-render-final-3.xcresult`: Light, Increased Contrast, Reduced Transparency, grayscale, weekly-only, and token-hover.
-- Deterministic state: Dark; Pro; 74% five-hour and 41% weekly remaining; 18.4M lifetime; 1.28M latest day; Ship momentum 55 and Shipper; 12 tasks; 7.1M tokens; three model rows.
-
-## Findings
-
-No remaining P0/P1/P2 findings.
-
-- Typography and hierarchy: both supplements use the existing compact native type scale. Titles, the Best-day pill, 30-day label, model ranks, identifiers, and compact token totals remain readable without wrapping at 440 pt.
-- Layout and rhythm: the two 104 pt cards sit only below Ship momentum with the existing 7 pt dashboard rhythm. They remain secondary to the large Daily tokens chart and Ship momentum card, and the complete panel grows only from 410 pt to 522 pt.
-- Daily intensity: 30 native cells render in two rows of 15, with five neutral luminance levels, date endpoints, a five-step legend, a Best-day pill, and a latest-day outline. Every cell exposes its exact date and token value through Help and accessibility, so meaning is not color-only.
-- Top models: the three highest token totals are ranked numerically and include model identifiers, proportional action-accent markers, and compact totals. The `30d*` state and Help text disclose partial fallback coverage when necessary.
-- Colors and assets: normal chrome stays neutral; only the existing semantic action accent is used for quantitative model markers. No gradient, decorative glow, tinted card palette, new raster asset, or recreated brand icon was introduced.
-- Data privacy and fidelity: the primary reader queries only `model`, `tokens_used`, and `created_at` from Codex's local state database in read-only mode. Prompt and response content is not queried. Bounded rollout metadata and app-server per-thread usage remain fallbacks when the state database is unavailable.
-- Accepted P3 differences: production uses the actual account date range and includes the month in the Best-day pill; the generated source abbreviates that value. Production spacing is marginally denser to preserve the real DockMagic viewport and current dashboard hierarchy.
-
-## Comparison history
-
-### Iteration 1
-
-- P2: the first model list used vertical blue markers beside the ranks, while the selected source places compact quantitative markers near the token totals.
-- P2: the first intensity preview did not exercise enough low and zero-token cells, so its five levels were visually understated.
-- Fixes: moved proportional horizontal markers to the totals column, strengthened the neutral intensity separation, exercised zero/low preview values, reduced both supplements to 104 pt, and restored the selected source's Best-day capsule treatment.
-
-### Iteration 2
-
-- Post-fix evidence: `codex-option3-comparison-final-v2.png`.
-- Result: module placement, card proportions, title hierarchy, 2 × 15 grid, legend, three ranked models, token markers, and panel pointer match the selected direction with no actionable P0/P1/P2 mismatch.
-
-## Verification
-
-- `testCodexLocalModelUsageReaderPrefersReadOnlyStateDatabase`: passed.
-- `testCodexLocalModelUsageReaderUsesOnlyRecentTokenMetadata`: passed.
-- `testCodexParserAggregatesRecentRootThreadTokensByModel`: passed, including partial coverage.
-- `testCodexHoverPresentationUsesOnlyAvailableLimitsAndThirtyDays`: passed, including top-three ordering.
-- `testCodexHoverDashboardFollowsColorDesignSystemSourceContract`: passed.
-- `testCodexHoverDashboardMinimalColorRender`: passed across Dark, Light, Increased Contrast, Reduced Transparency, grayscale, weekly-only, and token-hover states.
-- Focused data and render suite: passed in `/tmp/dockmagic-codex-option3-tests-4.xcresult`; final render/source-contract pass is `/tmp/dockmagic-codex-option3-render-final-3.xcresult`.
-- Full `DockMagicTests` regression target: passed in `/tmp/dockmagic-codex-option3-full-tests.xcresult`.
-- Exact production reader probe against the installed Codex state returned four model aggregates in 142 ms with full coverage and without reading prompt/response content.
-- Debug build and runtime verification via `./script/build_and_run.sh --verify`: passed; DockMagic remained running after launch. Xcode signed the rebuilt bundle with the current Apple Development identity. Independent deep verification reported `CSSMERR_TP_NOT_TRUSTED` even though Keychain reports both Apple Development and Developer ID identities as valid, so this is recorded as a local certificate-trust limitation rather than UI/runtime proof.
-- Browser and console checks: not applicable to this native SwiftUI/AppKit component.
-
-final result: passed
-
-# DockMagic Codex rank ladder — design QA
-
-## Final result
-
-`passed`
-
-The selected Ascending Rank Rail direction is implemented in the native Codex hover dashboard with the requested revision: the existing gauge and score remain on the left, six ascending ranks occupy the right, only rank names appear beneath the steps, and the visible score-range and equal-weight copy are removed. No actionable P0, P1, or P2 visual differences remain.
-
-## Visual truth and runtime state
-
-- Selected direction: the first displayed Product Design ideation result, `/Users/dongnt/.codex/generated_images/01a039d2-63d3-7d93-b03d-c69ee5d5bc62/exec-8f67b1bf-aa8e-42c4-9d56-af86741ebe75.png`.
-- Revised source visual truth incorporating the user's feedback: `/Users/dongnt/.codex/generated_images/01a039d2-63d3-7d93-b03d-c69ee5d5bc62/exec-e755fc84-a09a-455a-9de8-d985420cfe34.png` (1299 × 1211 px).
-- Rendered Dark implementation: `/tmp/dockmagic-rank-qa-final.F5yv4Q/07AD1437-B90E-4759-9988-A811EEFD7A05.png` (880 × 820 px for a 440 × 410 pt Retina component).
-- Rendered Light implementation: `/tmp/dockmagic-rank-qa-final.F5yv4Q/D6C82F3D-BBF9-49EC-B5F1-18B44ACF9ABB.png` (880 × 820 px).
-- Normalized source: `/tmp/dockmagic-rank-source-normalized.png` (880 × 820 px), scaled proportionally to match the implementation density and viewport.
-- Full-view comparison: `/tmp/dockmagic-rank-comparison.png` (1760 × 820 px; normalized source left, implementation right).
-- Focused Ship momentum comparison: `/tmp/dockmagic-rank-card-comparison.png` (1680 × 250 px; source card left, implementation card right).
-- Accessibility evidence: Increased Contrast `/tmp/dockmagic-rank-qa-final.F5yv4Q/F30EA04A-007D-48FC-8B19-C4AA117AB6BD.png`, Reduced Transparency `/tmp/dockmagic-rank-qa-final.F5yv4Q/073CE83F-FB3F-49DA-BD98-A417706B97DE.png`, and grayscale `/tmp/dockmagic-rank-qa-final.F5yv4Q/7CD135FC-72E4-4B2E-B198-B349A092CED4.png`.
-- State: dark appearance; Pro; score 55; active rank 4 `Shipper`; 12 tasks; 7.1M tokens; 74% five-hour and 41% weekly remaining.
-
-## Findings
-
-No remaining P0/P1/P2 findings.
-
-- Fonts and typography: native SF Pro and rounded metrics preserve the source hierarchy. `Ship momentum`, score 55, step numbers, all six rank names, and the two activity metrics remain legible at the real 440 pt width without wrapping or clipping.
-- Spacing and layout rhythm: the implementation preserves the source's left gauge/right ladder split, vertical divider, six rising steps, lower divider, and centered metric row. Production is slightly denser than the generated mock to fit the real Dock-hover viewport while preserving its hierarchy.
-- Colors and visual tokens: the active arc, step 4, and `Shipper` label use the single semantic action accent; completed and future steps use neutral roles. No gradient, glow, league-color palette, or colored surface was introduced.
-- Image quality and asset fidelity: no raster asset is required for this quantitative UI renderer. The semicircular gauge, needle, and rank steps are crisp native SwiftUI geometry at Retina density; the existing production Codex logo remains unchanged.
-- Copy and content: the implementation shows only `Spark`, `Builder`, `Maker`, `Shipper`, `Accelerator`, and `Vanguard` under the steps. It contains no visible numeric ranges, `Steady`, or `Equal weight: task starts + token activity` copy.
-- Accessibility and behavior: score, active rank, rank index, task count, token activity, and comparison purpose are exposed through one concise accessibility value. The active rank remains identifiable by position, step number, label, and weight in grayscale.
-- Accepted P3 difference: the production ladder labels and blocks are modestly more compact than the generated source because the actual right column is narrower after preserving the existing 136 pt gauge region. All labels remain readable and evenly distributed.
-
-## Comparison history
-
-### Iteration 1
-
-- P2: the first native render let intrinsic text widths compress the final `Vanguard` label substantially more than the other ranks.
-- Fix: changed the ladder to calculate six equal-width columns from the available geometry and strengthened the minimum label scale.
-- Earlier evidence: `/tmp/dockmagic-rank-qa.vVhdld/C9A1787F-39A9-4A38-88C3-0D7F4863F97E.png`.
-
-### Iteration 2
-
-- Post-fix evidence: `/tmp/dockmagic-rank-comparison.png` and `/tmp/dockmagic-rank-card-comparison.png`.
-- Result: all six labels have consistent optical sizing; no actionable P0/P1/P2 mismatch remains.
-
-## Verification
-
-- `testCodexShipMomentumCombinesTasksAndTokensAgainstPriorWeek`: passed.
-- `testCodexShipMomentumRanksUseSixAscendingThresholds`: passed at every threshold boundary.
-- `testCodexHoverDashboardFollowsColorDesignSystemSourceContract`: passed, including absence of visible range and equal-weight strings.
-- `testCodexHoverDashboardMinimalColorRender`: passed with Light, Dark, Increased Contrast, Reduced Transparency, grayscale, weekly-only, and hover attachments.
-- Targeted test results: `.derivedData/Logs/Test/Test-DockMagic-2026.08.26_00-31-49-+0700.xcresult` and `.derivedData/Logs/Test/Test-DockMagic-2026.08.26_00-32-54-+0700.xcresult`.
-- Full `DockMagicTests` regression target: passed in `.derivedData/Logs/Test/Test-DockMagic-2026.08.26_00-34-33-+0700.xcresult`.
-- Signed Debug build and runtime verification via `./script/build_and_run.sh --verify`: passed; DockMagic remained running after launch.
-- Browser and console checks: not applicable to this native SwiftUI/AppKit component.
-
-final result: passed
-
-# DockMagic Codex Ship momentum — design QA
-
-## Final result
-
-`passed`
-
-The native SwiftUI Ship momentum gauge is integrated directly below Daily tokens in the Codex Dock-hover dashboard. It preserves the supplied semicircular gauge pattern while adapting it to one combined, self-relative activity metric and DockMagic's neutral-first color system. No actionable P0, P1, or P2 visual differences remain.
-
-## Visual truth and runtime state
-
-- Source visual truth: `/var/folders/ps/dndvmz2n3w53_cxkfwr4typh0000gn/T/TemporaryItems/NSIRD_screencaptureui_pEQ8Wq/Screenshot 2026-08-25 at 23.49.19.png` (382 × 158 px), a component-only reference containing three compact semicircular gauges.
-- Rendered Light implementation: `/tmp/dockmagic-ship-momentum-render-final/88A13E88-04B7-48C9-84A8-3D73CBCCB4CD.png` (880 × 820 px for a 440 × 410 pt Retina component).
-- Rendered Dark implementation: `/tmp/dockmagic-ship-momentum-render-final/C0164130-DC65-4CEC-A71F-1C0F52138A92.png` (880 × 820 px for a 440 × 410 pt Retina component).
-- Focused same-theme comparison: `/tmp/dockmagic-ship-momentum-comparison-light.png`; the source is normalized to the 190 px runtime-card height and placed beside the 832 × 190 px Light card crop.
-- Full-view implementation comparison: `/tmp/dockmagic-ship-momentum-full-light-dark.png` (Light and Dark runtime renders). A full-view source comparison is unavailable because the supplied image contains only the gauge component, so dashboard integration was evaluated against the real production hierarchy instead.
-- Additional accessibility evidence: Increased Contrast `/tmp/dockmagic-ship-momentum-render-final/91F71DAA-E926-49F5-8E5B-D2BF4DA1C1BB.png`, Reduced Transparency `/tmp/dockmagic-ship-momentum-render-final/F1333951-E44F-4A10-B5BE-8447F31E87CB.png`, and grayscale `/tmp/dockmagic-ship-momentum-render-final/406532B2-CE01-4FF4-B68F-2554444FACD0.png`.
-- Runtime state: Pro plan; 74% five-hour and 41% weekly remaining; 30 daily token buckets for Jul 26–Aug 24, 2026; 12 root tasks and 7.1M tokens in the latest seven local calendar days; Ship momentum 55, `Steady`, relative to the preceding seven days.
-
-## Findings
-
-No remaining P0/P1/P2 findings.
-
-- Typography: native SF Pro and rounded numerals preserve the reference's title/value/status hierarchy, remain legible at 440 pt, and do not clip in any rendered state.
-- Spacing and structure: the arc, needle, centered score, and status follow the source gauge anatomy. One full-width card replaces the reference's three-card row because this feature communicates one combined metric and must fit the existing Codex dashboard below Daily tokens.
-- Colors: the reference's green/yellow/red gauge bands intentionally become one semantic action accent over a neutral track. This follows DockMagic's normative one-accent contract, avoids false danger semantics, and remains understandable in grayscale through the numeric score, needle, and text status.
-- Imagery and assets: no raster asset is required for this quantitative renderer. The gauge and needle are resolution-independent SwiftUI shapes; existing production brand and SF Symbol assets remain unchanged.
-- Copy and meaning: `Ship momentum`, `vs prior 7 days`, and `Equal weight: task starts + token activity` expose the comparison and inputs. The Help and accessibility copy explicitly frame it as an activity trend, not a productivity rating or percentile.
-- Interaction and accessibility: the dashboard remains read-only in its nonactivating Dock panel. Help and VoiceOver values describe the score, trend, task count, token volume, and comparison period without relying on color or pointer interaction.
-- Data states: the card degrades to an unavailable explanation when either the 14-day task signal or token signal is absent. Partial task pagination is disclosed with a `+` count rather than presented as exact.
-
-## Comparison history
-
-### Iteration 1
-
-- The focused reference/runtime comparison found no actionable P0/P1/P2 mismatch after intentional product adaptations for a single combined metric and the repository color contract.
-- The full Light/Dark render confirmed the new card sits directly below Daily tokens with no clipping, overlap, or broken panel pointer.
-- Increased Contrast, Reduced Transparency, and grayscale renders preserve hierarchy and state meaning; no visual fix was required after comparison.
-
-## Verification
-
-- `testCodexShipMomentumCombinesTasksAndTokensAgainstPriorWeek`: passed, including the unavailable state when the task signal is empty.
-- `testCodexHoverDashboardMinimalColorRender`: passed with seven attachments covering Light, Dark, Increased Contrast, Reduced Transparency, grayscale, weekly-only, and hover states.
-- Test result: `.derivedData/Logs/Test/Test-DockMagic-2026.08.26_00-06-25-+0700.xcresult`.
-- Targeted parser, source-contract, and panel-placement tests: passed.
-- Full `DockMagicTests` regression target: passed in `.derivedData/Logs/Test/Test-DockMagic-2026.08.26_00-07-43-+0700.xcresult`.
-- Unsigned Debug build with `CODE_SIGNING_ALLOWED=NO`: passed.
-- Signed Debug build and launch verification via `./script/build_and_run.sh --verify`: passed; DockMagic stayed running after launch.
-- Browser and console checks: not applicable to this native SwiftUI/AppKit component.
-
-final result: passed
-
-# DockMagic Codex Dock-hover dashboard — Option 2 design QA
-
-## Final result
-
-`passed`
-
-The 360 × 224 pt native SwiftUI hover dashboard preserves the selected ImageGen option's hierarchy: Codex identity and live state, two compact quota rows, lifetime/today totals, a dominant seven-day token chart, and freshness metadata. No actionable P0, P1, or P2 visual differences remain.
-
-## Visual truth and runtime state
-
-- Source visual truth: `/Users/dongnt/.codex/generated_images/01a03446-2cff-76f1-ae59-e6a48940bbe5/exec-171fdcf2-288e-4dd7-be13-438cf758c0f5.png` (1605 × 980 px), the second displayed ImageGen option selected by the user.
-- Normalized source: source popup cropped at x=164, y=45, width=1274, height=826 and scaled to 720 × 448 px.
-- Rendered implementation: `/tmp/dockmagic-hover-v2-attachments.zAKrRl/9669821D-F0BB-4FB5-BBA6-E88850DE74EF.png` (720 × 448 px for a 360 × 224 pt Retina component).
-- Combined comparison input: `/tmp/dockmagic-hover-comparison-v2.png` (1440 × 448 px; normalized source left, implementation right).
-- Render evidence: `DockMagicTests/testCodexHoverDashboardOptionTwoReferenceRender` in `/tmp/dockmagic-codex-hover-v2.xcresult`.
-- Viewport and density: 360 × 224 pt at 2×; source and implementation normalized to equal 720 × 448 pixel regions before comparison.
-- State: dark appearance; Codex selected; Pro plan; live; 74% five-hour and 41% weekly remaining; 18.4M lifetime tokens; 1.28M latest-day tokens; seven daily buckets for Aug 18–24, 2026.
-
-The full component is already a focused comparison at 2× density. A second crop was not needed because all important typography, quota tracks, chart labels, logo edges, and footer copy are legible in the combined input.
-
-## Findings
-
-No remaining P0/P1/P2 findings.
-
-- Fonts and typography: native SF Pro/rounded numerals reproduce the source hierarchy while remaining readable at the real 360 pt width. Headers, percentages, totals, reset times, axes, and metadata retain distinct optical weights without clipping.
-- Spacing and layout rhythm: 18 pt outer radius, 10 pt content inset, two 24 pt quota rows, dominant chart region, and bottom pointer preserve the source composition. The implementation uses slightly denser production spacing so all text remains readable at actual Dock-popup size.
-- Colors and visual tokens: graphite material, semantic live green, Codex teal and violet quota colors, subdued tracks, and a teal-to-violet chart map to DockMagic's existing customizable Codex palette. Contrast remains sufficient on the dark material.
-- Image quality and asset fidelity: the supplied production `CodexLogo` asset is used directly; SF Symbols provide the clock, calendar, and refresh icons. No placeholder, emoji, recreated logo, or rasterized UI is used.
-- Copy and content: labels and values match the chosen design. Dates are generated from real bucket dates, so the implementation correctly labels Aug 18, 2026 as Tuesday rather than preserving the generated mock's incorrect Monday label.
-- Interaction and accessibility: the card is intentionally read-only and hosted in a nonactivating panel. It exposes a combined dashboard label plus quota/chart-specific accessibility values and never takes keyboard focus.
-- Accepted P3 differences: the source uses blue/violet chart bars while production inherits DockMagic's existing user-configurable teal/violet Codex colors; native number formatting follows the user's locale; the source's decorative desktop/Dock blur is supplied by the real desktop behind the translucent panel rather than baked into the component.
-
-## Comparison history
-
-### Iteration 1
-
-- Earlier P2: the y-axis rendered scientific notation (`2,0E6`), the date range followed an ambiguous day-first format, and the deterministic preview showed an old 1316-minute freshness value.
-- Fixes: added compact K/M axis formatting, explicit English month/day range copy, two-line weekday/date labels, a taller plot, and a current fixture fetch time.
-- Evidence: `/tmp/dockmagic-hover-comparison.png`.
-
-### Iteration 2
-
-- Post-fix evidence: `/tmp/dockmagic-hover-comparison-v2.png`.
-- Result: no actionable P0/P1/P2 differences remain; only the accepted production-token and localization differences listed above remain.
-
-## Verification
-
-- `testCodexHoverDashboardOptionTwoReferenceRender`: passed.
-- Current targeted verification for ACP token parsing, Accessibility permission state, multi-edge panel placement, and the Option 2 reference render: 4/4 passed in `.derivedData/Logs/Test/Test-DockMagic-2026.08.25_00-15-35-+0700.xcresult` (the unsupported-method fallback is also covered by the previously passing broader suite).
-- Unsigned Debug build: passed with `CODE_SIGNING_ALLOWED=NO`.
-- Browser/console checks: not applicable to this native SwiftUI/AppKit component.
-- Runtime platform verification: passed on macOS 26.2 after the user explicitly enabled DockMagic in Accessibility. A signed local Release attached to Dock PID 612, received `AXApplicationDockItem` with bundle `com.hypevibe.DockMagic`, read the 46 × 58 icon frame, and logged `Presented hover dashboard at x=1171 y=92`. Production still requires the documented Developer ID/notarized multi-version release matrix.
-
-final result: passed
-
-# DockMagic Batteries design QA
-
-## Final result
-
-`passed`
-
-The implemented Batteries settings screen and four-device Dock tile match the selected reference at the component and full-window level. No actionable P0, P1, or P2 visual differences remain.
-
-## Visual truth and runtime state
-
-- Source visual truth: local reference image (not committed; 1487 × 1058 px).
-- Normalized source window: `docs/screenshots/batteries-reference-window.png` (1160 × 724 px).
-- Runtime implementation: `docs/screenshots/batteries-settings-dark.png` (1160 × 724 px).
-- Full-view comparison: `docs/screenshots/batteries-design-comparison.png` (2320 × 724 px; normalized reference left, runtime right).
-- Focused Dock-preview comparison: `docs/screenshots/batteries-preview-comparison.png` (640 × 320 px; reference left, runtime right).
-- Production Dock tile capture: `docs/screenshots/batteries-dock-4-devices.png` (128 × 128 px for a 64 × 64 pt Retina Dock tile).
-- Runtime viewport: 1160 × 724 pt outer macOS window. The raw Retina capture was 2320 × 1448 px and was downsampled to 1160 × 724 px for a one-pixel-per-point comparison.
-- Source normalization: the source window region at x=164, y=64, width=1158, height=725 was cropped and scaled to 1160 × 724 px.
-- Focus normalization: each 320 × 320 px Dock preview was cropped at native normalized size and appended horizontally.
-- State: dark appearance; Batteries selected and active; deterministic fixture data for MacBook Pro 74% charging, AirPods Pro 81% charging, Charging Case 62%, and Magic Mouse 39%.
-
-## Findings
-
-No remaining P0/P1/P2 findings.
-
-- Layout and spacing: the 268 pt sidebar, bounded detail column, 320 pt preview, four device rows, card proportions, and outer window dimensions align with the reference.
-- Typography and copy: title, subtitle, preview heading, device labels, percentages, and status lines preserve the reference hierarchy and remain legible at native macOS sizes.
-- Color and contrast: the implementation uses the reference green for healthy levels, amber for the 39% mouse, dark inactive tracks, and native dark surfaces with sufficient contrast.
-- Icons and image quality: production SF Symbols replace generated mock glyphs, stay sharp at Retina density, and preserve the intended MacBook, AirPods, case, and mouse semantics.
-- Dock behavior: the settings preview and `NSDockTile` use the same production renderer, including the 1-, 2-, 3-, and 4-device layouts and charging badges.
-- Interaction and accessibility: Batteries is a selectable sidebar destination, exposes a stable accessibility identifier, and remains the single active Dock feature when selected.
-- Accepted P3 optical differences: native SF Symbols differ slightly from the generated reference glyphs; the current sidebar also contains GitHub from concurrent product work. The reference's simultaneous CPU and Batteries active dots were not reproduced because DockMagic permits exactly one active Dock feature.
-
-## Comparison history
-
-### Iteration 1
-
-- Earlier P2: the accent was cyan instead of the reference green.
-- Earlier P2: tracks and borders were too bright.
-- Earlier P2: the window, sidebar, and content card were materially too compact.
-- Earlier P2: an extra monitoring-status card changed the screen hierarchy.
-- Fixes: updated the battery palette, darkened tracks and borders, restored the 1160 × 724 window proportions, increased the sidebar and content spacing, and removed the extra card.
-- Evidence: local temporary QA artifact (not committed).
-
-### Iteration 2
-
-- Refined the preview to 320 × 320 pt, aligned the device rows and card padding, replaced the mouse glyph with the closest production SF Symbol, and normalized the outer window capture.
-- Post-fix evidence: full-view and focused comparisons listed above.
-
-## Verification
-
-- Final focused verification: 12/12 passed on macOS 26.2 (11 Battery unit tests plus the Battery reference UI test). Result bundle: `.derivedData/Logs/Test/Test-DockMagic-2026.08.14_00-11-08-+0700.xcresult`.
-- Battery unit coverage includes normalization, deduplication, AirPods buds/case parsing, manual snapshot replacement, automatic polling across connect-disconnect-reconnect, device filtering, live hardware invariants, active-sampler lifecycle, and 1–4 device rendering.
-- The Battery UI test verified the reference layout, all four fixture rows, and Batteries as the active Dock feature. The broader Settings-destinations UI flow also reached and verified the complete Batteries screen successfully.
-- Current unsigned Release build: passed; output at `.derivedData-release/Build/Products/Release/DockMagic.app`.
-- Broader-suite audit: every Battery test passed. The current full unit run passed 88/89 tests; the unrelated failure compared two exact live free-disk byte readings that changed by 3,276,800 bytes during sampling. The full UI run passed the Battery cases and reported four unrelated failures in appearance persistence, a final active-feature picker refresh, Search Console setup state, and GitHub copy.
-- Signed verification: blocked because this Mac has no matching Mac Development signing certificate. Production distribution remains Developer ID + Hardened Runtime + notarization/stapling.
-- Browser console: not applicable to this native SwiftUI/AppKit app.
-
-# DockMagic Search Console — Adaptive Focus design QA
-
-## Final result
-
-`passed`
-
-The production Search Console Settings destination and Dock renderer now match the selected Adaptive Focus reference at the full-window, card, control, and Dock-tile levels. No actionable P0, P1, or P2 visual differences remain.
-
-## Visual truth and runtime state
-
-- Source visual truth: local reference image (not committed; 1487 × 1058 px).
-- Runtime evidence: `DockMagicUITests/testSearchConsoleAdaptiveFocusReferenceScreenshot` in `.derivedData/Logs/Test/Test-DockMagic-2026.08.14_00-20-02-+0700.xcresult`.
-- Combined comparison input: local temporary QA artifact (not committed); reference is left and the production UI-test capture is right.
-- State: dark appearance; Search Console selected and active; connected service account; `sc-domain:example.com`; Clicks; 7d; Focus; deterministic 2.4K clicks and 184K impressions.
-- The UI-test host constrained the actual window to its available screen width, so the lower security rows continue below the visible viewport. The detail pane is scrollable and the full card is covered by the stable unit renderer.
-
-## Findings
-
-No remaining P0/P1/P2 findings.
-
-- Layout and spacing: title hierarchy, connection strip, Live Dock preview, three inset control rows, refresh footer, security card, and preliminary-data notice preserve the reference structure. Search Console uses a destination-local wider analytics canvas without changing other Settings screens.
-- Typography and copy: title, metric labels, connection metadata, security copy, and five-minute refresh language follow the reference hierarchy and remain legible at native macOS sizes.
-- Color and contrast: cyan clicks, violet impressions, green connected state, dark native surfaces, borders, and selected segments preserve the intended semantic palette.
-- Dock rendering: Focus centers the primary value and label, renders a filled secondary sparkline, and keeps the secondary total on one line. Chart and Numbers use the same production snapshot and palette.
-- Interaction: Clicks/Impressions, 24h/7d/28d/3m, Chart/Numbers/Focus, manual refresh, Manage, property picker, replace-key, disconnect, and setup links are wired.
-- Accessibility: controls expose stable identifiers and values; the Manage identifier no longer inherits the connection-strip identifier; segmented controls can be exercised through their radio-group geometry on macOS.
-- Accepted P3 differences: the source is a generated concept while the implementation uses native SwiftUI segmented controls, SF Symbols, live relative-time copy, and the repository's existing GitHub destination. These differences do not alter hierarchy or behavior.
-
-## Comparison history
-
-### Iteration 1
-
-- Earlier P2: control rows were separated only by dividers, the preview subtitle and security subtitle added extra hierarchy, row icons were not in the reference, and the preliminary notice was too long.
-- Earlier P2: connection/manage colors, sidebar icon, and secondary metric emphasis differed from the source.
-- Fixes: introduced individual inset control surfaces, removed extra copy/icons, shortened the notice, restored green connected states and neutral Manage styling, and aligned the Search Console icon and secondary metric color.
-
-### Iteration 2
-
-- Earlier P2: the runtime analytics column was too narrow and inset, the Focus metric was left-aligned, and the sparkline lacked the reference fill and rhythm.
-- Fixes: widened only the Search Console detail canvas, reduced its local outer inset, centered the Focus content, enabled violet fill, and replaced fixture data with the reference-shaped 2.4K/184K series.
-- Post-fix comparison: the combined input listed above.
-
-## Verification
-
-- Search Console unit coverage: 10/10 passed. It covers defaults, strict service-account JSON validation, count formatting, secure Keychain/SwiftData separation, all 24 metric × range × display permutations, cached stale behavior, disconnect cleanup, active-feature lifecycle, OAuth token caching, read-only scope, and all Google query shapes.
-- Search Console UI coverage: 3/3 passed consecutively. It covers the Adaptive Focus reference state, both metrics, all four ranges, all three display modes, manual refresh, setup instructions, official links, Manage, and property selection. Result: `.derivedData/Logs/Test/Test-DockMagic-2026.08.14_00-20-02-+0700.xcresult`.
-- Stable render coverage: `testSearchConsoleAdaptiveFocusReferenceRender` passed and attaches the complete screen independently of UI-test window focus.
-- Broader regression: every Search Console test and all other deterministic unit tests passed. One pre-existing live-host disk assertion raced with snapshot files being written during the full suite; its isolated rerun passed in `.derivedData/Logs/Test/Test-DockMagic-2026.08.14_00-19-43-+0700.xcresult`.
-- Unsigned Release build: passed; output at `.derivedData-release/Build/Products/Release/DockMagic.app`. The build exposed two optimizer-only issues in the concurrent GitHub work (missing explicit returns and optional-delay mapping); both received minimal semantics-preserving fixes before the successful rebuild.
-- Browser console: not applicable to this native SwiftUI/AppKit app.
-
-passed
-
-# DockMagic inline renderer color palette — Option 1 design QA
-
-## Final result
-
-`passed`
-
-The former macOS color wells have been replaced by direct, in-card swatches
-across every feature that already exposes renderer colors. The selected state,
-layout, Light/Dark treatment, and immediate interaction match the chosen Option
-1 direction. No actionable P0, P1, or P2 visual differences remain.
-
-## Visual truth and runtime state
-
-- Source visual truth: `/Users/dongnt/.codex/generated_images/01a03448-7d7e-7dd1-b798-2a25457efcc6/exec-1808882c-5a9c-432e-8e61-94742468b3c2.png` (1592 × 988 px), the first displayed Product Design option selected by the user.
-- Light implementation: `/private/tmp/dockmagic-color-palette/light-palette.png` (1160 × 720 px).
-- Dark implementation: `/private/tmp/dockmagic-color-palette/dark-palette.png` (1160 × 720 px).
-- Combined full-window comparison input: `/private/tmp/dockmagic-color-palette/comparison-source-runtime.png` (2320 × 720 px; normalized source left, implementation right).
-- Focused component comparison: `/private/tmp/dockmagic-color-palette/comparison-card.png` (1860 × 310 px; source left, implementation right).
-- Viewport: 1160 × 720 pt Settings window; CPU & RAM selected; Numbers display; appearance section scrolled fully into view.
-- Interaction state: CPU changed from Orange `#FF8D28` to Purple `#CB30E0`, then app relaunched with the same isolated defaults suite.
-
-## Findings
-
-No remaining P0/P1/P2 findings.
-
-- Layout and spacing: two aligned swatch rows, divider, and trailing Reset Defaults action preserve the selected card hierarchy. Twelve 32 pt targets fit on one line without wrapping, clipping, or crowding at the production Settings width.
-- Typography and copy: existing feature titles and semantic labels remain unchanged; removing the always-visible hex copy lowers visual noise while each swatch still exposes its name and exact hex through Help and accessibility values.
-- Selection state: a focus-colored outer ring plus high-contrast checkmark makes the selected color identifiable without relying on hue alone. Light and dark surfaces retain clear edge contrast.
-- Interaction: selecting a swatch updates the live Dock preview immediately and does not create a Color Panel, sheet, popover, or second app window. The selected value persists across relaunch through the existing preferences bindings.
-- Coverage: CPU & RAM, Network, Storage, GitHub, Codex, and Claude Code expose 11 color bindings through the shared palette. Weather, Batteries, and Search Console remain unchanged because they do not currently expose user-editable renderer colors.
-- Accessibility: every palette is a labeled container with its current hex value; each color is an individually labeled button with a stable identifier, color name, hex value, and explicit selected state.
-- Legacy compatibility: if a previously saved custom color is outside the fixed palette, a selected Current custom color swatch is shown until the user chooses a preset, so the migration never silently changes existing preferences.
-- Accepted P3 difference: the conceptual source shows seven example colors. Production uses a consistent twelve-color set so every existing feature default—including GitHub Yellow/Sky, Codex Mint, and Claude Clay—has an exact fixed swatch and Reset Defaults always restores a visible selected state.
-
-## Verification
-
-- Clean Debug build containing only the palette changes: passed at `/private/tmp/dockmagic-color-final.ZdxW8Z/repo/.derivedData/Build/Products/Debug/DockMagic.app`.
-- `DockMagicTests/testRendererColorPaletteContainsEveryFeatureDefault`: passed; it verifies unique option IDs/hexes and coverage of all 11 feature defaults.
-- `DockMagicUITests/testInlineColorPaletteSelectsAndPersistsWithoutOpeningPanel`: passed in `.derivedData/Logs/Test/Test-DockMagic-2026.08.24_23-18-25-+0700.xcresult`; it verifies the initial selected color, direct Purple selection, one-window/no-popup behavior, and the same selected color after relaunch in an isolated preferences suite.
-- `DockMagicUITests/testSettingsDestinationsExposeFeatureControls`: passed in `.derivedData/Logs/Test/Test-DockMagic-2026.08.24_23-28-54-+0700.xcresult`; the full Settings smoke flow reaches every destination and verifies the expanded inline palettes alongside the existing feature controls.
-- Direct runtime accessibility audit: passed for all 11 palette containers and their 132 preset buttons across CPU & RAM, Network, Storage, GitHub, Codex, and Claude Code.
-- Direct interaction and persistence audit: passed. Purple selection updated the container to `#CB30E0`, no second window appeared, and the same selected value was present after relaunch.
-- Light and Dark visual audit: passed using the screenshots and combined comparison inputs above.
-- Source audit: `rg` finds no remaining `ColorPicker(` call in the DockMagic application target.
-- Browser console: not applicable to this native SwiftUI macOS component.
+---
+
+## Pass 7 — Compact badge sharpness
+
+- Source visual truth:
+  `docs/streak-concepts/pinterest-v3/ideation/interlock-crown.png`.
+- Baseline implementation:
+  `docs/streak-concepts/pinterest-v3/interlock-crown-small-sharpness-before.png`.
+- Final implementation:
+  `docs/streak-concepts/pinterest-v3/interlock-crown-small-sharpness-after.png`.
+- Combined full-view and focused comparison:
+  `docs/streak-concepts/pinterest-v3/interlock-crown-small-sharpness-comparison.png`.
+- Viewport: Codex 440 × 522 pt, captured at 2× as 880 × 1044 px. The same
+  fixture, Dark appearance, selection, layout, and native AppKit renderer are
+  used before and after.
+
+### Findings and fix
+
+- [P2] The previous unconditional high-quality interpolation softened the
+  copper/graphite boundaries when a 1024 px source was reduced to the 48 pt
+  streak strip and 58 pt collection slots. Hero artwork at 112–185 pt remained
+  crisp.
+- Fix: `StreakBadgeView` now selects interpolation from both slot size and
+  display density. Slots up to 60 pt use pixel-preserving sampling at 2× or
+  greater, and medium interpolation at 1× to avoid jagged diagonals. Larger
+  hero art retains high-quality interpolation.
+- Post-fix focused evidence shows cleaner copper outlines, stronger separation
+  between ivory/cobalt facets, and more legible internal knots without changing
+  the artwork, crop, frame, opacity, or dashboard layout.
+
+### Required fidelity surfaces
+
+- Fonts and typography: unchanged; badge optimization does not affect text
+  antialiasing, weight, wrapping, or hierarchy.
+- Spacing and layout: unchanged at the exact 440 × 522 pt viewport. Badge slots
+  remain 48, 58, 112, and 185 pt with no crop or alignment drift.
+- Colors and tokens: unchanged. The bounded authored enamel palette and all
+  semantic SwiftUI chrome roles remain intact.
+- Image quality: compact sampling is sharper on Retina while 1× displays keep
+  antialiased diagonals. Hero images preserve their previous smooth high-quality
+  downsampling.
+- Copy and content: unchanged.
+
+### Verification
+
+- The selected source, baseline, final full viewport, and compact collection
+  crops were inspected together in one comparison input.
+- `testStreakDashboardRendersBadgeCollectionAcrossServicesAndAccessibility`
+  passed in 1.744 seconds across all nine attachments.
+- `testStreakDashboardSourceUsesBoundedBadgeArtAndSemanticChrome` passed and now
+  guards both the 60 pt threshold and the Retina/1× fallback behavior.
+- `./script/build_and_run.sh --verify` succeeded after the final renderer change.
+
+No actionable P0, P1, P2, or P3 findings remain.
 
 final result: passed

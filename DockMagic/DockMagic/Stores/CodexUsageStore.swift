@@ -21,7 +21,13 @@ final class CodexUsageStore {
     private let dailyDetailLoader: any CodexDailyTokenDetailLoading
 
     @ObservationIgnored
+    private let streakTracker: any TokenUsageStreakTracking
+
+    @ObservationIgnored
     private let pollingInterval: Duration
+
+    @ObservationIgnored
+    private let now: () -> Date
 
     @ObservationIgnored
     private var pollingTask: Task<Void, Never>?
@@ -40,15 +46,19 @@ final class CodexUsageStore {
         locator: any CodexExecutableLocating = CodexExecutableLocator(),
         dailyDetailLoader: any CodexDailyTokenDetailLoading =
             CodexDailyTokenDetailLoader(),
+        streakTracker: (any TokenUsageStreakTracking)? = nil,
         pollingInterval: Duration = .seconds(300),
-        executableOverridePath: String? = nil
+        executableOverridePath: String? = nil,
+        now: @escaping () -> Date = Date.init
     ) {
         precondition(pollingInterval > .zero, "Polling interval must be positive.")
         self.provider = provider
         self.locator = locator
         self.dailyDetailLoader = dailyDetailLoader
+        self.streakTracker = streakTracker ?? TokenUsageStreakStore()
         self.pollingInterval = pollingInterval
         self.executableOverridePath = executableOverridePath
+        self.now = now
     }
 
     deinit {
@@ -156,14 +166,22 @@ final class CodexUsageStore {
                 overridePath: executableOverridePath
             )
             resolvedExecutablePath = executableURL.path
-            let snapshot = try await provider.fetchRateLimits(
+            let providerSnapshot = try await provider.fetchRateLimits(
                 executableURL: executableURL
             )
             try Task.checkCancellation()
             guard activeRefreshID == id else {
                 return
             }
-            state = .live(snapshot)
+            let observedAt = now()
+            let streakSummary = streakTracker.observeToday(
+                provider: .codex,
+                tokenUsage: providerSnapshot.tokenUsage,
+                at: observedAt
+            )
+            state = .live(
+                providerSnapshot.withStreakSummary(streakSummary)
+            )
         } catch is CancellationError {
             return
         } catch {
@@ -173,7 +191,15 @@ final class CodexUsageStore {
 
             let message = error.localizedDescription
             if let previousSnapshot {
-                state = .stale(previousSnapshot, message: message)
+                let streakSummary = streakTracker.observeToday(
+                    provider: .codex,
+                    tokenUsage: nil,
+                    at: now()
+                )
+                state = .stale(
+                    previousSnapshot.withStreakSummary(streakSummary),
+                    message: message
+                )
             } else {
                 state = .unavailable(message: message)
             }

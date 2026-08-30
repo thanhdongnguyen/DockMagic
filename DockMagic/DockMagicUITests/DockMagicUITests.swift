@@ -1,8 +1,18 @@
 import XCTest
 
 final class DockMagicUITests: XCTestCase {
+    private let automaticDefaultsSuite =
+        "DockMagicUITests.Automatic.\(UUID().uuidString)"
+
     override func setUpWithError() throws {
         continueAfterFailure = false
+        UserDefaults(suiteName: automaticDefaultsSuite)?
+            .removePersistentDomain(forName: automaticDefaultsSuite)
+    }
+
+    override func tearDownWithError() throws {
+        UserDefaults(suiteName: automaticDefaultsSuite)?
+            .removePersistentDomain(forName: automaticDefaultsSuite)
     }
 
     func testLaunchPresentsGlassSettingsWithRequestedSidebar() {
@@ -706,7 +716,7 @@ final class DockMagicUITests: XCTestCase {
             "The JSON key import action should be available inside Management."
         )
         sheetImport.click()
-        let openImport = app.buttons["Open"].firstMatch
+        let openImport = app.sheets.buttons["Open"].firstMatch
         XCTAssertTrue(
             openImport.waitForExistence(timeout: 3),
             "Add JSON Key should present the macOS file importer above Management.\n\(app.debugDescription)"
@@ -721,7 +731,7 @@ final class DockMagicUITests: XCTestCase {
         pathField.typeKey("a", modifierFlags: .command)
         pathField.typeText(importedKeyURL.path)
         app.typeKey(.return, modifierFlags: [])
-        let confirmImport = app.buttons["Open"].firstMatch
+        let confirmImport = app.sheets.buttons["Open"].firstMatch
         XCTAssertTrue(confirmImport.waitForExistence(timeout: 3))
         XCTAssertTrue(confirmImport.isEnabled)
         confirmImport.click()
@@ -735,9 +745,9 @@ final class DockMagicUITests: XCTestCase {
             "settings.searchConsole.credentialSummary"
         ].firstMatch
         XCTAssertTrue(credentialSummary.waitForExistence(timeout: 3))
-        XCTAssertEqual(
-            credentialSummary.label,
-            "3 keys stored locally in SwiftData",
+        XCTAssertTrue(
+            app.staticTexts["3 keys stored locally in SwiftData"]
+                .waitForExistence(timeout: 3),
             "A successful import should update the stored-key summary."
         )
         let updatedSecondaryUse = app.descendants(matching: .any)[
@@ -1032,11 +1042,9 @@ final class DockMagicUITests: XCTestCase {
                 appearance
             ]
         }
-        if let defaultsSuite {
-            app.launchEnvironment[
-                "DockMagicUITestDefaultsSuite"
-            ] = defaultsSuite
-        }
+        app.launchEnvironment[
+            "DockMagicUITestDefaultsSuite"
+        ] = defaultsSuite ?? automaticDefaultsSuite
         if let githubRepositoryURL {
             app.launchArguments += [
                 "-DockMagicGitHubRepositoryURL",

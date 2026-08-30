@@ -84,6 +84,11 @@
 		C3A000000000000000000003 /* ClaudeCodeHoverDashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3B000000000000000000003 /* ClaudeCodeHoverDashboardView.swift */; };
 		C3A000000000000000000004 /* CodexDashboardCaptureService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3B000000000000000000004 /* CodexDashboardCaptureService.swift */; };
 		C3A000000000000000000005 /* CodexDailyTokenDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3B000000000000000000005 /* CodexDailyTokenDetailView.swift */; };
+		C3A000000000000000000006 /* StreakDashboardViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3B000000000000000000006 /* StreakDashboardViews.swift */; };
+		C3A000000000000000000007 /* ShipMomentumGaugeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3B000000000000000000007 /* ShipMomentumGaugeView.swift */; };
+		C4A000000000000000000001 /* TokenUsageStreakRecord.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4B000000000000000000001 /* TokenUsageStreakRecord.swift */; };
+		C4A000000000000000000002 /* TokenUsageStreakStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4B000000000000000000002 /* TokenUsageStreakStore.swift */; };
+		C4A000000000000000000003 /* TokenUsageStreakStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4B000000000000000000003 /* TokenUsageStreakStoreTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -186,6 +191,11 @@
 		C3B000000000000000000003 /* ClaudeCodeHoverDashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeCodeHoverDashboardView.swift; sourceTree = "<group>"; };
 		C3B000000000000000000004 /* CodexDashboardCaptureService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexDashboardCaptureService.swift; sourceTree = "<group>"; };
 		C3B000000000000000000005 /* CodexDailyTokenDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexDailyTokenDetailView.swift; sourceTree = "<group>"; };
+		C3B000000000000000000006 /* StreakDashboardViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreakDashboardViews.swift; sourceTree = "<group>"; };
+		C3B000000000000000000007 /* ShipMomentumGaugeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShipMomentumGaugeView.swift; sourceTree = "<group>"; };
+		C4B000000000000000000001 /* TokenUsageStreakRecord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TokenUsageStreakRecord.swift; sourceTree = "<group>"; };
+		C4B000000000000000000002 /* TokenUsageStreakStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TokenUsageStreakStore.swift; sourceTree = "<group>"; };
+		C4B000000000000000000003 /* TokenUsageStreakStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TokenUsageStreakStoreTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -262,6 +272,7 @@
 		03AB4D83301BB7FA006D74C0 /* DockMagicTests */ = {
 			isa = PBXGroup;
 			children = (
+				C4B000000000000000000003 /* TokenUsageStreakStoreTests.swift */,
 				03AB4D84301BB7FA006D74C0 /* DockMagicTests.swift */,
 				D0C100000000000000000011 /* SystemMetricsFeatureTests.swift */,
 				E0B000000000000000000005 /* BatteryFeatureTests.swift */,
@@ -292,6 +303,7 @@
 		D0C200000000000000000002 /* Models */ = {
 			isa = PBXGroup;
 			children = (
+				C4B000000000000000000001 /* TokenUsageStreakRecord.swift */,
 				A1B000000000000000000002 /* SearchConsoleConfigurationRecord.swift */,
 				A1B000000000000000000001 /* SearchConsoleModels.swift */,
 				E0B000000000000000000001 /* BatteryMetricsSnapshot.swift */,
@@ -335,6 +347,7 @@
 		D0C200000000000000000004 /* Stores */ = {
 			isa = PBXGroup;
 			children = (
+				C4B000000000000000000002 /* TokenUsageStreakStore.swift */,
 				B4B000000000000000000001 /* ClockStore.swift */,
 				A1B000000000000000000005 /* SearchConsoleStore.swift */,
 				E0B000000000000000000003 /* BatteryMetricsStore.swift */,
@@ -394,6 +407,8 @@
 				E1B000000000000000000001 /* WeatherHoverDashboardView.swift */,
 				C3B000000000000000000002 /* CodexHoverDashboardView.swift */,
 				C3B000000000000000000005 /* CodexDailyTokenDetailView.swift */,
+				C3B000000000000000000006 /* StreakDashboardViews.swift */,
+				C3B000000000000000000007 /* ShipMomentumGaugeView.swift */,
 				C3B000000000000000000003 /* ClaudeCodeHoverDashboardView.swift */,
 				D0C100000000000000000010 /* SystemMetricsHoverDashboardView.swift */,
 			);
@@ -567,9 +582,13 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C4A000000000000000000001 /* TokenUsageStreakRecord.swift in Sources */,
+				C4A000000000000000000002 /* TokenUsageStreakStore.swift in Sources */,
 				C3A000000000000000000001 /* DockHoverCoordinator.swift in Sources */,
 				C3A000000000000000000002 /* CodexHoverDashboardView.swift in Sources */,
 				C3A000000000000000000005 /* CodexDailyTokenDetailView.swift in Sources */,
+				C3A000000000000000000006 /* StreakDashboardViews.swift in Sources */,
+				C3A000000000000000000007 /* ShipMomentumGaugeView.swift in Sources */,
 				C3A000000000000000000003 /* ClaudeCodeHoverDashboardView.swift in Sources */,
 				C3A000000000000000000004 /* CodexDashboardCaptureService.swift in Sources */,
 				B2A000000000000000000001 /* DockIconRenderingRules.swift in Sources */,
@@ -641,6 +660,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C4A000000000000000000003 /* TokenUsageStreakStoreTests.swift in Sources */,
 				03AB4D85301BB7FA006D74C0 /* DockMagicTests.swift in Sources */,
 				D0C000000000000000000011 /* SystemMetricsFeatureTests.swift in Sources */,
 				E0A000000000000000000005 /* BatteryFeatureTests.swift in Sources */,
@@ -801,7 +821,7 @@
 				CODE_SIGN_ENTITLEMENTS = DockMagic/DockMagic.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_ASSET_PATHS = "\"DockMagic/Preview Content\"";
 				DEVELOPMENT_TEAM = S35WXF7W5L;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -814,7 +834,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 0.1.0;
+				MARKETING_VERSION = 1.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.hypevibe.DockMagic;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -830,7 +850,7 @@
 				CODE_SIGN_ENTITLEMENTS = DockMagic/DockMagic.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_ASSET_PATHS = "\"DockMagic/Preview Content\"";
 				DEVELOPMENT_TEAM = S35WXF7W5L;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -843,7 +863,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 0.1.0;
+				MARKETING_VERSION = 1.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.hypevibe.DockMagic;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -857,11 +877,11 @@
 				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_TEAM = S35WXF7W5L;
 				GENERATE_INFOPLIST_FILE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 0.1.0;
+				MARKETING_VERSION = 1.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.hypevibe.DockMagicTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
@@ -876,11 +896,11 @@
 				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_TEAM = S35WXF7W5L;
 				GENERATE_INFOPLIST_FILE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 0.1.0;
+				MARKETING_VERSION = 1.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.hypevibe.DockMagicTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
@@ -894,10 +914,10 @@
 			buildSettings = {
 				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_TEAM = S35WXF7W5L;
 				GENERATE_INFOPLIST_FILE = YES;
-				MARKETING_VERSION = 0.1.0;
+				MARKETING_VERSION = 1.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.hypevibe.DockMagicUITests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
@@ -911,10 +931,10 @@
 			buildSettings = {
 				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_TEAM = S35WXF7W5L;
 				GENERATE_INFOPLIST_FILE = YES;
-				MARKETING_VERSION = 0.1.0;
+				MARKETING_VERSION = 1.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.hypevibe.DockMagicUITests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;

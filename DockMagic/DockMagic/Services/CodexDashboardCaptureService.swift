@@ -56,7 +56,10 @@ enum CodexDashboardCaptureService {
     static func render(
         state: CodexUsageState,
         configuration: CodexDashboardCaptureConfiguration,
-        now: Date = .now
+        now: Date = .now,
+        initialStreakCelebration: TokenUsageStreakCelebration? = nil,
+        streakCelebrationAutoDismissDelay: Duration = .milliseconds(2_800),
+        accessibilityOverrides: DSAccessibilityOverrides = .init()
     ) throws -> CodexDashboardCaptureArtifact {
         let dimensions = pixelDimensions(for: configuration.panelSize)
         let root = DockMagicThemeRoot(
@@ -64,7 +67,13 @@ enum CodexDashboardCaptureService {
                 pointerEdge: configuration.pointerEdge,
                 panelSize: configuration.panelSize
             ) {
-                CodexHoverDashboardView(state: state)
+                CodexHoverDashboardView(
+                    state: state,
+                    now: now,
+                    initialStreakCelebration: initialStreakCelebration,
+                    streakCelebrationAutoDismissDelay:
+                        streakCelebrationAutoDismissDelay
+                )
             },
             appearanceMode: configuration.appearanceMode
         )
@@ -73,6 +82,7 @@ enum CodexDashboardCaptureService {
             height: configuration.panelSize.height
         )
         .environment(\.displayScale, rasterScale)
+        .environment(\.dsAccessibilityOverrides, accessibilityOverrides)
 
         return try autoreleasepool {
             let hostingView = NSHostingView(rootView: root)
@@ -151,6 +161,107 @@ enum CodexDashboardCaptureService {
         }
     }
 
+    static func renderClaudeCode(
+        state: ClaudeCodeUsageState,
+        configuration: CodexDashboardCaptureConfiguration,
+        now: Date = .now,
+        accessibilityOverrides: DSAccessibilityOverrides = .init()
+    ) throws -> CodexDashboardCaptureArtifact {
+        let dimensions = pixelDimensions(for: configuration.panelSize)
+        let root = DockMagicThemeRoot(
+            content: DockHoverChrome(
+                pointerEdge: configuration.pointerEdge,
+                panelSize: configuration.panelSize
+            ) {
+                ClaudeCodeHoverDashboardView(
+                    state: state,
+                    now: now
+                )
+            },
+            appearanceMode: configuration.appearanceMode
+        )
+        .frame(
+            width: configuration.panelSize.width,
+            height: configuration.panelSize.height
+        )
+        .environment(\.displayScale, rasterScale)
+        .environment(\.dsAccessibilityOverrides, accessibilityOverrides)
+
+        return try autoreleasepool {
+            let hostingView = NSHostingView(rootView: root)
+            let window = NSWindow(
+                contentRect: NSRect(
+                    origin: .zero,
+                    size: configuration.panelSize
+                ),
+                styleMask: [.borderless],
+                backing: .buffered,
+                defer: false
+            )
+            window.isReleasedWhenClosed = false
+            window.setFrameOrigin(NSPoint(x: -20_000, y: -20_000))
+            window.appearance = appearance(for: configuration.appearanceMode)
+            hostingView.appearance = window.appearance
+            hostingView.frame = NSRect(
+                origin: .zero,
+                size: configuration.panelSize
+            )
+            hostingView.wantsLayer = true
+            hostingView.layer?.contentsScale = rasterScale
+            window.contentView = hostingView
+
+            defer {
+                window.contentView = nil
+                window.close()
+            }
+
+            RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.08))
+            hostingView.layoutSubtreeIfNeeded()
+            hostingView.displayIfNeeded()
+
+            guard let representation = NSBitmapImageRep(
+                bitmapDataPlanes: nil,
+                pixelsWide: dimensions.width,
+                pixelsHigh: dimensions.height,
+                bitsPerSample: 8,
+                samplesPerPixel: 4,
+                hasAlpha: true,
+                isPlanar: false,
+                colorSpaceName: .deviceRGB,
+                bytesPerRow: 0,
+                bitsPerPixel: 0
+            ) else {
+                throw CodexDashboardCaptureError.bitmapAllocationFailed
+            }
+            representation.size = configuration.panelSize
+            hostingView.cacheDisplay(
+                in: hostingView.bounds,
+                to: representation
+            )
+
+            guard representation.pixelsWide == dimensions.width,
+                  representation.pixelsHigh == dimensions.height else {
+                throw CodexDashboardCaptureError.unexpectedPixelSize(
+                    width: representation.pixelsWide,
+                    height: representation.pixelsHigh
+                )
+            }
+            guard let pngData = representation.representation(
+                using: .png,
+                properties: [:]
+            ) else {
+                throw CodexDashboardCaptureError.pngEncodingFailed
+            }
+
+            return CodexDashboardCaptureArtifact(
+                pngData: pngData,
+                fileName: defaultClaudeCodeFileName(at: now),
+                pixelWidth: representation.pixelsWide,
+                pixelHeight: representation.pixelsHigh
+            )
+        }
+    }
+
     static func presentSavePanel(
         for artifact: CodexDashboardCaptureArtifact,
         completion: @escaping @MainActor (Error?) -> Void
@@ -160,7 +271,9 @@ enum CodexDashboardCaptureService {
         panel.canCreateDirectories = true
         panel.isExtensionHidden = false
         panel.nameFieldStringValue = artifact.fileName
-        panel.title = "Save Codex Dashboard"
+        panel.title = artifact.fileName.contains("-Claude-Code-")
+            ? "Save Claude Code Dashboard"
+            : "Save Codex Dashboard"
         panel.prompt = "Save"
 
         NSApplication.shared.activate(ignoringOtherApps: true)
@@ -217,6 +330,18 @@ enum CodexDashboardCaptureService {
         formatter.timeZone = timeZone
         formatter.dateFormat = "yyyy-MM-dd-HHmmss"
         return "DockMagic-Codex-\(formatter.string(from: date)).png"
+    }
+
+    static func defaultClaudeCodeFileName(
+        at date: Date,
+        timeZone: TimeZone = .current
+    ) -> String {
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = timeZone
+        formatter.dateFormat = "yyyy-MM-dd-HHmmss"
+        return "DockMagic-Claude-Code-\(formatter.string(from: date)).png"
     }
 
     private static func appearance(

@@ -654,8 +654,8 @@ enum DockHoverPanelPlacement {
     static let standardPanelSize = CGSize(width: 440, height: 304)
     static let systemMetricsPanelSize = CGSize(width: 620, height: 474)
     static let weatherPanelSize = CGSize(width: 440, height: 420)
-    static let codexPanelSize = CGSize(width: 440, height: 522)
-    static let claudeCodePanelSize = CGSize(width: 440, height: 760)
+    static let codexPanelSize = CGSize(width: 440, height: 556)
+    static let claudeCodePanelSize = CGSize(width: 440, height: 740)
     static let pointerExtent: CGFloat = 10
     static let iconClearance: CGFloat = 2
     static let windowLevel = NSWindow.Level(
@@ -749,6 +749,7 @@ final class DockHoverPanelController {
     private var panel: DockHoverPanel?
     private var hostingView: NSHostingView<AnyView>?
     private var pendingHideTask: Task<Void, Never>?
+    private var activeStreakCelebration: TokenUsageStreakCelebration?
 
     func show(anchor: DockHoverAnchor, appModel: DockAppModel) {
         guard appModel.preferences.activeFeature.hasHoverDashboard else {
@@ -761,11 +762,30 @@ final class DockHoverPanelController {
         let panelSize = DockHoverPanelPlacement.panelSize(
             for: appModel.preferences.activeFeature
         )
+        let provider = streakProvider(
+            for: appModel.preferences.activeFeature
+        )
+        if activeStreakCelebration?.provider != provider {
+            activeStreakCelebration = provider.flatMap {
+                appModel.streakStore.claimCelebration(for: $0)
+            }
+        } else if activeStreakCelebration == nil, let provider {
+            activeStreakCelebration = appModel.streakStore
+                .claimCelebration(for: provider)
+        }
+        let celebration = activeStreakCelebration
         let rootView = AnyView(
             DockHoverDashboardRoot(
                 appModel: appModel,
                 pointerEdge: anchor.pointerEdge,
-                panelSize: panelSize
+                panelSize: panelSize,
+                initialStreakCelebration: celebration,
+                onStreakCelebrationDismissed: { [weak self] celebrationID in
+                    guard self?.activeStreakCelebration?.id == celebrationID else {
+                        return
+                    }
+                    self?.activeStreakCelebration = nil
+                }
             )
         )
         let panel = panel ?? makePanel(
@@ -811,6 +831,20 @@ final class DockHoverPanelController {
             } catch {
                 return
             }
+        }
+    }
+
+    private func streakProvider(
+        for feature: DockFeature
+    ) -> TokenUsageProvider? {
+        switch feature {
+        case .codex:
+            .codex
+        case .claudeCode:
+            .claudeCode
+        case .dockMagic, .systemMetrics, .network, .storage, .weather,
+             .clock, .batteries, .github, .searchConsole:
+            nil
         }
     }
 

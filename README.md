@@ -152,9 +152,11 @@ DockMagic is designed for direct distribution, not the Mac App Store.
   timestamps, and the response ETag for up to seven days. An optional access
   token is stored only in macOS Keychain and is never written to preferences or
   history.
-- The Codex integration does not read or store tokens, prompts, or account
-  identifiers. It reads only the rate-limit response returned by the installed
-  Codex CLI.
+- The Codex integration does not read or store authentication tokens, prompts,
+  answers, or account identifiers. It reads rate-limit and aggregate usage
+  responses from the installed Codex CLI. When that aggregate omits the current
+  day, DockMagic reads only local `token_count` metadata from the relevant Codex
+  session files to fill today's usage; it does not inspect conversation text.
 - Claude Code bridge snapshots and per-session observations stay under
   `~/.claude/` with private permissions. DockMagic reads transcript metadata
   needed for usage, model, task, and active-goal aggregation; it ignores prompt

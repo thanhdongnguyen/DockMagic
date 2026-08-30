@@ -5,6 +5,33 @@ All notable changes to DockMagic will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0] - 2026-08-31
+
+### Added
+
+- Added optional Accessibility-backed Dock-hover dashboards for CPU and memory,
+  Weather, Codex, and Claude Code, including live process metrics, forecasts,
+  quota details, and local usage insights.
+- Added an offline Clock Dock tile with Analog, Digital, and Split-flap styles,
+  system or custom IANA time zones, and Reduce Motion behavior.
+- Added local Codex and Claude Code token histories, model breakdowns, Ship
+  momentum, active-work details, and provider-specific availability states.
+- Added separate persisted Codex and Claude Code usage streaks with milestone
+  badges, continuity views, and accessible celebration states.
+- Added Launch at Login support for the directly distributed macOS app.
+
+### Changed
+
+- Expanded the Claude Code bridge to use documented status-line,
+  subagent-status-line, and lifecycle-hook data together with privacy-bounded
+  local transcript metadata.
+- Improved Codex daily usage recovery when the app-server aggregate omits the
+  current day, without reading conversation content.
+- Reworked Settings, shared components, semantic colors, contrast behavior, and
+  UI-test coverage for the expanded feature set.
+- Improved Dock rendering, hover positioning, process sampling, and live/stale
+  state handling across metrics providers.
+
 ## [0.1.0] - 2026-08-23
 
 ### Added
@@ -34,4 +61,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Removed generated Xcode build products from version control and ignored
   repository-local Derived Data directories.
 
+[1.0.0]: https://github.com/thanhdongnguyen/DockMagic/compare/v0.1.0...v1.0.0
 [0.1.0]: https://github.com/thanhdongnguyen/DockMagic/releases/tag/v0.1.0

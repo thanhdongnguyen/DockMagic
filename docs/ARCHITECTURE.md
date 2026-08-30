@@ -33,7 +33,7 @@ Settings uses a native `NavigationSplitView`:
 | --- | --- |
 | `DockMagicApp` / `AppDelegate` | Scene graph, activation policy, and app lifecycle |
 | `SettingsWindowRouter` | Focuses or opens one Settings window; Dock reopen and `⌘,` share this path |
-| `DockAppModel` | Composition root; ensures only the active feature's provider runs |
+| `DockAppModel` | Composition root; runs the selected Dock feature plus provider-independent token streak collection |
 | `DockPreferencesStore` | Persists the feature, renderer appearance, and Codex executable override |
 | `SystemMetricsStore` | `1 Hz` sampling loop, host history, process rankings, and independent error state |
 | `SystemMetricsSampler` | Reads Mach CPU/VM counters; does not own UI |
@@ -51,9 +51,10 @@ Settings uses a native `NavigationSplitView`:
 | `GitHubRepositoryStore` | Polls the selected repository every 15 minutes, owns history/error/rate-limit state, and persists the bounded cache |
 | `GitHubRepositoryAPIClient` | Calls GitHub's repository endpoint, decodes star/fork counts, and handles ETag and rate-limit headers |
 | `KeychainGitHubCredentialVault` | Stores or deletes the optional GitHub access token in macOS Keychain |
-| `CodexUsageStore` | Polling lifecycle and live/stale/unavailable state |
+| `CodexUsageStore` | Polling lifecycle, live/stale/unavailable state, and Codex token observations for the local streak ledger |
 | `CodexAppServerRateLimitProvider` | Resolves the CLI, communicates with `codex app-server` over JSON-RPC, and parses quotas |
-| `ClaudeCodeUsageStore` | Polls the local snapshot and owns freshness and live/stale/unavailable state |
+| `ClaudeCodeUsageStore` | Polls the local snapshot, owns freshness state, and supplies Claude Code token observations for the local streak ledger |
+| `TokenUsageStreakStore` | Owns the separate Codex/Claude Code SwiftData day ledgers and derives current streak, best streak, recent days, and badges |
 | `ClaudeCodeStatusLineBridge` | Installs/removes the status-line wrapper and preserves the previous configuration |
 | `ClaudeCodeStatusLineRateLimitProvider` | Reads and parses only the local `rate_limits` cache |
 | `ClaudeCodeHoverDashboardView` | Renders quota rows, next reset, snapshot freshness, and all availability states without reading private session data |
@@ -98,8 +99,10 @@ flowchart LR
     A -->|"Clock active"| K["ClockStore 1 s"]
     A -->|"Batteries active"| B["BatteryMetricsStore 2 s"]
     A -->|"GitHub active"| G["GitHubRepositoryStore 15 min"]
-    A -->|"Codex active"| C["CodexUsageStore 5 min"]
-    A -->|"Claude Code active"| L["ClaudeCodeUsageStore 15 s"]
+    A -->|"background token observation"| C["CodexUsageStore 5 min"]
+    A -->|"background when bridge exists"| L["ClaudeCodeUsageStore 15 s"]
+    C --> T["TokenUsageStreakStore / SwiftData"]
+    L --> T
     M --> D["DockTilePresentation"]
     M --> X["SystemMetricsHoverDashboardView"]
     R --> D
@@ -118,11 +121,15 @@ flowchart LR
     P --> V
 ```
 
-When the feature changes, the coordinator stops the previous provider before
-starting the new one. Both `start()` and `stop()` are idempotent. When the
-appearance preference, effective macOS Light/Dark appearance, or accessibility
-display options change, the Dock controller re-hosts the current presentation
-with the new theme and redraws immediately without waiting for the next sample.
+When the feature changes, the coordinator stops the previous feature-bound
+provider before starting the new one. Codex observation remains active in the
+background, and Claude Code observation remains active whenever DockMagic's
+status-line bridge is installed, so switching the visible Dock feature cannot
+silently skip a streak day. All `start()` and `stop()` operations are
+idempotent. When the appearance preference, effective macOS Light/Dark
+appearance, or accessibility display options change, the Dock controller
+re-hosts the current presentation with the new theme and redraws immediately
+without waiting for the next sample.
 
 ## 5. CPU and RAM
 
@@ -376,10 +383,15 @@ response or the 12-second timeout expires. The parser
 prioritizes the `codex` limit ID, accepts the exact 300-minute and 10,080-minute
 windows, clamps `usedPercent`, and converts it to the remaining percentage.
 `thread/list` reads state-database metadata only; DockMagic combines archived
-and non-archived root threads while excluding spawned sub-agent threads. The
-result powers the self-relative seven-day Ship momentum gauge documented in
-`docs/CODEX_SHIP_MOMENTUM.md`. Missing task activity never invalidates an
-otherwise usable quota snapshot.
+and non-archived root threads while excluding spawned sub-agent threads for
+features that need thread metadata. Historical daily usage remains authoritative
+from `account/usage/read`. If that response omits the current local day,
+DockMagic reads only `token_count` metadata from rollout files selected through
+the read-only state-database index and inserts that local total as today's
+bucket. An official current-day bucket always wins instead of being added to the
+local value. Ship momentum uses this current local-day bucket and resets daily,
+as documented in `docs/CODEX_SHIP_MOMENTUM.md`. Missing task activity never
+invalidates an otherwise usable quota snapshot or Ship momentum score.
 
 State contract:
 
@@ -392,7 +404,9 @@ State contract:
 
 Do not infer a five-hour quota when the server returns only a weekly quota. In
 the weekly-only state, the Dock renders one weekly ring in a balanced position.
-Polling defaults to every five minutes and begins as soon as Codex is selected;
+Polling defaults to every five minutes and begins with the DockMagic app. The
+app-lifetime store remains active when another Dock feature is visible so local
+streak eligibility is not coupled to navigation.
 Settings does not require a manual refresh or executable selection. DockMagic
 does not read credential files.
 
@@ -426,6 +440,20 @@ cache, or an invalid schema, becomes `unavailable`. DockMagic does not infer
 100% remaining when data is absent. A project-local status line can override
 the user-level bridge; the user must then remove the override or configure an
 equivalent wrapper in that project.
+
+Once the bridge is installed, Claude Code polling remains active in the
+background even when another Dock feature is selected. Without the bridge,
+DockMagic does not install it merely to collect streak data; automatic setup
+still occurs when the user selects Claude Code and has not opted out.
+
+Codex and Claude Code are inputs, not streak authorities. On every successful
+usage observation, `TokenUsageStreakStore` checks only the matching provider's
+bucket for the current local day. Positive usage is upserted into SwiftData
+under `provider|YYYY-MM-DD`; zero or missing usage does not create a record.
+The current run, best run, seven-day history, and badge thresholds are computed
+from these records. Repeated polling remains idempotent, providers never merge
+into one streak, and a missed persisted day breaks only the current run. The
+best run and earned badges remain available after a reset.
 
 ## 13. Dock rendering
 

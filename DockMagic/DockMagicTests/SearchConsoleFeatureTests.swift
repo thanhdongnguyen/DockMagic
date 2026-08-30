@@ -254,7 +254,7 @@ final class SearchConsoleFeatureTests: XCTestCase {
         )
     }
 
-    func testAppModelRunsSearchConsoleOnlyWhenItIsTheActiveDockFeature() {
+    func testAppModelRunsSearchConsoleWithBackgroundStreakCollection() {
         let suiteName = "DockMagicTests.SearchConsoleActive.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
         defaults.removePersistentDomain(forName: suiteName)
@@ -277,8 +277,11 @@ final class SearchConsoleFeatureTests: XCTestCase {
         XCTAssertFalse(appModel.storageStore.isMonitoring)
         XCTAssertFalse(appModel.weatherStore.isMonitoring)
         XCTAssertFalse(appModel.batteryStore.isMonitoring)
-        XCTAssertFalse(appModel.codexStore.isMonitoring)
-        XCTAssertFalse(appModel.claudeCodeStore.isMonitoring)
+        XCTAssertTrue(appModel.codexStore.isMonitoring)
+        XCTAssertEqual(
+            appModel.claudeCodeStore.isMonitoring,
+            appModel.claudeCodeStore.isBridgeInstalled
+        )
 
         appModel.stop()
 

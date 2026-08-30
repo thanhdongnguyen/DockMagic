@@ -221,15 +221,27 @@ struct CodexAppServerRateLimitProvider: CodexRateLimitProviding {
             }
         }
 
-        let localModelUsage = CodexRateLimitParser
+        let hasCompleteDashboardResponse = CodexRateLimitParser
             .containsCompleteDashboardResponse(output)
+        let localModelUsage = hasCompleteDashboardResponse
             ? CodexLocalModelUsageReader().read(fetchedAt: fetchedAt)
             : nil
+        let alreadyHasLocalToday = localModelUsage?.dailyDetails?.contains {
+            Calendar.current.isDate($0.startDate, inSameDayAs: fetchedAt)
+        } == true
+        let localDailyDetail: CodexDailyTokenDetail?
+        if hasCompleteDashboardResponse, !alreadyHasLocalToday {
+            let result = try? CodexLocalDailyTokenDetailReader()
+                .readDetail(for: fetchedAt)
+            localDailyDetail = result?.detail
+        } else {
+            localDailyDetail = nil
+        }
 
         if localModelUsage == nil,
            !timeoutState.didTimeOut,
            !cancellation.isCancelled,
-           CodexRateLimitParser.containsCompleteDashboardResponse(output) {
+           hasCompleteDashboardResponse {
             let plan = CodexRateLimitParser.modelUsageRequestPlan(
                 output,
                 fetchedAt: fetchedAt
@@ -278,7 +290,8 @@ struct CodexAppServerRateLimitProvider: CodexRateLimitProviding {
         return try CodexRateLimitParser.parseJSONLines(
             output,
             fetchedAt: fetchedAt,
-            localModelUsage: localModelUsage
+            localModelUsage: localModelUsage,
+            localDailyDetail: localDailyDetail
         )
     }
 
@@ -823,7 +836,8 @@ enum CodexRateLimitParser {
     static func parseJSONLines(
         _ data: Data,
         fetchedAt: Date = .now,
-        localModelUsage: CodexLocalModelUsageResult? = nil
+        localModelUsage: CodexLocalModelUsageResult? = nil,
+        localDailyDetail: CodexDailyTokenDetail? = nil
     ) throws -> CodexRateLimitSnapshot {
         let lines = data.split(separator: 0x0A)
 
@@ -869,7 +883,8 @@ enum CodexRateLimitParser {
                 tokenUsage: parseTokenUsage(
                     from: lines,
                     fetchedAt: fetchedAt,
-                    localModelUsage: localModelUsage
+                    localModelUsage: localModelUsage,
+                    localDailyDetail: localDailyDetail
                 ),
                 recentTaskActivity: parseRecentTaskActivity(
                     from: lines,
@@ -885,7 +900,8 @@ enum CodexRateLimitParser {
     private static func parseTokenUsage(
         from lines: [Data.SubSequence],
         fetchedAt: Date,
-        localModelUsage: CodexLocalModelUsageResult?
+        localModelUsage: CodexLocalModelUsageResult?,
+        localDailyDetail: CodexDailyTokenDetail?
     ) -> CodexAccountTokenUsage? {
         for line in lines {
             guard
@@ -921,23 +937,83 @@ enum CodexRateLimitParser {
             let modelUsage = localModelUsage.map {
                 (rows: $0.rows, isPartial: $0.isPartial)
             } ?? appServerModelUsage
+            let localDailyDetails = mergedLocalDailyDetails(
+                localModelUsage?.dailyDetails,
+                additional: localDailyDetail
+            )
+            let dailyUsageBuckets = mergedDailyUsageBuckets(
+                appServerBuckets: buckets,
+                localDailyDetails: localDailyDetails,
+                fetchedAt: fetchedAt
+            )
 
             return CodexAccountTokenUsage(
                 lifetimeTokens: int64(summary["lifetimeTokens"]),
                 peakDailyTokens: int64(summary["peakDailyTokens"]),
-                currentStreakDays: int64(summary["currentStreakDays"]),
-                longestStreakDays: int64(summary["longestStreakDays"]),
                 longestRunningTurnSeconds: int64(
                     summary["longestRunningTurnSec"]
                 ),
-                dailyUsageBuckets: buckets,
+                dailyUsageBuckets: dailyUsageBuckets,
                 modelUsage: modelUsage?.rows,
                 isModelUsagePartial: modelUsage?.isPartial,
-                localDailyDetails: localModelUsage?.dailyDetails
+                localDailyDetails: localDailyDetails
             )
         }
 
         return nil
+    }
+
+    private static func mergedLocalDailyDetails(
+        _ existing: [CodexDailyTokenDetail]?,
+        additional: CodexDailyTokenDetail?
+    ) -> [CodexDailyTokenDetail]? {
+        var details = existing ?? []
+        if let additional {
+            if let index = details.firstIndex(where: {
+                Calendar.current.isDate(
+                    $0.startDate,
+                    inSameDayAs: additional.startDate
+                )
+            }) {
+                details[index] = additional
+            } else {
+                details.append(additional)
+            }
+        }
+        guard !details.isEmpty else { return nil }
+        return details.sorted { $0.startDate < $1.startDate }
+    }
+
+    private static func mergedDailyUsageBuckets(
+        appServerBuckets: [CodexTokenUsageDailyBucket],
+        localDailyDetails: [CodexDailyTokenDetail]?,
+        fetchedAt: Date
+    ) -> [CodexTokenUsageDailyBucket] {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = .current
+        let today = calendar.startOfDay(for: fetchedAt)
+
+        guard !appServerBuckets.contains(where: {
+            calendar.isDate($0.startDate, inSameDayAs: today)
+        }) else {
+            return appServerBuckets
+        }
+
+        let localTodayTokens = (localDailyDetails ?? [])
+            .filter {
+                calendar.isDate($0.startDate, inSameDayAs: today)
+            }
+            .reduce(Int64(0)) { $0 + $1.usage.totalTokens }
+        guard localTodayTokens > 0 else { return appServerBuckets }
+
+        var merged = appServerBuckets
+        merged.append(
+            CodexTokenUsageDailyBucket(
+                startDate: today,
+                tokens: localTodayTokens
+            )
+        )
+        return merged.sorted { $0.startDate < $1.startDate }
     }
 
     private static func modelUsageRequestPlan(

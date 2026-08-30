@@ -251,18 +251,7 @@ private struct DockUsageLimitView: View {
 
     private var numericValues: [DockNumericValue] {
         guard let snapshot = state.snapshot else {
-            return [
-                DockNumericValue(
-                    label: "5H",
-                    value: "—",
-                    color: appearance.outerColor.color
-                ),
-                DockNumericValue(
-                    label: "7D",
-                    value: "—",
-                    color: appearance.innerColor.color
-                )
-            ]
+            return placeholderNumericValues
         }
 
         var values: [DockNumericValue] = []
@@ -284,7 +273,22 @@ private struct DockUsageLimitView: View {
                 )
             )
         }
-        return values
+        return values.isEmpty ? placeholderNumericValues : values
+    }
+
+    private var placeholderNumericValues: [DockNumericValue] {
+        [
+            DockNumericValue(
+                label: "5H",
+                value: "—",
+                color: appearance.outerColor.color
+            ),
+            DockNumericValue(
+                label: "7D",
+                value: "—",
+                color: appearance.innerColor.color
+            )
+        ]
     }
 
     private var outerRing: DockRingDescriptor? {
@@ -391,7 +395,9 @@ private struct DockUsageLimitView: View {
         if let weekly = snapshot.weekly {
             values.append("weekly \(percentage(weekly.remainingFraction))")
         }
-        return values.joined(separator: ", ")
+        return values.isEmpty
+            ? "Usage limits unavailable"
+            : values.joined(separator: ", ")
     }
 }
 

@@ -75,7 +75,12 @@ struct DockClockView: View {
     private var effectiveTransition: DockClockTransition? {
         let shouldReduceMotion = accessibilityOverrides.reduceMotion
             ?? reduceMotion
-        return shouldReduceMotion ? nil : transition
+        guard !shouldReduceMotion,
+              let transition,
+              transition.progress < 1 else {
+            return nil
+        }
+        return transition
     }
 
     private func accessibilityValue(_ values: DockClockValues) -> String {

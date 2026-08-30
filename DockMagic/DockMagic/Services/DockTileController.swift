@@ -223,6 +223,16 @@ final class DockTileController {
                     await Task.yield()
                 }
             }
+
+            guard !Task.isCancelled,
+                  self.clockAnimationID == animationID else {
+                return
+            }
+
+            // Do not leave the Dock on a rasterized 3D transition hierarchy.
+            // Publishing a settled frame removes the split-flap half layers and
+            // guarantees the final digit uses the normal crisp text rendering.
+            self.render()
         }
     }
 

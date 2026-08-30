@@ -96,8 +96,6 @@ struct CodexDailyTokenDetail: Codable, Equatable, Identifiable, Sendable {
 struct CodexAccountTokenUsage: Codable, Equatable, Sendable {
     let lifetimeTokens: Int64?
     let peakDailyTokens: Int64?
-    let currentStreakDays: Int64?
-    let longestStreakDays: Int64?
     let longestRunningTurnSeconds: Int64?
     let dailyUsageBuckets: [CodexTokenUsageDailyBucket]
     let modelUsage: [CodexModelTokenUsage]?
@@ -107,8 +105,6 @@ struct CodexAccountTokenUsage: Codable, Equatable, Sendable {
     init(
         lifetimeTokens: Int64?,
         peakDailyTokens: Int64?,
-        currentStreakDays: Int64?,
-        longestStreakDays: Int64?,
         longestRunningTurnSeconds: Int64?,
         dailyUsageBuckets: [CodexTokenUsageDailyBucket],
         modelUsage: [CodexModelTokenUsage]? = nil,
@@ -117,8 +113,6 @@ struct CodexAccountTokenUsage: Codable, Equatable, Sendable {
     ) {
         self.lifetimeTokens = lifetimeTokens
         self.peakDailyTokens = peakDailyTokens
-        self.currentStreakDays = currentStreakDays
-        self.longestStreakDays = longestStreakDays
         self.longestRunningTurnSeconds = longestRunningTurnSeconds
         self.dailyUsageBuckets = dailyUsageBuckets
         self.modelUsage = modelUsage
@@ -139,6 +133,187 @@ struct CodexAccountTokenUsage: Codable, Equatable, Sendable {
         }
     }
 }
+
+enum TokenUsageStreakMilestone: String, CaseIterable, Codable, Identifiable, Sendable {
+    case firstPrompt
+    case spark
+    case loop
+    case builder
+    case flow
+    case navigator
+    case century
+    case architect
+    case codexCore
+    case continuum
+
+    var id: String { rawValue }
+
+    var requiredDays: Int64 {
+        switch self {
+        case .firstPrompt: 1
+        case .spark: 3
+        case .loop: 7
+        case .builder: 14
+        case .flow: 30
+        case .navigator: 60
+        case .century: 100
+        case .architect: 180
+        case .codexCore: 365
+        case .continuum: 730
+        }
+    }
+
+    var title: String {
+        switch self {
+        case .firstPrompt: "First Prompt"
+        case .spark: "Spark"
+        case .loop: "Loop"
+        case .builder: "Builder"
+        case .flow: "Flow"
+        case .navigator: "Navigator"
+        case .century: "Century"
+        case .architect: "Architect"
+        case .codexCore: "Keystone"
+        case .continuum: "Continuum"
+        }
+    }
+
+    var detail: String {
+        switch self {
+        case .firstPrompt: "The loop begins."
+        case .spark: "Repeated intent is becoming a habit."
+        case .loop: "A complete week of active days."
+        case .builder: "A repeatable two-week rhythm."
+        case .flow: "A month-scale creative routine."
+        case .navigator: "Sustained direction across two months."
+        case .century: "One hundred active days in sequence."
+        case .architect: "Long-term structure that keeps compounding."
+        case .codexCore: "A complete year held by a stable core."
+        case .continuum: "Two years of remarkable continuity."
+        }
+    }
+
+    var assetName: String {
+        switch self {
+        case .firstPrompt: "StreakBadgeFirstPrompt"
+        case .spark: "StreakBadgeSpark"
+        case .loop: "StreakBadgeLoop"
+        case .builder: "StreakBadgeBuilder"
+        case .flow: "StreakBadgeFlow"
+        case .navigator: "StreakBadgeNavigator"
+        case .century: "StreakBadgeCentury"
+        case .architect: "StreakBadgeArchitect"
+        case .codexCore: "StreakBadgeCodexCore"
+        case .continuum: "StreakBadgeContinuum"
+        }
+    }
+
+    static func highestUnlocked(
+        for bestStreakDays: Int64
+    ) -> TokenUsageStreakMilestone? {
+        allCases.last { bestStreakDays >= $0.requiredDays }
+    }
+
+    static func nextLocked(
+        after bestStreakDays: Int64
+    ) -> TokenUsageStreakMilestone? {
+        allCases.first { bestStreakDays < $0.requiredDays }
+    }
+}
+
+struct TokenUsageStreakDay: Codable, Equatable, Identifiable, Sendable {
+    enum State: Codable, Equatable, Sendable {
+        case active
+        case inactive
+        case unknown
+        case todayPending
+    }
+
+    let date: Date
+    let state: State
+
+    var id: Date { date }
+}
+
+struct TokenUsageStreakSummary: Codable, Equatable, Sendable {
+    let currentDays: Int64
+    let bestDays: Int64
+    let earnedBadge: TokenUsageStreakMilestone?
+    let previousBadge: TokenUsageStreakMilestone?
+    let nextBadge: TokenUsageStreakMilestone?
+    let daysUntilNextBadge: Int64?
+    let recentDays: [TokenUsageStreakDay]
+
+    var hasActivityToday: Bool {
+        recentDays.last?.state == .active
+    }
+
+    var earnedMilestones: [TokenUsageStreakMilestone] {
+        TokenUsageStreakMilestone.allCases.filter {
+            bestDays >= $0.requiredDays
+        }
+    }
+}
+
+#if DEBUG
+extension TokenUsageStreakSummary {
+    static func fixture(
+        currentDays: Int64,
+        bestDays: Int64,
+        endingAt date: Date,
+        calendar: Calendar = .current
+    ) -> Self {
+        let normalizedCurrent = max(0, currentDays)
+        let normalizedBest = max(normalizedCurrent, max(0, bestDays))
+        let earnedBadge = TokenUsageStreakMilestone.highestUnlocked(
+            for: normalizedBest
+        )
+        let previousBadge: TokenUsageStreakMilestone? = earnedBadge.flatMap {
+            earned in
+            guard
+                let index = TokenUsageStreakMilestone.allCases.firstIndex(
+                    of: earned
+                ),
+                index > TokenUsageStreakMilestone.allCases.startIndex
+            else {
+                return nil
+            }
+            return TokenUsageStreakMilestone.allCases[
+                TokenUsageStreakMilestone.allCases.index(before: index)
+            ]
+        }
+        let nextBadge = TokenUsageStreakMilestone.nextLocked(
+            after: normalizedBest
+        )
+        let today = calendar.startOfDay(for: date)
+        let recentDays = (0..<7).compactMap { offset in
+            calendar.date(
+                byAdding: .day,
+                value: offset - 6,
+                to: today
+            ).map { day in
+                TokenUsageStreakDay(
+                    date: day,
+                    state: offset >= 7 - Int(min(normalizedCurrent, 7))
+                        ? .active
+                        : .unknown
+                )
+            }
+        }
+        return Self(
+            currentDays: normalizedCurrent,
+            bestDays: normalizedBest,
+            earnedBadge: earnedBadge,
+            previousBadge: previousBadge,
+            nextBadge: nextBadge,
+            daysUntilNextBadge: nextBadge.map {
+                max(0, $0.requiredDays - normalizedCurrent)
+            },
+            recentDays: recentDays
+        )
+    }
+}
+#endif
 
 struct CodexRecentTaskActivity: Codable, Equatable, Sendable {
     let currentWeekCount: Int
@@ -270,6 +445,7 @@ struct CodexRateLimitSnapshot: Codable, Equatable, Sendable {
     let fiveHour: CodexRateLimitWindow?
     let weekly: CodexRateLimitWindow?
     let tokenUsage: CodexAccountTokenUsage?
+    let streakSummary: TokenUsageStreakSummary?
     let recentTaskActivity: CodexRecentTaskActivity?
     let claudeTelemetry: ClaudeCodeTelemetrySnapshot?
     let fetchedAt: Date
@@ -280,6 +456,7 @@ struct CodexRateLimitSnapshot: Codable, Equatable, Sendable {
         fiveHour: CodexRateLimitWindow?,
         weekly: CodexRateLimitWindow?,
         tokenUsage: CodexAccountTokenUsage? = nil,
+        streakSummary: TokenUsageStreakSummary? = nil,
         recentTaskActivity: CodexRecentTaskActivity? = nil,
         claudeTelemetry: ClaudeCodeTelemetrySnapshot? = nil,
         fetchedAt: Date
@@ -289,6 +466,7 @@ struct CodexRateLimitSnapshot: Codable, Equatable, Sendable {
         self.fiveHour = fiveHour
         self.weekly = weekly
         self.tokenUsage = tokenUsage
+        self.streakSummary = streakSummary
         self.recentTaskActivity = recentTaskActivity
         self.claudeTelemetry = claudeTelemetry
         self.fetchedAt = fetchedAt
@@ -296,6 +474,22 @@ struct CodexRateLimitSnapshot: Codable, Equatable, Sendable {
 
     var hasSupportedWindow: Bool {
         fiveHour != nil || weekly != nil
+    }
+
+    func withStreakSummary(
+        _ streakSummary: TokenUsageStreakSummary
+    ) -> Self {
+        Self(
+            planType: planType,
+            limitID: limitID,
+            fiveHour: fiveHour,
+            weekly: weekly,
+            tokenUsage: tokenUsage,
+            streakSummary: streakSummary,
+            recentTaskActivity: recentTaskActivity,
+            claudeTelemetry: claudeTelemetry,
+            fetchedAt: fetchedAt
+        )
     }
 }
 

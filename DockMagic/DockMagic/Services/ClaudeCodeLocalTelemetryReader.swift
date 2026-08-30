@@ -202,6 +202,7 @@ struct ClaudeCodeLocalTelemetryResult {
     let modelCosts: [ClaudeCodeModelCostUsage]
     let activeTasks: [ClaudeCodeActiveTask]
     let activeGoals: [ClaudeCodeActiveGoal]
+    let activityObservedAt: Date?
     let observedSessionCount: Int
     let fetchedAt: Date
     let source: ClaudeCodeTelemetrySource
@@ -213,14 +214,24 @@ struct ClaudeCodeLocalTelemetryResult {
             || !activeTasks.isEmpty
             || !activeGoals.isEmpty
             || !dailyCosts.isEmpty
+            || activityObservedAt != nil
     }
 }
 
 struct ClaudeCodeLocalTelemetryReader: Sendable {
+    private typealias StatusObservation = (
+        parsed: ClaudeCodeParsedStatusLine,
+        observedAt: Date,
+        identity: String
+    )
+
+    private static let rateLimitWithoutResetRetention: TimeInterval = 15 * 60
+
     let snapshotURL: URL
     let sessionSnapshotsDirectoryURL: URL
     let taskSnapshotURL: URL
     let taskSnapshotsDirectoryURL: URL
+    let activityEventsDirectoryURL: URL
     let projectsDirectoryURL: URL
     let now: Date
     let calendar: Calendar
@@ -230,6 +241,9 @@ struct ClaudeCodeLocalTelemetryReader: Sendable {
         sessionSnapshotsDirectoryURL: URL,
         taskSnapshotURL: URL,
         taskSnapshotsDirectoryURL: URL,
+        activityEventsDirectoryURL: URL = FileManager.default
+            .homeDirectoryForCurrentUser
+            .appendingPathComponent(".claude/dockmagic-activity-events"),
         projectsDirectoryURL: URL,
         now: Date = .now,
         calendar: Calendar = .current
@@ -238,6 +252,7 @@ struct ClaudeCodeLocalTelemetryReader: Sendable {
         self.sessionSnapshotsDirectoryURL = sessionSnapshotsDirectoryURL
         self.taskSnapshotURL = taskSnapshotURL
         self.taskSnapshotsDirectoryURL = taskSnapshotsDirectoryURL
+        self.activityEventsDirectoryURL = activityEventsDirectoryURL
         self.projectsDirectoryURL = projectsDirectoryURL
         self.now = now
         var calendar = calendar
@@ -254,13 +269,15 @@ struct ClaudeCodeLocalTelemetryReader: Sendable {
         let status = readStatusObservations(
             sessionModels: history.sessionModels
         )
-        let statusTasks = readTaskSnapshots()
-        let activeTasks = mergeTasks(statusTasks, history.activeTasks)
+        let activity = ClaudeCodeActivitySnapshotReader(
+            eventsDirectoryURL: activityEventsDirectoryURL,
+            now: now
+        ).read()
 
         let fetchedDates = [
             status.latestObservedAt,
             history.latestObservedAt,
-            statusTasks.map(\.observedAt).max()
+            activity.latestObservedAt
         ].compactMap { $0 }
         let source: ClaudeCodeTelemetrySource
         switch (status.latestParsed != nil, history.hasAnyData) {
@@ -279,8 +296,9 @@ struct ClaudeCodeLocalTelemetryReader: Sendable {
             recentTaskActivity: history.recentTaskActivity,
             dailyCosts: status.dailyCosts,
             modelCosts: status.modelCosts,
-            activeTasks: activeTasks,
+            activeTasks: activity.activeTasks,
             activeGoals: history.activeGoals,
+            activityObservedAt: activity.latestObservedAt,
             observedSessionCount: status.observedSessionCount,
             fetchedAt: fetchedDates.max() ?? now,
             source: source
@@ -294,7 +312,7 @@ struct ClaudeCodeLocalTelemetryReader: Sendable {
             directory: sessionSnapshotsDirectoryURL,
             fallback: snapshotURL
         )
-        var observations: [(ClaudeCodeParsedStatusLine, Date, String)] = []
+        var observations: [StatusObservation] = []
         for url in urls {
             guard
                 let data = try? Data(contentsOf: url),
@@ -310,7 +328,7 @@ struct ClaudeCodeLocalTelemetryReader: Sendable {
             let identity = parsed.session?.sessionID ?? url.lastPathComponent
             observations.append((parsed, observedAt, identity))
         }
-        observations.sort { $0.1 < $1.1 }
+        observations.sort { $0.observedAt < $1.observedAt }
 
         let cutoff = calendar.date(byAdding: .day, value: -29, to: day(now))
             ?? now.addingTimeInterval(-29 * 86_400)
@@ -332,8 +350,8 @@ struct ClaudeCodeLocalTelemetryReader: Sendable {
         }
 
         return StatusAggregate(
-            latestParsed: observations.last?.0,
-            latestObservedAt: observations.last?.1,
+            latestParsed: mergedLatestStatus(from: observations),
+            latestObservedAt: observations.last?.observedAt,
             observedSessionCount: sessions.count,
             dailyCosts: costsByDay
                 .map {
@@ -358,6 +376,51 @@ struct ClaudeCodeLocalTelemetryReader: Sendable {
                         == .orderedAscending
                 }
         )
+    }
+
+    private func mergedLatestStatus(
+        from observations: [StatusObservation]
+    ) -> ClaudeCodeParsedStatusLine? {
+        guard !observations.isEmpty else { return nil }
+        let latestSession = observations.reversed().lazy.compactMap {
+            $0.parsed.session
+        }.first
+        return ClaudeCodeParsedStatusLine(
+            fiveHour: retainedRateLimitWindow(
+                from: observations,
+                keyPath: \.fiveHour
+            ),
+            weekly: retainedRateLimitWindow(
+                from: observations,
+                keyPath: \.weekly
+            ),
+            session: latestSession
+        )
+    }
+
+    private func retainedRateLimitWindow(
+        from observations: [StatusObservation],
+        keyPath: KeyPath<
+            ClaudeCodeParsedStatusLine,
+            ClaudeCodeRateLimitWindow?
+        >
+    ) -> ClaudeCodeRateLimitWindow? {
+        let fallbackCutoff = now.addingTimeInterval(
+            -Self.rateLimitWithoutResetRetention
+        )
+        for observation in observations.reversed() {
+            guard let window = observation.parsed[keyPath: keyPath] else {
+                continue
+            }
+            if let resetsAt = window.resetsAt {
+                if resetsAt > now {
+                    return window
+                }
+            } else if observation.observedAt >= fallbackCutoff {
+                return window
+            }
+        }
+        return nil
     }
 
     private func readTaskSnapshots() -> [ClaudeCodeActiveTask] {
@@ -431,6 +494,216 @@ struct ClaudeCodeLocalTelemetryReader: Sendable {
         let observedSessionCount: Int
         let dailyCosts: [ClaudeCodeDailyCostUsage]
         let modelCosts: [ClaudeCodeModelCostUsage]
+    }
+}
+
+struct ClaudeCodeActivitySnapshotReader: Sendable {
+    struct Result: Equatable, Sendable {
+        let activeTasks: [ClaudeCodeActiveTask]
+        let latestObservedAt: Date?
+    }
+
+    private struct Event: Sendable {
+        let name: String
+        let sessionID: String
+        let agentID: String?
+        let agentType: String?
+        let taskID: String?
+        let taskSubject: String?
+        let toolName: String?
+        let teammateName: String?
+        let observedAt: Date
+    }
+
+    private static let activeFreshness: TimeInterval = 30 * 60
+
+    let eventsDirectoryURL: URL
+    let now: Date
+
+    func read() -> Result {
+        let fileManager = FileManager.default
+        guard let urls = try? fileManager.contentsOfDirectory(
+            at: eventsDirectoryURL,
+            includingPropertiesForKeys: [.contentModificationDateKey],
+            options: [.skipsHiddenFiles]
+        ) else {
+            return Result(activeTasks: [], latestObservedAt: nil)
+        }
+
+        let events = urls
+            .filter {
+                $0.lastPathComponent.hasPrefix("event-")
+                    && $0.pathExtension.lowercased() == "json"
+            }
+            .compactMap(parseEvent)
+            .sorted {
+                if $0.observedAt != $1.observedAt {
+                    return $0.observedAt < $1.observedAt
+                }
+                return $0.name < $1.name
+            }
+
+        var sessions: [String: ClaudeCodeActiveTask] = [:]
+        var agents: [String: ClaudeCodeActiveTask] = [:]
+        var tasks: [String: ClaudeCodeActiveTask] = [:]
+
+        for event in events {
+            reduce(
+                event,
+                sessions: &sessions,
+                agents: &agents,
+                tasks: &tasks
+            )
+        }
+
+        let cutoff = now.addingTimeInterval(-Self.activeFreshness)
+        let activeTasks = Array(sessions.values)
+            + Array(agents.values)
+            + Array(tasks.values)
+        return Result(
+            activeTasks: activeTasks
+                .filter { $0.state.isActive && $0.observedAt >= cutoff }
+                .sorted {
+                    if $0.observedAt != $1.observedAt {
+                        return $0.observedAt > $1.observedAt
+                    }
+                    return $0.id < $1.id
+                },
+            latestObservedAt: events.last?.observedAt
+        )
+    }
+
+    private func parseEvent(_ url: URL) -> Event? {
+        guard
+            let data = try? Data(contentsOf: url),
+            let object = try? JSONSerialization.jsonObject(with: data),
+            let root = object as? [String: Any],
+            (root["schema_version"] as? NSNumber)?.intValue == 1,
+            let name = text(root["hook_event_name"]),
+            let sessionID = identifier(root["session_id"])
+        else {
+            return nil
+        }
+        let observedAt = ClaudeCodeStatusLineTelemetryParser.finiteDouble(
+            root["observed_at_ms"]
+        ).map { Date(timeIntervalSince1970: $0 / 1_000) }
+            ?? modificationDate(of: url)
+        guard let observedAt else { return nil }
+
+        return Event(
+            name: name,
+            sessionID: sessionID,
+            agentID: identifier(root["agent_id"]),
+            agentType: text(root["agent_type"]),
+            taskID: identifier(root["task_id"]),
+            taskSubject: text(root["task_subject"]),
+            toolName: text(root["tool_name"]),
+            teammateName: text(root["teammate_name"]),
+            observedAt: observedAt
+        )
+    }
+
+    private func reduce(
+        _ event: Event,
+        sessions: inout [String: ClaudeCodeActiveTask],
+        agents: inout [String: ClaudeCodeActiveTask],
+        tasks: inout [String: ClaudeCodeActiveTask]
+    ) {
+        if event.name == "TaskCreated" || event.name == "TaskCompleted",
+           let taskID = event.taskID {
+            let key = "task:\(event.sessionID):\(taskID)"
+            let previous = tasks[key]
+            tasks[key] = ClaudeCodeActiveTask(
+                id: key,
+                sessionID: event.sessionID,
+                name: event.taskSubject ?? previous?.name ?? "Claude task",
+                kind: "Task",
+                state: event.name == "TaskCreated" ? .pending : .completed,
+                description: nil,
+                label: nil,
+                startedAt: previous?.startedAt ?? event.observedAt,
+                tokenCount: nil,
+                lastToolName: previous?.lastToolName,
+                observedAt: event.observedAt
+            )
+            return
+        }
+
+        let agentID = event.agentID
+            ?? (event.name == "TeammateIdle"
+                ? identifier(event.teammateName)
+                : nil)
+        if let agentID {
+            let key = "agent:\(event.sessionID):\(agentID)"
+            let previous = agents[key]
+            let state: ClaudeCodeTaskState
+            switch event.name {
+            case "SubagentStop": state = .stopped
+            case "TeammateIdle", "PermissionRequest", "Notification":
+                state = .paused
+            default: state = .running
+            }
+            agents[key] = ClaudeCodeActiveTask(
+                id: key,
+                sessionID: event.sessionID,
+                name: event.agentType
+                    ?? event.teammateName
+                    ?? previous?.name
+                    ?? "Claude subagent",
+                kind: "Subagent",
+                state: state,
+                description: nil,
+                label: nil,
+                startedAt: previous?.startedAt ?? event.observedAt,
+                tokenCount: nil,
+                lastToolName: event.toolName ?? previous?.lastToolName,
+                observedAt: event.observedAt
+            )
+            return
+        }
+
+        let key = "session:\(event.sessionID)"
+        let previous = sessions[key]
+        let state: ClaudeCodeTaskState
+        switch event.name {
+        case "SessionEnd": state = .stopped
+        case "StopFailure": state = .failed
+        case "SessionStart", "Stop", "PermissionRequest", "Notification",
+             "TeammateIdle":
+            state = .paused
+        default:
+            state = .running
+        }
+        sessions[key] = ClaudeCodeActiveTask(
+            id: key,
+            sessionID: event.sessionID,
+            name: previous?.name ?? "Claude Code session",
+            kind: "Main session",
+            state: state,
+            description: nil,
+            label: nil,
+            startedAt: previous?.startedAt ?? event.observedAt,
+            tokenCount: nil,
+            lastToolName: event.toolName ?? previous?.lastToolName,
+            observedAt: event.observedAt
+        )
+    }
+
+    private func text(_ value: Any?) -> String? {
+        ClaudeCodeStatusLineTelemetryParser.nonBlankString(value)
+    }
+
+    private func identifier(_ value: Any?) -> String? {
+        guard let value = text(value), value.count <= 100 else { return nil }
+        let allowed = CharacterSet.alphanumerics.union(
+            CharacterSet(charactersIn: "_-")
+        )
+        return value.unicodeScalars.allSatisfy(allowed.contains) ? value : nil
+    }
+
+    private func modificationDate(of url: URL) -> Date? {
+        (try? url.resourceValues(forKeys: [.contentModificationDateKey]))?
+            .contentModificationDate
     }
 }
 
@@ -713,8 +986,6 @@ struct ClaudeCodeLocalHistoryReader: Sendable {
             ? CodexAccountTokenUsage(
                 lifetimeTokens: nil,
                 peakDailyTokens: buckets.map(\.tokens).max(),
-                currentStreakDays: streak(in: buckets, endingAt: today),
-                longestStreakDays: longestStreak(in: buckets),
                 longestRunningTurnSeconds: nil,
                 dailyUsageBuckets: buckets,
                 modelUsage: modelUsage,
@@ -914,37 +1185,6 @@ struct ClaudeCodeLocalHistoryReader: Sendable {
         case "stopped", "killed": return .stopped
         default: return nil
         }
-    }
-
-    private func streak(
-        in buckets: [CodexTokenUsageDailyBucket],
-        endingAt today: Date
-    ) -> Int64 {
-        var count: Int64 = 0
-        for bucket in buckets.reversed() {
-            guard bucket.startDate <= today, bucket.tokens > 0 else {
-                if bucket.startDate <= today { break }
-                continue
-            }
-            count += 1
-        }
-        return count
-    }
-
-    private func longestStreak(
-        in buckets: [CodexTokenUsageDailyBucket]
-    ) -> Int64 {
-        var current: Int64 = 0
-        var longest: Int64 = 0
-        for bucket in buckets {
-            if bucket.tokens > 0 {
-                current += 1
-                longest = max(longest, current)
-            } else {
-                current = 0
-            }
-        }
-        return longest
     }
 
     private func minDate(_ lhs: Date?, _ rhs: Date) -> Date {

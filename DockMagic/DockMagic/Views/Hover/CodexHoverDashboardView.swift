@@ -23,6 +23,10 @@ struct DockHoverDashboardRoot: View {
     var initialHoveredBucketID: Date?
     var initialSelectedDailyBucketID: Date?
     var initialIntensityHoveredBucketID: Date?
+    var initialStreakDetailPresented: Bool
+    var initialStreakCelebration: TokenUsageStreakCelebration?
+    var streakCelebrationAutoDismissDelay: Duration
+    var onStreakCelebrationDismissed: (String) -> Void
     var showsCaptureControls: Bool
     var initialCaptureMenuPresented: Bool
 
@@ -34,6 +38,10 @@ struct DockHoverDashboardRoot: View {
         initialHoveredBucketID: Date? = nil,
         initialSelectedDailyBucketID: Date? = nil,
         initialIntensityHoveredBucketID: Date? = nil,
+        initialStreakDetailPresented: Bool = false,
+        initialStreakCelebration: TokenUsageStreakCelebration? = nil,
+        streakCelebrationAutoDismissDelay: Duration = .milliseconds(2_800),
+        onStreakCelebrationDismissed: @escaping (String) -> Void = { _ in },
         showsCaptureControls: Bool = true,
         initialCaptureMenuPresented: Bool = false
     ) {
@@ -47,6 +55,11 @@ struct DockHoverDashboardRoot: View {
         self.initialHoveredBucketID = initialHoveredBucketID
         self.initialSelectedDailyBucketID = initialSelectedDailyBucketID
         self.initialIntensityHoveredBucketID = initialIntensityHoveredBucketID
+        self.initialStreakDetailPresented = initialStreakDetailPresented
+        self.initialStreakCelebration = initialStreakCelebration
+        self.streakCelebrationAutoDismissDelay =
+            streakCelebrationAutoDismissDelay
+        self.onStreakCelebrationDismissed = onStreakCelebrationDismissed
         self.showsCaptureControls = showsCaptureControls
         self.initialCaptureMenuPresented = initialCaptureMenuPresented
     }
@@ -90,6 +103,14 @@ struct DockHoverDashboardRoot: View {
                                     initialSelectedDailyBucketID,
                                 initialIntensityHoveredBucketID:
                                     initialIntensityHoveredBucketID,
+                                initialStreakDetailPresented:
+                                    initialStreakDetailPresented,
+                                initialStreakCelebration:
+                                    initialStreakCelebration,
+                                streakCelebrationAutoDismissDelay:
+                                    streakCelebrationAutoDismissDelay,
+                                onStreakCelebrationDismissed:
+                                    onStreakCelebrationDismissed,
                                 captureConfiguration: showsCaptureControls
                                     ? CodexDashboardCaptureConfiguration(
                                         pointerEdge: pointerEdge,
@@ -102,7 +123,39 @@ struct DockHoverDashboardRoot: View {
                             )
                         case .claudeCode:
                             ClaudeCodeHoverDashboardView(
-                                state: appModel.claudeCodeStore.state
+                                state: appModel.claudeCodeStore.state,
+                                initialStreakDetailPresented:
+                                    initialStreakDetailPresented,
+                                initialStreakCelebration:
+                                    initialStreakCelebration,
+                                streakCelebrationAutoDismissDelay:
+                                    streakCelebrationAutoDismissDelay,
+                                onStreakCelebrationDismissed:
+                                    onStreakCelebrationDismissed,
+                                captureConfiguration: showsCaptureControls
+                                    ? CodexDashboardCaptureConfiguration(
+                                        pointerEdge: pointerEdge,
+                                        panelSize: panelSize,
+                                        appearanceMode: appearanceMode
+                                    )
+                                    : nil,
+                                initialCaptureMenuPresented:
+                                    initialCaptureMenuPresented,
+                                isActivityHookInstalled: appModel
+                                    .claudeCodeStore
+                                    .isActivityHookInstalled,
+                                isInstallingActivityHook: appModel
+                                    .claudeCodeStore
+                                    .isInstallingActivityHook,
+                                activityHookErrorText: appModel
+                                    .claudeCodeStore
+                                    .activityHookErrorText,
+                                onInstallActivityHook: {
+                                    Task { @MainActor in
+                                        await appModel.claudeCodeStore
+                                            .installActivityHook()
+                                    }
+                                }
                             )
                         case .dockMagic, .network, .storage, .clock,
                              .batteries, .github, .searchConsole:
@@ -130,16 +183,21 @@ struct CodexHoverDashboardView: View {
     }
 
     let state: CodexUsageState
+    let now: Date
     let dailyDetailLoader: (
         @MainActor @Sendable (Date) async throws -> CodexDailyTokenDetail?
     )?
     let initialIntensityHoveredBucketID: Date?
     let captureConfiguration: CodexDashboardCaptureConfiguration?
+    let streakCelebrationAutoDismissDelay: Duration
+    let onStreakCelebrationDismissed: (String) -> Void
 
     @Environment(\.designTheme) private var theme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var hoveredBucketID: Date?
     @State private var selectedDailyBucketID: Date?
+    @State private var isStreakDetailPresented: Bool
+    @State private var streakCelebration: TokenUsageStreakCelebration?
     @State private var dailyDetailLoadState: CodexDailyTokenDetailLoadState
     @State private var isCaptureButtonHovered = false
     @State private var isCaptureMenuPresented: Bool
@@ -149,23 +207,36 @@ struct CodexHoverDashboardView: View {
 
     init(
         state: CodexUsageState,
+        now: Date = .now,
         dailyDetailLoader: (
             @MainActor @Sendable (Date) async throws -> CodexDailyTokenDetail?
         )? = nil,
         initialHoveredBucketID: Date? = nil,
         initialSelectedDailyBucketID: Date? = nil,
         initialIntensityHoveredBucketID: Date? = nil,
+        initialStreakDetailPresented: Bool = false,
+        initialStreakCelebration: TokenUsageStreakCelebration? = nil,
+        streakCelebrationAutoDismissDelay: Duration = .milliseconds(2_800),
+        onStreakCelebrationDismissed: @escaping (String) -> Void = { _ in },
         captureConfiguration: CodexDashboardCaptureConfiguration? = nil,
         initialCaptureMenuPresented: Bool = false
     ) {
         self.state = state
+        self.now = now
         self.dailyDetailLoader = dailyDetailLoader
         self.initialIntensityHoveredBucketID = initialIntensityHoveredBucketID
         self.captureConfiguration = captureConfiguration
+        self.streakCelebrationAutoDismissDelay =
+            streakCelebrationAutoDismissDelay
+        self.onStreakCelebrationDismissed = onStreakCelebrationDismissed
         _hoveredBucketID = State(initialValue: initialHoveredBucketID)
         _selectedDailyBucketID = State(
             initialValue: initialSelectedDailyBucketID
         )
+        _isStreakDetailPresented = State(
+            initialValue: initialStreakDetailPresented
+        )
+        _streakCelebration = State(initialValue: initialStreakCelebration)
         _dailyDetailLoadState = State(initialValue: .idle)
         _isCaptureMenuPresented = State(
             initialValue: initialCaptureMenuPresented
@@ -174,7 +245,31 @@ struct CodexHoverDashboardView: View {
 
     var body: some View {
         ZStack(alignment: .topTrailing) {
-            if let selectedDailyBucket {
+            if let streakCelebration {
+                StreakCelebrationView(
+                    celebration: streakCelebration,
+                    brand: .codex,
+                    accent: theme.action,
+                    planLabel: snapshot?.planType,
+                    trailingMetricValue: tokenUsage?.lifetimeTokens.map(
+                        Self.tokenLabel
+                    ),
+                    trailingMetricLabel: tokenUsage?.lifetimeTokens == nil
+                        ? nil
+                        : "lifetime",
+                    onViewBadges: { dismissStreakCelebration(openBadges: true) }
+                )
+                .id(streakCelebration.id)
+                .transition(streakCelebrationTransition)
+            } else if isStreakDetailPresented {
+                StreakDetailView(
+                    summary: streakSummary,
+                    brand: .codex,
+                    accent: theme.action,
+                    onBack: { setStreakDetailPresented(false) }
+                )
+                .transition(.opacity)
+            } else if let selectedDailyBucket {
                 CodexDailyTokenDetailView(
                     accountBucket: selectedDailyBucket,
                     detail: selectedDailyDetail,
@@ -188,7 +283,9 @@ struct CodexHoverDashboardView: View {
                     .transition(.opacity)
             }
 
-            if selectedDailyBucket == nil,
+            if streakCelebration == nil,
+               !isStreakDetailPresented,
+               selectedDailyBucket == nil,
                isCaptureMenuPresented,
                captureConfiguration != nil {
                 captureMenu
@@ -211,7 +308,11 @@ struct CodexHoverDashboardView: View {
                 .opacity(0.001)
         }
         .onExitCommand {
-            if isCaptureMenuPresented {
+            if streakCelebration != nil {
+                dismissStreakCelebration(openBadges: false)
+            } else if isStreakDetailPresented {
+                setStreakDetailPresented(false)
+            } else if isCaptureMenuPresented {
                 setCaptureMenuPresented(false)
             } else if selectedDailyBucketID != nil {
                 setSelectedDailyBucketID(nil)
@@ -220,20 +321,40 @@ struct CodexHoverDashboardView: View {
         .task(id: selectedDailyBucket?.id) {
             await loadSelectedDailyDetail()
         }
+        .task(id: streakCelebration?.id) {
+            guard streakCelebration != nil else { return }
+            do {
+                try await Task.sleep(for: streakCelebrationAutoDismissDelay)
+                try Task.checkCancellation()
+                dismissStreakCelebration(openBadges: false)
+            } catch {
+                return
+            }
+        }
         .accessibilityElement(children: .contain)
         .accessibilityLabel(
-            selectedDailyBucket == nil
-                ? "Codex usage dashboard"
-                : "Codex daily token detail"
+            streakCelebration != nil
+                ? "Codex streak celebration"
+                : isStreakDetailPresented
+                ? "Codex streak details"
+                : selectedDailyBucket == nil
+                    ? "Codex usage dashboard"
+                    : "Codex daily token detail"
         )
     }
 
     private var overview: some View {
-        VStack(spacing: 7) {
+        VStack(spacing: 6) {
             header
             quotaRows
             tokenHeader
             tokenChart
+            StreakContinuityStrip(
+                summary: streakSummary,
+                brand: .codex,
+                accent: theme.action,
+                onOpen: { setStreakDetailPresented(true) }
+            )
             shipMomentumCard
             usageInsights
             Spacer(minLength: 0)
@@ -600,7 +721,7 @@ struct CodexHoverDashboardView: View {
                         .foregroundStyle(theme.textSecondary)
                 }
                 .accessibilityElement(children: .combine)
-            } else if let todayTokens = tokenUsage?.latestDailyTokens {
+            } else if let todayTokens {
                 HStack(alignment: .lastTextBaseline, spacing: 4) {
                     Text(Self.tokenLabel(todayTokens))
                         .font(.system(size: 13, weight: .bold, design: .rounded))
@@ -618,34 +739,38 @@ struct CodexHoverDashboardView: View {
 
     @ViewBuilder
     private var tokenChart: some View {
-        if chartBuckets.isEmpty {
-            HStack(spacing: 6) {
-                Image(systemName: "chart.bar")
-                    .symbolRenderingMode(.monochrome)
-                    .foregroundStyle(theme.textTertiary)
-                    .accessibilityHidden(true)
-                Text(tokenEmptyMessage)
-                    .font(.system(size: 10, weight: .medium))
-                    .foregroundStyle(theme.textSecondary)
-            }
-            .frame(maxWidth: .infinity, minHeight: tokenChartHeight)
-            .background(theme.opaqueSurfaceInset)
-            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-        } else {
+        ZStack(alignment: .top) {
             CodexTokenHistoryChart(
                 buckets: chartBuckets,
                 hoveredBucketID: $hoveredBucketID,
                 plotHeight: tokenChartPlotHeight,
                 onSelectBucket: setSelectedDailyBucketID
             )
+
+            if !hasTokenHistory {
+                HStack(spacing: 6) {
+                    Image(systemName: "chart.bar")
+                        .symbolRenderingMode(.monochrome)
+                        .accessibilityHidden(true)
+                    Text(tokenEmptyMessage)
+                        .font(.system(size: 10, weight: .medium))
+                }
+                .foregroundStyle(theme.textSecondary)
+                .frame(maxWidth: .infinity, minHeight: tokenChartPlotHeight)
+                .offset(x: 19)
+                .allowsHitTesting(false)
+            }
         }
     }
 
     private var snapshot: CodexRateLimitSnapshot? { state.snapshot }
     private var tokenUsage: CodexAccountTokenUsage? { snapshot?.tokenUsage }
+    private var streakSummary: TokenUsageStreakSummary? {
+        snapshot?.streakSummary
+    }
 
     private var shipMomentum: CodexShipMomentum? {
-        CodexHoverDashboardPresentation.shipMomentum(in: snapshot)
+        CodexHoverDashboardPresentation.shipMomentum(in: snapshot, now: now)
     }
 
     private var visibleQuotaWindows: [CodexRateLimitWindow] {
@@ -653,7 +778,25 @@ struct CodexHoverDashboardView: View {
     }
 
     private var chartBuckets: [CodexTokenUsageDailyBucket] {
-        CodexHoverDashboardPresentation.chartBuckets(from: tokenUsage)
+        CodexHoverDashboardPresentation.chartBuckets(
+            from: tokenUsage,
+            now: now
+        )
+    }
+
+    private var hasTokenHistory: Bool {
+        tokenUsage?.dailyUsageBuckets.isEmpty == false
+    }
+
+    private var todayTokens: Int64? {
+        guard let tokenUsage else { return nil }
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = .current
+        let matchingBuckets = tokenUsage.dailyUsageBuckets.filter {
+            calendar.isDate($0.startDate, inSameDayAs: now)
+        }
+        guard !matchingBuckets.isEmpty else { return nil }
+        return matchingBuckets.reduce(Int64(0)) { $0 + $1.tokens }
     }
 
     private var hoveredBucket: CodexTokenUsageDailyBucket? {
@@ -697,11 +840,49 @@ struct CodexHoverDashboardView: View {
     }
 
     private var tokenChartPlotHeight: CGFloat {
-        visibleQuotaWindows.count < 2 ? 128 : 88
+        visibleQuotaWindows.count < 2 ? 84 : 46
     }
 
-    private var tokenChartHeight: CGFloat {
-        tokenChartPlotHeight + 38
+    private var streakCelebrationTransition: AnyTransition {
+        reduceMotion
+            ? .opacity
+            : .opacity.combined(with: .scale(scale: 0.985))
+    }
+
+    private func dismissStreakCelebration(openBadges: Bool) {
+        guard let celebration = streakCelebration else { return }
+        let update = {
+            streakCelebration = nil
+            if openBadges {
+                selectedDailyBucketID = nil
+                isCaptureMenuPresented = false
+                isStreakDetailPresented = true
+            }
+        }
+
+        if reduceMotion {
+            update()
+        } else {
+            withAnimation(.easeInOut(duration: 0.22), update)
+        }
+        onStreakCelebrationDismissed(celebration.id)
+    }
+
+    private func setStreakDetailPresented(_ isPresented: Bool) {
+        if isPresented {
+            selectedDailyBucketID = nil
+            if isCaptureMenuPresented {
+                setCaptureMenuPresented(false)
+            }
+        }
+
+        if reduceMotion {
+            isStreakDetailPresented = isPresented
+        } else {
+            withAnimation(.easeOut(duration: 0.14)) {
+                isStreakDetailPresented = isPresented
+            }
+        }
     }
 
     private func setSelectedDailyBucketID(_ bucketID: Date?) {
@@ -765,7 +946,7 @@ struct CodexHoverDashboardView: View {
                 isPartial: tokenUsage?.isModelUsagePartial == true
             )
         }
-        .frame(height: 104)
+        .frame(height: 90)
     }
 
     private var statusTitle: String? {
@@ -842,6 +1023,9 @@ struct CodexHoverDashboardView: View {
             return nil
         }
 
+        if calendar.isDate(first, inSameDayAs: last) {
+            return "\(Self.monthLabel(last)) \(lastDay), \(year)"
+        }
         if firstComponents.month == lastComponents.month {
             return "\(Self.monthLabel(last)) \(firstDay)–\(lastDay), \(year)"
         }
@@ -876,46 +1060,107 @@ struct CodexHoverDashboardView: View {
 
 struct CodexShipMomentum: Equatable, Sendable {
     let score: Int
-    let currentTokens: Int64
-    let previousTokens: Int64
-    let currentTasks: Int
-    let previousTasks: Int
-    let isTaskCountPartial: Bool
+    let todayTokens: Int64
 
     var rank: CodexShipRank {
         CodexShipRank.rank(for: score)
     }
+
+    static func score(forTodayTokens rawTokens: Int64) -> Int {
+        let tokens = max(0, rawTokens)
+        switch tokens {
+        case ..<10_000_000:
+            return interpolatedScore(
+                tokens: tokens,
+                tokenFloor: 0,
+                tokenCeiling: 10_000_000,
+                scoreFloor: 0,
+                scoreCeiling: 10
+            )
+        case ..<50_000_000:
+            return interpolatedScore(
+                tokens: tokens,
+                tokenFloor: 10_000_000,
+                tokenCeiling: 50_000_000,
+                scoreFloor: 10,
+                scoreCeiling: 30
+            )
+        case ..<200_000_000:
+            return interpolatedScore(
+                tokens: tokens,
+                tokenFloor: 50_000_000,
+                tokenCeiling: 200_000_000,
+                scoreFloor: 30,
+                scoreCeiling: 50
+            )
+        case ..<500_000_000:
+            return interpolatedScore(
+                tokens: tokens,
+                tokenFloor: 200_000_000,
+                tokenCeiling: 500_000_000,
+                scoreFloor: 50,
+                scoreCeiling: 70
+            )
+        case ...1_000_000_000:
+            return min(
+                89,
+                interpolatedScore(
+                    tokens: tokens,
+                    tokenFloor: 500_000_000,
+                    tokenCeiling: 1_000_000_000,
+                    scoreFloor: 70,
+                    scoreCeiling: 90
+                )
+            )
+        default:
+            return 100
+        }
+    }
+
+    private static func interpolatedScore(
+        tokens: Int64,
+        tokenFloor: Int64,
+        tokenCeiling: Int64,
+        scoreFloor: Int,
+        scoreCeiling: Int
+    ) -> Int {
+        let tokenProgress = max(0, tokens - tokenFloor)
+        let tokenSpan = tokenCeiling - tokenFloor
+        let scoreSpan = scoreCeiling - scoreFloor
+        let scaledProgress = tokenProgress * Int64(scoreSpan) / tokenSpan
+        return scoreFloor + Int(scaledProgress)
+    }
 }
 
 enum CodexShipRank: Int, CaseIterable, Identifiable, Equatable, Sendable {
-    case spark
+    case starter
     case builder
-    case maker
+    case creator
     case shipper
-    case accelerator
-    case vanguard
+    case shipmaster
+    case legend
 
     var id: Int { rawValue }
 
     var title: String {
         switch self {
-        case .spark: "Spark"
+        case .starter: "Starter"
         case .builder: "Builder"
-        case .maker: "Maker"
+        case .creator: "Creator"
         case .shipper: "Shipper"
-        case .accelerator: "Accelerator"
-        case .vanguard: "Vanguard"
+        case .shipmaster: "Shipmaster"
+        case .legend: "Legend"
         }
     }
 
     static func rank(for score: Int) -> CodexShipRank {
         switch min(max(score, 0), 100) {
-        case ..<10: .spark
+        case ..<10: .starter
         case ..<30: .builder
-        case ..<50: .maker
+        case ..<50: .creator
         case ..<70: .shipper
-        case ..<90: .accelerator
-        default: .vanguard
+        case ..<90: .shipmaster
+        default: .legend
         }
     }
 }
@@ -931,9 +1176,42 @@ enum CodexHoverDashboardPresentation {
     }
 
     static func chartBuckets(
-        from tokenUsage: CodexAccountTokenUsage?
+        from tokenUsage: CodexAccountTokenUsage?,
+        now: Date = .now,
+        calendar inputCalendar: Calendar = .current
     ) -> [CodexTokenUsageDailyBucket] {
-        Array(tokenUsage?.dailyUsageBuckets.suffix(maximumChartDays) ?? [])
+        var calendar = inputCalendar
+        calendar.timeZone = .current
+        let today = calendar.startOfDay(for: now)
+        var buckets = (tokenUsage?.dailyUsageBuckets ?? []).filter {
+            calendar.startOfDay(for: $0.startDate) <= today
+        }
+
+        if buckets.isEmpty {
+            buckets = (0..<maximumChartDays).compactMap { offset in
+                guard let date = calendar.date(
+                    byAdding: .day,
+                    value: offset - (maximumChartDays - 1),
+                    to: today
+                ) else { return nil }
+                return CodexTokenUsageDailyBucket(
+                    startDate: date,
+                    tokens: 0
+                )
+            }
+        } else if !buckets.contains(where: {
+            calendar.isDate($0.startDate, inSameDayAs: today)
+        }) {
+            buckets.append(
+                CodexTokenUsageDailyBucket(startDate: today, tokens: 0)
+            )
+        }
+
+        return Array(
+            buckets
+                .sorted { $0.startDate < $1.startDate }
+                .suffix(maximumChartDays)
+        )
     }
 
     static func topModels(
@@ -953,30 +1231,20 @@ enum CodexHoverDashboardPresentation {
     }
 
     static func shipMomentum(
-        in snapshot: CodexRateLimitSnapshot?
+        in snapshot: CodexRateLimitSnapshot?,
+        now: Date = .now
     ) -> CodexShipMomentum? {
         guard
             let snapshot,
-            let tokenUsage = snapshot.tokenUsage,
-            let taskActivity = snapshot.recentTaskActivity
+            let tokenUsage = snapshot.tokenUsage
         else {
             return nil
         }
 
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = .current
-        let today = calendar.startOfDay(for: snapshot.fetchedAt)
+        let today = calendar.startOfDay(for: now)
         guard
-            let currentStart = calendar.date(
-                byAdding: .day,
-                value: -6,
-                to: today
-            ),
-            let previousStart = calendar.date(
-                byAdding: .day,
-                value: -13,
-                to: today
-            ),
             let nextDay = calendar.date(
                 byAdding: .day,
                 value: 1,
@@ -986,40 +1254,13 @@ enum CodexHoverDashboardPresentation {
             return nil
         }
 
-        let currentTokens = tokenUsage.dailyUsageBuckets
-            .filter { $0.startDate >= currentStart && $0.startDate < nextDay }
+        let todayTokens = tokenUsage.dailyUsageBuckets
+            .filter { $0.startDate >= today && $0.startDate < nextDay }
             .reduce(Int64(0)) { $0 + $1.tokens }
-        let previousTokens = tokenUsage.dailyUsageBuckets
-            .filter {
-                $0.startDate >= previousStart && $0.startDate < currentStart
-            }
-            .reduce(Int64(0)) { $0 + $1.tokens }
-        guard
-            currentTokens + previousTokens > 0,
-            taskActivity.currentWeekCount + taskActivity.previousWeekCount > 0
-        else {
-            return nil
-        }
-
-        let tokenShare = comparisonShare(
-            current: Double(currentTokens),
-            previous: Double(previousTokens)
-        )
-        let taskShare = comparisonShare(
-            current: Double(taskActivity.currentWeekCount),
-            previous: Double(taskActivity.previousWeekCount)
-        )
-        let score = Int(
-            ((tokenShare + taskShare) * 50).rounded()
-        )
 
         return CodexShipMomentum(
-            score: min(max(score, 0), 100),
-            currentTokens: currentTokens,
-            previousTokens: previousTokens,
-            currentTasks: taskActivity.currentWeekCount,
-            previousTasks: taskActivity.previousWeekCount,
-            isTaskCountPartial: taskActivity.isPartial
+            score: CodexShipMomentum.score(forTodayTokens: todayTokens),
+            todayTokens: max(0, todayTokens)
         )
     }
 
@@ -1032,18 +1273,9 @@ enum CodexHoverDashboardPresentation {
         formatter.dateFormat = "MMM d, h:mm a"
         return "Resets \(formatter.string(from: reset))"
     }
-
-    private static func comparisonShare(
-        current: Double,
-        previous: Double
-    ) -> Double {
-        let total = max(0, current) + max(0, previous)
-        guard total > 0 else { return 0 }
-        return max(0, current) / total
-    }
 }
 
-private struct CodexPlanBadge: View {
+struct CodexPlanBadge: View {
     let plan: String
 
     @Environment(\.designTheme) private var theme
@@ -1286,6 +1518,7 @@ struct CodexTokenHistoryChart: View {
 
 struct CodexShipMomentumCard: View {
     let momentum: CodexShipMomentum?
+    var accent: Color? = nil
 
     @Environment(\.designTheme) private var theme
 
@@ -1297,7 +1530,12 @@ struct CodexShipMomentumCard: View {
                         .font(.system(size: 10.5, weight: .bold))
                         .foregroundStyle(theme.textPrimary)
 
-                    CodexShipMomentumGauge(score: momentum?.score)
+                    ShipMomentumGauge(
+                        score: momentum?.score,
+                        rank: momentum?.rank,
+                        accent: resolvedAccent
+                    )
+                    .frame(width: 132, height: 56)
                 }
                 .frame(width: 136, alignment: .leading)
 
@@ -1306,7 +1544,10 @@ struct CodexShipMomentumCard: View {
                     .frame(width: 0.5, height: 68)
                     .accessibilityHidden(true)
 
-                CodexShipRankLadder(activeRank: momentum?.rank)
+                CodexShipRankLadder(
+                    activeRank: momentum?.rank,
+                    accent: resolvedAccent
+                )
             }
 
             Rectangle()
@@ -1315,16 +1556,10 @@ struct CodexShipMomentumCard: View {
                 .accessibilityHidden(true)
 
             if let momentum {
-                HStack(spacing: 34) {
-                    metric(
-                        value: taskLabel(momentum),
-                        label: "tasks"
-                    )
-                    metric(
-                        value: Self.tokenLabel(momentum.currentTokens),
-                        label: "tokens"
-                    )
-                }
+                metric(
+                    value: Self.tokenLabel(momentum.todayTokens),
+                    label: "tokens today"
+                )
                 .frame(maxWidth: .infinity, alignment: .center)
             } else {
                 unavailableDetails
@@ -1345,10 +1580,14 @@ struct CodexShipMomentumCard: View {
     }
 
     private var unavailableDetails: some View {
-        Text("Not enough recent task and token activity")
+        Text("Today's token usage is unavailable")
             .font(.system(size: 8.5, weight: .medium))
             .foregroundStyle(theme.textSecondary)
             .frame(maxWidth: .infinity, alignment: .center)
+    }
+
+    private var resolvedAccent: Color {
+        accent ?? theme.action
     }
 
     private func metric(value: String, label: String) -> some View {
@@ -1363,25 +1602,19 @@ struct CodexShipMomentumCard: View {
         }
     }
 
-    private func taskLabel(_ momentum: CodexShipMomentum) -> String {
-        "\(momentum.currentTasks)\(momentum.isTaskCountPartial ? "+" : "")"
-    }
-
     private var helpText: String {
-        "Ship momentum compares the latest 7 calendar days with the prior 7. "
-            + "The ladder progresses from Spark to Vanguard. It is an activity "
-            + "trend, not a productivity rating."
+        "Ship momentum uses only today's token activity and resets each local "
+            + "calendar day. The ladder progresses from Starter to Legend. "
+            + "It is an activity indicator, not a productivity rating."
     }
 
     private var accessibilityValue: String {
         guard let momentum else {
-            return "Not enough task and token activity data."
+            return "Today's token usage is unavailable."
         }
-        let partial = momentum.isTaskCountPartial ? "at least " : ""
         return "\(momentum.score) out of 100, rank \(momentum.rank.title), "
             + "\(momentum.rank.rawValue + 1) of \(CodexShipRank.allCases.count). "
-            + "Latest 7 days: \(partial)\(momentum.currentTasks) tasks and "
-            + "\(momentum.currentTokens.formatted()) tokens."
+            + "Today: \(momentum.todayTokens.formatted()) tokens."
     }
 
     private static func tokenLabel(_ tokens: Int64) -> String {
@@ -1393,17 +1626,20 @@ struct CodexShipMomentumCard: View {
     }
 }
 
-private struct CodexDailyIntensityCard: View {
+struct CodexDailyIntensityCard: View {
     let buckets: [CodexTokenUsageDailyBucket]
+    let accent: Color?
     @State private var hoveredBucketID: Date?
 
     @Environment(\.designTheme) private var theme
 
     init(
         buckets: [CodexTokenUsageDailyBucket],
+        accent: Color? = nil,
         initialHoveredBucketID: Date? = nil
     ) {
         self.buckets = buckets
+        self.accent = accent
         _hoveredBucketID = State(initialValue: initialHoveredBucketID)
     }
 
@@ -1437,7 +1673,7 @@ private struct CodexDailyIntensityCard: View {
     }
 
     private var cardContent: some View {
-        VStack(alignment: .leading, spacing: 7) {
+        VStack(alignment: .leading, spacing: 5) {
             HStack(alignment: .firstTextBaseline, spacing: 4) {
                 Text("Daily intensity")
                     .font(.system(size: 10.5, weight: .bold))
@@ -1617,7 +1853,7 @@ private struct CodexDailyIntensityCard: View {
     }
 
     private func fill(for level: Int) -> Color {
-        theme.action.opacity(0.10 + Double(level) * 0.19)
+        (accent ?? theme.action).opacity(0.10 + Double(level) * 0.19)
     }
 
     private var helpText: String {
@@ -1647,14 +1883,15 @@ private struct CodexDailyIntensityCard: View {
     }
 }
 
-private struct CodexTopModelsCard: View {
+struct CodexTopModelsCard: View {
     let models: [CodexModelTokenUsage]
     let isPartial: Bool
+    var accent: Color? = nil
 
     @Environment(\.designTheme) private var theme
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 7) {
+        VStack(alignment: .leading, spacing: 5) {
             HStack(alignment: .firstTextBaseline, spacing: 4) {
                 Text("Top models")
                     .font(.system(size: 10.5, weight: .bold))
@@ -1674,7 +1911,7 @@ private struct CodexTopModelsCard: View {
                     .foregroundStyle(theme.textSecondary)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
-                VStack(spacing: 5) {
+                VStack(spacing: 3) {
                     ForEach(Array(models.enumerated()), id: \.element.id) {
                         index, model in
                         modelRow(model, rank: index + 1)
@@ -1682,7 +1919,7 @@ private struct CodexTopModelsCard: View {
                 }
             }
         }
-        .padding(9)
+        .padding(7)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(theme.opaqueSurfaceInset)
         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
@@ -1715,7 +1952,7 @@ private struct CodexTopModelsCard: View {
             Spacer(minLength: 2)
 
             Capsule()
-                .fill(theme.action)
+                .fill(accent ?? theme.action)
                 .frame(width: modelBarWidth(model.tokens), height: 4)
                 .accessibilityHidden(true)
 
@@ -1724,7 +1961,7 @@ private struct CodexTopModelsCard: View {
                 .foregroundStyle(theme.textSecondary)
                 .monospacedDigit()
         }
-        .frame(height: 18)
+        .frame(height: 16)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Rank \(rank), \(model.model)")
         .accessibilityValue("\(model.tokens.formatted()) tokens")
@@ -1753,56 +1990,9 @@ private struct CodexTopModelsCard: View {
     }
 }
 
-private struct CodexShipMomentumGauge: View {
-    let score: Int?
-
-    @Environment(\.designTheme) private var theme
-
-    private var fraction: Double {
-        Double(min(max(score ?? 0, 0), 100)) / 100
-    }
-
-    var body: some View {
-        ZStack(alignment: .bottom) {
-            CodexGaugeArcShape(fraction: 1)
-                .stroke(
-                    theme.dockTrack,
-                    style: StrokeStyle(lineWidth: 8, lineCap: .round)
-                )
-
-            if score != nil {
-                CodexGaugeArcShape(fraction: fraction)
-                    .stroke(
-                        theme.action,
-                        style: StrokeStyle(lineWidth: 8, lineCap: .round)
-                    )
-
-                CodexGaugeNeedleShape(fraction: fraction)
-                    .stroke(
-                        theme.textPrimary,
-                        style: StrokeStyle(lineWidth: 1.5, lineCap: .round)
-                    )
-
-                Circle()
-                    .fill(theme.textPrimary)
-                    .frame(width: 5, height: 5)
-            }
-
-            Text(score.map(String.init) ?? "—")
-                .font(.system(size: 15, weight: .bold, design: .rounded))
-                .foregroundStyle(theme.textPrimary)
-                .monospacedDigit()
-            .padding(.horizontal, 3)
-            .background(theme.opaqueSurfaceInset)
-            .offset(y: 2)
-        }
-        .frame(width: 132, height: 56)
-        .accessibilityHidden(true)
-    }
-}
-
 private struct CodexShipRankLadder: View {
     let activeRank: CodexShipRank?
+    let accent: Color
 
     @Environment(\.designTheme) private var theme
 
@@ -1849,7 +2039,7 @@ private struct CodexShipRankLadder: View {
                             ))
                             .foregroundStyle(
                                 rank == activeRank
-                                    ? theme.action
+                                    ? accent
                                     : theme.textSecondary
                             )
                             .lineLimit(1)
@@ -1867,7 +2057,7 @@ private struct CodexShipRankLadder: View {
 
     private func stepFill(for rank: CodexShipRank) -> Color {
         if rank == activeRank {
-            return theme.action
+            return accent
         }
         if let activeRank, rank.rawValue < activeRank.rawValue {
             return theme.outlineStrong
@@ -1876,7 +2066,7 @@ private struct CodexShipRankLadder: View {
     }
 
     private func stepOutline(for rank: CodexShipRank) -> Color {
-        rank == activeRank ? theme.action : theme.outline
+        rank == activeRank ? accent : theme.outline
     }
 
     private func stepNumber(for rank: CodexShipRank) -> Color {
@@ -1894,52 +2084,6 @@ private struct CodexRankStepShape: Shape {
         path.addLine(to: CGPoint(x: rect.maxX, y: rect.minY))
         path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
         path.closeSubpath()
-        return path
-    }
-}
-
-private struct CodexGaugeArcShape: Shape {
-    let fraction: Double
-
-    func path(in rect: CGRect) -> Path {
-        let clamped = min(max(fraction, 0), 1)
-        let center = CGPoint(x: rect.midX, y: rect.maxY - 3)
-        let radius = min(rect.width / 2 - 7, rect.height - 7)
-        let segments = max(1, Int(48 * clamped))
-        var path = Path()
-
-        for step in 0...segments {
-            let progress = clamped * Double(step) / Double(segments)
-            let angle = Double.pi * (1 - progress)
-            let point = CGPoint(
-                x: center.x + CGFloat(cos(angle)) * radius,
-                y: center.y - CGFloat(sin(angle)) * radius
-            )
-            if step == 0 {
-                path.move(to: point)
-            } else {
-                path.addLine(to: point)
-            }
-        }
-        return path
-    }
-}
-
-private struct CodexGaugeNeedleShape: Shape {
-    let fraction: Double
-
-    func path(in rect: CGRect) -> Path {
-        let clamped = min(max(fraction, 0), 1)
-        let center = CGPoint(x: rect.midX, y: rect.maxY - 3)
-        let radius = min(rect.width / 2 - 17, rect.height - 17)
-        let angle = Double.pi * (1 - clamped)
-        let endpoint = CGPoint(
-            x: center.x + CGFloat(cos(angle)) * radius,
-            y: center.y - CGFloat(sin(angle)) * radius
-        )
-        var path = Path()
-        path.move(to: center)
-        path.addLine(to: endpoint)
         return path
     }
 }
@@ -2132,7 +2276,7 @@ struct DockHoverChrome<Content: View>: View {
     }
 }
 
-private struct DockHoverPointerShape: Shape {
+struct DockHoverPointerShape: Shape {
     enum Direction {
         case up
         case down
@@ -2167,7 +2311,7 @@ private struct DockHoverPointerShape: Shape {
     }
 }
 
-private struct CodexDashboardSharePresenter: NSViewRepresentable {
+struct CodexDashboardSharePresenter: NSViewRepresentable {
     @Binding var itemURL: URL?
 
     func makeCoordinator() -> Coordinator {
@@ -2375,8 +2519,6 @@ extension CodexRateLimitSnapshot {
             tokenUsage: CodexAccountTokenUsage(
                 lifetimeTokens: 18_400_000,
                 peakDailyTokens: 1_560_000,
-                currentStreakDays: 7,
-                longestStreakDays: 28,
                 longestRunningTurnSeconds: 1_460,
                 dailyUsageBuckets: values.enumerated().map { index, tokens in
                     CodexTokenUsageDailyBucket(
@@ -2425,6 +2567,12 @@ extension CodexRateLimitSnapshot {
                         isPartial: false
                     )
                 ]
+            ),
+            streakSummary: TokenUsageStreakSummary.fixture(
+                currentDays: 7,
+                bestDays: 28,
+                endingAt: detailDate,
+                calendar: calendar
             ),
             recentTaskActivity: CodexRecentTaskActivity(
                 currentWeekCount: 12,

@@ -290,7 +290,7 @@ enum DockDisplayStyle: String, CaseIterable, Codable, Identifiable, Sendable {
     var systemImage: String {
         switch self {
         case .chart:
-            "chart.donut"
+            "chart.pie"
         case .numeric:
             "number"
         }

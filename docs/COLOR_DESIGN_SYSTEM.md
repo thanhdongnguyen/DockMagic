@@ -175,6 +175,13 @@ Exceptions are allowed only when color is the content rather than decoration:
 - Claude Code quota progress may use `DSClaudeCodeUsage` as its single data
   hue inside the dashboard quota rows and chart. It must not tint chrome, text,
   selection, or status; warning and danger replace it at their thresholds.
+- Streak milestone badge artwork may use multiple authored solid colors because
+  the collectible identity is the content. Those colors stay inside the badge
+  silhouette; they must not become SwiftUI palette tokens or tint the
+  surrounding card, text, navigation, progress,
+  selection, focus, or status. Locked badges also use a lock symbol, label,
+  lower emphasis, and grayscale-safe structure. Badge artwork must not use
+  colored glow, a rainbow border, or code-rendered product gradients.
 - Photography, weather imagery, and other content media are not UI palette
   tokens, but their container and controls still follow this contract.
 - System-owned macOS UI keeps its native appearance.

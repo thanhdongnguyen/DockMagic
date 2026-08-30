@@ -2,6 +2,12 @@ import SwiftUI
 
 @MainActor
 struct ClaudeCodeHoverDashboardView: View {
+    private enum CaptureAction {
+        case save
+        case copy
+        case share
+    }
+
     private enum UsageMetric: String, CaseIterable {
         case tokens = "Tokens"
         case cost = "Cost"
@@ -9,116 +15,459 @@ struct ClaudeCodeHoverDashboardView: View {
 
     let state: ClaudeCodeUsageState
     var now: Date = .now
+    let streakCelebrationAutoDismissDelay: Duration
+    let onStreakCelebrationDismissed: (String) -> Void
+    let captureConfiguration: CodexDashboardCaptureConfiguration?
+    let isActivityHookInstalled: Bool
+    let isInstallingActivityHook: Bool
+    let activityHookErrorText: String?
+    let onInstallActivityHook: @MainActor () -> Void
 
     @Environment(\.designTheme) private var theme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var selectedMetric = UsageMetric.tokens
+    @State private var isStreakDetailPresented: Bool
+    @State private var streakCelebration: TokenUsageStreakCelebration?
+    @State private var isCaptureButtonHovered = false
+    @State private var isCaptureMenuPresented: Bool
+    @State private var hoveredCaptureAction: CaptureAction?
+    @State private var captureErrorText: String?
+    @State private var pendingShareURL: URL?
 
     init(
         state: ClaudeCodeUsageState,
         now: Date = .now,
-        initialMetric: String = "Tokens"
+        initialMetric: String = "Tokens",
+        initialStreakDetailPresented: Bool = false,
+        initialStreakCelebration: TokenUsageStreakCelebration? = nil,
+        streakCelebrationAutoDismissDelay: Duration = .milliseconds(2_800),
+        onStreakCelebrationDismissed: @escaping (String) -> Void = { _ in },
+        captureConfiguration: CodexDashboardCaptureConfiguration? = nil,
+        initialCaptureMenuPresented: Bool = false,
+        isActivityHookInstalled: Bool = true,
+        isInstallingActivityHook: Bool = false,
+        activityHookErrorText: String? = nil,
+        onInstallActivityHook: @escaping @MainActor () -> Void = {}
     ) {
         self.state = state
         self.now = now
+        self.streakCelebrationAutoDismissDelay =
+            streakCelebrationAutoDismissDelay
+        self.onStreakCelebrationDismissed = onStreakCelebrationDismissed
+        self.captureConfiguration = captureConfiguration
+        self.isActivityHookInstalled = isActivityHookInstalled
+        self.isInstallingActivityHook = isInstallingActivityHook
+        self.activityHookErrorText = activityHookErrorText
+        self.onInstallActivityHook = onInstallActivityHook
         _selectedMetric = State(
             initialValue: UsageMetric(rawValue: initialMetric) ?? .tokens
+        )
+        _isStreakDetailPresented = State(
+            initialValue: initialStreakDetailPresented
+        )
+        _streakCelebration = State(initialValue: initialStreakCelebration)
+        _isCaptureMenuPresented = State(
+            initialValue: initialCaptureMenuPresented
         )
     }
 
     var body: some View {
-        VStack(spacing: 8) {
-            header
-            quotaRows
-            usageCard
-            shipMomentumSection
-            modelsCard
-            activeWorkCard
+        ZStack(alignment: .topTrailing) {
+            if let streakCelebration {
+                StreakCelebrationView(
+                    celebration: streakCelebration,
+                    brand: .claudeCode,
+                    accent: ProjectTheme.claudeCodeUsage,
+                    planLabel: snapshot?.planType,
+                    trailingMetricValue: snapshot?.tokenUsage == nil
+                        ? nil
+                        : ClaudeCodeHoverDashboardPresentation.tokenLabel(
+                            totalTokens30Days
+                        ),
+                    trailingMetricLabel: snapshot?.tokenUsage == nil
+                        ? nil
+                        : "30d tokens",
+                    onViewBadges: { dismissStreakCelebration(openBadges: true) }
+                )
+                .id(streakCelebration.id)
+                .transition(streakCelebrationTransition)
+            } else if isStreakDetailPresented {
+                StreakDetailView(
+                    summary: streakSummary,
+                    brand: .claudeCode,
+                    accent: ProjectTheme.claudeCodeUsage,
+                    onBack: { setStreakDetailPresented(false) }
+                )
+                .transition(.opacity)
+            } else {
+                overview
+                    .transition(.opacity)
+            }
+
+            if streakCelebration == nil,
+               !isStreakDetailPresented,
+               isCaptureMenuPresented,
+               captureConfiguration != nil {
+                captureMenu
+                    .padding(.top, 29)
+                    .zIndex(2)
+                    .transition(
+                        .opacity.combined(
+                            with: .scale(
+                                scale: 0.96,
+                                anchor: .topTrailing
+                            )
+                        )
+                    )
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .background(alignment: .topTrailing) {
+            CodexDashboardSharePresenter(itemURL: $pendingShareURL)
+                .frame(width: 1, height: 1)
+                .opacity(0.001)
+        }
+        .onExitCommand {
+            if streakCelebration != nil {
+                dismissStreakCelebration(openBadges: false)
+            } else if isStreakDetailPresented {
+                setStreakDetailPresented(false)
+            } else if isCaptureMenuPresented {
+                setCaptureMenuPresented(false)
+            }
+        }
+        .task(id: streakCelebration?.id) {
+            guard streakCelebration != nil else { return }
+            do {
+                try await Task.sleep(for: streakCelebrationAutoDismissDelay)
+                try Task.checkCancellation()
+                dismissStreakCelebration(openBadges: false)
+            } catch {
+                return
+            }
+        }
         .accessibilityElement(children: .contain)
-        .accessibilityLabel("Claude Code usage dashboard")
+        .accessibilityLabel(
+            streakCelebration != nil
+                ? "Claude Code streak celebration"
+                : isStreakDetailPresented
+                ? "Claude Code streak details"
+                : "Claude Code usage dashboard"
+        )
         .accessibilityIdentifier("dockHover.claudeCode")
     }
 
+    private var overview: some View {
+        VStack(spacing: 6) {
+            header
+            quotaRows
+            usageCard
+            StreakContinuityStrip(
+                summary: streakSummary,
+                brand: .claudeCode,
+                accent: ProjectTheme.claudeCodeUsage,
+                onOpen: { setStreakDetailPresented(true) }
+            )
+            shipMomentumCard
+            usageInsights
+            activeWorkCard
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+    }
+
     private var header: some View {
-        HStack(spacing: 9) {
+        HStack(spacing: 8) {
             Image("ClaudeCodeLogo")
                 .resizable()
                 .interpolation(.high)
                 .scaledToFit()
-                .frame(width: 30, height: 30)
+                .frame(width: 26, height: 26)
                 .clipShape(
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    RoundedRectangle(cornerRadius: 7, style: .continuous)
                 )
                 .accessibilityHidden(true)
 
-            VStack(alignment: .leading, spacing: 3) {
-                HStack(spacing: 5) {
-                    Text("Claude Code")
-                        .font(.system(size: 17, weight: .bold))
-                        .foregroundStyle(theme.textPrimary)
+            Text("Claude Code")
+                .font(.system(size: 17, weight: .bold))
+                .foregroundStyle(theme.textPrimary)
 
-                    if let statusTitle, let statusSystemImage {
-                        Image(systemName: statusSystemImage)
-                            .symbolRenderingMode(.monochrome)
-                            .font(.system(size: 8.5, weight: .semibold))
-                            .foregroundStyle(statusForeground)
-                            .accessibilityLabel(statusTitle)
+            if let plan = snapshot?.planType, !plan.isEmpty {
+                CodexPlanBadge(plan: plan)
+            }
+
+            if let statusTitle, let statusSystemImage {
+                HStack(spacing: 3) {
+                    Image(systemName: statusSystemImage)
+                        .symbolRenderingMode(.monochrome)
+                        .font(.system(size: 9, weight: .semibold))
+                        .accessibilityHidden(true)
+
+                    Text(statusTitle)
+                        .font(.system(size: 10, weight: .semibold))
+                }
+                .foregroundStyle(statusForeground)
+                .accessibilityElement(children: .combine)
+            }
+
+            Spacer(minLength: 4)
+
+            if captureConfiguration != nil {
+                captureButton
+            }
+        }
+        .frame(height: 30)
+    }
+
+    private var captureButton: some View {
+        Button {
+            captureErrorText = nil
+            setCaptureMenuPresented(!isCaptureMenuPresented)
+        } label: {
+            Image(systemName: "square.and.arrow.up")
+                .symbolRenderingMode(.monochrome)
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(theme.textPrimary)
+                .frame(width: 26, height: 26)
+                .background {
+                    RoundedRectangle(cornerRadius: 7, style: .continuous)
+                        .fill(theme.opaqueSurfaceInset)
+                        .opacity(
+                            isCaptureButtonHovered || isCaptureMenuPresented
+                                ? 1
+                                : 0
+                        )
+                }
+                .overlay {
+                    RoundedRectangle(cornerRadius: 7, style: .continuous)
+                        .strokeBorder(
+                            isCaptureMenuPresented
+                                ? theme.outlineStrong
+                                : theme.outline,
+                            lineWidth: isCaptureMenuPresented ? 1 : 0.5
+                        )
+                        .opacity(
+                            isCaptureButtonHovered || isCaptureMenuPresented
+                                ? 1
+                                : 0
+                        )
+                }
+        }
+        .buttonStyle(.plain)
+        .contentShape(Rectangle())
+        .onHover { isHovering in
+            isCaptureButtonHovered = isHovering
+        }
+        .help("Capture dashboard")
+        .accessibilityLabel("Capture dashboard")
+        .accessibilityHint("Opens high-resolution PNG export options")
+        .accessibilityIdentifier("claudeCode.capture.button")
+    }
+
+    private var captureMenu: some View {
+        VStack(alignment: .trailing, spacing: 0) {
+            DockHoverPointerShape(direction: .up)
+                .fill(theme.opaqueSurfaceRaised)
+                .overlay {
+                    DockHoverPointerShape(direction: .up)
+                        .stroke(theme.outline, lineWidth: 0.75)
+                }
+                .frame(width: 12, height: 7)
+                .padding(.trailing, 7)
+
+            VStack(spacing: 1) {
+                captureMenuRow(
+                    captureAction: .save,
+                    title: "Save 4× PNG",
+                    subtitle: capturePixelSizeLabel,
+                    systemImage: "photo",
+                    accessibilityHint:
+                        "Opens a save panel for the high-resolution PNG",
+                    action: saveDashboard
+                )
+                captureMenuRow(
+                    captureAction: .copy,
+                    title: "Copy image",
+                    systemImage: "doc.on.doc",
+                    action: copyDashboard
+                )
+                captureMenuRow(
+                    captureAction: .share,
+                    title: "Share…",
+                    systemImage: "square.and.arrow.up",
+                    action: shareDashboard
+                )
+
+                if let captureErrorText {
+                    Text(captureErrorText)
+                        .font(.system(size: 8, weight: .medium))
+                        .foregroundStyle(theme.dangerForeground)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 4)
+                        .accessibilityIdentifier("claudeCode.capture.error")
+                }
+            }
+            .padding(4)
+            .frame(width: 146)
+            .dsSurface(
+                RoundedRectangle(cornerRadius: 10, style: .continuous),
+                kind: .raised,
+                elevation: .secondary
+            )
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Dashboard capture options")
+        .accessibilityIdentifier("claudeCode.capture.menu")
+    }
+
+    private var capturePixelSizeLabel: String {
+        guard let captureConfiguration else { return "" }
+        return CodexDashboardCaptureService.pixelSizeLabel(
+            for: captureConfiguration.panelSize
+        )
+    }
+
+    private func captureMenuRow(
+        captureAction: CaptureAction,
+        title: String,
+        subtitle: String? = nil,
+        systemImage: String,
+        accessibilityHint: String? = nil,
+        action: @escaping @MainActor () -> Void
+    ) -> some View {
+        let isActive = activeCaptureAction == captureAction
+
+        return Button(action: action) {
+            HStack(spacing: 8) {
+                Image(systemName: systemImage)
+                    .symbolRenderingMode(.monochrome)
+                    .font(
+                        .system(
+                            size: 11,
+                            weight: isActive ? .bold : .medium
+                        )
+                    )
+                    .frame(width: 16)
+                    .accessibilityHidden(true)
+
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(title)
+                        .font(
+                            .system(
+                                size: 11,
+                                weight: isActive ? .bold : .medium
+                            )
+                        )
+
+                    if let subtitle {
+                        Text(subtitle)
+                            .font(.system(size: 8.5, weight: .medium))
+                            .opacity(0.82)
                     }
                 }
 
-                HStack(spacing: 4) {
-                    Image(systemName: "lock.fill")
-                        .symbolRenderingMode(.monochrome)
-                        .font(.system(size: 7.5, weight: .semibold))
-                        .accessibilityHidden(true)
-                    Text(sessionSubtitle)
-                        .font(.system(size: 9, weight: .medium))
-                        .lineLimit(1)
-                }
-                .foregroundStyle(theme.textTertiary)
+                Spacer(minLength: 0)
             }
-
-            Spacer(minLength: 5)
-
-            headerMetric(
-                value: snapshot?.tokenUsage == nil
-                    ? "—"
-                    : ClaudeCodeHoverDashboardPresentation.tokenLabel(
-                        totalTokens30Days
-                    ),
-                label: "30d tokens"
+            .foregroundStyle(
+                isActive ? theme.textPrimary : theme.textSecondary
             )
-
-            Rectangle()
-                .fill(theme.outline)
-                .frame(width: 0.5, height: 28)
-                .accessibilityHidden(true)
-
-            headerMetric(
-                value: observedCost.map(
-                    ClaudeCodeHoverDashboardPresentation.costLabel
-                ) ?? "—",
-                label: "observed est."
+            .padding(.horizontal, 8)
+            .frame(maxWidth: .infinity, minHeight: subtitle == nil ? 26 : 36)
+            .background {
+                if isActive {
+                    RoundedRectangle(cornerRadius: 7, style: .continuous)
+                        .fill(theme.outlineStrong.opacity(0.18))
+                        .overlay {
+                            RoundedRectangle(
+                                cornerRadius: 7,
+                                style: .continuous
+                            )
+                            .strokeBorder(theme.outlineStrong, lineWidth: 1)
+                        }
+                }
+            }
+            .contentShape(
+                RoundedRectangle(cornerRadius: 7, style: .continuous)
             )
         }
-        .frame(height: 42)
+        .buttonStyle(.plain)
+        .onHover { isHovering in
+            if isHovering {
+                hoveredCaptureAction = captureAction
+            } else if hoveredCaptureAction == captureAction {
+                hoveredCaptureAction = nil
+            }
+        }
+        .accessibilityLabel(title)
+        .accessibilityValue(subtitle ?? "")
+        .accessibilityHint(accessibilityHint ?? "")
     }
 
-    private func headerMetric(value: String, label: String) -> some View {
-        VStack(alignment: .trailing, spacing: 1) {
-            Text(value)
-                .font(.system(size: 14, weight: .bold, design: .rounded))
-                .foregroundStyle(theme.textPrimary)
-                .monospacedDigit()
-                .lineLimit(1)
-            Text(label)
-                .font(.system(size: 8, weight: .semibold))
-                .foregroundStyle(theme.textTertiary)
+    private var activeCaptureAction: CaptureAction {
+        hoveredCaptureAction ?? .save
+    }
+
+    private func setCaptureMenuPresented(_ isPresented: Bool) {
+        if !isPresented {
+            hoveredCaptureAction = nil
         }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(label)
-        .accessibilityValue(value)
+
+        if reduceMotion {
+            isCaptureMenuPresented = isPresented
+        } else {
+            withAnimation(.easeOut(duration: 0.14)) {
+                isCaptureMenuPresented = isPresented
+            }
+        }
+    }
+
+    private func makeCaptureArtifact() -> CodexDashboardCaptureArtifact? {
+        guard let captureConfiguration else { return nil }
+        do {
+            captureErrorText = nil
+            return try CodexDashboardCaptureService.renderClaudeCode(
+                state: state,
+                configuration: captureConfiguration,
+                now: now
+            )
+        } catch {
+            captureErrorText = error.localizedDescription
+            setCaptureMenuPresented(true)
+            return nil
+        }
+    }
+
+    private func saveDashboard() {
+        guard let artifact = makeCaptureArtifact() else { return }
+        setCaptureMenuPresented(false)
+        CodexDashboardCaptureService.presentSavePanel(for: artifact) { error in
+            guard let error else { return }
+            captureErrorText = error.localizedDescription
+            setCaptureMenuPresented(true)
+        }
+    }
+
+    private func copyDashboard() {
+        guard let artifact = makeCaptureArtifact() else { return }
+        do {
+            try CodexDashboardCaptureService.copy(artifact)
+            setCaptureMenuPresented(false)
+        } catch {
+            captureErrorText = error.localizedDescription
+            setCaptureMenuPresented(true)
+        }
+    }
+
+    private func shareDashboard() {
+        guard let artifact = makeCaptureArtifact() else { return }
+        do {
+            pendingShareURL = try CodexDashboardCaptureService
+                .temporaryShareURL(for: artifact)
+            setCaptureMenuPresented(false)
+        } catch {
+            captureErrorText = error.localizedDescription
+            setCaptureMenuPresented(true)
+        }
     }
 
     private var quotaRows: some View {
@@ -184,7 +533,7 @@ struct ClaudeCodeHoverDashboardView: View {
         }
         .padding(.horizontal, 4)
         .padding(.vertical, 7)
-        .frame(maxWidth: .infinity, minHeight: 190)
+        .frame(maxWidth: .infinity, minHeight: 174)
         .overlay(alignment: .bottom) {
             Rectangle()
                 .fill(theme.outline)
@@ -230,200 +579,31 @@ struct ClaudeCodeHoverDashboardView: View {
         }
     }
 
-    private var shipMomentumSection: some View {
-        VStack(alignment: .leading, spacing: 5) {
-            Text("Ship momentum")
-                .font(.system(size: 10.5, weight: .bold))
-                .foregroundStyle(theme.textPrimary)
-
-            if let shipMomentum {
-                HStack(spacing: 13) {
-                    ClaudeCodeShipMomentumGauge(score: shipMomentum.score)
-                        .frame(width: 138)
-
-                    VStack(alignment: .leading, spacing: 5) {
-                        Text(shipMomentum.rank.title)
-                            .font(.system(size: 11, weight: .bold))
-                            .foregroundStyle(ProjectTheme.claudeCodeUsage)
-
-                        HStack(spacing: 13) {
-                            momentumMetric(
-                                value: "\(shipMomentum.currentTasks)"
-                                    + (shipMomentum.isTaskCountPartial ? "+" : ""),
-                                label: "tasks"
-                            )
-
-                            Rectangle()
-                                .fill(theme.outline)
-                                .frame(width: 0.5, height: 25)
-                                .accessibilityHidden(true)
-
-                            momentumMetric(
-                                value: ClaudeCodeHoverDashboardPresentation
-                                    .tokenLabel(shipMomentum.currentTokens),
-                                label: "tokens"
-                            )
-                        }
-
-                        Text("Local · 7d vs prior 7d")
-                            .font(.system(size: 8.5, weight: .medium))
-                            .foregroundStyle(theme.textTertiary)
-                    }
-                }
-            } else {
-                unavailableRow(
-                    systemImage: "gauge.with.dots.needle.0percent",
-                    text: "Not enough recent task and token activity"
-                )
-            }
-        }
-        .padding(.horizontal, 4)
-        .padding(.vertical, 7)
-        .frame(maxWidth: .infinity, minHeight: 112, alignment: .topLeading)
-        .overlay(alignment: .bottom) {
-            Rectangle()
-                .fill(theme.outline)
-                .frame(height: 0.5)
-        }
-        .help(
-            "Ship momentum compares the latest 7 calendar days with the prior "
-                + "7. It is an activity trend, not a productivity rating."
+    private var shipMomentumCard: some View {
+        CodexShipMomentumCard(
+            momentum: shipMomentum,
+            accent: ProjectTheme.claudeCodeUsage
         )
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Ship momentum")
-        .accessibilityValue(shipMomentumAccessibilityValue)
     }
 
-    private func momentumMetric(value: String, label: String) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 4) {
-            Text(value)
-                .font(.system(size: 15, weight: .bold, design: .rounded))
-                .foregroundStyle(theme.textPrimary)
-                .monospacedDigit()
-            Text(label)
-                .font(.system(size: 8.5, weight: .semibold))
-                .foregroundStyle(theme.textSecondary)
-        }
-    }
-
-    private var shipMomentumAccessibilityValue: String {
-        guard let shipMomentum else {
-            return "Not enough task and token activity data."
-        }
-        let partial = shipMomentum.isTaskCountPartial ? "at least " : ""
-        return "\(shipMomentum.score) out of 100, rank "
-            + "\(shipMomentum.rank.title). Latest 7 days: \(partial)"
-            + "\(shipMomentum.currentTasks) tasks and "
-            + "\(shipMomentum.currentTokens.formatted()) tokens."
-    }
-
-    private var modelsCard: some View {
-        VStack(spacing: 6) {
-            HStack {
-                Text("Top models")
-                    .font(.system(size: 10.5, weight: .bold))
-                    .foregroundStyle(theme.textPrimary)
-                Spacer(minLength: 4)
-                Text("Tokens")
-                    .font(.system(size: 8, weight: .medium))
-                    .foregroundStyle(theme.textTertiary)
-                    .frame(width: 45, alignment: .trailing)
-                Text("Est. USD")
-                    .font(.system(size: 8, weight: .medium))
-                    .foregroundStyle(theme.textTertiary)
-                    .frame(width: 48, alignment: .trailing)
-            }
-
-            if topModels.isEmpty {
-                unavailableRow(
-                    systemImage: "chart.bar",
-                    text: "No real model usage observed in the last 30 days"
-                )
-            } else {
-                VStack(spacing: 5) {
-                    ForEach(Array(topModels.enumerated()), id: \.element.id) {
-                        entry in
-                        modelRow(index: entry.offset, model: entry.element)
-                    }
-                }
-            }
-        }
-        .padding(.horizontal, 4)
-        .padding(.vertical, 7)
-        .frame(maxWidth: .infinity, minHeight: 118)
-        .overlay(alignment: .bottom) {
-            Rectangle()
-                .fill(theme.outline)
-                .frame(height: 0.5)
-        }
-        .accessibilityElement(children: .contain)
-    }
-
-    private func modelRow(
-        index: Int,
-        model: CodexModelTokenUsage
-    ) -> some View {
-        let maximum = max(topModels.map(\.tokens).max() ?? 1, 1)
-        let cost = modelCost(for: model.model)
-        return HStack(spacing: 7) {
-            Text("\(index + 1)")
-                .font(.system(size: 8.5, weight: .medium, design: .rounded))
-                .foregroundStyle(theme.textTertiary)
-                .monospacedDigit()
-                .frame(width: 10, alignment: .leading)
-
-            Text(ClaudeCodeHoverDashboardPresentation.modelLabel(model.model))
-                .font(.system(size: 9, weight: .semibold))
-                .foregroundStyle(theme.textPrimary)
-                .lineLimit(1)
-                .frame(width: 105, alignment: .leading)
-
-            GeometryReader { proxy in
-                ZStack(alignment: .leading) {
-                    Capsule().fill(theme.dockTrack)
-                    Capsule()
-                        .fill(ProjectTheme.claudeCodeUsage)
-                        .frame(
-                            width: max(
-                                3,
-                                proxy.size.width
-                                    * CGFloat(model.tokens)
-                                    / CGFloat(maximum)
-                            )
-                        )
-                }
-            }
-            .frame(height: 5)
-            .accessibilityHidden(true)
-
-            Text(ClaudeCodeHoverDashboardPresentation.tokenLabel(model.tokens))
-                .font(.system(size: 8.5, weight: .bold, design: .rounded))
-                .foregroundStyle(theme.textPrimary)
-                .monospacedDigit()
-                .frame(width: 45, alignment: .trailing)
-
-            Text(cost.map(ClaudeCodeHoverDashboardPresentation.costLabel) ?? "—")
-                .font(.system(size: 8.5, weight: .medium, design: .rounded))
-                .foregroundStyle(theme.textSecondary)
-                .monospacedDigit()
-                .frame(width: 48, alignment: .trailing)
-        }
-        .frame(height: 23)
-        .overlay(alignment: .bottom) {
-            if index < topModels.count - 1 {
-                Rectangle()
-                    .fill(theme.outline)
-                    .frame(height: 0.5)
-            }
-        }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(model.model)
-        .accessibilityValue(
-            "\(model.tokens.formatted()) tokens"
-                + (cost.map {
-                    ", \(ClaudeCodeHoverDashboardPresentation.costLabel($0)) observed estimated cost"
-                } ?? "")
+    private var dailyIntensityCard: some View {
+        CodexDailyIntensityCard(
+            buckets: intensityBuckets,
+            accent: ProjectTheme.claudeCodeUsage
         )
+        .accessibilityIdentifier("dockHover.claudeCode.dailyIntensity")
+    }
+
+    private var usageInsights: some View {
+        HStack(spacing: 7) {
+            dailyIntensityCard
+            CodexTopModelsCard(
+                models: compactTopModels,
+                isPartial: snapshot?.tokenUsage?.isModelUsagePartial == true,
+                accent: ProjectTheme.claudeCodeUsage
+            )
+        }
+        .frame(height: 90)
     }
 
     private var activeWorkCard: some View {
@@ -433,9 +613,10 @@ struct ClaudeCodeHoverDashboardView: View {
                     .font(.system(size: 10.5, weight: .bold))
                     .foregroundStyle(theme.textPrimary)
                 Spacer(minLength: 4)
-                if activeTasks.count + activeGoals.count > 0 {
+                if isActivityHookInstalled,
+                   visibleActiveTasks.count + activeGoals.count > 0 {
                     Text(
-                        "\(activeTasks.count) running · \(activeGoals.count) "
+                        "\(visibleActiveTasks.count) active · \(activeGoals.count) "
                             + (activeGoals.count == 1 ? "goal" : "goals")
                     )
                         .font(.system(size: 8, weight: .medium))
@@ -444,7 +625,9 @@ struct ClaudeCodeHoverDashboardView: View {
                 }
             }
 
-            if let task = activeTasks.first {
+            if !isActivityHookInstalled {
+                activityHookSetup
+            } else if let task = visibleActiveTasks.first {
                 workRow(
                     systemImage: "bolt.horizontal.circle",
                     title: task.name,
@@ -454,7 +637,7 @@ struct ClaudeCodeHoverDashboardView: View {
                 )
             }
 
-            if let goal = activeGoals.first {
+            if isActivityHookInstalled, let goal = activeGoals.first {
                 workRow(
                     systemImage: "scope",
                     title: goal.objective,
@@ -464,7 +647,9 @@ struct ClaudeCodeHoverDashboardView: View {
                 )
             }
 
-            if activeTasks.isEmpty && activeGoals.isEmpty {
+            if isActivityHookInstalled,
+               visibleActiveTasks.isEmpty,
+               activeGoals.isEmpty {
                 unavailableRow(
                     systemImage: "circle.dashed",
                     text: "No active Claude tasks or goals observed"
@@ -473,8 +658,50 @@ struct ClaudeCodeHoverDashboardView: View {
         }
         .padding(.horizontal, 4)
         .padding(.vertical, 7)
-        .frame(maxWidth: .infinity, minHeight: 126)
+        .frame(maxWidth: .infinity, minHeight: 118)
         .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("claudeCode.activeWork")
+    }
+
+    private var activityHookSetup: some View {
+        VStack(spacing: 6) {
+            Text("Connect Claude Code events to see sessions, tools, subagents, and tasks here in realtime.")
+                .font(.system(size: 8.5, weight: .medium))
+                .foregroundStyle(theme.textTertiary)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Button(action: onInstallActivityHook) {
+                HStack(spacing: 6) {
+                    if isInstallingActivityHook {
+                        ProgressView()
+                            .controlSize(.small)
+                            .tint(theme.onAction)
+                    }
+                    Text(
+                        isInstallingActivityHook
+                            ? "Connecting…"
+                            : "Enable realtime tracking"
+                    )
+                }
+            }
+            .buttonStyle(DSButtonStyle(kind: .primary))
+            .disabled(isInstallingActivityHook)
+            .accessibilityHint(
+                "Adds DockMagic event hooks without replacing existing Claude Code hooks"
+            )
+            .accessibilityIdentifier("claudeCode.activeWork.install")
+
+            if let activityHookErrorText {
+                Text(activityHookErrorText)
+                    .font(.system(size: 8, weight: .medium))
+                    .foregroundStyle(theme.dangerForeground)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.center)
+                    .accessibilityIdentifier("claudeCode.activeWork.error")
+            }
+        }
+        .frame(maxWidth: .infinity)
     }
 
     private func workRow(
@@ -541,11 +768,17 @@ struct ClaudeCodeHoverDashboardView: View {
     }
 
     private var snapshot: ClaudeCodeRateLimitSnapshot? { state.snapshot }
+    private var streakSummary: TokenUsageStreakSummary? {
+        snapshot?.streakSummary
+    }
     private var telemetry: ClaudeCodeTelemetrySnapshot? {
         snapshot?.claudeTelemetry
     }
     private var activeTasks: [ClaudeCodeActiveTask] {
         telemetry?.activeTasks ?? []
+    }
+    private var visibleActiveTasks: [ClaudeCodeActiveTask] {
+        activeTasks
     }
     private var activeGoals: [ClaudeCodeActiveGoal] {
         telemetry?.activeGoals.filter { $0.state != .complete } ?? []
@@ -556,17 +789,32 @@ struct ClaudeCodeHoverDashboardView: View {
     private var topModels: [CodexModelTokenUsage] {
         CodexHoverDashboardPresentation.topModels(from: snapshot?.tokenUsage)
     }
+    private var compactTopModels: [CodexModelTokenUsage] {
+        topModels.map {
+            CodexModelTokenUsage(
+                model: ClaudeCodeHoverDashboardPresentation.modelLabel(
+                    $0.model
+                ),
+                tokens: $0.tokens
+            )
+        }
+    }
     private var totalTokens30Days: Int64 {
         snapshot?.tokenUsage?.dailyUsageBuckets.reduce(0) {
             $0 + $1.tokens
         } ?? 0
     }
-    private var observedCost: Double? {
-        guard !dailyCosts.isEmpty else { return nil }
-        return dailyCosts.reduce(0) { $0 + $1.estimatedCostUSD }
-    }
     private var shipMomentum: CodexShipMomentum? {
-        CodexHoverDashboardPresentation.shipMomentum(in: snapshot)
+        CodexHoverDashboardPresentation.shipMomentum(
+            in: snapshot,
+            now: now
+        )
+    }
+    private var intensityBuckets: [CodexTokenUsageDailyBucket] {
+        CodexHoverDashboardPresentation.chartBuckets(
+            from: snapshot?.tokenUsage,
+            now: now
+        )
     }
 
     private var visibleChartBuckets: [ClaudeCodeUsageChartBucket] {
@@ -606,18 +854,6 @@ struct ClaudeCodeHoverDashboardView: View {
         }
     }
 
-    private var sessionSubtitle: String {
-        guard telemetry != nil else { return "Local bridge" }
-        let session = telemetry?.currentSession
-        let model = session?.modelDisplayName ?? session?.modelID
-        let context = session?.context?.usedPercent.map {
-            "\(Int($0.rounded()))% context"
-        }
-        return [model, context, "Local observed"]
-            .compactMap { $0 }
-            .joined(separator: " · ")
-    }
-
     private func window(
         for kind: ClaudeCodeRateLimitWindowKind
     ) -> ClaudeCodeRateLimitWindow? {
@@ -625,16 +861,6 @@ struct ClaudeCodeHoverDashboardView: View {
         case .fiveHour: return snapshot?.fiveHour
         case .weekly: return snapshot?.weekly
         }
-    }
-
-    private func modelCost(for model: String) -> Double? {
-        let normalized = model.lowercased()
-        return telemetry?.modelCosts.first {
-            let candidate = $0.model.lowercased()
-            return candidate == normalized
-                || candidate.contains(normalized)
-                || normalized.contains(candidate)
-        }?.estimatedCostUSD
     }
 
     private func taskDetail(_ task: ClaudeCodeActiveTask) -> String {
@@ -681,8 +907,7 @@ struct ClaudeCodeHoverDashboardView: View {
         switch state {
         case .idle: return "Waiting"
         case .loading: return "Loading"
-        case .live: return nil
-        case .stale: return "Stale"
+        case .live, .stale: return nil
         case .unavailable: return "Unavailable"
         }
     }
@@ -691,8 +916,7 @@ struct ClaudeCodeHoverDashboardView: View {
         switch state {
         case .idle: return "minus.circle"
         case .loading: return "ellipsis.circle"
-        case .live: return nil
-        case .stale: return "exclamationmark.triangle"
+        case .live, .stale: return nil
         case .unavailable: return "xmark.circle"
         }
     }
@@ -700,102 +924,46 @@ struct ClaudeCodeHoverDashboardView: View {
     private var statusForeground: Color {
         switch state {
         case .loading: return theme.processingForeground
-        case .stale: return theme.warningForeground
         case .unavailable: return theme.dangerForeground
-        case .idle, .live: return theme.textTertiary
+        case .idle, .live, .stale: return theme.textTertiary
         }
     }
-}
 
-private struct ClaudeCodeShipMomentumGauge: View {
-    let score: Int
-
-    @Environment(\.designTheme) private var theme
-
-    private var fraction: Double {
-        Double(min(max(score, 0), 100)) / 100
+    private var streakCelebrationTransition: AnyTransition {
+        reduceMotion
+            ? .opacity
+            : .opacity.combined(with: .scale(scale: 0.985))
     }
 
-    var body: some View {
-        ZStack(alignment: .bottom) {
-            ClaudeCodeGaugeArcShape(fraction: 1)
-                .stroke(
-                    theme.dockTrack,
-                    style: StrokeStyle(lineWidth: 8, lineCap: .round)
-                )
-
-            ClaudeCodeGaugeArcShape(fraction: fraction)
-                .stroke(
-                    ProjectTheme.claudeCodeUsage,
-                    style: StrokeStyle(lineWidth: 8, lineCap: .round)
-                )
-
-            ClaudeCodeGaugeNeedleShape(fraction: fraction)
-                .stroke(
-                    theme.textPrimary,
-                    style: StrokeStyle(lineWidth: 1.5, lineCap: .round)
-                )
-
-            Circle()
-                .fill(theme.textPrimary)
-                .frame(width: 5, height: 5)
-
-            Text("\(score)")
-                .font(.system(size: 17, weight: .bold, design: .rounded))
-                .foregroundStyle(theme.textPrimary)
-                .monospacedDigit()
-                .padding(.horizontal, 4)
-                .background(theme.opaqueSurfaceRaised)
-                .offset(y: 2)
-        }
-        .frame(width: 136, height: 64)
-        .accessibilityHidden(true)
-    }
-}
-
-private struct ClaudeCodeGaugeArcShape: Shape {
-    let fraction: Double
-
-    func path(in rect: CGRect) -> Path {
-        let clamped = min(max(fraction, 0), 1)
-        let center = CGPoint(x: rect.midX, y: rect.maxY - 3)
-        let radius = min(rect.width / 2 - 7, rect.height - 7)
-        let segments = max(1, Int(48 * clamped))
-        var path = Path()
-
-        for step in 0...segments {
-            let progress = clamped * Double(step) / Double(segments)
-            let angle = Double.pi * (1 - progress)
-            let point = CGPoint(
-                x: center.x + CGFloat(cos(angle)) * radius,
-                y: center.y - CGFloat(sin(angle)) * radius
-            )
-            if step == 0 {
-                path.move(to: point)
-            } else {
-                path.addLine(to: point)
+    private func dismissStreakCelebration(openBadges: Bool) {
+        guard let celebration = streakCelebration else { return }
+        let update = {
+            streakCelebration = nil
+            if openBadges {
+                isCaptureMenuPresented = false
+                isStreakDetailPresented = true
             }
         }
-        return path
+
+        if reduceMotion {
+            update()
+        } else {
+            withAnimation(.easeInOut(duration: 0.22), update)
+        }
+        onStreakCelebrationDismissed(celebration.id)
     }
-}
 
-private struct ClaudeCodeGaugeNeedleShape: Shape {
-    let fraction: Double
-
-    func path(in rect: CGRect) -> Path {
-        let clamped = min(max(fraction, 0), 1)
-        let center = CGPoint(x: rect.midX, y: rect.maxY - 3)
-        let radius = min(rect.width / 2 - 17, rect.height - 17)
-        let angle = Double.pi * (1 - clamped)
-        let endpoint = CGPoint(
-            x: center.x + CGFloat(cos(angle)) * radius,
-            y: center.y - CGFloat(sin(angle)) * radius
-        )
-        var path = Path()
-        path.move(to: center)
-        path.addLine(to: endpoint)
-        return path
+    private func setStreakDetailPresented(_ isPresented: Bool) {
+        if isPresented, isCaptureMenuPresented {
+            setCaptureMenuPresented(false)
+        }
+        if reduceMotion {
+            isStreakDetailPresented = isPresented
+        } else {
+            withAnimation(.easeOut(duration: 0.14)) {
+                isStreakDetailPresented = isPresented
+            }
+        }
     }
 }
 
@@ -1182,8 +1350,6 @@ extension CodexRateLimitSnapshot {
             tokenUsage: CodexAccountTokenUsage(
                 lifetimeTokens: nil,
                 peakDailyTokens: daily.map(\.tokens).max(),
-                currentStreakDays: 8,
-                longestStreakDays: 12,
                 longestRunningTurnSeconds: nil,
                 dailyUsageBuckets: daily,
                 modelUsage: [
@@ -1192,6 +1358,12 @@ extension CodexRateLimitSnapshot {
                     CodexModelTokenUsage(model: "claude-haiku-4-5", tokens: 1_300_000)
                 ],
                 isModelUsagePartial: true
+            ),
+            streakSummary: TokenUsageStreakSummary.fixture(
+                currentDays: 8,
+                bestDays: 12,
+                endingAt: now,
+                calendar: calendar
             ),
             recentTaskActivity: CodexRecentTaskActivity(
                 currentWeekCount: 12,
