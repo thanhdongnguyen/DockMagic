@@ -596,11 +596,15 @@ enum DockTilePresentation: Equatable, Sendable {
     )
     case codex(
         state: CodexUsageState,
-        appearance: DockRingAppearance
+        appearance: DockRingAppearance,
+        serviceStatus: ServiceStatusState = .operational(provider: .codex)
     )
     case claudeCode(
         state: ClaudeCodeUsageState,
-        appearance: DockRingAppearance
+        appearance: DockRingAppearance,
+        serviceStatus: ServiceStatusState = .operational(
+            provider: .claudeCode
+        )
     )
     case searchConsole(
         state: SearchConsoleState,

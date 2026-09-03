@@ -5,6 +5,25 @@ All notable changes to DockMagic will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.1] - 2026-09-04
+
+### Added
+
+- Added live service-health monitoring for Codex and Claude Code using their
+  official public status feeds.
+- Added status and incident-phase details to the Codex and Claude Code hover
+  dashboards, with links to the corresponding provider status page.
+- Added a semantic Corner Beacon on Dock tiles when a provider is degraded or
+  unavailable, including a one-time incident animation and Reduce Motion
+  support.
+
+### Changed
+
+- Added cached status snapshots, stale and unavailable states, adaptive polling,
+  and refreshes after launch and system wake.
+- Limited provider incident matching to the relevant Codex or Claude Code
+  components so unrelated service incidents do not trigger false alarms.
+
 ## [1.0.0] - 2026-08-31
 
 ### Added
@@ -61,5 +80,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Removed generated Xcode build products from version control and ignored
   repository-local Derived Data directories.
 
+[1.0.1]: https://github.com/thanhdongnguyen/DockMagic/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/thanhdongnguyen/DockMagic/compare/v0.1.0...v1.0.0
 [0.1.0]: https://github.com/thanhdongnguyen/DockMagic/releases/tag/v0.1.0

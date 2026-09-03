@@ -1,0 +1,89 @@
+[
+  {
+    "attachments" : [
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "00006030-001C588A1AD9001C",
+        "deviceName" : "My Mac",
+        "exportedFileName" : "5AB4BFD8-7F76-445F-8062-5DE9D324EF95.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "Service Status — Claude Header Pulse — Light High Contrast_0_68FA4A3B-71B2-4C19-99DA-6FCD4E1C1380.png",
+        "timestamp" : 1788452940.553
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "00006030-001C588A1AD9001C",
+        "deviceName" : "My Mac",
+        "exportedFileName" : "26CE42E1-65A0-4642-ABFC-1DC7EC67A516.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "Service Status — Codex Header Pulse — Grayscale_0_6F3F3398-F51A-489B-8BA0-89C0C9675600.png",
+        "timestamp" : 1788452940.355
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "00006030-001C588A1AD9001C",
+        "deviceName" : "My Mac",
+        "exportedFileName" : "A5FA1FDF-8EA1-414B-9DAE-2F1C6B40A9B0.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "Service Status — Codex Header Pulse — Dark_0_53F58C15-35C8-4AA1-86C3-4C540B8943EA.png",
+        "timestamp" : 1788452940.295
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "00006030-001C588A1AD9001C",
+        "deviceName" : "My Mac",
+        "exportedFileName" : "D6E55602-47B0-4FCC-93A9-FD207CF89D05.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "Service Status — Dock Compatibility — 128.0 pt_0_085C41BC-D272-4CDB-94F5-8216F0D0357A.png",
+        "timestamp" : 1788452940.015
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "00006030-001C588A1AD9001C",
+        "deviceName" : "My Mac",
+        "exportedFileName" : "1A13F3F0-CD30-4ABF-A334-5275ACCB07C0.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "Service Status — Dock Compatibility — 64.0 pt_0_17FA177D-31FE-4B62-86C0-5D4C7209AE4F.png",
+        "timestamp" : 1788452939.915
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "00006030-001C588A1AD9001C",
+        "deviceName" : "My Mac",
+        "exportedFileName" : "26512431-9DE7-43A9-8543-4CCF0C77A30E.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "Service Status — Dock Compatibility — 48.0 pt_0_B2D1209B-1EB8-4B59-B206-CC16133B8470.png",
+        "timestamp" : 1788452939.812
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "00006030-001C588A1AD9001C",
+        "deviceName" : "My Mac",
+        "exportedFileName" : "07A8F1FF-FCAD-4FF8-81FC-79AFE73B3856.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "Service Status — Dock Compatibility — 32.0 pt_0_756AFAB5-243A-4368-9DAF-61F791C80170.png",
+        "timestamp" : 1788452939.722
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "00006030-001C588A1AD9001C",
+        "deviceName" : "My Mac",
+        "exportedFileName" : "93A2E68A-CFB4-41A0-BBD1-10BB3C0A7004.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "Service Status — Claude Numeric — Settled_0_29ADC7CF-995E-4D72-8D86-4047FA5BDE25.png",
+        "timestamp" : 1788452939.635
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "00006030-001C588A1AD9001C",
+        "deviceName" : "My Mac",
+        "exportedFileName" : "C262B8A8-95C1-4EB0-8E98-0A95B8F5C99E.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "Service Status — Corner Beacon — Animation Storyboard_0_76CB519A-51E6-4BE2-9261-2B7C943342A1.png",
+        "timestamp" : 1788452939.541
+      }
+    ],
+    "testIdentifier" : "DockMagicTests/testServiceStatusSelectedDesignSnapshots()",
+    "testIdentifierURL" : "test://com.apple.xcode/DockMagic/DockMagicTests/DockMagicTests/testServiceStatusSelectedDesignSnapshots"
+  }
+]

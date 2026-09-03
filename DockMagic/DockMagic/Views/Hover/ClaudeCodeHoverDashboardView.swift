@@ -14,6 +14,7 @@ struct ClaudeCodeHoverDashboardView: View {
     }
 
     let state: ClaudeCodeUsageState
+    let serviceStatus: ServiceStatusState
     var now: Date = .now
     let streakCelebrationAutoDismissDelay: Duration
     let onStreakCelebrationDismissed: (String) -> Void
@@ -36,6 +37,9 @@ struct ClaudeCodeHoverDashboardView: View {
 
     init(
         state: ClaudeCodeUsageState,
+        serviceStatus: ServiceStatusState = .operational(
+            provider: .claudeCode
+        ),
         now: Date = .now,
         initialMetric: String = "Tokens",
         initialStreakDetailPresented: Bool = false,
@@ -50,6 +54,7 @@ struct ClaudeCodeHoverDashboardView: View {
         onInstallActivityHook: @escaping @MainActor () -> Void = {}
     ) {
         self.state = state
+        self.serviceStatus = serviceStatus
         self.now = now
         self.streakCelebrationAutoDismissDelay =
             streakCelebrationAutoDismissDelay
@@ -176,46 +181,50 @@ struct ClaudeCodeHoverDashboardView: View {
     }
 
     private var header: some View {
-        HStack(spacing: 8) {
-            Image("ClaudeCodeLogo")
-                .resizable()
-                .interpolation(.high)
-                .scaledToFit()
-                .frame(width: 26, height: 26)
-                .clipShape(
-                    RoundedRectangle(cornerRadius: 7, style: .continuous)
-                )
-                .accessibilityHidden(true)
+        VStack(spacing: 2) {
+            HStack(spacing: 8) {
+                Image("ClaudeCodeLogo")
+                    .resizable()
+                    .interpolation(.high)
+                    .scaledToFit()
+                    .frame(width: 26, height: 26)
+                    .clipShape(
+                        RoundedRectangle(cornerRadius: 7, style: .continuous)
+                    )
+                    .accessibilityHidden(true)
 
-            Text("Claude Code")
-                .font(.system(size: 17, weight: .bold))
-                .foregroundStyle(theme.textPrimary)
+                Text("Claude Code")
+                    .font(.system(size: 17, weight: .bold))
+                    .foregroundStyle(theme.textPrimary)
 
-            if let plan = snapshot?.planType, !plan.isEmpty {
-                CodexPlanBadge(plan: plan)
-            }
-
-            if let statusTitle, let statusSystemImage {
-                HStack(spacing: 3) {
-                    Image(systemName: statusSystemImage)
-                        .symbolRenderingMode(.monochrome)
-                        .font(.system(size: 9, weight: .semibold))
-                        .accessibilityHidden(true)
-
-                    Text(statusTitle)
-                        .font(.system(size: 10, weight: .semibold))
+                if let plan = snapshot?.planType, !plan.isEmpty {
+                    CodexPlanBadge(plan: plan)
                 }
-                .foregroundStyle(statusForeground)
-                .accessibilityElement(children: .combine)
-            }
 
-            Spacer(minLength: 4)
+                if let statusTitle, let statusSystemImage {
+                    HStack(spacing: 3) {
+                        Image(systemName: statusSystemImage)
+                            .symbolRenderingMode(.monochrome)
+                            .font(.system(size: 9, weight: .semibold))
+                            .accessibilityHidden(true)
 
-            if captureConfiguration != nil {
-                captureButton
+                        Text(statusTitle)
+                            .font(.system(size: 10, weight: .semibold))
+                    }
+                    .foregroundStyle(statusForeground)
+                    .accessibilityElement(children: .combine)
+                }
+
+                Spacer(minLength: 4)
+
+                if captureConfiguration != nil {
+                    captureButton
+                }
             }
+            .frame(height: 30)
+
+            ServiceStatusHeaderView(state: serviceStatus)
         }
-        .frame(height: 30)
     }
 
     private var captureButton: some View {
@@ -427,6 +436,7 @@ struct ClaudeCodeHoverDashboardView: View {
             captureErrorText = nil
             return try CodexDashboardCaptureService.renderClaudeCode(
                 state: state,
+                serviceStatus: serviceStatus,
                 configuration: captureConfiguration,
                 now: now
             )

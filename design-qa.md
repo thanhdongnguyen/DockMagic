@@ -568,3 +568,74 @@ final result: passed
 No actionable P0, P1, P2, or P3 findings remain.
 
 final result: passed
+
+---
+
+# DockMagic Service Status — Design QA
+
+## Comparison target
+
+- Source visual truth paths:
+  - `docs/service-status-concepts/header-pulse-selected.png`
+  - `docs/service-status-concepts/corner-beacon-selected.png`
+- Implementation screenshot paths:
+  - `docs/service-status-concepts/implementation-snapshots-final/A5FA1FDF-8EA1-414B-9DAE-2F1C6B40A9B0.png` (Codex dashboard)
+  - `docs/service-status-concepts/implementation-snapshots-final/5AB4BFD8-7F76-445F-8062-5DE9D324EF95.png` (Claude dashboard)
+  - `docs/service-status-concepts/implementation-snapshots-final/C262B8A8-95C1-4EB0-8E98-0A95B8F5C99E.png` (Dock animation storyboard)
+  - `docs/service-status-concepts/design-qa-comparison.png` (normalized side-by-side comparison)
+- Viewport and density:
+  - Dashboard source board: 1487 × 1058 px, generated at 1×; focused comparisons crop each provider's header and quota region.
+  - Codex implementation: 440 × 556 pt at 4×, 1760 × 2224 px.
+  - Claude implementation: 440 × 740 pt at 4×, 1760 × 2960 px.
+  - Corner Beacon source board: 1536 × 1024 px at 1×.
+  - Corner Beacon implementation storyboard: 784 × 200 pt at 2×, 1568 × 400 px.
+  - The comparison board is 4000 × 3180 px. Source and implementation regions are aspect-fit into equal-width panels; dashboard comparisons use top-header crops so the different production panel heights do not create false density findings.
+- State:
+  - Codex: degraded performance, monitoring.
+  - Claude Code: major outage, identified, plus a partial-outage source reference.
+  - Dock: incident arrival at 0/90/180/270 ms and settled; ring and numeric compatibility; Reduce Motion settled state.
+
+## Full-view comparison evidence
+
+The combined comparison board shows that the implementation preserves the selected concepts' hierarchy: provider identity first, incident symbol/severity/phase second, quota information unchanged, and a stable official-status affordance. The production 440-point dashboard retains its existing lifetime metric, so the incident and provider link use a compact second header line instead of competing with the metric on the first line. This is an intentional responsive adaptation; it does not alter content order or hide above-the-fold controls.
+
+The Dock implementation keeps the underlying ring/numeric values stationary and confines the alert to the top-right identity/status slot. The 270 ms frame reaches the same large semantic-triangle emphasis as the selected Corner Beacon storyboard, then returns to a small static beacon.
+
+## Focused region comparison evidence
+
+`docs/service-status-concepts/design-qa-comparison.png` places focused Codex and Claude header crops and the complete Corner Beacon timelines beside their source regions in one image. At readable scale:
+
+- Fonts and typography: production uses the existing macOS system typography, semibold severity/phase copy, and the current dashboard hierarchy. No wrapping or truncation is visible.
+- Spacing and layout rhythm: status icon, copy, spacer, and official link align on one compact line below the existing 30-point identity row. Quota cards retain their original margins and vertical rhythm.
+- Colors and visual tokens: operational is neutral; confirmed degraded/partial states use the shared warning role; major outage uses the shared danger role. No new feature palette, glow, tinted card, or decorative gradient was introduced.
+- Image quality and asset fidelity: existing Codex/Claude brand assets remain sharp and bounded to the identity region. Status indicators use monochrome SF Symbols; no emoji, placeholder, custom SVG, or code-drawn brand asset replaces source imagery.
+- Copy and content: `Degraded · Monitoring`, `Major outage · Identified`, `OpenAI status`, and `Claude status` are concise and map directly to provider data. Cached/unavailable states remain distinct from confirmed downtime.
+- Icons and accessibility: the triangle communicates incident state without relying on color. Snapshots confirm legibility at 32, 48, 64, and 128 points. Reduce Motion skips the animation and retains the settled symbol.
+
+## Findings
+
+- No actionable P0, P1, or P2 findings remain.
+- P3 residual test gap: automated tests verify that official URLs are attached to real SwiftUI `Link` controls, but deliberately do not launch an external browser during the test suite.
+
+## Open Questions
+
+- None blocking. The two-line production header is accepted as the responsive form of the source concept because the selected mock does not include DockMagic's existing lifetime metric at the real 440-point width.
+
+## Comparison history
+
+1. Initial pass — P2: the Corner Beacon outline only expanded to 1.8× and faded before the last animation frame, so the 180/270 ms emphasis was visibly weaker than `corner-beacon-selected.png`. Evidence: `docs/service-status-concepts/implementation-snapshots/80EDB40D-436F-43CE-9063-2091C1E6C1F6.png`.
+2. Fix: increased the deterministic triangle/echo growth, retained its emphasis through the final transition frame, and added the final 30 ms hold before publishing the settled raster. Usage rendering remains static.
+3. Post-fix pass: `docs/service-status-concepts/design-qa-comparison.png` and `docs/service-status-concepts/implementation-snapshots-final/C262B8A8-95C1-4EB0-8E98-0A95B8F5C99E.png` show the source-like bloom at 180/270 ms and the correct small settled beacon. No further P0/P1/P2 differences were found.
+
+## Implementation checklist
+
+- [x] Header Pulse for Codex and Claude Code.
+- [x] Official status links and provider-specific copy.
+- [x] Static Corner Beacon for ring and numeric Dock renderers.
+- [x] Cancellable nine-frame/270 ms transition.
+- [x] Deduplication for repeated and phase-only refreshes.
+- [x] Reduce Motion direct-to-settled behavior.
+- [x] Light, Dark, Increased Contrast, Reduce Transparency, grayscale, and small-size snapshots.
+- [x] Parser, cache/stale, animation, capture, and rendering tests.
+
+final result: passed

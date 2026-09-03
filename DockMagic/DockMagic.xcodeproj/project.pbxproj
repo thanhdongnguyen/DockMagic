@@ -89,6 +89,10 @@
 		C4A000000000000000000001 /* TokenUsageStreakRecord.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4B000000000000000000001 /* TokenUsageStreakRecord.swift */; };
 		C4A000000000000000000002 /* TokenUsageStreakStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4B000000000000000000002 /* TokenUsageStreakStore.swift */; };
 		C4A000000000000000000003 /* TokenUsageStreakStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4B000000000000000000003 /* TokenUsageStreakStoreTests.swift */; };
+		C5A000000000000000000001 /* ServiceStatusSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5B000000000000000000001 /* ServiceStatusSnapshot.swift */; };
+		C5A000000000000000000002 /* ServiceStatusAPIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5B000000000000000000002 /* ServiceStatusAPIClient.swift */; };
+		C5A000000000000000000003 /* ServiceStatusStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5B000000000000000000003 /* ServiceStatusStore.swift */; };
+		C5A000000000000000000004 /* ServiceStatusHeaderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5B000000000000000000004 /* ServiceStatusHeaderView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -196,6 +200,10 @@
 		C4B000000000000000000001 /* TokenUsageStreakRecord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TokenUsageStreakRecord.swift; sourceTree = "<group>"; };
 		C4B000000000000000000002 /* TokenUsageStreakStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TokenUsageStreakStore.swift; sourceTree = "<group>"; };
 		C4B000000000000000000003 /* TokenUsageStreakStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TokenUsageStreakStoreTests.swift; sourceTree = "<group>"; };
+		C5B000000000000000000001 /* ServiceStatusSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceStatusSnapshot.swift; sourceTree = "<group>"; };
+		C5B000000000000000000002 /* ServiceStatusAPIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceStatusAPIClient.swift; sourceTree = "<group>"; };
+		C5B000000000000000000003 /* ServiceStatusStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceStatusStore.swift; sourceTree = "<group>"; };
+		C5B000000000000000000004 /* ServiceStatusHeaderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceStatusHeaderView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -303,6 +311,7 @@
 		D0C200000000000000000002 /* Models */ = {
 			isa = PBXGroup;
 			children = (
+				C5B000000000000000000001 /* ServiceStatusSnapshot.swift */,
 				C4B000000000000000000001 /* TokenUsageStreakRecord.swift */,
 				A1B000000000000000000002 /* SearchConsoleConfigurationRecord.swift */,
 				A1B000000000000000000001 /* SearchConsoleModels.swift */,
@@ -322,6 +331,7 @@
 		D0C200000000000000000003 /* Services */ = {
 			isa = PBXGroup;
 			children = (
+				C5B000000000000000000002 /* ServiceStatusAPIClient.swift */,
 				D7B000000000000000000008 /* CodexDailyTokenDetailLoader.swift */,
 				C3B000000000000000000004 /* CodexDashboardCaptureService.swift */,
 				C3B000000000000000000001 /* DockHoverCoordinator.swift */,
@@ -347,6 +357,7 @@
 		D0C200000000000000000004 /* Stores */ = {
 			isa = PBXGroup;
 			children = (
+				C5B000000000000000000003 /* ServiceStatusStore.swift */,
 				C4B000000000000000000002 /* TokenUsageStreakStore.swift */,
 				B4B000000000000000000001 /* ClockStore.swift */,
 				A1B000000000000000000005 /* SearchConsoleStore.swift */,
@@ -404,6 +415,7 @@
 		C3C000000000000000000001 /* Hover */ = {
 			isa = PBXGroup;
 			children = (
+				C5B000000000000000000004 /* ServiceStatusHeaderView.swift */,
 				E1B000000000000000000001 /* WeatherHoverDashboardView.swift */,
 				C3B000000000000000000002 /* CodexHoverDashboardView.swift */,
 				C3B000000000000000000005 /* CodexDailyTokenDetailView.swift */,
@@ -582,6 +594,10 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C5A000000000000000000001 /* ServiceStatusSnapshot.swift in Sources */,
+				C5A000000000000000000002 /* ServiceStatusAPIClient.swift in Sources */,
+				C5A000000000000000000003 /* ServiceStatusStore.swift in Sources */,
+				C5A000000000000000000004 /* ServiceStatusHeaderView.swift in Sources */,
 				C4A000000000000000000001 /* TokenUsageStreakRecord.swift in Sources */,
 				C4A000000000000000000002 /* TokenUsageStreakStore.swift in Sources */,
 				C3A000000000000000000001 /* DockHoverCoordinator.swift in Sources */,
@@ -821,7 +837,7 @@
 				CODE_SIGN_ENTITLEMENTS = DockMagic/DockMagic.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 4;
 				DEVELOPMENT_ASSET_PATHS = "\"DockMagic/Preview Content\"";
 				DEVELOPMENT_TEAM = S35WXF7W5L;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -834,7 +850,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 1.0.0;
+				MARKETING_VERSION = 1.0.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.hypevibe.DockMagic;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -850,7 +866,7 @@
 				CODE_SIGN_ENTITLEMENTS = DockMagic/DockMagic.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 4;
 				DEVELOPMENT_ASSET_PATHS = "\"DockMagic/Preview Content\"";
 				DEVELOPMENT_TEAM = S35WXF7W5L;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -863,7 +879,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 1.0.0;
+				MARKETING_VERSION = 1.0.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.hypevibe.DockMagic;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -877,11 +893,11 @@
 				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 4;
 				DEVELOPMENT_TEAM = S35WXF7W5L;
 				GENERATE_INFOPLIST_FILE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 1.0.0;
+				MARKETING_VERSION = 1.0.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.hypevibe.DockMagicTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
@@ -896,11 +912,11 @@
 				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 4;
 				DEVELOPMENT_TEAM = S35WXF7W5L;
 				GENERATE_INFOPLIST_FILE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 1.0.0;
+				MARKETING_VERSION = 1.0.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.hypevibe.DockMagicTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
@@ -914,10 +930,10 @@
 			buildSettings = {
 				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 4;
 				DEVELOPMENT_TEAM = S35WXF7W5L;
 				GENERATE_INFOPLIST_FILE = YES;
-				MARKETING_VERSION = 1.0.0;
+				MARKETING_VERSION = 1.0.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.hypevibe.DockMagicUITests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
@@ -931,10 +947,10 @@
 			buildSettings = {
 				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 4;
 				DEVELOPMENT_TEAM = S35WXF7W5L;
 				GENERATE_INFOPLIST_FILE = YES;
-				MARKETING_VERSION = 1.0.0;
+				MARKETING_VERSION = 1.0.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.hypevibe.DockMagicUITests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;

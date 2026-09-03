@@ -54,6 +54,31 @@ struct DockClockAnimationTimeline: Equatable, Sendable {
     }
 }
 
+struct DockServiceStatusAnimationTimeline: Equatable, Sendable {
+    static let standard = DockServiceStatusAnimationTimeline(
+        frameCount: 9,
+        frameInterval: .milliseconds(30)
+    )
+
+    let frameCount: Int
+    let frameInterval: Duration
+
+    init(frameCount: Int, frameInterval: Duration) {
+        precondition(frameCount > 0)
+        precondition(frameInterval >= .zero)
+        self.frameCount = frameCount
+        self.frameInterval = frameInterval
+    }
+
+    var transitions: [DockServiceStatusTransition] {
+        (1...frameCount).map { frame in
+            DockServiceStatusTransition(
+                progress: Double(frame) / Double(frameCount)
+            )
+        }
+    }
+}
+
 @MainActor
 final class DockTileController {
     private let dockTile: NSDockTile
@@ -61,14 +86,19 @@ final class DockTileController {
     private let appearanceStore: UserDefaults
     private let iconRenderer: any DockApplicationIconRendering
     private let clockAnimationTimeline: DockClockAnimationTimeline
+    private let serviceStatusAnimationTimeline:
+        DockServiceStatusAnimationTimeline
     private let reduceMotionProvider: @MainActor () -> Bool
 
     private var clockAnimationTask: Task<Void, Never>?
     private var clockAnimationID: UUID?
+    private var serviceStatusAnimationTask: Task<Void, Never>?
+    private var serviceStatusAnimationID: UUID?
 
     private(set) var currentPresentation: DockTilePresentation
     private(set) var currentAppearanceMode: DSAppearanceMode
     private(set) var isAnimatingClock = false
+    private(set) var isAnimatingServiceStatus = false
 
     convenience init(initialPresentation: DockTilePresentation) {
         self.init(
@@ -86,6 +116,8 @@ final class DockTileController {
         appearanceStore: UserDefaults = DockMagicRuntimeDefaults.current,
         iconRenderer: (any DockApplicationIconRendering)? = nil,
         clockAnimationTimeline: DockClockAnimationTimeline = .standard,
+        serviceStatusAnimationTimeline: DockServiceStatusAnimationTimeline =
+            .standard,
         reduceMotionProvider: (@MainActor () -> Bool)? = nil
     ) {
         self.dockTile = dockTile
@@ -93,6 +125,7 @@ final class DockTileController {
         self.appearanceStore = appearanceStore
         self.iconRenderer = iconRenderer ?? DockApplicationIconRenderer()
         self.clockAnimationTimeline = clockAnimationTimeline
+        self.serviceStatusAnimationTimeline = serviceStatusAnimationTimeline
         self.reduceMotionProvider = reduceMotionProvider ?? {
             NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
         }
@@ -108,6 +141,7 @@ final class DockTileController {
 
     deinit {
         clockAnimationTask?.cancel()
+        serviceStatusAnimationTask?.cancel()
     }
 
     func update(presentation: DockTilePresentation) {
@@ -118,32 +152,45 @@ final class DockTileController {
         let previousPresentation = currentPresentation
         currentPresentation = presentation
         cancelClockAnimation()
+        cancelServiceStatusAnimation()
 
-        guard let animation = clockAnimation(
+        if let animation = clockAnimation(
             from: previousPresentation,
             to: presentation
-        ) else {
-            render()
+        ) {
+            startClockAnimation(
+                previousDate: animation.previousDate,
+                style: animation.style
+            )
             return
         }
 
-        startClockAnimation(
-            previousDate: animation.previousDate,
-            style: animation.style
-        )
+        if shouldAnimateServiceStatus(
+            from: previousPresentation,
+            to: presentation
+        ) {
+            startServiceStatusAnimation()
+        } else {
+            render()
+        }
     }
 
     func updateAppearance() {
         cancelClockAnimation()
+        cancelServiceStatusAnimation()
         currentAppearanceMode = DSAppearanceMode.stored(in: appearanceStore)
         render()
     }
 
-    private func render(clockTransition: DockClockTransition? = nil) {
+    private func render(
+        clockTransition: DockClockTransition? = nil,
+        serviceStatusTransition: DockServiceStatusTransition? = nil
+    ) {
         if let image = iconRenderer.render(
             presentation: currentPresentation,
             appearanceMode: currentAppearanceMode,
-            clockTransition: clockTransition
+            clockTransition: clockTransition,
+            serviceStatusTransition: serviceStatusTransition
         ) {
             application.applicationIconImage = image
         }
@@ -236,10 +283,113 @@ final class DockTileController {
         }
     }
 
+    private func shouldAnimateServiceStatus(
+        from previousPresentation: DockTilePresentation,
+        to presentation: DockTilePresentation
+    ) -> Bool {
+        guard !reduceMotionProvider(),
+              let next = serviceStatusState(in: presentation)?
+                .incidentSignature else {
+            return false
+        }
+
+        guard let previous = serviceStatusState(in: previousPresentation)?
+            .incidentSignature else {
+            return true
+        }
+
+        return previous.incidentID != next.incidentID
+            || previous.title != next.title
+            || next.severity.rank > previous.severity.rank
+    }
+
+    private func serviceStatusState(
+        in presentation: DockTilePresentation
+    ) -> ServiceStatusState? {
+        switch presentation {
+        case let .codex(_, _, serviceStatus),
+             let .claudeCode(_, _, serviceStatus):
+            serviceStatus
+        case .dockMagic, .systemMetrics, .network, .storage, .weather,
+             .clock, .batteries, .github, .searchConsole:
+            nil
+        }
+    }
+
+    private func startServiceStatusAnimation() {
+        let transitions = serviceStatusAnimationTimeline.transitions
+        guard !transitions.isEmpty else {
+            render()
+            return
+        }
+
+        let animationID = UUID()
+        serviceStatusAnimationID = animationID
+        isAnimatingServiceStatus = true
+        let frameInterval = serviceStatusAnimationTimeline.frameInterval
+
+        serviceStatusAnimationTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+
+            defer {
+                if self.serviceStatusAnimationID == animationID {
+                    self.serviceStatusAnimationID = nil
+                    self.serviceStatusAnimationTask = nil
+                    self.isAnimatingServiceStatus = false
+                }
+            }
+
+            for (index, transition) in transitions.enumerated() {
+                guard !Task.isCancelled,
+                      self.serviceStatusAnimationID == animationID else {
+                    return
+                }
+
+                self.render(serviceStatusTransition: transition)
+
+                guard index < transitions.index(before: transitions.endIndex)
+                else {
+                    continue
+                }
+
+                if frameInterval > .zero {
+                    do {
+                        try await Task.sleep(for: frameInterval)
+                    } catch {
+                        return
+                    }
+                } else {
+                    await Task.yield()
+                }
+            }
+
+            guard !Task.isCancelled,
+                  self.serviceStatusAnimationID == animationID else {
+                return
+            }
+
+            if frameInterval > .zero {
+                do {
+                    try await Task.sleep(for: frameInterval)
+                } catch {
+                    return
+                }
+            }
+            self.render()
+        }
+    }
+
     private func cancelClockAnimation() {
         clockAnimationID = nil
         clockAnimationTask?.cancel()
         clockAnimationTask = nil
         isAnimatingClock = false
+    }
+
+    private func cancelServiceStatusAnimation() {
+        serviceStatusAnimationID = nil
+        serviceStatusAnimationTask?.cancel()
+        serviceStatusAnimationTask = nil
+        isAnimatingServiceStatus = false
     }
 }

@@ -94,6 +94,8 @@ struct DockHoverDashboardRoot: View {
                         case .codex:
                             CodexHoverDashboardView(
                                 state: appModel.codexStore.state,
+                                serviceStatus: appModel.serviceStatusStore
+                                    .codexState,
                                 dailyDetailLoader: { date in
                                     try await appModel.codexStore
                                         .loadDailyTokenDetail(for: date)
@@ -124,6 +126,8 @@ struct DockHoverDashboardRoot: View {
                         case .claudeCode:
                             ClaudeCodeHoverDashboardView(
                                 state: appModel.claudeCodeStore.state,
+                                serviceStatus: appModel.serviceStatusStore
+                                    .claudeCodeState,
                                 initialStreakDetailPresented:
                                     initialStreakDetailPresented,
                                 initialStreakCelebration:
@@ -183,6 +187,7 @@ struct CodexHoverDashboardView: View {
     }
 
     let state: CodexUsageState
+    let serviceStatus: ServiceStatusState
     let now: Date
     let dailyDetailLoader: (
         @MainActor @Sendable (Date) async throws -> CodexDailyTokenDetail?
@@ -207,6 +212,7 @@ struct CodexHoverDashboardView: View {
 
     init(
         state: CodexUsageState,
+        serviceStatus: ServiceStatusState = .operational(provider: .codex),
         now: Date = .now,
         dailyDetailLoader: (
             @MainActor @Sendable (Date) async throws -> CodexDailyTokenDetail?
@@ -222,6 +228,7 @@ struct CodexHoverDashboardView: View {
         initialCaptureMenuPresented: Bool = false
     ) {
         self.state = state
+        self.serviceStatus = serviceStatus
         self.now = now
         self.dailyDetailLoader = dailyDetailLoader
         self.initialIntensityHoveredBucketID = initialIntensityHoveredBucketID
@@ -362,65 +369,69 @@ struct CodexHoverDashboardView: View {
     }
 
     private var header: some View {
-        HStack(spacing: 8) {
-            Image("CodexLogo")
-                .resizable()
-                .interpolation(.high)
-                .scaledToFill()
-                // The supplied logo includes faint edge pixels outside the
-                // brand mark. Crop that transparent fringe at presentation
-                // time so it stays clean on an opaque dark surface.
-                .frame(width: 42, height: 42)
-                .frame(width: 26, height: 26)
-                .clipShape(
-                    RoundedRectangle(cornerRadius: 7, style: .continuous)
-                )
-                .accessibilityHidden(true)
+        VStack(spacing: 2) {
+            HStack(spacing: 8) {
+                Image("CodexLogo")
+                    .resizable()
+                    .interpolation(.high)
+                    .scaledToFill()
+                    // The supplied logo includes faint edge pixels outside the
+                    // brand mark. Crop that transparent fringe at presentation
+                    // time so it stays clean on an opaque dark surface.
+                    .frame(width: 42, height: 42)
+                    .frame(width: 26, height: 26)
+                    .clipShape(
+                        RoundedRectangle(cornerRadius: 7, style: .continuous)
+                    )
+                    .accessibilityHidden(true)
 
-            Text("Codex")
-                .font(.system(size: 17, weight: .bold))
-                .foregroundStyle(theme.textPrimary)
+                Text("Codex")
+                    .font(.system(size: 17, weight: .bold))
+                    .foregroundStyle(theme.textPrimary)
 
-            if let plan = snapshot?.planType, !plan.isEmpty {
-                CodexPlanBadge(plan: plan)
-            }
-
-            if let statusTitle, let statusSystemImage {
-                HStack(spacing: 3) {
-                    Image(systemName: statusSystemImage)
-                        .symbolRenderingMode(.monochrome)
-                        .font(.system(size: 9, weight: .semibold))
-                        .accessibilityHidden(true)
-
-                    Text(statusTitle)
-                        .font(.system(size: 10, weight: .semibold))
+                if let plan = snapshot?.planType, !plan.isEmpty {
+                    CodexPlanBadge(plan: plan)
                 }
-                .foregroundStyle(statusForeground)
-                .accessibilityElement(children: .combine)
-            }
 
-            Spacer(minLength: 4)
+                if let statusTitle, let statusSystemImage {
+                    HStack(spacing: 3) {
+                        Image(systemName: statusSystemImage)
+                            .symbolRenderingMode(.monochrome)
+                            .font(.system(size: 9, weight: .semibold))
+                            .accessibilityHidden(true)
 
-            if captureConfiguration != nil {
-                captureButton
-            }
-
-            if let lifetimeTokens = tokenUsage?.lifetimeTokens {
-                HStack(alignment: .firstTextBaseline, spacing: 3) {
-                    Text(Self.tokenLabel(lifetimeTokens))
-                        .font(.system(size: 14, weight: .bold, design: .rounded))
-                        .foregroundStyle(theme.textPrimary)
-                    Text("lifetime")
-                        .font(.system(size: 10, weight: .medium))
-                        .foregroundStyle(theme.textSecondary)
+                        Text(statusTitle)
+                            .font(.system(size: 10, weight: .semibold))
+                    }
+                    .foregroundStyle(statusForeground)
+                    .accessibilityElement(children: .combine)
                 }
-                .monospacedDigit()
-                .accessibilityElement(children: .combine)
-                .accessibilityLabel("Lifetime tokens")
-                .accessibilityValue(lifetimeTokens.formatted())
+
+                Spacer(minLength: 4)
+
+                if captureConfiguration != nil {
+                    captureButton
+                }
+
+                if let lifetimeTokens = tokenUsage?.lifetimeTokens {
+                    HStack(alignment: .firstTextBaseline, spacing: 3) {
+                        Text(Self.tokenLabel(lifetimeTokens))
+                            .font(.system(size: 14, weight: .bold, design: .rounded))
+                            .foregroundStyle(theme.textPrimary)
+                        Text("lifetime")
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundStyle(theme.textSecondary)
+                    }
+                    .monospacedDigit()
+                    .accessibilityElement(children: .combine)
+                    .accessibilityLabel("Lifetime tokens")
+                    .accessibilityValue(lifetimeTokens.formatted())
+                }
             }
+            .frame(height: 30)
+
+            ServiceStatusHeaderView(state: serviceStatus)
         }
-        .frame(height: 30)
     }
 
     private var captureButton: some View {
@@ -636,6 +647,7 @@ struct CodexHoverDashboardView: View {
             captureErrorText = nil
             return try CodexDashboardCaptureService.render(
                 state: state,
+                serviceStatus: serviceStatus,
                 configuration: captureConfiguration
             )
         } catch {
