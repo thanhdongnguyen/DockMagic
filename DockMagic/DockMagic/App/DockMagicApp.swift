@@ -57,6 +57,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     cache: InMemoryGitHubRepositoryHistoryCache(),
                     pollingInterval: 60
                 ),
+                serviceStatusStore: ServiceStatusStore(
+                    provider: DockMagicUITestServiceStatusProvider(),
+                    cache: InMemoryServiceStatusCache(),
+                    operationalPollingInterval: 60,
+                    incidentPollingInterval: 60
+                ),
                 searchConsoleStore: SearchConsoleStore.uiTestFixture()
             )
         }
@@ -224,6 +230,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 self?.appModel.refreshActiveClockAfterResume()
                 await self?.appModel.refreshActiveBatteriesAfterResume()
                 await self?.appModel.refreshActiveGitHubAfterResume()
+                await self?.appModel.refreshServiceStatusesAfterResume()
             }
         }
         workspaceSessionActiveObserver = workspaceNotificationCenter.addObserver(
@@ -236,6 +243,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 self?.appModel.refreshActiveClockAfterResume()
                 await self?.appModel.refreshActiveBatteriesAfterResume()
                 await self?.appModel.refreshActiveGitHubAfterResume()
+                await self?.appModel.refreshServiceStatusesAfterResume()
             }
         }
     }
@@ -494,6 +502,16 @@ private struct DockMagicUITestGitHubProvider:
             etag: "\"dockmagic-ui-test\"",
             rateLimit: rateLimit
         )
+    }
+}
+
+private struct DockMagicUITestServiceStatusProvider:
+    ServiceStatusProviding
+{
+    func fetchStatus(
+        for provider: ServiceStatusProviderID
+    ) async throws -> ServiceHealthSnapshot {
+        .operational(provider: provider, fetchedAt: Date())
     }
 }
 

@@ -15,6 +15,7 @@ final class DockAppModel {
     let streakStore: TokenUsageStreakStore
     let codexStore: CodexUsageStore
     let claudeCodeStore: ClaudeCodeUsageStore
+    let serviceStatusStore: ServiceStatusStore
     let searchConsoleStore: SearchConsoleStore
 
     private(set) var isRunning = false
@@ -37,6 +38,7 @@ final class DockAppModel {
         streakStore: TokenUsageStreakStore? = nil,
         codexStore: CodexUsageStore? = nil,
         claudeCodeStore: ClaudeCodeUsageStore? = nil,
+        serviceStatusStore: ServiceStatusStore? = nil,
         searchConsoleStore: SearchConsoleStore? = nil
     ) {
         let preferences = preferences ?? DockPreferencesStore()
@@ -57,6 +59,7 @@ final class DockAppModel {
         self.claudeCodeStore = claudeCodeStore ?? ClaudeCodeUsageStore(
             streakTracker: streakStore
         )
+        self.serviceStatusStore = serviceStatusStore ?? ServiceStatusStore()
         self.searchConsoleStore = searchConsoleStore ?? SearchConsoleStore()
         self.githubStore.configure(
             repositoryURL: preferences.githubRepositoryURL
@@ -108,12 +111,14 @@ final class DockAppModel {
         case .codex:
             .codex(
                 state: codexStore.state,
-                appearance: preferences.codexAppearance
+                appearance: preferences.codexAppearance,
+                serviceStatus: serviceStatusStore.codexState
             )
         case .claudeCode:
             .claudeCode(
                 state: claudeCodeStore.state,
-                appearance: preferences.claudeCodeAppearance
+                appearance: preferences.claudeCodeAppearance,
+                serviceStatus: serviceStatusStore.claudeCodeState
             )
         case .searchConsole:
             .searchConsole(
@@ -129,6 +134,7 @@ final class DockAppModel {
         }
 
         isRunning = true
+        serviceStatusStore.start()
         applyPreferences()
         observePreferences()
     }
@@ -147,6 +153,7 @@ final class DockAppModel {
         githubStore.stop()
         codexStore.stop()
         claudeCodeStore.stop()
+        serviceStatusStore.stop()
         searchConsoleStore.stop()
     }
 
@@ -378,6 +385,14 @@ final class DockAppModel {
 
         githubStore.start()
         await githubStore.refresh()
+    }
+
+    /// Refreshes the official Codex and Claude service pages after sleep or
+    /// session unlock, when timer delivery may have been suspended by macOS.
+    func refreshServiceStatusesAfterResume() async {
+        guard isRunning else { return }
+        serviceStatusStore.start()
+        await serviceStatusStore.refresh()
     }
 
     private func scheduleAutomaticClaudeCodeSetup() {

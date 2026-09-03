@@ -4,15 +4,18 @@ struct DockTileView: View {
     let presentation: DockTilePresentation
     let animatesChanges: Bool
     let clockTransition: DockClockTransition?
+    let serviceStatusTransition: DockServiceStatusTransition?
 
     init(
         presentation: DockTilePresentation,
         animatesChanges: Bool,
-        clockTransition: DockClockTransition? = nil
+        clockTransition: DockClockTransition? = nil,
+        serviceStatusTransition: DockServiceStatusTransition? = nil
     ) {
         self.presentation = presentation
         self.animatesChanges = animatesChanges
         self.clockTransition = clockTransition
+        self.serviceStatusTransition = serviceStatusTransition
     }
 
     var body: some View {
@@ -62,16 +65,20 @@ struct DockTileView: View {
                 appearance: appearance,
                 errorDescription: errorDescription
             )
-        case let .codex(state, appearance):
+        case let .codex(state, appearance, serviceStatus):
             DockCodexView(
                 state: state,
                 appearance: appearance,
+                serviceStatus: serviceStatus,
+                serviceStatusTransition: serviceStatusTransition,
                 animatesChanges: animatesChanges
             )
-        case let .claudeCode(state, appearance):
+        case let .claudeCode(state, appearance, serviceStatus):
             DockClaudeCodeView(
                 state: state,
                 appearance: appearance,
+                serviceStatus: serviceStatus,
+                serviceStatusTransition: serviceStatusTransition,
                 animatesChanges: animatesChanges
             )
         case let .searchConsole(state, configuration):
@@ -187,12 +194,16 @@ struct DockMetricsView: View {
 struct DockCodexView: View {
     let state: CodexUsageState
     let appearance: DockRingAppearance
+    var serviceStatus: ServiceStatusState = .operational(provider: .codex)
+    var serviceStatusTransition: DockServiceStatusTransition? = nil
     let animatesChanges: Bool
 
     var body: some View {
         DockUsageLimitView(
             state: state,
             appearance: appearance,
+            serviceStatus: serviceStatus,
+            serviceStatusTransition: serviceStatusTransition,
             animatesChanges: animatesChanges,
             showsStateSymbol: true,
             accessibilityLabel: "Codex usage remaining",
@@ -204,12 +215,18 @@ struct DockCodexView: View {
 struct DockClaudeCodeView: View {
     let state: ClaudeCodeUsageState
     let appearance: DockRingAppearance
+    var serviceStatus: ServiceStatusState = .operational(
+        provider: .claudeCode
+    )
+    var serviceStatusTransition: DockServiceStatusTransition? = nil
     let animatesChanges: Bool
 
     var body: some View {
         DockUsageLimitView(
             state: state,
             appearance: appearance,
+            serviceStatus: serviceStatus,
+            serviceStatusTransition: serviceStatusTransition,
             animatesChanges: animatesChanges,
             showsStateSymbol: false,
             accessibilityLabel: "Claude Code usage remaining",
@@ -221,6 +238,8 @@ struct DockClaudeCodeView: View {
 private struct DockUsageLimitView: View {
     let state: CodexUsageState
     let appearance: DockRingAppearance
+    let serviceStatus: ServiceStatusState
+    let serviceStatusTransition: DockServiceStatusTransition?
     let animatesChanges: Bool
     let showsStateSymbol: Bool
     let accessibilityLabel: String
@@ -228,25 +247,37 @@ private struct DockUsageLimitView: View {
 
     @ViewBuilder
     var body: some View {
-        if appearance.displayStyle == .numeric {
-            DockUsageNumericTileView(values: numericValues)
-                .accessibilityElement(children: .ignore)
-                .accessibilityLabel(accessibilityLabel)
-                .accessibilityValue(accessibilityValue)
-                .accessibilityIdentifier(accessibilityIdentifier)
-        } else {
-            DockRingTileView(
-                outerRing: outerRing,
-                innerRing: innerRing,
-                stateSymbol: showsStateSymbol ? stateSymbol : nil,
-                stateRole: stateRole,
-                animatesChanges: animatesChanges
-            )
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel(accessibilityLabel)
-            .accessibilityValue(accessibilityValue)
-            .accessibilityIdentifier(accessibilityIdentifier)
+        ZStack {
+            if appearance.displayStyle == .numeric {
+                DockUsageNumericTileView(values: numericValues)
+            } else {
+                DockRingTileView(
+                    outerRing: outerRing,
+                    innerRing: innerRing,
+                    stateSymbol: showsStateSymbol ? stateSymbol : nil,
+                    stateRole: stateRole,
+                    animatesChanges: animatesChanges
+                )
+            }
+
+            if let incident = serviceStatus.incidentSnapshot {
+                GeometryReader { proxy in
+                    let side = min(proxy.size.width, proxy.size.height)
+                    DockServiceStatusBeacon(
+                        severity: incident.severity,
+                        transition: serviceStatusTransition,
+                        side: side
+                    )
+                    .position(x: side * 0.82, y: side * 0.18)
+                }
+                .accessibilityHidden(true)
+            }
         }
+        .aspectRatio(1, contentMode: .fit)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(accessibilityLabel)
+        .accessibilityValue(accessibilityValue)
+        .accessibilityIdentifier(accessibilityIdentifier)
     }
 
     private var numericValues: [DockNumericValue] {
@@ -373,7 +404,7 @@ private struct DockUsageLimitView: View {
     }
 
     private var accessibilityValue: String {
-        switch state {
+        let usageValue = switch state {
         case .idle:
             "Not connected"
         case .loading:
@@ -385,6 +416,10 @@ private struct DockUsageLimitView: View {
         case let .stale(snapshot, message):
             "Last known values, \(quotaDescription(snapshot)), \(message)"
         }
+        guard let incident = serviceStatus.incidentSnapshot else {
+            return usageValue
+        }
+        return "\(usageValue), \(incident.provider.displayName) service \(incident.severity.accessibilityLabel)"
     }
 
     private func quotaDescription(_ snapshot: CodexRateLimitSnapshot) -> String {
@@ -398,6 +433,73 @@ private struct DockUsageLimitView: View {
         return values.isEmpty
             ? "Usage limits unavailable"
             : values.joined(separator: ", ")
+    }
+}
+
+private struct DockServiceStatusBeacon: View {
+    let severity: ServiceHealthSeverity
+    let transition: DockServiceStatusTransition?
+    let side: CGFloat
+
+    @Environment(\.designTheme) private var theme
+
+    var body: some View {
+        let iconSize = max(8, side * 0.125)
+        let containerSize = max(14, side * 0.19)
+
+        ZStack {
+            if let transition {
+                Image(systemName: "exclamationmark.triangle")
+                    .symbolRenderingMode(.monochrome)
+                    .font(.system(size: iconSize, weight: .black))
+                    .foregroundStyle(statusColor)
+                    .scaleEffect(1 + 1.7 * transition.progress)
+                    .opacity(echoOpacity(for: transition.progress))
+            }
+
+            Circle()
+                .fill(theme.dockBackgroundInset)
+                .frame(width: containerSize, height: containerSize)
+
+            Image(systemName: "exclamationmark.triangle.fill")
+                .symbolRenderingMode(.monochrome)
+                .font(.system(size: iconSize, weight: .black))
+                .foregroundStyle(statusColor)
+                .scaleEffect(badgeScale)
+        }
+        .frame(width: containerSize, height: containerSize)
+    }
+
+    private var statusColor: Color {
+        switch severity {
+        case .majorOutage:
+            theme.dangerForeground
+        case .degraded, .partialOutage, .maintenance:
+            theme.warningForeground
+        case .operational:
+            theme.dockOutline
+        }
+    }
+
+    private var badgeScale: CGFloat {
+        guard let progress = transition?.progress else { return 1 }
+        return 0.7 + 1.35 * CGFloat(progress)
+    }
+
+    private func echoOpacity(for progress: Double) -> Double {
+        min(0.88, 0.18 + progress * 0.7)
+    }
+}
+
+private extension ServiceHealthSeverity {
+    var accessibilityLabel: String {
+        switch self {
+        case .operational: "operational"
+        case .degraded: "degraded"
+        case .partialOutage: "partial outage"
+        case .majorOutage: "major outage"
+        case .maintenance: "under maintenance"
+        }
     }
 }
 

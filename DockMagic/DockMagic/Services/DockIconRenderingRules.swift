@@ -51,7 +51,8 @@ protocol DockApplicationIconRendering {
     func render(
         presentation: DockTilePresentation,
         appearanceMode: DSAppearanceMode,
-        clockTransition: DockClockTransition?
+        clockTransition: DockClockTransition?,
+        serviceStatusTransition: DockServiceStatusTransition?
     ) -> NSImage?
 }
 
@@ -60,14 +61,16 @@ struct DockApplicationIconRenderer: DockApplicationIconRendering {
     func render(
         presentation: DockTilePresentation,
         appearanceMode: DSAppearanceMode,
-        clockTransition: DockClockTransition? = nil
+        clockTransition: DockClockTransition? = nil,
+        serviceStatusTransition: DockServiceStatusTransition? = nil
     ) -> NSImage? {
         let renderer = ImageRenderer(
             content: DockMagicThemeRoot(
                 content: DockTileView(
                     presentation: presentation,
                     animatesChanges: false,
-                    clockTransition: clockTransition
+                    clockTransition: clockTransition,
+                    serviceStatusTransition: serviceStatusTransition
                 )
                 .environment(\.displayScale, DockIconRenderingRules.rasterScale),
                 appearanceMode: appearanceMode

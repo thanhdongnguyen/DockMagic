@@ -3902,7 +3902,7 @@ final class DockMagicTests: XCTestCase {
         )
 
         appModel.preferences.activeFeature = .codex
-        guard case let .codex(state, codexAppearance) = appModel.dockPresentation else {
+        guard case let .codex(state, codexAppearance, _) = appModel.dockPresentation else {
             return XCTFail("Expected the Codex Dock presentation.")
         }
         XCTAssertEqual(state, .idle)
@@ -3912,7 +3912,7 @@ final class DockMagicTests: XCTestCase {
         )
 
         appModel.preferences.activeFeature = .claudeCode
-        guard case let .claudeCode(state, appearance) = appModel.dockPresentation else {
+        guard case let .claudeCode(state, appearance, _) = appModel.dockPresentation else {
             return XCTFail("Expected the Claude Code Dock presentation.")
         }
         XCTAssertEqual(state, .idle)
@@ -4480,6 +4480,440 @@ final class DockMagicTests: XCTestCase {
         cancellableController.update(presentation: .dockMagic)
         XCTAssertFalse(cancellableController.isAnimatingClock)
         XCTAssertNil(cancellableRenderer.clockTransitions.last!)
+    }
+
+    func testServiceStatusParsersScopeIncidentsToCodexAndClaudeCode() throws {
+        let fetchedAt = Date(timeIntervalSince1970: 1_800_000_000)
+        let openAIFeed = Data(
+            #"""
+            <?xml version="1.0" encoding="UTF-8"?>
+            <rss version="2.0"><channel>
+              <item>
+                <title>Elevated errors across ChatGPT and Codex</title>
+                <link>https://status.openai.com//incidents/codex-incident</link>
+                <guid>https://status.openai.com//incidents/codex-incident</guid>
+                <pubDate>Thu, 03 Sep 2026 04:20:00 GMT</pubDate>
+                <description><![CDATA[
+                  <b>Status: Monitoring</b>
+                  <ul>
+                    <li>Codex Web (Degraded performance)</li>
+                    <li>CLI (Degraded performance)</li>
+                  </ul>
+                ]]></description>
+              </item>
+              <item>
+                <title>ChatGPT unavailable</title>
+                <link>https://status.openai.com/incidents/chatgpt-only</link>
+                <pubDate>Thu, 03 Sep 2026 05:20:00 GMT</pubDate>
+                <description><![CDATA[
+                  <b>Status: Investigating</b>
+                  <ul><li>ChatGPT (Major outage)</li></ul>
+                ]]></description>
+              </item>
+              <item>
+                <title>Previous Codex incident</title>
+                <link>https://status.openai.com/incidents/resolved-codex</link>
+                <pubDate>Thu, 03 Sep 2026 06:20:00 GMT</pubDate>
+                <description><![CDATA[
+                  <b>Status: Resolved</b>
+                  <ul><li>Codex API (Major outage)</li></ul>
+                ]]></description>
+              </item>
+            </channel></rss>
+            """#.utf8
+        )
+
+        let codex = try ServiceStatusAPIClient.parseOpenAIStatus(
+            openAIFeed,
+            fetchedAt: fetchedAt
+        )
+        XCTAssertEqual(codex.provider, .codex)
+        XCTAssertEqual(codex.severity, .degraded)
+        XCTAssertEqual(codex.phase, .monitoring)
+        XCTAssertEqual(codex.incidentID, "codex-incident")
+        XCTAssertEqual(
+            codex.incidentURL?.absoluteString,
+            "https://status.openai.com/incidents/codex-incident"
+        )
+
+        let claudeSummary = Data(
+            #"""
+            {
+              "components": [
+                {"id":"yyzkbfz2thpt","name":"Claude Code","status":"partial_outage"},
+                {"id":"api","name":"Claude API","status":"major_outage"}
+              ],
+              "incidents": [
+                {
+                  "id":"claude-code-incident",
+                  "name":"Elevated errors for multiple models",
+                  "status":"identified",
+                  "updated_at":"2026-09-03T05:30:00.000Z",
+                  "shortlink":"https://status.claude.com/incidents/claude-code-incident",
+                  "components":[
+                    {"id":"yyzkbfz2thpt","name":"Claude Code","status":"partial_outage"}
+                  ]
+                }
+              ]
+            }
+            """#.utf8
+        )
+        let claude = try ServiceStatusAPIClient.parseClaudeStatus(
+            claudeSummary,
+            fetchedAt: fetchedAt
+        )
+        XCTAssertEqual(claude.provider, .claudeCode)
+        XCTAssertEqual(claude.severity, .partialOutage)
+        XCTAssertEqual(claude.phase, .identified)
+        XCTAssertEqual(claude.incidentID, "claude-code-incident")
+        XCTAssertEqual(claude.title, "Elevated errors for multiple models")
+    }
+
+    func testClaudeStatusIgnoresIncidentsForOtherComponents() throws {
+        let data = Data(
+            #"""
+            {
+              "components": [
+                {"id":"yyzkbfz2thpt","name":"Claude Code","status":"operational"},
+                {"id":"api","name":"Claude API","status":"major_outage"}
+              ],
+              "incidents": [
+                {
+                  "id":"api-only",
+                  "name":"Claude API outage",
+                  "status":"investigating",
+                  "updated_at":"2026-09-03T05:30:00Z",
+                  "shortlink":"https://status.claude.com/incidents/api-only",
+                  "components":[
+                    {"id":"api","name":"Claude API","status":"major_outage"}
+                  ]
+                }
+              ]
+            }
+            """#.utf8
+        )
+
+        let snapshot = try ServiceStatusAPIClient.parseClaudeStatus(
+            data,
+            fetchedAt: Date(timeIntervalSince1970: 1_800_000_000)
+        )
+        XCTAssertEqual(snapshot.severity, .operational)
+        XCTAssertNil(snapshot.incidentID)
+        XCTAssertNil(snapshot.title)
+    }
+
+    @MainActor
+    func testServiceStatusStoreUsesRecentCacheAndExpiresOldCache() async {
+        let currentDate = Date(timeIntervalSince1970: 10_000)
+        let recent = ServiceHealthSnapshot(
+            provider: .codex,
+            severity: .degraded,
+            phase: .monitoring,
+            incidentID: "recent",
+            title: "Recent incident",
+            incidentURL: nil,
+            fetchedAt: currentDate.addingTimeInterval(-120),
+            updatedAt: nil
+        )
+        let old = ServiceHealthSnapshot(
+            provider: .claudeCode,
+            severity: .partialOutage,
+            phase: .identified,
+            incidentID: "old",
+            title: "Old incident",
+            incidentURL: nil,
+            fetchedAt: currentDate.addingTimeInterval(-900),
+            updatedAt: nil
+        )
+        let store = ServiceStatusStore(
+            provider: FailingServiceStatusProvider(),
+            cache: InMemoryServiceStatusCache(snapshots: [recent, old]),
+            operationalPollingInterval: 60,
+            incidentPollingInterval: 30,
+            staleAfter: 600,
+            now: { currentDate }
+        )
+
+        XCTAssertEqual(
+            store.codexState,
+            .stale(recent, message: "Refreshing provider status.")
+        )
+        XCTAssertEqual(store.claudeCodeState, .loading(provider: .claudeCode))
+
+        await store.refresh()
+
+        guard case let .stale(snapshot, message) = store.codexState else {
+            return XCTFail("A recent cache entry should remain visible.")
+        }
+        XCTAssertEqual(snapshot, recent)
+        XCTAssertTrue(message.hasPrefix("Cached status"))
+
+        guard case let .unavailable(provider, _, lastCheckedAt) =
+            store.claudeCodeState else {
+            return XCTFail("An expired cache entry should become unavailable.")
+        }
+        XCTAssertEqual(provider, .claudeCode)
+        XCTAssertEqual(lastCheckedAt, old.fetchedAt)
+    }
+
+    @MainActor
+    func testDockServiceStatusAnimationIsBoundedAndHonorsReduceMotion() async throws {
+        let usage = CodexUsageState.live(sampleCodexSnapshot())
+        let operational = ServiceStatusState.operational(provider: .codex)
+        let incident = ServiceHealthSnapshot(
+            provider: .codex,
+            severity: .degraded,
+            phase: .investigating,
+            incidentID: "incident-1",
+            title: "Elevated Codex errors",
+            incidentURL: URL(string: "https://status.openai.com/incidents/incident-1"),
+            fetchedAt: .now,
+            updatedAt: .now
+        )
+        let timeline = DockServiceStatusAnimationTimeline(
+            frameCount: 9,
+            frameInterval: .zero
+        )
+        let renderer = SpyDockApplicationIconRenderer()
+        let controller = DockTileController(
+            dockTile: SpyDockTile(),
+            application: SpyApplicationIconDisplay(),
+            initialPresentation: .codex(
+                state: usage,
+                appearance: DockFeatureDefaults.codexAppearance,
+                serviceStatus: operational
+            ),
+            appearanceStore: makeAppearanceDefaults(.dark),
+            iconRenderer: renderer,
+            serviceStatusAnimationTimeline: timeline,
+            reduceMotionProvider: { false }
+        )
+
+        controller.update(
+            presentation: .codex(
+                state: usage,
+                appearance: DockFeatureDefaults.codexAppearance,
+                serviceStatus: .live(incident)
+            )
+        )
+        XCTAssertTrue(controller.isAnimatingServiceStatus)
+        try await waitUntil { !controller.isAnimatingServiceStatus }
+
+        let firstAnimation = renderer.serviceStatusTransitions
+            .dropFirst()
+            .compactMap { $0 }
+        XCTAssertEqual(firstAnimation.count, 9)
+        XCTAssertEqual(firstAnimation.first?.progress, 1.0 / 9.0)
+        XCTAssertEqual(firstAnimation.last?.progress, 1)
+        XCTAssertNil(renderer.serviceStatusTransitions.last!)
+
+        let phaseOnlyStart = renderer.serviceStatusTransitions.count
+        let monitoring = ServiceHealthSnapshot(
+            provider: incident.provider,
+            severity: incident.severity,
+            phase: .monitoring,
+            incidentID: incident.incidentID,
+            title: incident.title,
+            incidentURL: incident.incidentURL,
+            fetchedAt: incident.fetchedAt.addingTimeInterval(60),
+            updatedAt: incident.updatedAt
+        )
+        controller.update(
+            presentation: .codex(
+                state: usage,
+                appearance: DockFeatureDefaults.codexAppearance,
+                serviceStatus: .live(monitoring)
+            )
+        )
+        XCTAssertFalse(controller.isAnimatingServiceStatus)
+        XCTAssertEqual(
+            renderer.serviceStatusTransitions.count,
+            phaseOnlyStart + 1
+        )
+        XCTAssertNil(renderer.serviceStatusTransitions.last!)
+
+        let reducedRenderer = SpyDockApplicationIconRenderer()
+        let reducedController = DockTileController(
+            dockTile: SpyDockTile(),
+            application: SpyApplicationIconDisplay(),
+            initialPresentation: .codex(
+                state: usage,
+                appearance: DockFeatureDefaults.codexAppearance,
+                serviceStatus: operational
+            ),
+            appearanceStore: makeAppearanceDefaults(.dark),
+            iconRenderer: reducedRenderer,
+            serviceStatusAnimationTimeline: timeline,
+            reduceMotionProvider: { true }
+        )
+        reducedController.update(
+            presentation: .codex(
+                state: usage,
+                appearance: DockFeatureDefaults.codexAppearance,
+                serviceStatus: .live(incident)
+            )
+        )
+        XCTAssertFalse(reducedController.isAnimatingServiceStatus)
+        XCTAssertEqual(reducedRenderer.serviceStatusTransitions.count, 2)
+        XCTAssertTrue(reducedRenderer.serviceStatusTransitions.allSatisfy {
+            $0 == nil
+        })
+    }
+
+    @MainActor
+    func testServiceStatusSelectedDesignSnapshots() throws {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let codexIncident = ServiceHealthSnapshot(
+            provider: .codex,
+            severity: .degraded,
+            phase: .monitoring,
+            incidentID: "codex-incident",
+            title: "Elevated errors across ChatGPT and Codex",
+            incidentURL: URL(string: "https://status.openai.com/incidents/codex-incident"),
+            fetchedAt: now,
+            updatedAt: now
+        )
+        let claudeIncident = ServiceHealthSnapshot(
+            provider: .claudeCode,
+            severity: .majorOutage,
+            phase: .identified,
+            incidentID: "claude-incident",
+            title: "Elevated errors for multiple models",
+            incidentURL: URL(string: "https://status.claude.com/incidents/claude-incident"),
+            fetchedAt: now,
+            updatedAt: now
+        )
+        let codexPresentation = DockTilePresentation.codex(
+            state: .live(sampleCodexSnapshot()),
+            appearance: DockFeatureDefaults.codexAppearance,
+            serviceStatus: .live(codexIncident)
+        )
+        let frames: [(String, DockServiceStatusTransition?)] = [
+            ("0 ms", DockServiceStatusTransition(progress: 0)),
+            ("90 ms", DockServiceStatusTransition(progress: 3.0 / 9.0)),
+            ("180 ms", DockServiceStatusTransition(progress: 6.0 / 9.0)),
+            ("270 ms", DockServiceStatusTransition(progress: 1)),
+            ("Settled", nil)
+        ]
+        let storyboard = HStack(alignment: .top, spacing: 12) {
+            ForEach(Array(frames.enumerated()), id: \.offset) { _, frame in
+                VStack(spacing: 8) {
+                    DockTileView(
+                        presentation: codexPresentation,
+                        animatesChanges: false,
+                        serviceStatusTransition: frame.1
+                    )
+                    .frame(width: 140, height: 140)
+
+                    Text(frame.0)
+                        .font(.system(size: 13, weight: .semibold))
+                }
+            }
+        }
+        .padding(18)
+
+        try attachScreenshot(
+            of: DockMagicThemeRoot(
+                content: storyboard,
+                appearanceMode: .dark
+            ),
+            size: NSSize(width: 802, height: 194),
+            appearanceName: .darkAqua,
+            name: "Service Status — Corner Beacon — Animation Storyboard"
+        )
+
+        var numericClaudeAppearance = DockFeatureDefaults.claudeCodeAppearance
+        numericClaudeAppearance.setDisplayStyle(.numeric)
+        try attachScreenshot(
+            of: DockMagicThemeRoot(
+                content: DockTileView(
+                    presentation: .claudeCode(
+                        state: .live(sampleClaudeCodeSnapshot(fetchedAt: now)),
+                        appearance: numericClaudeAppearance,
+                        serviceStatus: .live(claudeIncident)
+                    ),
+                    animatesChanges: false
+                ),
+                appearanceMode: .dark
+            ),
+            size: NSSize(width: 256, height: 256),
+            appearanceName: .darkAqua,
+            name: "Service Status — Claude Numeric — Settled"
+        )
+
+        for side in [CGFloat(32), 48, 64, 128] {
+            try attachScreenshot(
+                of: DockMagicThemeRoot(
+                    content: HStack(spacing: 0) {
+                        DockTileView(
+                            presentation: codexPresentation,
+                            animatesChanges: false
+                        )
+                        .frame(width: side, height: side)
+
+                        DockTileView(
+                            presentation: .claudeCode(
+                                state: .live(
+                                    sampleClaudeCodeSnapshot(fetchedAt: now)
+                                ),
+                                appearance: numericClaudeAppearance,
+                                serviceStatus: .live(claudeIncident)
+                            ),
+                            animatesChanges: false
+                        )
+                        .frame(width: side, height: side)
+                    },
+                    appearanceMode: .dark
+                ),
+                size: NSSize(width: side * 2, height: side),
+                appearanceName: .darkAqua,
+                name: "Service Status — Dock Compatibility — \(side) pt"
+            )
+        }
+
+        let codexArtifact = try CodexDashboardCaptureService.render(
+            state: .live(.hoverDesignPreview),
+            serviceStatus: .live(codexIncident),
+            configuration: CodexDashboardCaptureConfiguration(
+                pointerEdge: .bottom,
+                panelSize: DockHoverPanelPlacement.codexPanelSize,
+                appearanceMode: .dark
+            ),
+            now: now
+        )
+        attachPNG(
+            codexArtifact.pngData,
+            name: "Service Status — Codex Header Pulse — Dark"
+        )
+        attachPNG(
+            try grayscalePNG(
+                codexArtifact.pngData,
+                name: "Service Status — Codex Header Pulse"
+            ),
+            name: "Service Status — Codex Header Pulse — Grayscale"
+        )
+
+        let claudeArtifact = try CodexDashboardCaptureService.renderClaudeCode(
+            state: .live(.claudeCodeHoverDesignPreview(now: now)),
+            serviceStatus: .live(claudeIncident),
+            configuration: CodexDashboardCaptureConfiguration(
+                pointerEdge: .bottom,
+                panelSize: DockHoverPanelPlacement.claudeCodePanelSize,
+                appearanceMode: .light
+            ),
+            now: now,
+            accessibilityOverrides: DSAccessibilityOverrides(
+                reduceTransparency: true,
+                increaseContrast: true,
+                reduceMotion: true
+            )
+        )
+        XCTAssertGreaterThan(codexArtifact.pngData.count, 60_000)
+        XCTAssertGreaterThan(claudeArtifact.pngData.count, 60_000)
+        attachPNG(
+            claudeArtifact.pngData,
+            name: "Service Status — Claude Header Pulse — Light High Contrast"
+        )
     }
 
     private func assertHighResolutionApplicationIcon(
@@ -6019,7 +6453,7 @@ final class DockMagicTests: XCTestCase {
 
         let clickLocation = NSPoint(
             x: panelSize.width - 31,
-            y: panelSize.height - 33
+            y: panelSize.height - 25
         )
         let down = try XCTUnwrap(NSEvent.mouseEvent(
             with: .leftMouseDown,
@@ -10416,6 +10850,25 @@ private final class SpyDockTile: NSDockTile {
     }
 }
 
+private struct FailingServiceStatusProvider: ServiceStatusProviding {
+    func fetchStatus(
+        for provider: ServiceStatusProviderID
+    ) async throws -> ServiceHealthSnapshot {
+        throw ServiceStatusFixtureError.unavailable(provider)
+    }
+}
+
+private enum ServiceStatusFixtureError: LocalizedError, Sendable {
+    case unavailable(ServiceStatusProviderID)
+
+    var errorDescription: String? {
+        switch self {
+        case let .unavailable(provider):
+            "Fixture failure for \(provider.displayName)."
+        }
+    }
+}
+
 @MainActor
 private final class SpyApplicationIconDisplay: ApplicationIconDisplaying {
     var applicationIconImage: NSImage!
@@ -10426,13 +10879,17 @@ private final class SpyDockApplicationIconRenderer:
     DockApplicationIconRendering
 {
     private(set) var clockTransitions: [DockClockTransition?] = []
+    private(set) var serviceStatusTransitions:
+        [DockServiceStatusTransition?] = []
 
     func render(
         presentation: DockTilePresentation,
         appearanceMode: DSAppearanceMode,
-        clockTransition: DockClockTransition?
+        clockTransition: DockClockTransition?,
+        serviceStatusTransition: DockServiceStatusTransition?
     ) -> NSImage? {
         clockTransitions.append(clockTransition)
+        serviceStatusTransitions.append(serviceStatusTransition)
         return nil
     }
 }

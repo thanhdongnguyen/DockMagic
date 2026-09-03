@@ -1,0 +1,53 @@
+[
+  {
+    "attachments" : [
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "00006030-001C588A1AD9001C",
+        "deviceName" : "My Mac",
+        "exportedFileName" : "A9FF328A-5C27-41D1-A724-7C13BA2EEE78.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "Service Status — Claude Header Pulse — Light High Contrast_0_337F13E3-A4B4-47D5-99AF-B99E3F709F57.png",
+        "timestamp" : 1788452723.457
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "00006030-001C588A1AD9001C",
+        "deviceName" : "My Mac",
+        "exportedFileName" : "7DE71CCB-64D8-4186-9DDA-6F5C601F347F.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "Service Status — Codex Header Pulse — Grayscale_0_7064ADA3-A031-4C26-BE7D-6337A02D1F3B.png",
+        "timestamp" : 1788452723.245
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "00006030-001C588A1AD9001C",
+        "deviceName" : "My Mac",
+        "exportedFileName" : "39BEE141-5B10-4E47-81BD-057586CC2364.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "Service Status — Codex Header Pulse — Dark_0_FACDCD3A-8BC5-47BA-A63A-C16E3959E75D.png",
+        "timestamp" : 1788452723.146
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "00006030-001C588A1AD9001C",
+        "deviceName" : "My Mac",
+        "exportedFileName" : "E7E23CB1-DBA0-4DE7-933D-39CBF3B52CA5.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "Service Status — Claude Numeric — Settled_0_92A011AA-655A-4D0F-8A0D-678368524A8B.png",
+        "timestamp" : 1788452722.848
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "00006030-001C588A1AD9001C",
+        "deviceName" : "My Mac",
+        "exportedFileName" : "80EDB40D-436F-43CE-9063-2091C1E6C1F6.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "Service Status — Corner Beacon — Animation Storyboard_0_D95876D6-B657-495F-ACA8-7204B4DC3CBB.png",
+        "timestamp" : 1788452722.754
+      }
+    ],
+    "testIdentifier" : "DockMagicTests/testServiceStatusSelectedDesignSnapshots()",
+    "testIdentifierURL" : "test://com.apple.xcode/DockMagic/DockMagicTests/DockMagicTests/testServiceStatusSelectedDesignSnapshots"
+  }
+]

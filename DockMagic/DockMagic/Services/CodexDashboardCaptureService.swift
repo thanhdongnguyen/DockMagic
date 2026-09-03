@@ -55,6 +55,7 @@ enum CodexDashboardCaptureService {
 
     static func render(
         state: CodexUsageState,
+        serviceStatus: ServiceStatusState = .operational(provider: .codex),
         configuration: CodexDashboardCaptureConfiguration,
         now: Date = .now,
         initialStreakCelebration: TokenUsageStreakCelebration? = nil,
@@ -69,6 +70,7 @@ enum CodexDashboardCaptureService {
             ) {
                 CodexHoverDashboardView(
                     state: state,
+                    serviceStatus: serviceStatus,
                     now: now,
                     initialStreakCelebration: initialStreakCelebration,
                     streakCelebrationAutoDismissDelay:
@@ -163,6 +165,9 @@ enum CodexDashboardCaptureService {
 
     static func renderClaudeCode(
         state: ClaudeCodeUsageState,
+        serviceStatus: ServiceStatusState = .operational(
+            provider: .claudeCode
+        ),
         configuration: CodexDashboardCaptureConfiguration,
         now: Date = .now,
         accessibilityOverrides: DSAccessibilityOverrides = .init()
@@ -175,6 +180,7 @@ enum CodexDashboardCaptureService {
             ) {
                 ClaudeCodeHoverDashboardView(
                     state: state,
+                    serviceStatus: serviceStatus,
                     now: now
                 )
             },
