@@ -35,7 +35,7 @@
 	<key>SUFeedURL</key>
 	<string>https://github.com/thanhdongnguyen/DockMagic/releases/latest/download/appcast.xml</string>
 	<key>SUPublicEDKey</key>
-	<string>QU1G6KwYNKkFdv9MMKjOOBS4hm8mdtNSnsTxhNZ/Z04=</string>
+	<string>juhgXFwDO+O5TgaeLbyqqfECABCaIQkLtX3mkWAc7uQ=</string>
 	<key>SUScheduledCheckInterval</key>
 	<integer>86400</integer>
 	<key>SUVerifyUpdateBeforeExtraction</key>

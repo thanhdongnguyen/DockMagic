@@ -5,6 +5,33 @@ All notable changes to DockMagic will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.2] - 2026-09-04
+
+### Added
+
+- Added signed Sparkle updates from GitHub, including manual update checks,
+  update-availability status, and automatic check and download preferences.
+- Added automatic detection and user-space installation for the Codex and
+  Claude Code CLIs when their Dock integrations are opened.
+
+### Changed
+
+- Expanded Codex discovery to find executables bundled inside Codex.app and
+  ChatGPT.app in system and user Applications directories.
+- Updated developer-tool navigation so choosing Codex or Claude Code opens the
+  matching settings page and prepares its local integration.
+
+### Fixed
+
+- Improved active-feature picker reliability and accessibility on macOS 14.
+- Fixed parsing of configured Codex data paths that contain multiple lines.
+
+### Security
+
+- Added HTTPS host validation, download-size limits, script validation, and
+  post-install executable verification for developer-tool installers.
+- Configured a dedicated Ed25519 signing key for verified Sparkle updates.
+
 ## [1.0.1] - 2026-09-04
 
 ### Added
@@ -80,6 +107,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Removed generated Xcode build products from version control and ignored
   repository-local Derived Data directories.
 
+[1.0.2]: https://github.com/thanhdongnguyen/DockMagic/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/thanhdongnguyen/DockMagic/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/thanhdongnguyen/DockMagic/compare/v0.1.0...v1.0.0
 [0.1.0]: https://github.com/thanhdongnguyen/DockMagic/releases/tag/v0.1.0

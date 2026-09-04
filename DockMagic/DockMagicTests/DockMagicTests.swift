@@ -2845,11 +2845,13 @@ final class DockMagicTests: XCTestCase {
                 codexLocator: CodexExecutableLocator(
                     environment: [:],
                     homeDirectory: homeDirectory,
-                    applicationDirectories: []
+                    applicationDirectories: [],
+                    standardExecutableDirectories: []
                 ),
                 claudeCodeLocator: ClaudeCodeExecutableLocator(
                     environment: [:],
-                    homeDirectory: homeDirectory
+                    homeDirectory: homeDirectory,
+                    standardExecutableDirectories: []
                 ),
                 downloader: downloader,
                 processRunner: runner,
