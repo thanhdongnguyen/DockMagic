@@ -37,15 +37,21 @@ struct CodexExecutableLocator: CodexExecutableLocating {
     private let fileManager: FileManager
     private let environment: [String: String]
     private let homeDirectory: URL
+    private let applicationDirectories: [URL]
 
     init(
         fileManager: FileManager = .default,
         environment: [String: String] = ProcessInfo.processInfo.environment,
-        homeDirectory: URL = FileManager.default.homeDirectoryForCurrentUser
+        homeDirectory: URL = FileManager.default.homeDirectoryForCurrentUser,
+        applicationDirectories: [URL]? = nil
     ) {
         self.fileManager = fileManager
         self.environment = environment
         self.homeDirectory = homeDirectory
+        self.applicationDirectories = applicationDirectories ?? [
+            URL(fileURLWithPath: "/Applications", isDirectory: true),
+            homeDirectory.appendingPathComponent("Applications", isDirectory: true)
+        ]
     }
 
     func locate(overridePath: String?) throws -> URL {
@@ -89,6 +95,16 @@ struct CodexExecutableLocator: CodexExecutableLocating {
             URL(fileURLWithPath: "/usr/local/bin/codex"),
             homeDirectory.appendingPathComponent(".local/bin/codex")
         ])
+
+        for applicationsDirectory in applicationDirectories {
+            for appName in ["Codex.app", "ChatGPT.app"] {
+                candidates.append(
+                    applicationsDirectory
+                        .appendingPathComponent(appName, isDirectory: true)
+                        .appendingPathComponent("Contents/Resources/codex")
+                )
+            }
+        }
 
         let nvmNodeVersions = homeDirectory
             .appendingPathComponent(".nvm/versions/node", isDirectory: true)

@@ -98,7 +98,6 @@ adaptations, not fidelity defects.
 - No actionable P0, P1, P2, or P3 findings remain.
 
 final result: passed
-
 ---
 
 # Full-panel Streak Celebration Design QA
@@ -637,5 +636,33 @@ The Dock implementation keeps the underlying ring/numeric values stationary and 
 - [x] Reduce Motion direct-to-settled behavior.
 - [x] Light, Dark, Increased Contrast, Reduce Transparency, grayscale, and small-size snapshots.
 - [x] Parser, cache/stale, animation, capture, and rendering tests.
+
+final result: passed
+
+---
+
+# Software Update Design QA
+
+## Comparison inputs
+
+- Selected Option 1 target: `/Users/dongnt/.codex/generated_images/01a06bc9-87df-7bf3-97e8-8f271a6fa275/exec-bb7d2225-e413-483f-81fd-59b05e451136.png`
+- Tested app screenshot: `/private/tmp/dockmagic-update-footer-batteries-dark-final.png`
+- Side-by-side comparison: `/private/tmp/dockmagic-update-dark-final-qa-comparison.png`
+- Both sides were normalized to the same 1588 × 991 viewport and inspected in the same Batteries, Dark appearance, version 1.0.2 available state.
+
+## Visual assessment
+
+- The update affordance remains fixed at the bottom-left, directly above the appearance capsule.
+- The row preserves the target hierarchy: monochrome download icon, `Update available`, version, and trailing chevron.
+- Padding, minimum height, rounded surface, border, typography, and alignment match the selected direction while using DockMagic's existing shared design-system components.
+- The surface is neutral-first and uses no feature-local palette, decorative gradient, colored glow, or color-only state.
+- The current product sidebar includes Search Console and other newer navigation content not present in the generated target. Those established product elements were preserved; the new update row remains visually aligned with the target.
+
+## Interaction and accessibility assessment
+
+- The footer is keyboard-focusable, exposes an accessibility label containing the available version, and opens the standard updater flow.
+- The General controls expose explicit On/Off labels. Disabling automatic checks disables automatic downloads; re-enabling checks makes downloads actionable again.
+- Dedicated render coverage passed for Light, Dark, Increased Contrast, Reduce Transparency, and grayscale.
+- The final UI test and screenshot were produced from `/private/tmp/dockmagic-updater-ui-final5.xcresult`.
 
 final result: passed

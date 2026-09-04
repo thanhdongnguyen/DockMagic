@@ -15,6 +15,7 @@ final class DockAppModel {
     let streakStore: TokenUsageStreakStore
     let codexStore: CodexUsageStore
     let claudeCodeStore: ClaudeCodeUsageStore
+    let developerToolInstallationStore: DeveloperToolInstallationStore
     let serviceStatusStore: ServiceStatusStore
     let searchConsoleStore: SearchConsoleStore
 
@@ -25,6 +26,10 @@ final class DockAppModel {
 
     @ObservationIgnored
     private var automaticClaudeSetupTask: Task<Void, Never>?
+
+    @ObservationIgnored
+    private var developerToolPreparationTasks:
+        [DeveloperTool: Task<Void, Never>] = [:]
 
     init(
         preferences: DockPreferencesStore? = nil,
@@ -38,6 +43,7 @@ final class DockAppModel {
         streakStore: TokenUsageStreakStore? = nil,
         codexStore: CodexUsageStore? = nil,
         claudeCodeStore: ClaudeCodeUsageStore? = nil,
+        developerToolInstallationStore: DeveloperToolInstallationStore? = nil,
         serviceStatusStore: ServiceStatusStore? = nil,
         searchConsoleStore: SearchConsoleStore? = nil
     ) {
@@ -59,10 +65,15 @@ final class DockAppModel {
         self.claudeCodeStore = claudeCodeStore ?? ClaudeCodeUsageStore(
             streakTracker: streakStore
         )
+        self.developerToolInstallationStore = developerToolInstallationStore
+            ?? DeveloperToolInstallationStore()
         self.serviceStatusStore = serviceStatusStore ?? ServiceStatusStore()
         self.searchConsoleStore = searchConsoleStore ?? SearchConsoleStore()
         self.githubStore.configure(
             repositoryURL: preferences.githubRepositoryURL
+        )
+        self.developerToolInstallationStore.refreshAvailability(
+            codexOverridePath: preferences.codexExecutablePath
         )
     }
 
@@ -144,6 +155,11 @@ final class DockAppModel {
         isObservingPreferences = false
         automaticClaudeSetupTask?.cancel()
         automaticClaudeSetupTask = nil
+        for task in developerToolPreparationTasks.values {
+            task.cancel()
+        }
+        developerToolPreparationTasks.removeAll()
+        developerToolInstallationStore.cancelInstallations()
         metricsStore.stop()
         networkStore.stop()
         storageStore.stop()
@@ -185,6 +201,9 @@ final class DockAppModel {
         automaticClaudeSetupTask?.cancel()
         automaticClaudeSetupTask = nil
         codexStore.executableOverridePath = preferences.codexExecutablePath
+        developerToolInstallationStore.refreshAvailability(
+            codexOverridePath: preferences.codexExecutablePath
+        )
         githubStore.configure(
             repositoryURL: preferences.githubRepositoryURL
         )
@@ -281,7 +300,9 @@ final class DockAppModel {
             githubStore.pause()
             searchConsoleStore.stop()
             claudeCodeStore.start()
-            scheduleAutomaticClaudeCodeSetup()
+            if developerToolInstallationStore.claudeCodeState.isInstalled {
+                scheduleAutomaticClaudeCodeSetup()
+            }
         case .searchConsole:
             metricsStore.stop()
             networkStore.stop()
@@ -320,6 +341,46 @@ final class DockAppModel {
             await claudeCodeStore.refresh()
         } else {
             await claudeCodeStore.installBridge()
+        }
+    }
+
+    /// Applies a user-driven Dock feature selection. Developer tools are
+    /// prepared only from this explicit interaction, never silently at launch.
+    func activateFeature(_ feature: DockFeature) {
+        preferences.activeFeature = feature
+        requestDeveloperToolPreparation(for: feature)
+    }
+
+    /// Starts setup when the user opens a developer-tool settings page without
+    /// changing the single feature currently shown in the Dock.
+    func requestDeveloperToolPreparation(for feature: DockFeature) {
+        guard let tool = feature.developerTool else {
+            return
+        }
+        scheduleDeveloperToolPreparation(tool, feature: feature)
+    }
+
+    /// Installs a missing vendor CLI, then connects the existing DockMagic data
+    /// provider. Calls are coalesced by DeveloperToolInstallationStore.
+    func prepareDeveloperToolIntegration(for feature: DockFeature) async {
+        guard let tool = feature.developerTool else {
+            return
+        }
+        guard let executableURL = await developerToolInstallationStore
+            .ensureInstalled(
+                tool,
+                codexOverridePath: preferences.codexExecutablePath
+            )
+        else {
+            return
+        }
+
+        switch tool {
+        case .codex:
+            preferences.codexExecutablePath = executableURL.path
+            await prepareCodexIntegration()
+        case .claudeCode:
+            await prepareClaudeCodeIntegration()
         }
     }
 
@@ -405,6 +466,22 @@ final class DockAppModel {
                 return
             }
             await self.prepareClaudeCodeIntegration()
+        }
+    }
+
+    private func scheduleDeveloperToolPreparation(
+        _ tool: DeveloperTool,
+        feature: DockFeature
+    ) {
+        guard developerToolPreparationTasks[tool] == nil else {
+            return
+        }
+        developerToolPreparationTasks[tool] = Task { @MainActor [weak self] in
+            guard let self else {
+                return
+            }
+            await self.prepareDeveloperToolIntegration(for: feature)
+            self.developerToolPreparationTasks[tool] = nil
         }
     }
 }

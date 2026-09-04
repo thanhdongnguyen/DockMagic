@@ -7,6 +7,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let appModel: DockAppModel
     let settingsWindowRouter: SettingsWindowRouter
     let dockHoverPermissionController: DockHoverPermissionController
+    let softwareUpdateController: SoftwareUpdateController
 
     private let dockTile: NSDockTile
     private let application: any ApplicationIconDisplaying
@@ -30,7 +31,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             application: NSApplication.shared,
             appearanceStore: DockMagicRuntimeDefaults.current,
             notificationCenter: .default,
-            workspaceNotificationCenter: NSWorkspace.shared.notificationCenter
+            workspaceNotificationCenter: NSWorkspace.shared.notificationCenter,
+            softwareUpdateController: Self.makeSoftwareUpdateController()
+        )
+    }
+
+    private static func makeSoftwareUpdateController(
+        environment: [String: String] = ProcessInfo.processInfo.environment
+    ) -> SoftwareUpdateController {
+        guard environment["DockMagicUITesting"] == "1" else {
+            return .production()
+        }
+
+        return .uiTestFixture(
+            availableVersion:
+                environment["DockMagicUITestUpdateAvailableVersion"]
         )
     }
 
@@ -57,6 +72,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     cache: InMemoryGitHubRepositoryHistoryCache(),
                     pollingInterval: 60
                 ),
+                claudeCodeStore: ClaudeCodeUsageStore(
+                    provider: DockMagicUITestClaudeCodeProvider(),
+                    bridge: DockMagicUITestClaudeCodeBridge(),
+                    activityHookBridge:
+                        DockMagicUITestClaudeCodeActivityHookBridge(),
+                    pollingInterval: .seconds(60)
+                ),
+                developerToolInstallationStore:
+                    DeveloperToolInstallationStore(
+                        installer: DockMagicUITestDeveloperToolInstaller()
+                    ),
                 serviceStatusStore: ServiceStatusStore(
                     provider: DockMagicUITestServiceStatusProvider(),
                     cache: InMemoryServiceStatusCache(),
@@ -78,19 +104,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         appearanceStore: UserDefaults = DockMagicRuntimeDefaults.current,
         notificationCenter: NotificationCenter = .default,
         workspaceNotificationCenter: NotificationCenter = NSWorkspace.shared.notificationCenter,
-        dockHoverPermissionController: DockHoverPermissionController? = nil
+        dockHoverPermissionController: DockHoverPermissionController? = nil,
+        softwareUpdateController: SoftwareUpdateController? = nil
     ) {
         self.appModel = appModel
         self.settingsWindowRouter = settingsWindowRouter
         self.dockHoverPermissionController = dockHoverPermissionController
             ?? DockHoverPermissionController()
+        self.softwareUpdateController = softwareUpdateController ?? .disabled()
         self.dockTile = dockTile ?? NSApplication.shared.dockTile
         self.application = application ?? NSApplication.shared
         self.appearanceStore = appearanceStore
         self.notificationCenter = notificationCenter
         self.workspaceNotificationCenter = workspaceNotificationCenter
         dockFeatureMenuController = DockFeatureMenuController(
-            preferences: appModel.preferences
+            appModel: appModel,
+            settingsWindowRouter: settingsWindowRouter
         )
         super.init()
     }
@@ -108,6 +137,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         observeAccessibilityDisplayOptions()
         observeSystemResume()
         observeDockPresentation()
+        softwareUpdateController.start()
         appModel.start()
         dockHoverCoordinator = DockHoverCoordinator(
             appModel: appModel,
@@ -251,10 +281,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
 @MainActor
 private final class DockFeatureMenuController: NSObject {
-    private let preferences: DockPreferencesStore
+    private let appModel: DockAppModel
+    private let settingsWindowRouter: SettingsWindowRouter
 
-    init(preferences: DockPreferencesStore) {
-        self.preferences = preferences
+    init(
+        appModel: DockAppModel,
+        settingsWindowRouter: SettingsWindowRouter
+    ) {
+        self.appModel = appModel
+        self.settingsWindowRouter = settingsWindowRouter
         super.init()
     }
 
@@ -291,7 +326,7 @@ private final class DockFeatureMenuController: NSObject {
             )
             item.target = self
             item.isEnabled = true
-            item.state = preferences.activeFeature == feature ? .on : .off
+            item.state = appModel.preferences.activeFeature == feature ? .on : .off
             submenu.addItem(item)
         }
 
@@ -326,7 +361,16 @@ private final class DockFeatureMenuController: NSObject {
     }
 
     private func select(_ feature: DockFeature) {
-        preferences.activeFeature = feature
+        appModel.activateFeature(feature)
+        switch feature {
+        case .codex:
+            _ = settingsWindowRouter.showSettings(destination: .codex)
+        case .claudeCode:
+            _ = settingsWindowRouter.showSettings(destination: .claudeCode)
+        case .dockMagic, .systemMetrics, .network, .storage, .weather, .clock,
+             .batteries, .github, .searchConsole:
+            break
+        }
     }
 
     @objc private func selectDockMagic(_ sender: Any?) {
@@ -515,6 +559,61 @@ private struct DockMagicUITestServiceStatusProvider:
     }
 }
 
+@MainActor
+private final class DockMagicUITestDeveloperToolInstaller:
+    DeveloperToolInstalling
+{
+    private var installedTools = Set<DeveloperTool>()
+
+    func locate(
+        _ tool: DeveloperTool,
+        codexOverridePath: String?
+    ) throws -> URL {
+        guard installedTools.contains(tool) else {
+            throw DeveloperToolInstallerError.installedExecutableMissing(tool)
+        }
+        return URL(fileURLWithPath: "/usr/bin/true")
+    }
+
+    func install(_ tool: DeveloperTool) async throws -> URL {
+        installedTools.insert(tool)
+        return URL(fileURLWithPath: "/usr/bin/true")
+    }
+}
+
+private struct DockMagicUITestClaudeCodeProvider:
+    ClaudeCodeRateLimitProviding
+{
+    func fetchRateLimits() async throws -> ClaudeCodeRateLimitSnapshot {
+        throw ClaudeCodeRateLimitProviderError.snapshotMissing
+    }
+}
+
+@MainActor
+private final class DockMagicUITestClaudeCodeBridge:
+    ClaudeCodeStatusLineBridging
+{
+    let snapshotURL = URL(fileURLWithPath: "/tmp/dockmagic-ui-claude.json")
+
+    func isInstalled() -> Bool { true }
+    func install() throws {}
+    func uninstall() throws {}
+}
+
+@MainActor
+private final class DockMagicUITestClaudeCodeActivityHookBridge:
+    ClaudeCodeActivityHookBridging
+{
+    let eventsDirectoryURL = URL(
+        fileURLWithPath: "/tmp/dockmagic-ui-claude-events",
+        isDirectory: true
+    )
+
+    func isInstalled() -> Bool { false }
+    func install() throws {}
+    func uninstall() throws {}
+}
+
 @main
 struct DockMagicApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self)
@@ -529,13 +628,23 @@ struct DockMagicApp: App {
                 appModel: appDelegate.appModel,
                 dockHoverPermissionController:
                     appDelegate.dockHoverPermissionController,
-                windowRouter: appDelegate.settingsWindowRouter
+                windowRouter: appDelegate.settingsWindowRouter,
+                softwareUpdateController: appDelegate.softwareUpdateController
             )
         }
         .defaultSize(width: 1_160, height: 620)
         .windowResizability(.contentMinSize)
         .handlesExternalEvents(matching: [SettingsWindowRouter.sceneID])
         .commands {
+            CommandGroup(after: .appInfo) {
+                Button("Check for Updates…") {
+                    appDelegate.softwareUpdateController.checkForUpdates()
+                }
+                .disabled(
+                    !appDelegate.softwareUpdateController.canCheckForUpdates
+                )
+            }
+
             CommandGroup(replacing: .appSettings) {
                 Button("Settings…") {
                     appDelegate.settingsWindowRouter.showSettings()
@@ -552,6 +661,7 @@ private struct SettingsSceneRoot: View {
     let appModel: DockAppModel
     let dockHoverPermissionController: DockHoverPermissionController
     let windowRouter: SettingsWindowRouter
+    let softwareUpdateController: SoftwareUpdateController
 
     @Environment(\.openWindow) private var openWindow
 
@@ -559,7 +669,9 @@ private struct SettingsSceneRoot: View {
         DockMagicThemeRoot(
             content: SettingsView(
                 appModel: appModel,
-                dockHoverPermissionController: dockHoverPermissionController
+                dockHoverPermissionController: dockHoverPermissionController,
+                windowRouter: windowRouter,
+                softwareUpdateController: softwareUpdateController
             )
         )
         .defaultAppStorage(DockMagicRuntimeDefaults.current)

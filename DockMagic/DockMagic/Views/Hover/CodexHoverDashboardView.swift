@@ -1418,7 +1418,9 @@ struct CodexTokenHistoryChart: View {
         let height = barHeight(for: bucket.tokens)
 
         return Button {
-            onSelectBucket(bucket.id)
+            Task { @MainActor in
+                onSelectBucket(bucket.id)
+            }
         } label: {
             VStack(spacing: 5) {
                 ZStack(alignment: .bottom) {
@@ -2362,8 +2364,8 @@ struct CodexDashboardSharePresenter: NSViewRepresentable {
 
     @MainActor
     final class Coordinator: NSObject,
-        @MainActor NSSharingServicePickerDelegate,
-        @MainActor NSSharingServiceDelegate
+        NSSharingServicePickerDelegate,
+        NSSharingServiceDelegate
     {
         var presentedURL: URL?
         private var picker: NSSharingServicePicker?

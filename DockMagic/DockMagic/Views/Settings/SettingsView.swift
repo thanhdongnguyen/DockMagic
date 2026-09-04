@@ -129,6 +129,8 @@ enum SettingsDestination: String, CaseIterable, Identifiable {
 struct SettingsView: View {
     let appModel: DockAppModel
     let dockHoverPermissionController: DockHoverPermissionController?
+    let windowRouter: SettingsWindowRouter?
+    let softwareUpdateController: SoftwareUpdateController
 
     @State private var destination: SettingsDestination
     @State private var launchAtLoginController: LaunchAtLoginController
@@ -139,12 +141,18 @@ struct SettingsView: View {
     init(
         appModel: DockAppModel,
         dockHoverPermissionController: DockHoverPermissionController? = nil,
+        windowRouter: SettingsWindowRouter? = nil,
+        softwareUpdateController: SoftwareUpdateController? = nil,
         launchAtLoginController: LaunchAtLoginController? = nil,
         initialDestination: SettingsDestination = .general
     ) {
         self.appModel = appModel
         self.dockHoverPermissionController = dockHoverPermissionController
-        _destination = State(initialValue: initialDestination)
+        self.windowRouter = windowRouter
+        self.softwareUpdateController = softwareUpdateController ?? .disabled()
+        _destination = State(
+            initialValue: windowRouter?.destination ?? initialDestination
+        )
         _launchAtLoginController = State(
             initialValue: launchAtLoginController
                 ?? LaunchAtLoginController()
@@ -168,7 +176,17 @@ struct SettingsView: View {
             minHeight: DSLayout.minimumWindowHeight
         )
         .background(SettingsWindowTitleVisibilityBridge())
+        .onChange(of: windowRouter?.destination, initial: true) { _, request in
+            guard let request, request != destination else {
+                return
+            }
+            destination = request
+        }
         .onChange(of: destination, initial: true) { _, newDestination in
+            if let feature = newDestination.feature {
+                appModel.requestDeveloperToolPreparation(for: feature)
+            }
+
             switch newDestination {
             case .weather:
                 appModel.weatherStore.refreshLocationAuthorizationStatus()
@@ -274,30 +292,42 @@ struct SettingsView: View {
                 .padding(.vertical, DSSpacing.small)
             }
 
-            HStack(spacing: DSSpacing.compact) {
-                Image(systemName: appearanceMode.systemImage)
-                    .accessibilityHidden(true)
-                Text("\(appearanceMode.title) appearance")
+            VStack(spacing: DSSpacing.small) {
+                if let availableVersion =
+                    softwareUpdateController.availableVersion
+                {
+                    SoftwareUpdateFooterButton(
+                        version: availableVersion,
+                        action: softwareUpdateController.checkForUpdates
+                    )
+                }
+
+                HStack(spacing: DSSpacing.compact) {
+                    Image(systemName: appearanceMode.systemImage)
+                        .accessibilityHidden(true)
+                    Text("\(appearanceMode.title) appearance")
+                }
+                .font(DSTypography.metadata)
+                .foregroundStyle(theme.textSecondary)
+                .padding(.horizontal, DSSpacing.medium)
+                .padding(.vertical, DSSpacing.small)
+                .frame(maxWidth: .infinity, minHeight: 32, alignment: .leading)
+                .dsSurface(
+                    Capsule(),
+                    kind: .chrome,
+                    elevation: .secondary
+                )
+                .accessibilityIdentifier("settings.appearanceBadge")
             }
-            .font(DSTypography.metadata)
-            .foregroundStyle(theme.textSecondary)
             .padding(.horizontal, DSSpacing.medium)
-            .padding(.vertical, DSSpacing.small)
-            .frame(maxWidth: .infinity, minHeight: 32, alignment: .leading)
-            .dsSurface(
-                Capsule(),
-                kind: .chrome,
-                elevation: .secondary
-            )
-            .padding(DSSpacing.medium)
-            .accessibilityIdentifier("settings.appearanceBadge")
+            .padding(.bottom, DSSpacing.medium)
         }
         .background(theme.opaqueSurfaceChrome)
     }
 
     private func sidebarRow(_ item: SettingsDestination) -> some View {
         Button {
-            destination = item
+            navigate(to: item)
         } label: {
             HStack(spacing: DSSpacing.standard) {
                 sidebarIcon(item)
@@ -605,6 +635,98 @@ struct SettingsView: View {
                             Spacer(minLength: 0)
                         }
                         .accessibilityIdentifier("settings.dockHover.permission")
+                    }
+                }
+            }
+
+            DSSettingsSection(
+                title: "Software Updates",
+                detail: "Keep DockMagic current with signed releases published on GitHub."
+            ) {
+                VStack(spacing: DSSpacing.standard) {
+                    DSSettingsRow(
+                        title: "Check for updates",
+                        detail: currentVersionDetail,
+                        systemImage: "arrow.triangle.2.circlepath"
+                    ) {
+                        Button("Check Now…") {
+                            softwareUpdateController.checkForUpdates()
+                        }
+                        .buttonStyle(DSButtonStyle())
+                        .disabled(
+                            !softwareUpdateController.canCheckForUpdates
+                        )
+                        .accessibilityIdentifier(
+                            "settings.softwareUpdate.checkNow"
+                        )
+                    }
+
+                    DSDivider()
+
+                    DSSettingsRow(
+                        title: "Automatically check for updates",
+                        detail: "Checks GitHub periodically while DockMagic is running.",
+                        systemImage: "clock.arrow.circlepath"
+                    ) {
+                        Toggle(
+                            "Automatically check for updates",
+                            isOn: automaticallyChecksForUpdatesBinding
+                        )
+                        .labelsHidden()
+                        .toggleStyle(.switch)
+                        .accessibilityValue(
+                            softwareUpdateController
+                                .automaticallyChecksForUpdates
+                                ? "On"
+                                : "Off"
+                        )
+                        .accessibilityLabel(
+                            "Automatically check for updates, "
+                                + (softwareUpdateController
+                                    .automaticallyChecksForUpdates
+                                    ? "On"
+                                    : "Off")
+                        )
+                        .accessibilityIdentifier(
+                            "settings.softwareUpdate.automaticChecks"
+                        )
+                    }
+
+                    DSDivider()
+
+                    DSSettingsRow(
+                        title: "Automatically download updates",
+                        detail: "Downloads verified updates in the background and installs them when you approve or quit.",
+                        systemImage: "arrow.down.circle"
+                    ) {
+                        Toggle(
+                            "Automatically download updates",
+                            isOn: automaticallyDownloadsUpdatesBinding
+                        )
+                        .labelsHidden()
+                        .toggleStyle(.switch)
+                        .accessibilityValue(
+                            softwareUpdateController
+                                .automaticallyDownloadsUpdates
+                                ? "On"
+                                : "Off"
+                        )
+                        .accessibilityLabel(
+                            "Automatically download updates, "
+                                + (softwareUpdateController
+                                    .automaticallyDownloadsUpdates
+                                    ? "On"
+                                    : "Off")
+                        )
+                        .disabled(
+                            !softwareUpdateController
+                                .automaticallyChecksForUpdates
+                                || !softwareUpdateController
+                                    .allowsAutomaticUpdates
+                        )
+                        .accessibilityIdentifier(
+                            "settings.softwareUpdate.automaticDownloads"
+                        )
                     }
                 }
             }
@@ -1005,7 +1127,8 @@ struct SettingsView: View {
 
     private var codexContent: some View {
         VStack(spacing: DSSpacing.section) {
-            featurePreviewSection(
+            developerToolPreviewSection(
+                tool: .codex,
                 title: "Codex Dock preview",
                 detail: codexPreviewDetail
             ) {
@@ -1068,7 +1191,8 @@ struct SettingsView: View {
 
     private var claudeCodeContent: some View {
         VStack(spacing: DSSpacing.section) {
-            featurePreviewSection(
+            developerToolPreviewSection(
+                tool: .claudeCode,
                 title: "Claude Code Dock preview",
                 detail: claudeCodePreviewDetail
             ) {
@@ -1131,30 +1255,154 @@ struct SettingsView: View {
         }
     }
 
+    private func developerToolPreviewSection<Preview: View, Values: View>(
+        tool: DeveloperTool,
+        title: String,
+        detail: String,
+        @ViewBuilder preview: @escaping () -> Preview,
+        @ViewBuilder values: @escaping () -> Values
+    ) -> some View {
+        featurePreviewSection(
+            title: title,
+            detail: detail,
+            preview: preview,
+            values: values
+        )
+        .overlay(alignment: .topTrailing) {
+            developerToolInstallationIndicator(tool)
+                .padding(DSSpacing.xLarge)
+        }
+    }
+
     private var activeFeatureBinding: Binding<DockFeature> {
         Binding(
             get: { appModel.preferences.activeFeature },
             set: { feature in
-                appModel.preferences.activeFeature = feature
+                appModel.activateFeature(feature)
                 switch feature {
                 case .weather:
-                    destination = .weather
+                    navigate(to: .weather)
                     appModel.weatherStore.refreshLocationAuthorizationStatus()
                     refreshWeather()
                 case .batteries:
-                    destination = .batteries
+                    navigate(to: .batteries)
                     appModel.batteryStore.start()
                 case .github:
-                    destination = .github
+                    navigate(to: .github)
                 case .searchConsole:
-                    destination = .searchConsole
+                    navigate(to: .searchConsole)
                     appModel.searchConsoleStore.start()
-                case .dockMagic, .systemMetrics, .network, .storage, .clock,
-                     .codex, .claudeCode:
+                case .codex:
+                    navigate(to: .codex)
+                case .claudeCode:
+                    navigate(to: .claudeCode)
+                case .dockMagic, .systemMetrics, .network, .storage, .clock:
                     break
                 }
             }
         )
+    }
+
+    private func navigate(to destination: SettingsDestination) {
+        self.destination = destination
+        windowRouter?.navigate(to: destination)
+    }
+
+    private func installDeveloperTool(_ tool: DeveloperTool) {
+        Task {
+            await appModel.prepareDeveloperToolIntegration(
+                for: tool.dockFeature
+            )
+        }
+    }
+
+    private func developerToolInstallationIndicator(
+        _ tool: DeveloperTool
+    ) -> some View {
+        let state = appModel.developerToolInstallationStore.state(for: tool)
+        let presentation = developerToolInstallationPresentation(
+            tool,
+            state: state
+        )
+
+        return Button {
+            installDeveloperTool(tool)
+        } label: {
+            DSIconPlate(
+                systemImage: presentation.systemImage,
+                role: presentation.role,
+                size: 32
+            )
+        }
+        .buttonStyle(.plain)
+        .disabled(!presentation.allowsAction)
+        .help("\(presentation.title). \(presentation.detail)")
+        .accessibilityIdentifier(
+            "settings.\(tool.rawValue).installationIndicator"
+        )
+        .accessibilityLabel(presentation.title)
+        .accessibilityValue(presentation.detail)
+        .accessibilityHint(presentation.actionHint)
+    }
+
+    private func developerToolInstallationPresentation(
+        _ tool: DeveloperTool,
+        state: DeveloperToolInstallationState
+    ) -> (
+        title: String,
+        detail: String,
+        systemImage: String,
+        role: DSSemanticRole,
+        allowsAction: Bool,
+        actionHint: String
+    ) {
+        switch state {
+        case .checking:
+            (
+                title: "Checking for \(tool.title)",
+                detail: "DockMagic is checking supported local installation paths.",
+                systemImage: "magnifyingglass",
+                role: .processing,
+                allowsAction: false,
+                actionHint: ""
+            )
+        case .notInstalled:
+            (
+                title: "\(tool.title) is not installed",
+                detail: "Click to install the official user-space CLI without sudo.",
+                systemImage: "arrow.down.circle",
+                role: .warning,
+                allowsAction: true,
+                actionHint: "Install \(tool.title)"
+            )
+        case .installing:
+            (
+                title: "Installing \(tool.title)",
+                detail: "Downloading and running the official installer. Keep DockMagic open until this finishes.",
+                systemImage: "arrow.down.circle.fill",
+                role: .processing,
+                allowsAction: false,
+                actionHint: ""
+            )
+        case let .installed(path):
+            (
+                title: "\(tool.title) installed",
+                detail: "DockMagic is using \(path). Click to check the connection.",
+                systemImage: "checkmark.circle.fill",
+                role: .information,
+                allowsAction: true,
+                actionHint: "Check the \(tool.title) connection"
+            )
+        case let .failed(message):
+            (
+                title: "\(tool.title) setup failed",
+                detail: "\(message) Click to retry.",
+                systemImage: "exclamationmark.triangle.fill",
+                role: .danger,
+                allowsAction: true,
+                actionHint: "Retry installing \(tool.title)"
+            )
+        }
     }
 
     private var dockHoverEnabledBinding: Binding<Bool> {
@@ -1169,6 +1417,40 @@ struct SettingsView: View {
             get: { launchAtLoginController.state.isRequested },
             set: { launchAtLoginController.setEnabled($0) }
         )
+    }
+
+    private var automaticallyChecksForUpdatesBinding: Binding<Bool> {
+        Binding(
+            get: {
+                softwareUpdateController.automaticallyChecksForUpdates
+            },
+            set: {
+                softwareUpdateController
+                    .setAutomaticallyChecksForUpdates($0)
+            }
+        )
+    }
+
+    private var automaticallyDownloadsUpdatesBinding: Binding<Bool> {
+        Binding(
+            get: {
+                softwareUpdateController.automaticallyDownloadsUpdates
+            },
+            set: {
+                softwareUpdateController
+                    .setAutomaticallyDownloadsUpdates($0)
+            }
+        )
+    }
+
+    private var currentVersionDetail: String {
+        let version = Bundle.main.object(
+            forInfoDictionaryKey: "CFBundleShortVersionString"
+        ) as? String ?? "Unknown"
+        let build = Bundle.main.object(
+            forInfoDictionaryKey: "CFBundleVersion"
+        ) as? String ?? "Unknown"
+        return "Installed version \(version) (\(build))."
     }
 
     private var dockHoverPermissionState: DockHoverPermissionState {
@@ -1493,6 +1775,61 @@ struct SettingsView: View {
     )!
 }
 
+private struct SoftwareUpdateFooterButton: View {
+    let version: String
+    let action: () -> Void
+
+    @FocusState private var isFocused: Bool
+    @Environment(\.designTheme) private var theme
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: DSSpacing.compact) {
+                Image(systemName: "arrow.down.circle")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(theme.textSecondary)
+                    .frame(width: 18)
+                    .accessibilityHidden(true)
+
+                Text("Update available")
+                    .font(DSTypography.body)
+                    .foregroundStyle(theme.textPrimary)
+                    .lineLimit(1)
+
+                Spacer(minLength: DSSpacing.compact)
+
+                Text(version)
+                    .font(DSTypography.metadata)
+                    .monospacedDigit()
+                    .foregroundStyle(theme.textSecondary)
+                    .lineLimit(1)
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 9, weight: .semibold))
+                    .foregroundStyle(theme.textTertiary)
+                    .accessibilityHidden(true)
+            }
+            .padding(.horizontal, DSSpacing.medium)
+            .frame(maxWidth: .infinity, minHeight: 46, alignment: .leading)
+            .dsSurface(
+                RoundedRectangle(
+                    cornerRadius: DSRadius.row,
+                    style: .continuous
+                ),
+                kind: .chrome,
+                elevation: .secondary
+            )
+            .dsInteractiveRow(isFocused: isFocused)
+        }
+        .buttonStyle(.plain)
+        .focused($isFocused)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Update available, version \(version)")
+        .accessibilityHint("Opens the software update installer")
+        .accessibilityIdentifier("settings.updateAvailable")
+    }
+}
+
 private struct SettingsHeaderView: View {
     @Environment(\.designTheme) private var theme
 
@@ -1624,9 +1961,6 @@ private struct ActiveDockFeaturePicker: View {
                     selection = feature
                     isChoosingFeature = false
                 }
-                .accessibilityIdentifier(
-                    "settings.activeFeatureOption.\(feature.rawValue)"
-                )
             }
         }
         .padding(DSSpacing.small)
@@ -1742,6 +2076,9 @@ private struct ActiveDockFeatureOption: View {
             )
         }
         .buttonStyle(.plain)
+        .accessibilityIdentifier(
+            "settings.activeFeatureOption.\(feature.rawValue)"
+        )
         .accessibilityLabel(feature.title)
         .accessibilityValue(isSelected ? "Selected" : "")
     }

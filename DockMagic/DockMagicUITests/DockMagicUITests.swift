@@ -74,6 +74,85 @@ final class DockMagicUITests: XCTestCase {
         )
     }
 
+    func testUpdateAvailableFooterAndAutomaticUpdateControls() {
+        let app = launchApp(
+            appearance: "dark",
+            updateAvailableVersion: "1.0.2"
+        )
+        XCTAssertTrue(
+            app.windows["DockMagic Settings"].waitForExistence(timeout: 5),
+            app.debugDescription
+        )
+
+        let updateFooter = app.descendants(matching: .any)[
+            "settings.updateAvailable"
+        ]
+        XCTAssertTrue(updateFooter.waitForExistence(timeout: 3))
+        XCTAssertEqual(
+            updateFooter.label,
+            "Update available, version 1.0.2"
+        )
+        XCTAssertTrue(updateFooter.isEnabled)
+
+        let generalScrollView = app.scrollViews["settings.general"].firstMatch
+        XCTAssertTrue(generalScrollView.waitForExistence(timeout: 3))
+        generalScrollView.scroll(byDeltaX: 0, deltaY: -1_000)
+
+        var automaticChecks = app.descendants(matching: .any)[
+            "settings.softwareUpdate.automaticChecks"
+        ]
+        var automaticDownloads = app.descendants(matching: .any)[
+            "settings.softwareUpdate.automaticDownloads"
+        ]
+        XCTAssertTrue(automaticChecks.waitForExistence(timeout: 3))
+        XCTAssertTrue(automaticDownloads.waitForExistence(timeout: 3))
+        XCTAssertTrue(automaticChecks.isEnabled)
+        XCTAssertTrue(automaticDownloads.isEnabled)
+        XCTAssertTrue(automaticChecks.isHittable)
+
+        automaticChecks.click()
+        automaticChecks = app.descendants(matching: .any)[
+            "settings.softwareUpdate.automaticChecks"
+        ]
+        XCTAssertEqual(
+            automaticChecks.label,
+            "Automatically check for updates, Off"
+        )
+        automaticDownloads = app.descendants(matching: .any)[
+            "settings.softwareUpdate.automaticDownloads"
+        ]
+        XCTAssertFalse(automaticDownloads.isEnabled)
+
+        automaticChecks = app.descendants(matching: .any)[
+            "settings.softwareUpdate.automaticChecks"
+        ]
+        automaticChecks.click()
+        automaticDownloads = app.descendants(matching: .any)[
+            "settings.softwareUpdate.automaticDownloads"
+        ]
+        XCTAssertTrue(automaticDownloads.isEnabled)
+        XCTAssertTrue(automaticDownloads.isHittable)
+        automaticDownloads.click()
+        automaticDownloads = app.descendants(matching: .any)[
+            "settings.softwareUpdate.automaticDownloads"
+        ]
+        XCTAssertEqual(
+            automaticDownloads.label,
+            "Automatically download updates, On"
+        )
+
+        openSidebarDestination(named: "Batteries", in: app)
+        XCTAssertTrue(
+            app.descendants(matching: .any)["settings.batteries"]
+                .waitForExistence(timeout: 3)
+        )
+
+        attachScreenshot(
+            named: "Settings — Batteries — Update Available — Dark",
+            in: app
+        )
+    }
+
     func testClockIsDockOnlyAndConfiguresStyleAndLocation() {
         let app = launchApp(appearance: "light", activeFeature: "clock")
         XCTAssertTrue(
@@ -555,7 +634,7 @@ final class DockMagicUITests: XCTestCase {
         XCTAssertFalse(app.staticTexts["Window behavior"].exists)
         XCTAssertFalse(app.staticTexts["Privacy"].exists)
 
-        let featurePicker = activeFeaturePicker(in: app)
+        let featurePicker = hittableActiveFeaturePicker(in: app)
         XCTAssertTrue(
             featurePicker.waitForExistence(timeout: 3),
             app.debugDescription
@@ -591,6 +670,35 @@ final class DockMagicUITests: XCTestCase {
                 normalizedX: index.isMultiple(of: 2) ? 0.1 : 0.9
             )
         }
+    }
+
+    func testOpeningDeveloperToolSettingsAutomaticallyPreparesCLIs() {
+        let app = launchApp()
+        XCTAssertTrue(
+            app.windows["DockMagic Settings"].waitForExistence(timeout: 5)
+        )
+
+        openSidebarDestination(named: "Codex", in: app)
+        assertDeveloperToolInstalledIndicator(
+            rawValue: "codex",
+            title: "Codex CLI installed",
+            in: app
+        )
+        XCTAssertEqual(
+            sidebarRow(named: "CPU & RAM", in: app).value as? String,
+            "Active"
+        )
+
+        openSidebarDestination(named: "Claude Code", in: app)
+        assertDeveloperToolInstalledIndicator(
+            rawValue: "claudeCode",
+            title: "Claude Code installed",
+            in: app
+        )
+        XCTAssertEqual(
+            sidebarRow(named: "CPU & RAM", in: app).value as? String,
+            "Active"
+        )
     }
 
     func testSearchConsoleEveryMetricTimeRangeAndDisplayMode() {
@@ -1019,7 +1127,8 @@ final class DockMagicUITests: XCTestCase {
         appearance: String? = "system",
         defaultsSuite: String? = nil,
         activeFeature: String = "systemMetrics",
-        githubRepositoryURL: String? = nil
+        githubRepositoryURL: String? = nil,
+        updateAvailableVersion: String? = nil
     ) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchEnvironment["DockMagicUITesting"] = "1"
@@ -1045,6 +1154,11 @@ final class DockMagicUITests: XCTestCase {
         app.launchEnvironment[
             "DockMagicUITestDefaultsSuite"
         ] = defaultsSuite ?? automaticDefaultsSuite
+        if let updateAvailableVersion {
+            app.launchEnvironment[
+                "DockMagicUITestUpdateAvailableVersion"
+            ] = updateAvailableVersion
+        }
         if let githubRepositoryURL {
             app.launchArguments += [
                 "-DockMagicGitHubRepositoryURL",
@@ -1098,11 +1212,11 @@ final class DockMagicUITests: XCTestCase {
             "Codex": "settings.codex",
             "Claude Code": "settings.claudeCode"
         ]
-        if let scrollIdentifier = scrollIdentifiers[feature] {
-            let detailScrollView = app.scrollViews[scrollIdentifier].firstMatch
-            if detailScrollView.exists {
-                detailScrollView.scroll(byDeltaX: 0, deltaY: 1_000)
-            }
+        let detailScrollView = scrollIdentifiers[feature].map {
+            app.scrollViews[$0].firstMatch
+        }
+        if let detailScrollView, detailScrollView.exists {
+            detailScrollView.scroll(byDeltaX: 0, deltaY: 1_000)
         }
 
         let picker = app.radioGroups["settings.displayStyle"].firstMatch
@@ -1160,7 +1274,7 @@ final class DockMagicUITests: XCTestCase {
     ) {
         // SwiftUI rebuilds the General detail after the active feature changes.
         // Re-query the control so XCUI does not retain a stale element handle.
-        let featurePicker = activeFeaturePicker(in: app)
+        let featurePicker = hittableActiveFeaturePicker(in: app)
         XCTAssertTrue(featurePicker.waitForExistence(timeout: 3))
         featurePicker.coordinate(
             withNormalizedOffset: CGVector(dx: normalizedX, dy: 0.5)
@@ -1182,24 +1296,58 @@ final class DockMagicUITests: XCTestCase {
             XCTFail("Unknown active feature option: \(title)")
             return
         }
-        let option = app.buttons[
+        let option = app.descendants(matching: .any)[
             "settings.activeFeatureOption.\(rawValue)"
         ].firstMatch
-        XCTAssertTrue(
-            option.waitForExistence(timeout: 2),
-            "Missing active feature option: \(title)"
-        )
-        XCTAssertTrue(
-            option.isHittable,
-            "Active feature option is not clickable: \(title)"
-        )
-        option.click()
+        if option.waitForExistence(timeout: 0.5), option.isHittable {
+            option.click()
+        } else {
+            // On macOS 14, SwiftUI renders this NSPopover in a transient
+            // accessibility window that XCUI does not attach to the target
+            // application's element tree. Its layout is intentionally fixed:
+            // 44-point rows, 4-point gaps, and 8-point vertical padding.
+            let orderedTitles = [
+                "DockMagic",
+                "CPU & RAM",
+                "Network",
+                "Storage",
+                "Weather",
+                "Clock",
+                "Batteries",
+                "GitHub",
+                "Codex",
+                "Claude Code",
+                "Search Console"
+            ]
+            guard let rowIndex = orderedTitles.firstIndex(of: title) else {
+                XCTFail("Missing popover row mapping: \(title)")
+                return
+            }
+            let rowsBelow = orderedTitles.count - rowIndex - 1
+            let rowCenterOffset = -64 - CGFloat(rowsBelow * 48)
+            let settingsWindow = app.windows["DockMagic Settings"].firstMatch
+            settingsWindow.coordinate(
+                withNormalizedOffset: CGVector(dx: 0, dy: 0)
+            )
+                .withOffset(
+                    CGVector(
+                        dx: featurePicker.frame.midX
+                            - settingsWindow.frame.minX,
+                        dy: featurePicker.frame.midY + rowCenterOffset
+                            - settingsWindow.frame.minY
+                    )
+                )
+                .click()
+        }
 
         if title == "Weather" || title == "Batteries" || title == "GitHub"
+            || title == "Codex" || title == "Claude Code"
             || title == "Search Console" {
             let destination = switch title {
             case "Weather": "weather"
             case "Batteries": "batteries"
+            case "Codex": "codex"
+            case "Claude Code": "claudeCode"
             case "Search Console": "searchConsole"
             default: "github"
             }
@@ -1229,6 +1377,71 @@ final class DockMagicUITests: XCTestCase {
 
     private func activeFeaturePicker(in app: XCUIApplication) -> XCUIElement {
         app.buttons["settings.activeFeaturePicker"].firstMatch
+    }
+
+    private func hittableActiveFeaturePicker(
+        in app: XCUIApplication
+    ) -> XCUIElement {
+        var picker = activeFeaturePicker(in: app)
+
+        for _ in 0 ..< 5 {
+            if picker.exists, picker.isHittable {
+                return picker
+            }
+            if let detailScrollView = app.scrollViews.allElementsBoundByIndex
+                .filter({ $0.exists })
+                .max(by: { $0.frame.width < $1.frame.width }) {
+                detailScrollView.scroll(byDeltaX: 0, deltaY: -320)
+            }
+            picker = activeFeaturePicker(in: app)
+        }
+        return picker
+    }
+
+    private func assertDeveloperToolInstalledIndicator(
+        rawValue: String,
+        title: String,
+        in app: XCUIApplication
+    ) {
+        let status = app.buttons[
+            "settings.\(rawValue).installationIndicator"
+        ].firstMatch
+        XCTAssertTrue(
+            status.waitForExistence(timeout: 3),
+            "Missing compact \(title) indicator."
+        )
+        let detected = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "label == %@", title),
+            object: status
+        )
+        XCTAssertEqual(
+            XCTWaiter.wait(for: [detected], timeout: 3),
+            .completed,
+            "Opening \(title) settings should prepare its CLI automatically."
+        )
+        XCTAssertEqual(
+            status.value as? String,
+            "DockMagic is using /usr/bin/true. Click to check the connection."
+        )
+        XCTAssertFalse(
+            app.staticTexts["CLI integration"].exists,
+            "Developer-tool status should stay inside the Dock preview."
+        )
+
+        let dockPreview = app.descendants(matching: .any)[
+            "settings.dockPreview"
+        ].firstMatch
+        XCTAssertTrue(dockPreview.exists, "Missing Dock preview for \(title).")
+        XCTAssertGreaterThan(
+            status.frame.minX,
+            dockPreview.frame.maxX,
+            "The installation indicator should be on the preview's right side."
+        )
+        XCTAssertLessThan(
+            status.frame.maxY,
+            dockPreview.frame.midY,
+            "The installation indicator should be in the preview's top-right corner."
+        )
     }
 
     private func sidebarRow(

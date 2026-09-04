@@ -208,7 +208,7 @@ struct CodexLocalDailyTokenDetailReader: Sendable {
                 return nil
             }
             let urls = deduplicatedURLs(
-                value.split(whereSeparator: \Character.isNewline).map {
+                value.split(whereSeparator: { $0.isNewline }).map {
                     URL(fileURLWithPath: String($0))
                 }
             )

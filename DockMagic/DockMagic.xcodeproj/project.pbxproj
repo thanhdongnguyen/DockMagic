@@ -93,6 +93,12 @@
 		C5A000000000000000000002 /* ServiceStatusAPIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5B000000000000000000002 /* ServiceStatusAPIClient.swift */; };
 		C5A000000000000000000003 /* ServiceStatusStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5B000000000000000000003 /* ServiceStatusStore.swift */; };
 		C5A000000000000000000004 /* ServiceStatusHeaderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5B000000000000000000004 /* ServiceStatusHeaderView.swift */; };
+		C6A000000000000000000001 /* DeveloperToolInstallation.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6B000000000000000000001 /* DeveloperToolInstallation.swift */; };
+		C6A000000000000000000002 /* DeveloperToolInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6B000000000000000000002 /* DeveloperToolInstaller.swift */; };
+		C6A000000000000000000003 /* DeveloperToolInstallationStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6B000000000000000000003 /* DeveloperToolInstallationStore.swift */; };
+		C7A000000000000000000001 /* SoftwareUpdateController.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7B000000000000000000001 /* SoftwareUpdateController.swift */; };
+		C7A000000000000000000002 /* SoftwareUpdateControllerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7B000000000000000000002 /* SoftwareUpdateControllerTests.swift */; };
+		C7A000000000000000000003 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = C7E000000000000000000001 /* Sparkle */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -204,6 +210,11 @@
 		C5B000000000000000000002 /* ServiceStatusAPIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceStatusAPIClient.swift; sourceTree = "<group>"; };
 		C5B000000000000000000003 /* ServiceStatusStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceStatusStore.swift; sourceTree = "<group>"; };
 		C5B000000000000000000004 /* ServiceStatusHeaderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceStatusHeaderView.swift; sourceTree = "<group>"; };
+		C6B000000000000000000001 /* DeveloperToolInstallation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeveloperToolInstallation.swift; sourceTree = "<group>"; };
+		C6B000000000000000000002 /* DeveloperToolInstaller.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeveloperToolInstaller.swift; sourceTree = "<group>"; };
+		C6B000000000000000000003 /* DeveloperToolInstallationStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeveloperToolInstallationStore.swift; sourceTree = "<group>"; };
+		C7B000000000000000000001 /* SoftwareUpdateController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoftwareUpdateController.swift; sourceTree = "<group>"; };
+		C7B000000000000000000002 /* SoftwareUpdateControllerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoftwareUpdateControllerTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -211,6 +222,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C7A000000000000000000003 /* Sparkle in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -280,6 +292,7 @@
 		03AB4D83301BB7FA006D74C0 /* DockMagicTests */ = {
 			isa = PBXGroup;
 			children = (
+				C7B000000000000000000002 /* SoftwareUpdateControllerTests.swift */,
 				C4B000000000000000000003 /* TokenUsageStreakStoreTests.swift */,
 				03AB4D84301BB7FA006D74C0 /* DockMagicTests.swift */,
 				D0C100000000000000000011 /* SystemMetricsFeatureTests.swift */,
@@ -311,6 +324,7 @@
 		D0C200000000000000000002 /* Models */ = {
 			isa = PBXGroup;
 			children = (
+				C6B000000000000000000001 /* DeveloperToolInstallation.swift */,
 				C5B000000000000000000001 /* ServiceStatusSnapshot.swift */,
 				C4B000000000000000000001 /* TokenUsageStreakRecord.swift */,
 				A1B000000000000000000002 /* SearchConsoleConfigurationRecord.swift */,
@@ -331,6 +345,8 @@
 		D0C200000000000000000003 /* Services */ = {
 			isa = PBXGroup;
 			children = (
+				C7B000000000000000000001 /* SoftwareUpdateController.swift */,
+				C6B000000000000000000002 /* DeveloperToolInstaller.swift */,
 				C5B000000000000000000002 /* ServiceStatusAPIClient.swift */,
 				D7B000000000000000000008 /* CodexDailyTokenDetailLoader.swift */,
 				C3B000000000000000000004 /* CodexDashboardCaptureService.swift */,
@@ -357,6 +373,7 @@
 		D0C200000000000000000004 /* Stores */ = {
 			isa = PBXGroup;
 			children = (
+				C6B000000000000000000003 /* DeveloperToolInstallationStore.swift */,
 				C5B000000000000000000003 /* ServiceStatusStore.swift */,
 				C4B000000000000000000002 /* TokenUsageStreakStore.swift */,
 				B4B000000000000000000001 /* ClockStore.swift */,
@@ -480,6 +497,9 @@
 			dependencies = (
 			);
 			name = DockMagic;
+			packageProductDependencies = (
+				C7E000000000000000000001 /* Sparkle */,
+			);
 			productName = DockMagic;
 			productReference = 03AB4D6D301BB7F7006D74C0 /* DockMagic.app */;
 			productType = "com.apple.product-type.application";
@@ -552,6 +572,9 @@
 				Base,
 			);
 			mainGroup = 03AB4D64301BB7F7006D74C0;
+			packageReferences = (
+				C7D000000000000000000001 /* XCRemoteSwiftPackageReference "Sparkle" */,
+			);
 			productRefGroup = 03AB4D6E301BB7F7006D74C0 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -594,6 +617,10 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C7A000000000000000000001 /* SoftwareUpdateController.swift in Sources */,
+				C6A000000000000000000001 /* DeveloperToolInstallation.swift in Sources */,
+				C6A000000000000000000002 /* DeveloperToolInstaller.swift in Sources */,
+				C6A000000000000000000003 /* DeveloperToolInstallationStore.swift in Sources */,
 				C5A000000000000000000001 /* ServiceStatusSnapshot.swift in Sources */,
 				C5A000000000000000000002 /* ServiceStatusAPIClient.swift in Sources */,
 				C5A000000000000000000003 /* ServiceStatusStore.swift in Sources */,
@@ -676,6 +703,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C7A000000000000000000002 /* SoftwareUpdateControllerTests.swift in Sources */,
 				C4A000000000000000000003 /* TokenUsageStreakStoreTests.swift in Sources */,
 				03AB4D85301BB7FA006D74C0 /* DockMagicTests.swift in Sources */,
 				D0C000000000000000000011 /* SystemMetricsFeatureTests.swift in Sources */,
@@ -960,6 +988,25 @@
 			name = Release;
 		};
 /* End XCBuildConfiguration section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		C7D000000000000000000001 /* XCRemoteSwiftPackageReference "Sparkle" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sparkle-project/Sparkle";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.9.6;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		C7E000000000000000000001 /* Sparkle */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = C7D000000000000000000001 /* XCRemoteSwiftPackageReference "Sparkle" */;
+			productName = Sparkle;
+		};
+/* End XCSwiftPackageProductDependency section */
 
 /* Begin XCConfigurationList section */
 		03AB4D68301BB7F7006D74C0 /* Build configuration list for PBXProject "DockMagic" */ = {

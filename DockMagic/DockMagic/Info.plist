@@ -28,5 +28,17 @@
 	<string>AccentColor</string>
 	<key>NSLocationUsageDescription</key>
 	<string>DockMagic uses your current location to show local weather and the location name in the Dock preview.</string>
+	<key>SUEnableAutomaticChecks</key>
+	<true/>
+	<key>SUAutomaticallyUpdate</key>
+	<false/>
+	<key>SUFeedURL</key>
+	<string>https://github.com/thanhdongnguyen/DockMagic/releases/latest/download/appcast.xml</string>
+	<key>SUPublicEDKey</key>
+	<string>QU1G6KwYNKkFdv9MMKjOOBS4hm8mdtNSnsTxhNZ/Z04=</string>
+	<key>SUScheduledCheckInterval</key>
+	<integer>86400</integer>
+	<key>SUVerifyUpdateBeforeExtraction</key>
+	<true/>
 </dict>
 </plist>

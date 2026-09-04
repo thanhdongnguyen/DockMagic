@@ -173,6 +173,8 @@ Production releases must use Developer ID signing, Hardened Runtime,
 notarization, stapling, and a Gatekeeper smoke test on a clean Mac. Contributions
 must not introduce Mac App Store-only packaging or capabilities unless the
 direct-distribution impact has been evaluated and documented.
+See the [software update and appcast release contract](docs/SOFTWARE_UPDATES.md)
+for the Sparkle signing, feed, and release verification workflow.
 
 ## Requirements
 

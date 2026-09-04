@@ -102,6 +102,7 @@ Immediately before archiving, query the latest GitHub releases again and repeat 
 6. Staple and validate the ticket with `xcrun stapler`. Run Gatekeeper assessment on the DMG and on the app mounted from the DMG.
 7. Apply a quarantine attribute to a copied artifact and perform a local launch smoke test without bypassing Gatekeeper. Do not treat this as a replacement for the repository-required clean-Mac smoke test.
 8. Compute a SHA-256 checksum and create `DockMagic-<version>.dmg.sha256` beside the DMG. Verify the checksum before upload.
+9. Locate the resolved Sparkle `generate_appcast` executable under the release Derived Data directory. In an otherwise empty staging directory containing the validated `DockMagic-<version>.dmg` and optional matching Markdown release notes, run `script/generate_update_appcast.sh <version> <staging-directory> <generate-appcast-path>`. Require `appcast.xml` to reference the immutable `releases/download/v<version>/DockMagic-<version>.dmg` URL and contain a `sparkle:edSignature`. The private EdDSA key must remain in the Keychain account `DockMagic` or an ephemeral CI secret and must never enter the repository.
 
 Do not continue when signing, notarization, stapling, Gatekeeper, version, architecture, test, or launch verification fails.
 
@@ -111,8 +112,8 @@ At the second checkpoint, obtain approval for the complete remote plan. Then:
 
 1. Push the current release branch without force and verify that the remote branch points to the local release commit.
 2. Create an annotated `v<version>` tag on that exact commit and push only that tag. Abort on any collision.
-3. Create a draft GitHub Release with `gh release create --verify-tag`, targeting the tagged commit. Upload the DMG and its SHA-256 file, use `DockMagic <version>` as the title, and pass the prepared notes with `--notes-file`. Add `--prerelease` only when approved.
-4. Inspect the draft with `gh release view`. Verify the tag, target commit, draft status, asset names, and asset sizes. Download the uploaded assets to a separate temporary directory and verify their SHA-256 checksum.
+3. Create a draft GitHub Release with `gh release create --verify-tag`, targeting the tagged commit. Upload the DMG, its SHA-256 file, and `appcast.xml`; use `DockMagic <version>` as the title and pass the prepared notes with `--notes-file`. Add `--prerelease` only when approved. The stable updater feed uses GitHub's `/releases/latest/` redirect, so a prerelease must not replace or reuse the stable feed without a separately approved channel design.
+4. Inspect the draft with `gh release view`. Verify the tag, target commit, draft status, asset names, and asset sizes. Download the uploaded assets to a separate temporary directory, verify their SHA-256 checksum, and verify that the downloaded appcast references the immutable tag-specific DMG URL with an EdDSA signature.
 5. Keep the release as a draft until the user confirms that the downloaded DMG passed a Gatekeeper installation and launch smoke test on a clean compatible Mac. If that confirmation is unavailable, report the draft URL and stop.
 
 ## 6. Publish, merge into main, and verify
@@ -124,9 +125,10 @@ After the clean-Mac confirmation and the unchanged-main check:
 1. Publish the draft with `gh release edit v<version> --draft=false` and verify that the release is no longer a draft.
 2. Switch to local `main`, update it from `origin/main` with `--ff-only`, and fast-forward it to the tagged release commit. If a fast-forward is impossible, stop rather than create an unreviewed merge commit.
 3. Push `main` to `origin` without force.
-4. Verify that `origin/main` contains the release tag commit and that the published GitHub Release still exposes the expected DMG and checksum assets.
+4. Verify that `origin/main` contains the release tag commit and that the published GitHub Release still exposes the expected DMG, checksum, and `appcast.xml` assets. Fetch `https://github.com/thanhdongnguyen/DockMagic/releases/latest/download/appcast.xml` and require it to resolve to the published stable release.
+5. From an installed previous updater-enabled version, run `Check for Updates…`, confirm the Settings footer reports the new version, and complete a signed update smoke test. The first Sparkle-enabled release still requires a manual install because v1.0.1 has no updater.
 5. Do not delete the source branch unless the user separately requests it.
 
 ## Final report
 
-Report the version, build number, tag, release URL, release commit SHA, source branch, final `origin/main` SHA, DMG filename and SHA-256, architectures, signing identity summary, notarization submission ID, tests and smoke tests performed, and any skipped optional validation. Never include secret values.
+Report the version, build number, tag, release URL, release commit SHA, source branch, final `origin/main` SHA, DMG filename and SHA-256, appcast asset and immutable enclosure URL, architectures, signing identity summary, notarization submission ID, tests and update smoke tests performed, and any skipped optional validation. Never include secret values.

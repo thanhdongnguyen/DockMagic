@@ -229,10 +229,27 @@ final class DockMagicTests: XCTestCase {
 
         let preferences = DockPreferencesStore(defaults: defaults)
         preferences.activeFeature = .network
-        let appModel = DockAppModel(preferences: preferences)
+        let installer = StubDeveloperToolInstaller(
+            installedPaths: [
+                .codex: URL(fileURLWithPath: "/usr/bin/true"),
+                .claudeCode: URL(fileURLWithPath: "/usr/bin/true")
+            ]
+        )
+        let appModel = DockAppModel(
+            preferences: preferences,
+            developerToolInstallationStore: DeveloperToolInstallationStore(
+                installer: installer
+            )
+        )
+        var didOpenSettings = false
+        let settingsRouter = SettingsWindowRouter(
+            showExistingWindow: { false },
+            activateApplication: {}
+        )
+        settingsRouter.install { didOpenSettings = true }
         let delegate = AppDelegate(
             appModel: appModel,
-            settingsWindowRouter: SettingsWindowRouter()
+            settingsWindowRouter: settingsRouter
         )
 
         let dockMenu = try XCTUnwrap(
@@ -269,6 +286,8 @@ final class DockMagicTests: XCTestCase {
             )
         )
         XCTAssertEqual(preferences.activeFeature, .codex)
+        XCTAssertEqual(settingsRouter.destination, .codex)
+        XCTAssertTrue(didOpenSettings)
         XCTAssertEqual(
             defaults.string(forKey: DockFeature.storageKey),
             DockFeature.codex.rawValue
@@ -300,6 +319,20 @@ final class DockMagicTests: XCTestCase {
         XCTAssertTrue(router.showSettings())
         XCTAssertFalse(didOpen)
         XCTAssertTrue(didBringForward)
+    }
+
+    @MainActor
+    func testSettingsRouterSelectsRequestedFeatureBeforeOpening() {
+        var didOpen = false
+        let router = SettingsWindowRouter(
+            showExistingWindow: { false },
+            activateApplication: {}
+        )
+        router.install { didOpen = true }
+
+        XCTAssertTrue(router.showSettings(destination: .claudeCode))
+        XCTAssertEqual(router.destination, .claudeCode)
+        XCTAssertTrue(didOpen)
     }
 
     func testDockFeatureContractStartsWithDockMagicThenCPUAndRAM() {
@@ -2725,6 +2758,219 @@ final class DockMagicTests: XCTestCase {
         )
     }
 
+    func testCodexExecutableLocatorFindsCodexDesktopBundle() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let applications = root.appendingPathComponent(
+            "Applications",
+            isDirectory: true
+        )
+        let executable = applications
+            .appendingPathComponent("ChatGPT.app", isDirectory: true)
+            .appendingPathComponent("Contents/Resources/codex")
+        try FileManager.default.createDirectory(
+            at: executable.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        XCTAssertTrue(
+            FileManager.default.createFile(
+                atPath: executable.path,
+                contents: Data()
+            )
+        )
+        try FileManager.default.setAttributes(
+            [.posixPermissions: 0o755],
+            ofItemAtPath: executable.path
+        )
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let locator = CodexExecutableLocator(
+            environment: [:],
+            homeDirectory: root,
+            applicationDirectories: [applications]
+        )
+
+        XCTAssertEqual(try locator.locate(overridePath: nil), executable)
+    }
+
+    func testClaudeCodeExecutableLocatorFindsUserSpaceInstall() throws {
+        let homeDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let executable = homeDirectory.appendingPathComponent(
+            ".local/bin/claude"
+        )
+        try FileManager.default.createDirectory(
+            at: executable.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        XCTAssertTrue(
+            FileManager.default.createFile(
+                atPath: executable.path,
+                contents: Data()
+            )
+        )
+        try FileManager.default.setAttributes(
+            [.posixPermissions: 0o755],
+            ofItemAtPath: executable.path
+        )
+        defer { try? FileManager.default.removeItem(at: homeDirectory) }
+
+        let locator = ClaudeCodeExecutableLocator(
+            environment: [:],
+            homeDirectory: homeDirectory
+        )
+
+        XCTAssertEqual(try locator.locate(), executable)
+    }
+
+    @MainActor
+    func testDeveloperToolInstallerUsesOfficialHostsAndUserSpaceTargets() async throws {
+        for tool in DeveloperTool.allCases {
+            let homeDirectory = FileManager.default.temporaryDirectory
+                .appendingPathComponent(UUID().uuidString, isDirectory: true)
+            try FileManager.default.createDirectory(
+                at: homeDirectory,
+                withIntermediateDirectories: true
+            )
+            defer { try? FileManager.default.removeItem(at: homeDirectory) }
+
+            let executable = homeDirectory.appendingPathComponent(
+                ".local/bin/\(tool.executableName)"
+            )
+            let downloader = RecordingInstallerScriptDownloader()
+            let runner = RecordingInstallerProcessRunner(
+                executableToCreate: executable
+            )
+            let installer = DeveloperToolInstaller(
+                codexLocator: CodexExecutableLocator(
+                    environment: [:],
+                    homeDirectory: homeDirectory,
+                    applicationDirectories: []
+                ),
+                claudeCodeLocator: ClaudeCodeExecutableLocator(
+                    environment: [:],
+                    homeDirectory: homeDirectory
+                ),
+                downloader: downloader,
+                processRunner: runner,
+                homeDirectory: homeDirectory,
+                environment: [:]
+            )
+
+            let installedExecutable = try await installer.install(tool)
+            XCTAssertEqual(installedExecutable, executable)
+
+            let requests = await downloader.requests
+            XCTAssertEqual(requests.count, 1)
+            switch tool {
+            case .codex:
+                XCTAssertEqual(
+                    requests[0].url,
+                    URL(string: "https://chatgpt.com/codex/install.sh")
+                )
+                XCTAssertEqual(
+                    requests[0].allowedHosts,
+                    ["chatgpt.com", "releases.openai.com"]
+                )
+            case .claudeCode:
+                XCTAssertEqual(
+                    requests[0].url,
+                    URL(string: "https://claude.ai/install.sh")
+                )
+                XCTAssertEqual(
+                    requests[0].allowedHosts,
+                    ["claude.ai", "downloads.claude.ai"]
+                )
+            }
+
+            let calls = await runner.calls
+            XCTAssertEqual(calls.count, 2)
+            XCTAssertEqual(
+                calls[0].executableURL.path,
+                tool == .codex ? "/bin/sh" : "/bin/bash"
+            )
+            XCTAssertEqual(calls[0].environment["HOME"], homeDirectory.path)
+            XCTAssertEqual(
+                calls[0].environment["PATH"]?.split(separator: ":").first,
+                Substring(homeDirectory.appendingPathComponent(".local/bin").path)
+            )
+            if tool == .codex {
+                XCTAssertEqual(calls[0].environment["CODEX_NON_INTERACTIVE"], "1")
+                XCTAssertEqual(
+                    calls[0].environment["CODEX_INSTALL_DIR"],
+                    homeDirectory.appendingPathComponent(".local/bin").path
+                )
+            }
+            XCTAssertEqual(calls[1].executableURL, executable)
+            XCTAssertEqual(calls[1].arguments, ["--version"])
+        }
+    }
+
+    @MainActor
+    func testDeveloperToolInstallationStoreCoalescesAutomaticInstall() async {
+        let installedURL = URL(fileURLWithPath: "/tmp/dockmagic-codex")
+        let installer = StubDeveloperToolInstaller(
+            installResults: [.codex: .success(installedURL)],
+            installDelay: .milliseconds(40)
+        )
+        let store = DeveloperToolInstallationStore(installer: installer)
+        store.refreshAvailability(codexOverridePath: nil)
+
+        let first = Task {
+            await store.ensureInstalled(.codex, codexOverridePath: nil)
+        }
+        let second = Task {
+            await store.ensureInstalled(.codex, codexOverridePath: nil)
+        }
+
+        let firstURL = await first.value
+        let secondURL = await second.value
+        XCTAssertEqual(firstURL, installedURL)
+        XCTAssertEqual(secondURL, installedURL)
+        XCTAssertEqual(installer.installCallCount[.codex], 1)
+        XCTAssertEqual(store.codexState, .installed(path: installedURL.path))
+    }
+
+    @MainActor
+    func testDeveloperToolInstallationStoreSurfacesInstallerFailure() async {
+        let installer = StubDeveloperToolInstaller(
+            installResults: [
+                .claudeCode: .failure(InstallerFixtureError.downloadFailed)
+            ]
+        )
+        let store = DeveloperToolInstallationStore(installer: installer)
+
+        let installed = await store.ensureInstalled(
+            .claudeCode,
+            codexOverridePath: nil
+        )
+
+        XCTAssertNil(installed)
+        XCTAssertEqual(
+            store.claudeCodeState,
+            .failed(message: "Fixture installer download failed.")
+        )
+    }
+
+    func testInstallerProcessRunnerStopsTimedOutProcess() async {
+        let runner = FoundationInstallerProcessRunner()
+
+        do {
+            _ = try await runner.run(
+                executableURL: URL(fileURLWithPath: "/bin/sleep"),
+                arguments: ["30"],
+                environment: ProcessInfo.processInfo.environment,
+                timeout: 0.05
+            )
+            XCTFail("Expected the installer process to time out.")
+        } catch {
+            XCTAssertEqual(
+                error as? DeveloperToolInstallerError,
+                .installerTimedOut
+            )
+        }
+    }
+
     @MainActor
     func testCodexUsageStoreTransitionsFromLiveToStale() async {
         let snapshot = sampleCodexSnapshot()
@@ -2979,6 +3225,131 @@ final class DockMagicTests: XCTestCase {
             1,
             "An explicit opt-out must survive future automatic preparation."
         )
+    }
+
+    @MainActor
+    func testSelectingCodexAutomaticallyInstallsAndConnects() async throws {
+        let suiteName = "DockMagicTests.CodexFeatureInstall.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let installedURL = URL(fileURLWithPath: "/tmp/dockmagic-installed-codex")
+        let installer = StubDeveloperToolInstaller(
+            installResults: [.codex: .success(installedURL)]
+        )
+        let installationStore = DeveloperToolInstallationStore(
+            installer: installer
+        )
+        let snapshot = sampleCodexSnapshot()
+        let codexStore = CodexUsageStore(
+            provider: ScriptedCodexProvider([.success(snapshot)]),
+            locator: StubCodexLocator(),
+            pollingInterval: .seconds(60)
+        )
+        let preferences = DockPreferencesStore(defaults: defaults)
+        let appModel = DockAppModel(
+            preferences: preferences,
+            codexStore: codexStore,
+            developerToolInstallationStore: installationStore
+        )
+
+        appModel.activateFeature(.codex)
+
+        try await waitUntil {
+            installationStore.codexState == .installed(path: installedURL.path)
+                && codexStore.state.snapshot != nil
+        }
+        XCTAssertEqual(preferences.activeFeature, .codex)
+        XCTAssertEqual(preferences.codexExecutablePath, installedURL.path)
+        XCTAssertEqual(installer.installCallCount[.codex], 1)
+    }
+
+    @MainActor
+    func testOpeningCodexSettingsPreparesCLIWithoutChangingActiveFeature()
+        async throws
+    {
+        let suiteName = "DockMagicTests.CodexSettingsInstall.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let installedURL = URL(fileURLWithPath: "/tmp/dockmagic-settings-codex")
+        let installer = StubDeveloperToolInstaller(
+            installResults: [.codex: .success(installedURL)]
+        )
+        let installationStore = DeveloperToolInstallationStore(
+            installer: installer
+        )
+        let codexStore = CodexUsageStore(
+            provider: ScriptedCodexProvider([.success(sampleCodexSnapshot())]),
+            locator: StubCodexLocator(),
+            pollingInterval: .seconds(60)
+        )
+        let preferences = DockPreferencesStore(defaults: defaults)
+        let appModel = DockAppModel(
+            preferences: preferences,
+            codexStore: codexStore,
+            developerToolInstallationStore: installationStore
+        )
+
+        appModel.requestDeveloperToolPreparation(for: .codex)
+
+        try await waitUntil {
+            installationStore.codexState == .installed(path: installedURL.path)
+                && codexStore.state.snapshot != nil
+        }
+        XCTAssertEqual(
+            preferences.activeFeature,
+            .systemMetrics,
+            "Opening settings must not silently replace the active Dock feature."
+        )
+        XCTAssertEqual(preferences.codexExecutablePath, installedURL.path)
+        XCTAssertEqual(installer.installCallCount[.codex], 1)
+    }
+
+    @MainActor
+    func testSelectingClaudeCodeInstallsCLIBeforeDockMagicBridge() async throws {
+        let suiteName = "DockMagicTests.ClaudeFeatureInstall.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let installedURL = URL(fileURLWithPath: "/tmp/dockmagic-installed-claude")
+        let installer = StubDeveloperToolInstaller(
+            installResults: [.claudeCode: .success(installedURL)]
+        )
+        let installationStore = DeveloperToolInstallationStore(
+            installer: installer
+        )
+        let snapshot = sampleClaudeCodeSnapshot()
+        let bridge = StubClaudeCodeBridge(installed: false)
+        let claudeStore = ClaudeCodeUsageStore(
+            provider: ScriptedClaudeCodeProvider([.success(snapshot)]),
+            bridge: bridge,
+            activityHookBridge: StubClaudeCodeActivityHookBridge(
+                installed: false
+            ),
+            pollingInterval: .seconds(60)
+        )
+        let preferences = DockPreferencesStore(defaults: defaults)
+        let appModel = DockAppModel(
+            preferences: preferences,
+            claudeCodeStore: claudeStore,
+            developerToolInstallationStore: installationStore
+        )
+
+        appModel.activateFeature(.claudeCode)
+
+        try await waitUntil {
+            installationStore.claudeCodeState
+                == .installed(path: installedURL.path)
+                && bridge.installed
+                && claudeStore.state.snapshot != nil
+        }
+        XCTAssertEqual(preferences.activeFeature, .claudeCode)
+        XCTAssertEqual(installer.installCallCount[.claudeCode], 1)
+        XCTAssertEqual(bridge.installCallCount, 1)
     }
 
     @MainActor
@@ -9382,12 +9753,18 @@ final class DockMagicTests: XCTestCase {
     @MainActor
     func testSigmaAppearanceAndAccessibilityVariantsRenderDistinctSettings() throws {
         let appModel = makeAppModel()
+        let softwareUpdateController = SoftwareUpdateController.uiTestFixture(
+            availableVersion: "1.0.2"
+        )
         let size = NSSize(width: 1_020, height: 740)
         let appearanceDefaults = makeAppearanceDefaults(.light)
 
         let light = try renderPNG(
             of: DockMagicThemeRoot(
-                content: SettingsView(appModel: appModel)
+                content: SettingsView(
+                    appModel: appModel,
+                    softwareUpdateController: softwareUpdateController
+                )
                     .defaultAppStorage(appearanceDefaults),
                 appearanceMode: .light
             ),
@@ -9401,7 +9778,10 @@ final class DockMagicTests: XCTestCase {
         )
         let dark = try renderPNG(
             of: DockMagicThemeRoot(
-                content: SettingsView(appModel: appModel)
+                content: SettingsView(
+                    appModel: appModel,
+                    softwareUpdateController: softwareUpdateController
+                )
                     .defaultAppStorage(appearanceDefaults),
                 appearanceMode: .dark
             ),
@@ -9411,7 +9791,10 @@ final class DockMagicTests: XCTestCase {
         )
         let reducedTransparency = try renderPNG(
             of: DockMagicThemeRoot(
-                content: SettingsView(appModel: appModel)
+                content: SettingsView(
+                    appModel: appModel,
+                    softwareUpdateController: softwareUpdateController
+                )
                     .defaultAppStorage(appearanceDefaults)
                     .environment(
                         \.dsAccessibilityOverrides,
@@ -9425,7 +9808,10 @@ final class DockMagicTests: XCTestCase {
         )
         let increasedContrast = try renderPNG(
             of: DockMagicThemeRoot(
-                content: SettingsView(appModel: appModel)
+                content: SettingsView(
+                    appModel: appModel,
+                    softwareUpdateController: softwareUpdateController
+                )
                     .defaultAppStorage(appearanceDefaults)
                     .environment(
                         \.dsAccessibilityOverrides,
@@ -9437,12 +9823,27 @@ final class DockMagicTests: XCTestCase {
             appearanceName: .aqua,
             name: "Settings — General — Increased Contrast"
         )
+        let grayscale = try renderPNG(
+            of: DockMagicThemeRoot(
+                content: SettingsView(
+                    appModel: appModel,
+                    softwareUpdateController: softwareUpdateController
+                )
+                    .defaultAppStorage(appearanceDefaults),
+                appearanceMode: .light
+            )
+            .grayscale(1),
+            size: size,
+            appearanceName: .aqua,
+            name: "Settings — General — Grayscale"
+        )
 
         let variants = [
             ("Settings — General — Light", light),
             ("Settings — General — Dark", dark),
             ("Settings — General — Reduced Transparency", reducedTransparency),
-            ("Settings — General — Increased Contrast", increasedContrast)
+            ("Settings — General — Increased Contrast", increasedContrast),
+            ("Settings — General — Grayscale", grayscale)
         ]
         for variant in variants {
             XCTAssertGreaterThan(
@@ -9456,6 +9857,7 @@ final class DockMagicTests: XCTestCase {
         XCTAssertNotEqual(light, dark)
         XCTAssertNotEqual(light, reducedTransparency)
         XCTAssertNotEqual(light, increasedContrast)
+        XCTAssertNotEqual(light, grayscale)
         assertPixelDifference(
             light,
             dark,
@@ -9473,6 +9875,12 @@ final class DockMagicTests: XCTestCase {
             increasedContrast,
             minimumChangedFraction: 0.001,
             label: "Light Glass versus Increase Contrast"
+        )
+        assertPixelDifference(
+            light,
+            grayscale,
+            minimumChangedFraction: 0.001,
+            label: "Light versus Grayscale"
         )
     }
 
@@ -9524,6 +9932,14 @@ final class DockMagicTests: XCTestCase {
             ),
             pollingInterval: .seconds(60)
         )
+        let developerTools = DeveloperToolInstallationStore(
+            installer: StubDeveloperToolInstaller(
+                installedPaths: [
+                    .codex: URL(fileURLWithPath: "/usr/bin/true"),
+                    .claudeCode: URL(fileURLWithPath: "/usr/bin/true")
+                ]
+            )
+        )
         return DockAppModel(
             preferences: preferences,
             metricsStore: metrics,
@@ -9531,7 +9947,8 @@ final class DockMagicTests: XCTestCase {
             storageStore: storage,
             weatherStore: weather,
             codexStore: codex,
-            claudeCodeStore: claudeCode
+            claudeCodeStore: claudeCode,
+            developerToolInstallationStore: developerTools
         )
     }
 
@@ -10761,6 +11178,126 @@ private final class InMemoryWeatherCache: WeatherSnapshotCaching, @unchecked Sen
         lock.lock()
         storedSnapshot = snapshot
         lock.unlock()
+    }
+}
+
+@MainActor
+private final class StubDeveloperToolInstaller: DeveloperToolInstalling {
+    private var installedPaths: [DeveloperTool: URL]
+    private var installResults: [DeveloperTool: Result<URL, Error>]
+    private let installDelay: Duration?
+    private(set) var installCallCount: [DeveloperTool: Int] = [:]
+
+    init(
+        installedPaths: [DeveloperTool: URL] = [:],
+        installResults: [DeveloperTool: Result<URL, Error>] = [:],
+        installDelay: Duration? = nil
+    ) {
+        self.installedPaths = installedPaths
+        self.installResults = installResults
+        self.installDelay = installDelay
+    }
+
+    func locate(
+        _ tool: DeveloperTool,
+        codexOverridePath: String?
+    ) throws -> URL {
+        guard let url = installedPaths[tool] else {
+            throw DeveloperToolInstallerError.installedExecutableMissing(tool)
+        }
+        return url
+    }
+
+    func install(_ tool: DeveloperTool) async throws -> URL {
+        installCallCount[tool, default: 0] += 1
+        if let installDelay {
+            try await Task.sleep(for: installDelay)
+        }
+        guard let result = installResults[tool] else {
+            throw DeveloperToolInstallerError.installedExecutableMissing(tool)
+        }
+        let url = try result.get()
+        installedPaths[tool] = url
+        return url
+    }
+}
+
+private struct InstallerDownloadRequest: Equatable, Sendable {
+    let url: URL
+    let allowedHosts: Set<String>
+}
+
+private actor RecordingInstallerScriptDownloader: InstallerScriptDownloading {
+    private(set) var requests: [InstallerDownloadRequest] = []
+
+    func downloadScript(
+        from url: URL,
+        allowedHosts: Set<String>
+    ) async throws -> Data {
+        requests.append(
+            InstallerDownloadRequest(url: url, allowedHosts: allowedHosts)
+        )
+        return Data("#!/bin/sh\nexit 0\n".utf8)
+    }
+}
+
+private struct InstallerProcessCall: Equatable, Sendable {
+    let executableURL: URL
+    let arguments: [String]
+    let environment: [String: String]
+    let timeout: TimeInterval
+}
+
+private actor RecordingInstallerProcessRunner: InstallerProcessRunning {
+    private(set) var calls: [InstallerProcessCall] = []
+    private let executableToCreate: URL
+
+    init(executableToCreate: URL) {
+        self.executableToCreate = executableToCreate
+    }
+
+    func run(
+        executableURL: URL,
+        arguments: [String],
+        environment: [String: String],
+        timeout: TimeInterval
+    ) async throws -> InstallerProcessResult {
+        calls.append(
+            InstallerProcessCall(
+                executableURL: executableURL,
+                arguments: arguments,
+                environment: environment,
+                timeout: timeout
+            )
+        )
+        if calls.count == 1 {
+            try FileManager.default.createDirectory(
+                at: executableToCreate.deletingLastPathComponent(),
+                withIntermediateDirectories: true
+            )
+            guard FileManager.default.createFile(
+                atPath: executableToCreate.path,
+                contents: Data()
+            ) else {
+                throw DeveloperToolInstallerError.installedExecutableMissing(.codex)
+            }
+            try FileManager.default.setAttributes(
+                [.posixPermissions: 0o755],
+                ofItemAtPath: executableToCreate.path
+            )
+        }
+        return InstallerProcessResult(
+            terminationStatus: 0,
+            output: arguments == ["--version"] ? "test version" : "installed"
+        )
+    }
+}
+
+private enum InstallerFixtureError: LocalizedError {
+    case downloadFailed
+
+    var errorDescription: String? {
+        "Fixture installer download failed."
     }
 }
 
