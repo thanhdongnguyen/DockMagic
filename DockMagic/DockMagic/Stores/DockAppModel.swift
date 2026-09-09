@@ -14,6 +14,7 @@ final class DockAppModel {
     let githubStore: GitHubRepositoryStore
     let streakStore: TokenUsageStreakStore
     let codexStore: CodexUsageStore
+    let antigravityStore: AntigravityUsageStore
     let claudeCodeStore: ClaudeCodeUsageStore
     let developerToolInstallationStore: DeveloperToolInstallationStore
     let serviceStatusStore: ServiceStatusStore
@@ -31,6 +32,9 @@ final class DockAppModel {
     private var developerToolPreparationTasks:
         [DeveloperTool: Task<Void, Never>] = [:]
 
+    @ObservationIgnored
+    private var antigravityPreparationTask: Task<Void, Never>?
+
     init(
         preferences: DockPreferencesStore? = nil,
         metricsStore: SystemMetricsStore? = nil,
@@ -43,6 +47,7 @@ final class DockAppModel {
         streakStore: TokenUsageStreakStore? = nil,
         codexStore: CodexUsageStore? = nil,
         claudeCodeStore: ClaudeCodeUsageStore? = nil,
+        antigravityStore: AntigravityUsageStore? = nil,
         developerToolInstallationStore: DeveloperToolInstallationStore? = nil,
         serviceStatusStore: ServiceStatusStore? = nil,
         searchConsoleStore: SearchConsoleStore? = nil
@@ -62,6 +67,8 @@ final class DockAppModel {
             streakTracker: streakStore,
             executableOverridePath: preferences.codexExecutablePath
         )
+        self.antigravityStore = antigravityStore ?? AntigravityUsageStore(streakTracker: streakStore)
+        self.antigravityStore.selectedGroupID = preferences.antigravityGroupID
         self.claudeCodeStore = claudeCodeStore ?? ClaudeCodeUsageStore(
             streakTracker: streakStore
         )
@@ -125,6 +132,8 @@ final class DockAppModel {
                 appearance: preferences.codexAppearance,
                 serviceStatus: serviceStatusStore.codexState
             )
+        case .antigravity:
+            .antigravity(state: antigravityStore.state, appearance: preferences.antigravityAppearance)
         case .claudeCode:
             .claudeCode(
                 state: claudeCodeStore.state,
@@ -155,6 +164,8 @@ final class DockAppModel {
         isObservingPreferences = false
         automaticClaudeSetupTask?.cancel()
         automaticClaudeSetupTask = nil
+        antigravityPreparationTask?.cancel()
+        antigravityPreparationTask = nil
         for task in developerToolPreparationTasks.values {
             task.cancel()
         }
@@ -169,6 +180,7 @@ final class DockAppModel {
         githubStore.stop()
         codexStore.stop()
         claudeCodeStore.stop()
+        antigravityStore.stop()
         serviceStatusStore.stop()
         searchConsoleStore.stop()
     }
@@ -184,6 +196,7 @@ final class DockAppModel {
             _ = preferences.githubRepositoryURL
             _ = preferences.codexExecutablePath
             _ = preferences.automaticallyConfigureClaudeCode
+            _ = preferences.antigravityGroupID
         } onChange: { [weak self] in
             Task { @MainActor [weak self] in
                 guard let self, self.isRunning else {
@@ -198,6 +211,8 @@ final class DockAppModel {
     }
 
     private func applyPreferences() {
+        antigravityStore.selectedGroupID = preferences.antigravityGroupID
+        if preferences.activeFeature != .antigravity && !antigravityStore.isBridgeInstalled { antigravityStore.stop() }
         automaticClaudeSetupTask?.cancel()
         automaticClaudeSetupTask = nil
         codexStore.executableOverridePath = preferences.codexExecutablePath
@@ -290,6 +305,16 @@ final class DockAppModel {
             githubStore.pause()
             searchConsoleStore.stop()
             codexStore.start()
+        case .antigravity:
+            metricsStore.stop()
+            networkStore.stop()
+            storageStore.stop()
+            weatherStore.stop()
+            clockStore.stop()
+            batteryStore.stop()
+            githubStore.pause()
+            searchConsoleStore.stop()
+            antigravityStore.start()
         case .claudeCode:
             metricsStore.stop()
             networkStore.stop()
@@ -318,6 +343,7 @@ final class DockAppModel {
         // which feature currently owns the Dock. Codex is always sampled in
         // the background; Claude Code is sampled whenever its bridge exists.
         codexStore.start()
+        if antigravityStore.isBridgeInstalled { antigravityStore.start() }
         if claudeCodeStore.isBridgeInstalled {
             claudeCodeStore.start()
         }
@@ -354,15 +380,33 @@ final class DockAppModel {
     /// Starts setup when the user opens a developer-tool settings page without
     /// changing the single feature currently shown in the Dock.
     func requestDeveloperToolPreparation(for feature: DockFeature) {
+        if feature == .antigravity {
+            guard antigravityPreparationTask == nil else { return }
+            antigravityPreparationTask = Task { @MainActor [weak self] in
+                guard let self, !Task.isCancelled else { return }
+                await prepareDeveloperToolIntegration(for: feature)
+                antigravityPreparationTask = nil
+            }
+            return
+        }
         guard let tool = feature.developerTool else {
             return
         }
         scheduleDeveloperToolPreparation(tool, feature: feature)
     }
 
-    /// Installs a missing vendor CLI, then connects the existing DockMagic data
-    /// provider. Calls are coalesced by DeveloperToolInstallationStore.
+    /// Prepares the local data connection. Codex and Claude also install a missing
+    /// vendor CLI. Installation and usage stores coalesce concurrent operations.
     func prepareDeveloperToolIntegration(for feature: DockFeature) async {
+        if feature == .antigravity {
+            antigravityStore.start()
+            if !antigravityStore.isBridgeInstalled || antigravityStore.bridgeError != nil {
+                await antigravityStore.connect()
+            } else {
+                await antigravityStore.refresh(force: true)
+            }
+            return
+        }
         guard let tool = feature.developerTool else {
             return
         }
@@ -406,6 +450,27 @@ final class DockAppModel {
             repositoryURL: preferences.githubRepositoryURL
         )
         await githubStore.refresh()
+    }
+
+    /// A sleeping or locked Mac can miss timer delivery for background work.
+    /// Recover independent providers concurrently so a slow status/weather
+    /// request cannot delay Codex or Claude Code after login or reconnection.
+    func refreshAfterInterruption() async {
+        guard isRunning, !Task.isCancelled else { return }
+        refreshActiveClockAfterResume()
+        async let weather: Void = refreshActiveWeatherAfterResume()
+        async let batteries: Void = refreshActiveBatteriesAfterResume()
+        async let github: Void = refreshActiveGitHubAfterResume()
+        async let statuses: Void = refreshServiceStatusesAfterResume()
+        _ = await (weather, batteries, github, statuses)
+    }
+
+    func refreshDeveloperUsageAfterInterruption() async {
+        guard isRunning, !Task.isCancelled else { return }
+        async let codex: Void = codexStore.refreshAfterInterruption()
+        async let claude: Void = claudeCodeStore.refreshAfterInterruption()
+        async let antigravity: Void = antigravityStore.refreshAfterInterruption()
+        _ = await (codex, claude, antigravity)
     }
 
     /// A sleeping or locked Mac can miss timer delivery for background work.

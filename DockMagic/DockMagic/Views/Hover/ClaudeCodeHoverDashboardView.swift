@@ -14,6 +14,9 @@ struct ClaudeCodeHoverDashboardView: View {
     }
 
     let state: ClaudeCodeUsageState
+    let brand: StreakServiceBrand
+    private var providerID: String { brand == .antigravity ? "antigravity" : "claudeCode" }
+    private var usageAccent: Color { brand == .antigravity ? theme.action : ProjectTheme.claudeCodeUsage }
     let serviceStatus: ServiceStatusState
     var now: Date = .now
     let streakCelebrationAutoDismissDelay: Duration
@@ -26,6 +29,7 @@ struct ClaudeCodeHoverDashboardView: View {
 
     @Environment(\.designTheme) private var theme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.isDashboardCapture) private var isDashboardCapture
     @State private var selectedMetric = UsageMetric.tokens
     @State private var isStreakDetailPresented: Bool
     @State private var streakCelebration: TokenUsageStreakCelebration?
@@ -37,6 +41,7 @@ struct ClaudeCodeHoverDashboardView: View {
 
     init(
         state: ClaudeCodeUsageState,
+        brand: StreakServiceBrand = .claudeCode,
         serviceStatus: ServiceStatusState = .operational(
             provider: .claudeCode
         ),
@@ -54,6 +59,7 @@ struct ClaudeCodeHoverDashboardView: View {
         onInstallActivityHook: @escaping @MainActor () -> Void = {}
     ) {
         self.state = state
+        self.brand = brand
         self.serviceStatus = serviceStatus
         self.now = now
         self.streakCelebrationAutoDismissDelay =
@@ -81,8 +87,8 @@ struct ClaudeCodeHoverDashboardView: View {
             if let streakCelebration {
                 StreakCelebrationView(
                     celebration: streakCelebration,
-                    brand: .claudeCode,
-                    accent: ProjectTheme.claudeCodeUsage,
+                    brand: brand,
+                    accent: usageAccent,
                     planLabel: snapshot?.planType,
                     trailingMetricValue: snapshot?.tokenUsage == nil
                         ? nil
@@ -99,14 +105,13 @@ struct ClaudeCodeHoverDashboardView: View {
             } else if isStreakDetailPresented {
                 StreakDetailView(
                     summary: streakSummary,
-                    brand: .claudeCode,
-                    accent: ProjectTheme.claudeCodeUsage,
+                    brand: brand,
+                    accent: usageAccent,
                     onBack: { setStreakDetailPresented(false) }
                 )
                 .transition(.opacity)
             } else {
-                overview
-                    .transition(.opacity)
+                overview.transition(.opacity)
             }
 
             if streakCelebration == nil,
@@ -128,9 +133,11 @@ struct ClaudeCodeHoverDashboardView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(alignment: .topTrailing) {
-            CodexDashboardSharePresenter(itemURL: $pendingShareURL)
-                .frame(width: 1, height: 1)
-                .opacity(0.001)
+            if captureConfiguration != nil {
+                CodexDashboardSharePresenter(itemURL: $pendingShareURL)
+                    .frame(width: 1, height: 1)
+                    .opacity(0.001)
+            }
         }
         .onExitCommand {
             if streakCelebration != nil {
@@ -154,36 +161,54 @@ struct ClaudeCodeHoverDashboardView: View {
         .accessibilityElement(children: .contain)
         .accessibilityLabel(
             streakCelebration != nil
-                ? "Claude Code streak celebration"
+                ? "\(brand.displayName) streak celebration"
                 : isStreakDetailPresented
-                ? "Claude Code streak details"
-                : "Claude Code usage dashboard"
+                ? "\(brand.displayName) streak details"
+                : "\(brand.displayName) usage dashboard"
         )
-        .accessibilityIdentifier("dockHover.claudeCode")
+        .accessibilityIdentifier("dockHover.\(providerID)")
     }
 
     private var overview: some View {
-        VStack(spacing: 6) {
-            header
-            quotaRows
-            usageCard
-            StreakContinuityStrip(
-                summary: streakSummary,
-                brand: .claudeCode,
-                accent: ProjectTheme.claudeCodeUsage,
-                onOpen: { setStreakDetailPresented(true) }
-            )
-            shipMomentumCard
-            usageInsights
-            activeWorkCard
+        Group {
+            if isDashboardCapture {
+                overviewContent
+            } else {
+                ScrollView(.vertical) {
+                    overviewContent
+                }
+                .scrollBounceBehavior(.basedOnSize)
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+    }
+
+    private var overviewContent: some View {
+        VStack(spacing: 6) {
+            Group {
+                header
+                if brand == .antigravity { AntigravityQuotaRows(state: state) } else { quotaRows }
+                usageCard
+                    .layoutPriority(1)
+                StreakContinuityStrip(
+                    summary: streakSummary,
+                    brand: brand,
+                    accent: usageAccent,
+                    onOpen: { setStreakDetailPresented(true) }
+                )
+                shipMomentumCard
+                usageInsights
+                activeWorkCard
+            }
+            .frame(minWidth: 0, maxWidth: .infinity)
+        }
+        .frame(maxWidth: .infinity, alignment: .top)
     }
 
     private var header: some View {
         VStack(spacing: 2) {
             HStack(spacing: 8) {
-                Image("ClaudeCodeLogo")
+                Image(brand.logoAssetName)
                     .resizable()
                     .interpolation(.high)
                     .scaledToFit()
@@ -193,12 +218,12 @@ struct ClaudeCodeHoverDashboardView: View {
                     )
                     .accessibilityHidden(true)
 
-                Text("Claude Code")
+                Text(brand.displayName)
                     .font(.system(size: 17, weight: .bold))
                     .foregroundStyle(theme.textPrimary)
 
                 if let plan = snapshot?.planType, !plan.isEmpty {
-                    CodexPlanBadge(plan: plan)
+                    CodexPlanBadge(plan: plan, providerName: brand.displayName)
                 }
 
                 if let statusTitle, let statusSystemImage {
@@ -223,7 +248,9 @@ struct ClaudeCodeHoverDashboardView: View {
             }
             .frame(height: 30)
 
-            ServiceStatusHeaderView(state: serviceStatus)
+            if brand != .antigravity {
+                ServiceStatusHeaderView(state: serviceStatus)
+            }
         }
     }
 
@@ -269,7 +296,7 @@ struct ClaudeCodeHoverDashboardView: View {
         .help("Capture dashboard")
         .accessibilityLabel("Capture dashboard")
         .accessibilityHint("Opens high-resolution PNG export options")
-        .accessibilityIdentifier("claudeCode.capture.button")
+        .accessibilityIdentifier("\(providerID).capture.button")
     }
 
     private var captureMenu: some View {
@@ -313,7 +340,7 @@ struct ClaudeCodeHoverDashboardView: View {
                         .fixedSize(horizontal: false, vertical: true)
                         .padding(.horizontal, 7)
                         .padding(.vertical, 4)
-                        .accessibilityIdentifier("claudeCode.capture.error")
+                        .accessibilityIdentifier("\(providerID).capture.error")
                 }
             }
             .padding(4)
@@ -326,13 +353,13 @@ struct ClaudeCodeHoverDashboardView: View {
         }
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Dashboard capture options")
-        .accessibilityIdentifier("claudeCode.capture.menu")
+        .accessibilityIdentifier("\(providerID).capture.menu")
     }
 
     private var capturePixelSizeLabel: String {
         guard let captureConfiguration else { return "" }
         return CodexDashboardCaptureService.pixelSizeLabel(
-            for: captureConfiguration.panelSize
+            for: captureConfiguration
         )
     }
 
@@ -434,11 +461,18 @@ struct ClaudeCodeHoverDashboardView: View {
         guard let captureConfiguration else { return nil }
         do {
             captureErrorText = nil
+            if brand == .antigravity {
+                return try CodexDashboardCaptureService.renderAntigravity(
+                    state: state, configuration: captureConfiguration, now: now,
+                    initialMetric: selectedMetric.rawValue
+                )
+            }
             return try CodexDashboardCaptureService.renderClaudeCode(
                 state: state,
                 serviceStatus: serviceStatus,
                 configuration: captureConfiguration,
-                now: now
+                now: now,
+                initialMetric: selectedMetric.rawValue
             )
         } catch {
             captureErrorText = error.localizedDescription
@@ -501,7 +535,7 @@ struct ClaudeCodeHoverDashboardView: View {
                 resetLabel: CodexHoverDashboardPresentation.resetLabel(
                     for: window
                 ),
-                usageAccent: ProjectTheme.claudeCodeUsage
+                usageAccent: usageAccent
             )
         } else {
             ClaudeCodeUnavailableLimitRow(
@@ -512,44 +546,64 @@ struct ClaudeCodeHoverDashboardView: View {
     }
 
     private var usageCard: some View {
-        VStack(spacing: 7) {
-            HStack(alignment: .center, spacing: 8) {
-                HStack(alignment: .firstTextBaseline, spacing: 7) {
-                    Text("Daily usage")
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundStyle(theme.textPrimary)
-                    Text(usageRangeLabel)
-                        .font(.system(size: 8.5, weight: .medium))
-                        .foregroundStyle(theme.textTertiary)
-                }
-
-                Spacer(minLength: 5)
+        VStack(spacing: 8) {
+            HStack(spacing: 8) {
+                Text("Daily usage")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(theme.textPrimary)
+                    .lineLimit(1)
+                Spacer(minLength: 8)
                 metricSelector
+                    .fixedSize()
             }
 
-            Text(todayUsageLabel)
-                .font(.system(size: 13, weight: .bold, design: .rounded))
-                .foregroundStyle(theme.textPrimary)
-                .monospacedDigit()
-                .frame(maxWidth: .infinity, alignment: .trailing)
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    usageRange
+                    Spacer(minLength: 8)
+                    todayUsage
+                }
+                VStack(alignment: .leading, spacing: 4) {
+                    usageRange
+                    todayUsage
+                        .frame(maxWidth: .infinity, alignment: .trailing)
+                }
+            }
 
             ClaudeCodeUsageBars(
                 buckets: visibleChartBuckets,
                 metric: selectedMetric.rawValue,
+                accent: usageAccent,
+                providerID: providerID,
                 hasData: selectedMetric == .tokens
                     ? snapshot?.tokenUsage != nil
                     : !dailyCosts.isEmpty
             )
         }
         .padding(.horizontal, 4)
-        .padding(.vertical, 7)
-        .frame(maxWidth: .infinity, minHeight: 174)
+        .padding(.vertical, 8)
+        .frame(maxWidth: .infinity)
         .overlay(alignment: .bottom) {
             Rectangle()
                 .fill(theme.outline)
                 .frame(height: 0.5)
         }
         .accessibilityElement(children: .contain)
+    }
+
+    private var usageRange: some View {
+        Text(brand == .antigravity ? "Observed · " + usageRangeLabel : usageRangeLabel)
+            .font(.system(size: 8.5, weight: .medium))
+            .foregroundStyle(theme.textTertiary)
+            .fixedSize()
+    }
+
+    private var todayUsage: some View {
+        Text(todayUsageLabel)
+            .font(.system(size: 13, weight: .bold, design: .rounded))
+            .foregroundStyle(theme.textPrimary)
+            .monospacedDigit()
+            .fixedSize()
     }
 
     private var metricSelector: some View {
@@ -559,7 +613,7 @@ struct ClaudeCodeHoverDashboardView: View {
                     selectedMetric = metric
                 } label: {
                     Text(metric.rawValue)
-                        .font(.system(size: 8.5, weight: .semibold))
+                        .font(.system(size: 8.5, weight: selectedMetric == metric ? .bold : .medium))
                         .foregroundStyle(
                             selectedMetric == metric
                                 ? theme.textPrimary
@@ -569,13 +623,17 @@ struct ClaudeCodeHoverDashboardView: View {
                         .frame(height: 22)
                         .background {
                             if selectedMetric == metric {
-                                Capsule().fill(theme.opaqueSurfaceRaised)
+                                Capsule()
+                                    .fill(theme.opaqueSurfaceRaised)
+                                    .overlay {
+                                        Capsule().strokeBorder(theme.outlineStrong, lineWidth: 0.75)
+                                    }
                             }
                         }
                 }
                 .buttonStyle(.plain)
                 .accessibilityIdentifier(
-                    "dockHover.claudeCode.metric.\(metric.rawValue.lowercased())"
+                    "dockHover.\(providerID).metric.\(metric.rawValue.lowercased())"
                 )
                 .accessibilityAddTraits(
                     selectedMetric == metric ? .isSelected : []
@@ -583,7 +641,7 @@ struct ClaudeCodeHoverDashboardView: View {
             }
         }
         .padding(2)
-        .background(Capsule().fill(theme.dockTrack))
+        .background(Capsule().fill(theme.opaqueSurfaceInset))
         .overlay {
             Capsule().strokeBorder(theme.outline, lineWidth: 0.5)
         }
@@ -592,16 +650,16 @@ struct ClaudeCodeHoverDashboardView: View {
     private var shipMomentumCard: some View {
         CodexShipMomentumCard(
             momentum: shipMomentum,
-            accent: ProjectTheme.claudeCodeUsage
+            accent: usageAccent
         )
     }
 
     private var dailyIntensityCard: some View {
         CodexDailyIntensityCard(
             buckets: intensityBuckets,
-            accent: ProjectTheme.claudeCodeUsage
+            accent: usageAccent
         )
-        .accessibilityIdentifier("dockHover.claudeCode.dailyIntensity")
+        .accessibilityIdentifier("dockHover.\(providerID).dailyIntensity")
     }
 
     private var usageInsights: some View {
@@ -610,7 +668,8 @@ struct ClaudeCodeHoverDashboardView: View {
             CodexTopModelsCard(
                 models: compactTopModels,
                 isPartial: snapshot?.tokenUsage?.isModelUsagePartial == true,
-                accent: ProjectTheme.claudeCodeUsage
+                accent: usageAccent,
+                providerName: brand.displayName
             )
         }
         .frame(height: 90)
@@ -623,9 +682,9 @@ struct ClaudeCodeHoverDashboardView: View {
                     .font(.system(size: 10.5, weight: .bold))
                     .foregroundStyle(theme.textPrimary)
                 Spacer(minLength: 4)
-                if isActivityHookInstalled,
+                if isActivityHookInstalled || brand == .antigravity,
                    visibleActiveTasks.count + activeGoals.count > 0 {
-                    Text(
+                    Text(brand == .antigravity ? "\(visibleActiveTasks.count) active" :
                         "\(visibleActiveTasks.count) active · \(activeGoals.count) "
                             + (activeGoals.count == 1 ? "goal" : "goals")
                     )
@@ -635,8 +694,22 @@ struct ClaudeCodeHoverDashboardView: View {
                 }
             }
 
-            if !isActivityHookInstalled {
-                activityHookSetup
+            if !isActivityHookInstalled && (brand != .antigravity || visibleActiveTasks.isEmpty) {
+                if brand == .antigravity {
+                    HStack(spacing: 8) {
+                        Text(activityHookErrorText ?? "Connect local events to track active sessions.")
+                            .font(.system(size: 8.5, weight: .medium))
+                            .foregroundStyle(activityHookErrorText == nil ? theme.textTertiary : theme.dangerForeground)
+                            .lineLimit(2)
+                        Spacer(minLength: 0)
+                        Button(isInstallingActivityHook ? "Connecting…" : "Connect activity", action: onInstallActivityHook)
+                            .buttonStyle(DSButtonStyle(kind: .primary))
+                            .disabled(isInstallingActivityHook)
+                            .accessibilityIdentifier("antigravity.activeWork.install")
+                    }
+                } else {
+                    activityHookSetup
+                }
             } else if let task = visibleActiveTasks.first {
                 workRow(
                     systemImage: "bolt.horizontal.circle",
@@ -662,20 +735,20 @@ struct ClaudeCodeHoverDashboardView: View {
                activeGoals.isEmpty {
                 unavailableRow(
                     systemImage: "circle.dashed",
-                    text: "No active Claude tasks or goals observed"
+                    text: "No active \(brand.displayName) work observed"
                 )
             }
         }
         .padding(.horizontal, 4)
         .padding(.vertical, 7)
-        .frame(maxWidth: .infinity, minHeight: 118)
+        .frame(maxWidth: .infinity, alignment: .topLeading)
         .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("claudeCode.activeWork")
+        .accessibilityIdentifier("\(providerID).activeWork")
     }
 
     private var activityHookSetup: some View {
         VStack(spacing: 6) {
-            Text("Connect Claude Code events to see sessions, tools, subagents, and tasks here in realtime.")
+            Text("Connect \(brand.displayName) events to see sessions and tools here in realtime.")
                 .font(.system(size: 8.5, weight: .medium))
                 .foregroundStyle(theme.textTertiary)
                 .multilineTextAlignment(.center)
@@ -698,9 +771,9 @@ struct ClaudeCodeHoverDashboardView: View {
             .buttonStyle(DSButtonStyle(kind: .primary))
             .disabled(isInstallingActivityHook)
             .accessibilityHint(
-                "Adds DockMagic event hooks without replacing existing Claude Code hooks"
+                "Adds DockMagic event hooks while preserving existing hooks"
             )
-            .accessibilityIdentifier("claudeCode.activeWork.install")
+            .accessibilityIdentifier("\(providerID).activeWork.install")
 
             if let activityHookErrorText {
                 Text(activityHookErrorText)
@@ -708,7 +781,7 @@ struct ClaudeCodeHoverDashboardView: View {
                     .foregroundStyle(theme.dangerForeground)
                     .lineLimit(2)
                     .multilineTextAlignment(.center)
-                    .accessibilityIdentifier("claudeCode.activeWork.error")
+                    .accessibilityIdentifier("\(providerID).activeWork.error")
             }
         }
         .frame(maxWidth: .infinity)
@@ -782,13 +855,15 @@ struct ClaudeCodeHoverDashboardView: View {
         snapshot?.streakSummary
     }
     private var telemetry: ClaudeCodeTelemetrySnapshot? {
-        snapshot?.claudeTelemetry
+        snapshot?.antigravityTelemetry?.local ?? snapshot?.claudeTelemetry
     }
     private var activeTasks: [ClaudeCodeActiveTask] {
         telemetry?.activeTasks ?? []
     }
     private var visibleActiveTasks: [ClaudeCodeActiveTask] {
-        activeTasks
+        brand == .antigravity
+            ? activeTasks.filter { now.timeIntervalSince($0.observedAt) < 30 * 60 }
+            : activeTasks
     }
     private var activeGoals: [ClaudeCodeActiveGoal] {
         telemetry?.activeGoals.filter { $0.state != .complete } ?? []
@@ -802,7 +877,7 @@ struct ClaudeCodeHoverDashboardView: View {
     private var compactTopModels: [CodexModelTokenUsage] {
         topModels.map {
             CodexModelTokenUsage(
-                model: ClaudeCodeHoverDashboardPresentation.modelLabel(
+                model: brand == .antigravity ? $0.model : ClaudeCodeHoverDashboardPresentation.modelLabel(
                     $0.model
                 ),
                 tokens: $0.tokens
@@ -837,8 +912,8 @@ struct ClaudeCodeHoverDashboardView: View {
     }
 
     private var usageRangeLabel: String {
-        let dates = snapshot?.tokenUsage?.dailyUsageBuckets.map(\.startDate) ?? []
-        guard let start = dates.min(), let end = dates.max() else {
+        guard let start = visibleChartBuckets.first?.startDate,
+              let end = visibleChartBuckets.last?.startDate else {
             return "Last 30 days"
         }
         return ClaudeCodeHoverDashboardPresentation.dateRangeLabel(
@@ -988,77 +1063,112 @@ struct ClaudeCodeUsageChartBucket: Identifiable, Equatable, Sendable {
 private struct ClaudeCodeUsageBars: View {
     let buckets: [ClaudeCodeUsageChartBucket]
     let metric: String
+    let accent: Color
+    let providerID: String
     let hasData: Bool
 
     @Environment(\.designTheme) private var theme
+    @Environment(\.isDashboardCapture) private var isDashboardCapture
+
+    private let plotHeight: CGFloat = 88
+    private let columnWidth: CGFloat = 46
+    private let columnSpacing: CGFloat = 8
+    private let dateLabelHeight: CGFloat = 20
+    // Leaves space below the labels for both overlay and always-visible scrollers.
+    private var scrollerSpace: CGFloat { isDashboardCapture ? 0 : 20 }
 
     var body: some View {
-        VStack(spacing: 4) {
-            HStack(alignment: .top, spacing: 6) {
-                VStack(alignment: .trailing, spacing: 0) {
-                    Text(axisLabel(axisMaximum))
-                    Spacer(minLength: 0)
-                    Text(axisLabel(axisMaximum / 2))
-                    Spacer(minLength: 0)
-                    Text("0")
-                }
-                .font(.system(size: 7, weight: .medium, design: .rounded))
-                .foregroundStyle(theme.textTertiary)
-                .monospacedDigit()
-                .frame(width: 31, height: 100)
-
-                GeometryReader { proxy in
-                    if hasData {
-                        ZStack {
-                            VStack(spacing: 0) {
-                                Rectangle().fill(theme.outline).frame(height: 0.5)
-                                Spacer(minLength: 0)
-                                Rectangle().fill(theme.outline).frame(height: 0.5)
-                                Spacer(minLength: 0)
-                                Rectangle().fill(theme.outline).frame(height: 0.5)
-                            }
-
-                            HStack(alignment: .bottom, spacing: 7) {
-                                ForEach(buckets) { bucket in
-                                    bar(bucket, height: proxy.size.height)
-                                }
-                            }
-                        }
-                    } else {
-                        HStack(spacing: 6) {
-                            Image(systemName: "chart.bar.xaxis")
-                                .symbolRenderingMode(.monochrome)
-                                .accessibilityHidden(true)
-                            Text("Waiting for real \(metric.lowercased()) data")
-                                .font(.system(size: 9, weight: .medium))
-                        }
-                        .foregroundStyle(theme.textTertiary)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    }
-                }
-                .frame(height: 100)
+        HStack(alignment: .top, spacing: 6) {
+            VStack(alignment: .trailing, spacing: 0) {
+                Text(axisLabel(axisMaximum))
+                Spacer(minLength: 0)
+                Text(axisLabel(axisMaximum / 2))
+                Spacer(minLength: 0)
+                Text("0")
             }
+            .font(.system(size: 7, weight: .medium, design: .rounded))
+            .foregroundStyle(theme.textTertiary)
+            .monospacedDigit()
+            .lineLimit(1)
+            .minimumScaleFactor(0.75)
+            .frame(width: 40, height: plotHeight, alignment: .trailing)
 
-            HStack(spacing: 6) {
-                Color.clear
-                    .frame(width: 31, height: 1)
-                    .accessibilityHidden(true)
-
-                HStack(spacing: 7) {
-                    ForEach(buckets) { bucket in
-                        VStack(spacing: 1) {
-                            Text(Self.weekdayLabel(bucket.startDate))
-                            Text(Self.dayLabel(bucket.startDate))
+            if hasData {
+                DashboardHistoryViewport(
+                    latestID: buckets.last?.id,
+                    viewportHeight: plotHeight + 4 + dateLabelHeight + scrollerSpace,
+                    documentSize: CGSize(
+                        width: CGFloat(buckets.count) * columnWidth
+                            + CGFloat(max(0, buckets.count - 1)) * columnSpacing + 8,
+                        height: plotHeight + 4 + dateLabelHeight
+                    )
+                ) {
+                    HStack(alignment: .top, spacing: columnSpacing) {
+                        ForEach(buckets) { bucket in
+                            usageColumn(for: bucket)
+                                .id(bucket.id)
                         }
-                        .font(.system(size: 7.5, weight: .semibold))
-                        .foregroundStyle(theme.textTertiary)
-                        .frame(maxWidth: .infinity)
+                    }
+                    .padding(.horizontal, 4)
+                    .background(alignment: .top) {
+                        chartGrid
                     }
                 }
+                .frame(height: plotHeight + 4 + dateLabelHeight + scrollerSpace)
+                .clipped()
+                .accessibilityIdentifier("dockHover.\(providerID).usageHistory")
+            } else {
+                HStack(spacing: 6) {
+                    Image(systemName: "chart.bar.xaxis")
+                        .symbolRenderingMode(.monochrome)
+                        .accessibilityHidden(true)
+                    Text(providerID == "antigravity" && metric == "Cost" ? "Antigravity has not reported cost" : "Waiting for real \(metric.lowercased()) data")
+                        .font(.system(size: 9, weight: .medium))
+                }
+                .foregroundStyle(theme.textTertiary)
+                .frame(maxWidth: .infinity)
+                .frame(height: plotHeight)
             }
         }
+        .frame(height: plotHeight + 4 + dateLabelHeight + scrollerSpace)
         .accessibilityElement(children: .contain)
-        .accessibilityLabel("Seven day \(metric.lowercased()) chart")
+        .accessibilityLabel("Daily \(metric.lowercased()) usage over the last 30 days")
+    }
+
+    private var chartGrid: some View {
+        VStack(spacing: 0) {
+            Rectangle().fill(theme.outline).frame(height: 0.5)
+            Spacer(minLength: 0)
+            Rectangle().fill(theme.outline).frame(height: 0.5)
+            Spacer(minLength: 0)
+            Rectangle().fill(theme.outline).frame(height: 0.5)
+        }
+        .frame(height: plotHeight)
+    }
+
+    private func usageColumn(
+        for bucket: ClaudeCodeUsageChartBucket
+    ) -> some View {
+        VStack(spacing: 4) {
+            bar(bucket, height: plotHeight)
+                .frame(width: 27, height: plotHeight)
+
+            VStack(spacing: 1) {
+                Text(Self.weekdayLabel(bucket.startDate))
+                Text(Self.dayLabel(bucket.startDate))
+            }
+            .font(.system(size: 7.5, weight: .semibold))
+            .foregroundStyle(theme.textTertiary)
+            .monospacedDigit()
+            .lineLimit(1)
+            .frame(height: dateLabelHeight, alignment: .top)
+        }
+        .frame(width: columnWidth)
+        .contentShape(Rectangle())
+        .help("\(Self.fullDateLabel(bucket.startDate)): \(bucket.accessibilityValue)")
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Self.fullDateLabel(bucket.startDate))
+        .accessibilityValue(bucket.accessibilityValue)
     }
 
     private func bar(
@@ -1067,20 +1177,17 @@ private struct ClaudeCodeUsageBars: View {
     ) -> some View {
         let maximum = max(buckets.map(\.value).max() ?? 0, 1)
         let fraction = min(max(bucket.value / maximum, 0), 1)
-        return VStack {
+        return VStack(spacing: 0) {
             Spacer(minLength: 0)
             RoundedRectangle(cornerRadius: 3, style: .continuous)
                 .fill(
                     bucket.value > 0
-                        ? ProjectTheme.claudeCodeUsage
+                        ? accent
                         : theme.dockTrack
                 )
                 .frame(height: bucket.value > 0 ? max(4, height * fraction) : 2)
         }
         .frame(maxWidth: .infinity)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(Self.fullDateLabel(bucket.startDate))
-        .accessibilityValue(bucket.accessibilityValue)
     }
 
     private var axisMaximum: Double {
@@ -1091,7 +1198,9 @@ private struct ClaudeCodeUsageBars: View {
         if metric == "Cost" {
             return ClaudeCodeHoverDashboardPresentation.costLabel(value)
         }
-        return ClaudeCodeHoverDashboardPresentation.tokenLabel(Int64(value))
+        return Int64(value).formatted(
+            .number.notation(.compactName).precision(.fractionLength(0...1))
+        )
     }
 
     private static func weekdayLabel(_ date: Date) -> String {
@@ -1117,6 +1226,8 @@ private struct ClaudeCodeUsageBars: View {
 }
 
 enum ClaudeCodeHoverDashboardPresentation {
+    static let maximumChartDays = 30
+
     struct Reset: Equatable {
         let title: String
         let date: Date
@@ -1143,10 +1254,10 @@ enum ClaudeCodeHoverDashboardPresentation {
             result[calendar.startOfDay(for: bucket.startDate), default: 0]
                 += bucket.estimatedCostUSD
         }
-        return (0..<7).compactMap { offset in
+        return (0..<maximumChartDays).compactMap { offset in
             guard let date = calendar.date(
                 byAdding: .day,
-                value: offset - 6,
+                value: offset - (maximumChartDays - 1),
                 to: today
             ) else { return nil }
             if metric == "Cost" {

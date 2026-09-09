@@ -32,6 +32,12 @@ icon and gives an approximately 256-pixel Command-Tab icon 4x supersampling.
    `applicationIconImage`; AppKit is allowed to canonicalize them.
 8. Disable metric animations during rasterization. A frame must represent a
    stable data state, not an in-between animation sample.
+9. Center the visible tile in an 824/1024 fraction of the canvas, leaving
+   100/1024 transparent space on each edge. `DockTileView` owns this layout
+   for every presentation and Settings preview; feature renderers must not
+   add the inset again. Keep the 512-point canvas and 1024-pixel raster intact.
+   The bundled AppIcon generator uses the same body inset. This matches the
+   opaque bounds measured in the system Notes and Calculator icons.
 
 The executable values and validation helpers live in
 `DockIconRenderingRules.swift`. Change those values only together with the

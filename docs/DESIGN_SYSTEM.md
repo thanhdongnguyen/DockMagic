@@ -93,7 +93,7 @@ elevation.
 - Detail content is capped at `900` pt with `52` pt horizontal and `34` pt
   vertical padding.
 - Destinations: General, CPU & RAM, Network, Storage, Weather, Batteries, Codex,
-  Claude Code, and About.
+  Claude Code, Antigravity, and About.
 - Detail content uses `DSSettingsSection`, `DSStatusCard`, and native `Picker`,
   `ColorPicker`, `Slider`, `LabeledContent`, and `Button` controls.
 - The preview uses the production Dock renderer; there is no separate simulated
@@ -106,6 +106,10 @@ elevation.
 
 - Tile geometry is always proportional to its side length and does not depend
   on the Settings preview size.
+- `DockTileView` centers each tile at 824/1024 of the icon canvas width and
+  height, matching the visible footprint of standard macOS icons. This inset
+  applies once to all features and Settings previews without lowering raster
+  resolution.
 - Outer and inner rings have feature-specific default colors but share the same
   clamping model.
 - Storage uses one ring. Network uses two series that diverge around a baseline,
@@ -120,6 +124,37 @@ elevation.
 - Loading, stale, and unavailable states have appropriate symbols and text
   semantics.
 - Animation is enabled in previews but disabled in the AppKit Dock host.
+
+### Dashboard image export
+
+- Codex, Claude Code, and Antigravity PNGs contain the complete dashboard card, including its
+  normal internal padding and rounded outline. External popup insets, the Dock
+  pointer, window shadows, and capture menus are excluded.
+- Export uses the same card layout as the live dashboard. Only the rounded
+  corners are transparent; no surrounding white or transparent canvas is added.
+- SwiftUI content is rasterized at 4× before encoding. Enlarging a cached
+  screen-resolution bitmap is insufficient. The save menu reports the actual
+  card pixel dimensions for the current Dock edge.
+- Save, Copy, and Share use the same PNG. Claude Code and Antigravity preserve the selected
+  Tokens/Cost metric in that image.
+
+### Antigravity
+
+- Use the shared usage dashboard, ring renderer, numeric tile, chart, streak,
+  and Ship momentum components. The vendor logo stays in the header identity
+  region. Dashboard chrome uses the shared action role.
+- Settings and the hover dashboard do not expose model group selection. Legacy
+  selections are cleared; Settings, Dock, and dashboard automatically select the
+  group with the lowest reported remaining quota. The dashboard header omits the
+  model-group/live row.
+- Antigravity Settings shows connection state through one icon in the upper-right
+  corner of Dock preview, matching Codex/Claude. Hover reveals details; clicking
+  connects or retries. There is no separate Connection or Model quota section,
+  and no Preview dashboard button.
+- Show only reported quota buckets. Legacy model quota has no inferred duration;
+  labels read `Model quota`/`QUOTA` and `Window not reported`.
+- Missing token history and unreported costs stay unavailable; observed history
+  is labeled partial. Completion and stale event expiry remove active work.
 
 ## 7. Accessibility
 

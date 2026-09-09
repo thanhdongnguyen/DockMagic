@@ -311,7 +311,7 @@ final class DockTileController {
              let .claudeCode(_, _, serviceStatus):
             serviceStatus
         case .dockMagic, .systemMetrics, .network, .storage, .weather,
-             .clock, .batteries, .github, .searchConsole:
+             .clock, .batteries, .github, .searchConsole, .antigravity:
             nil
         }
     }

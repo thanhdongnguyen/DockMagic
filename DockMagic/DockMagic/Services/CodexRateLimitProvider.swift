@@ -38,12 +38,14 @@ struct CodexExecutableLocator: CodexExecutableLocating {
     private let environment: [String: String]
     private let homeDirectory: URL
     private let applicationDirectories: [URL]
+    private let standardExecutableDirectories: [URL]
 
     init(
         fileManager: FileManager = .default,
         environment: [String: String] = ProcessInfo.processInfo.environment,
         homeDirectory: URL = FileManager.default.homeDirectoryForCurrentUser,
-        applicationDirectories: [URL]? = nil
+        applicationDirectories: [URL]? = nil,
+        standardExecutableDirectories: [URL]? = nil
     ) {
         self.fileManager = fileManager
         self.environment = environment
@@ -51,6 +53,10 @@ struct CodexExecutableLocator: CodexExecutableLocating {
         self.applicationDirectories = applicationDirectories ?? [
             URL(fileURLWithPath: "/Applications", isDirectory: true),
             homeDirectory.appendingPathComponent("Applications", isDirectory: true)
+        ]
+        self.standardExecutableDirectories = standardExecutableDirectories ?? [
+            URL(fileURLWithPath: "/opt/homebrew/bin", isDirectory: true),
+            URL(fileURLWithPath: "/usr/local/bin", isDirectory: true)
         ]
     }
 
@@ -90,11 +96,9 @@ struct CodexExecutableLocator: CodexExecutableLocating {
             )
         }
 
-        candidates.append(contentsOf: [
-            URL(fileURLWithPath: "/opt/homebrew/bin/codex"),
-            URL(fileURLWithPath: "/usr/local/bin/codex"),
+        candidates.append(
             homeDirectory.appendingPathComponent(".local/bin/codex")
-        ])
+        )
 
         for applicationsDirectory in applicationDirectories {
             for appName in ["Codex.app", "ChatGPT.app"] {
@@ -119,6 +123,10 @@ struct CodexExecutableLocator: CodexExecutableLocating {
                     .map { $0.appendingPathComponent("bin/codex") }
             )
         }
+
+        candidates.append(contentsOf: standardExecutableDirectories.map {
+            $0.appendingPathComponent("codex")
+        })
 
         var seen = Set<String>()
         return candidates.filter { seen.insert($0.path).inserted }

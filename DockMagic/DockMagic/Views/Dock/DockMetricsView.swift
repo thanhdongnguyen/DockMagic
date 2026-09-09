@@ -19,6 +19,19 @@ struct DockTileView: View {
     }
 
     var body: some View {
+        GeometryReader { proxy in
+            let side = min(proxy.size.width, proxy.size.height)
+            let contentSide = side * DockIconRenderingRules.contentFraction
+
+            tileContent
+                .frame(width: contentSide, height: contentSide)
+                .position(x: proxy.size.width / 2, y: proxy.size.height / 2)
+        }
+        .aspectRatio(1, contentMode: .fit)
+    }
+
+    @ViewBuilder
+    private var tileContent: some View {
         switch presentation {
         case .dockMagic:
             DockMagicLogoView()
@@ -73,6 +86,8 @@ struct DockTileView: View {
                 serviceStatusTransition: serviceStatusTransition,
                 animatesChanges: animatesChanges
             )
+        case let .antigravity(state, appearance):
+            DockAntigravityView(state: state, appearance: appearance, animatesChanges: animatesChanges)
         case let .claudeCode(state, appearance, serviceStatus):
             DockClaudeCodeView(
                 state: state,
@@ -573,7 +588,7 @@ struct DockNumericValue {
     let color: Color
 }
 
-private struct DockUsageNumericTileView: View {
+struct DockUsageNumericTileView: View {
     let values: [DockNumericValue]
 
     @Environment(\.designTheme) private var theme
@@ -589,21 +604,33 @@ private struct DockUsageNumericTileView: View {
             VStack(spacing: max(1, side * 0.03)) {
                 ForEach(Array(values.enumerated()), id: \.offset) { _, value in
                     if let label = value.label {
-                        (
-                            Text(label)
-                                .foregroundColor(theme.dockOutline)
-                            + Text(" \(value.value)")
-                                .foregroundColor(value.color)
-                        )
-                        .font(
-                            .system(
-                                size: fontSize,
-                                weight: .bold,
-                                design: .rounded
+                        if usesSingleValueLayout && label.count > 3 {
+                            VStack(spacing: side * 0.03) {
+                                Text(label)
+                                    .font(.system(size: side * 0.12, weight: .bold, design: .rounded))
+                                    .foregroundStyle(theme.dockOutline)
+                                Text(value.value)
+                                    .font(.system(size: side * 0.30, weight: .bold, design: .rounded))
+                                    .foregroundStyle(value.color)
+                                    .monospacedDigit()
+                            }
+                        } else {
+                            (
+                                Text(label)
+                                    .foregroundColor(theme.dockOutline)
+                                + Text(" \(value.value)")
+                                    .foregroundColor(value.color)
                             )
-                        )
-                        .monospacedDigit()
-                        .lineLimit(1)
+                            .font(
+                                .system(
+                                    size: fontSize,
+                                    weight: .bold,
+                                    design: .rounded
+                                )
+                            )
+                            .monospacedDigit()
+                            .lineLimit(1)
+                        }
                     } else {
                         Text(value.value)
                             .font(

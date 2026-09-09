@@ -3,11 +3,13 @@ import SwiftUI
 enum StreakServiceBrand: Sendable {
     case codex
     case claudeCode
+    case antigravity
 
     var displayName: String {
         switch self {
         case .codex: "Codex"
         case .claudeCode: "Claude Code"
+        case .antigravity: "Antigravity"
         }
     }
 
@@ -15,6 +17,7 @@ enum StreakServiceBrand: Sendable {
         switch self {
         case .codex: "CodexLogo"
         case .claudeCode: "ClaudeCodeLogo"
+        case .antigravity: "AntigravityLogo"
         }
     }
 }
@@ -207,7 +210,7 @@ struct StreakCelebrationView: View {
                     RoundedRectangle(cornerRadius: 7, style: .continuous)
                 )
                 .accessibilityHidden(true)
-        case .claudeCode:
+        case .claudeCode, .antigravity:
             Image(brand.logoAssetName)
                 .resizable()
                 .interpolation(.high)
@@ -426,12 +429,12 @@ struct StreakContinuityStrip: View {
     }
 
     private var streakTitle: String {
-        guard let summary else { return "Streak unavailable" }
+        guard let summary else { return brand == .antigravity ? "No streak data" : "Streak unavailable" }
         return "\(summary.currentDays)-day streak"
     }
 
     private var streakSubtitle: String {
-        guard let summary else { return "Waiting for usage data" }
+        guard let summary else { return brand == .antigravity ? "Awaiting usage" : "Waiting for usage data" }
         if let earned = summary.earnedBadge {
             return "\(earned.title) · best \(summary.bestDays)"
         }

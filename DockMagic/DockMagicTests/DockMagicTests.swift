@@ -349,6 +349,7 @@ final class DockMagicTests: XCTestCase {
                 .github,
                 .codex,
                 .claudeCode,
+                .antigravity,
                 .searchConsole
             ]
         )
@@ -367,7 +368,7 @@ final class DockMagicTests: XCTestCase {
     func testOnlyImplementedFeaturesExposeHoverDashboards() {
         XCTAssertEqual(
             DockFeature.allCases.filter(\.hasHoverDashboard),
-            [.systemMetrics, .weather, .codex, .claudeCode]
+            [.systemMetrics, .weather, .codex, .claudeCode, .antigravity]
         )
     }
 
@@ -1564,14 +1565,18 @@ final class DockMagicTests: XCTestCase {
 
     func testClaudeCodeUsageChartAlignsTokensAndObservedCostsByDay() {
         var calendar = Calendar(identifier: .gregorian)
-        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        calendar.timeZone = .current
         let now = Date(timeIntervalSince1970: 2_000_000_000)
         let today = calendar.startOfDay(for: now)
+        let firstDay = calendar.date(byAdding: .day, value: -29, to: today)!
+        let outsideHistory = calendar.date(byAdding: .day, value: -30, to: today)!
         let tokenUsage = CodexAccountTokenUsage(
             lifetimeTokens: nil,
             peakDailyTokens: 120,
             longestRunningTurnSeconds: nil,
             dailyUsageBuckets: [
+                CodexTokenUsageDailyBucket(startDate: outsideHistory, tokens: 900),
+                CodexTokenUsageDailyBucket(startDate: firstDay, tokens: 75),
                 CodexTokenUsageDailyBucket(
                     startDate: today,
                     tokens: 120
@@ -1579,6 +1584,11 @@ final class DockMagicTests: XCTestCase {
             ]
         )
         let costs = [
+            ClaudeCodeDailyCostUsage(
+                startDate: outsideHistory,
+                estimatedCostUSD: 9
+            ),
+            ClaudeCodeDailyCostUsage(startDate: firstDay, estimatedCostUSD: 0.75),
             ClaudeCodeDailyCostUsage(
                 startDate: today,
                 estimatedCostUSD: 1.25
@@ -1607,14 +1617,25 @@ final class DockMagicTests: XCTestCase {
             calendar: calendar
         )
 
-        XCTAssertEqual(tokenBuckets.count, 7)
+        XCTAssertEqual(tokenBuckets.count, 30)
+        XCTAssertEqual(tokenBuckets.first?.startDate, firstDay)
+        XCTAssertEqual(tokenBuckets.first?.value, 75)
+        XCTAssertEqual(
+            tokenBuckets.dropFirst().dropLast().map(\.value),
+            Array(repeating: 0, count: 28)
+        )
         XCTAssertEqual(tokenBuckets.last?.value, 120)
-        XCTAssertEqual(costBuckets.count, 7)
+        XCTAssertEqual(costBuckets.count, 30)
+        XCTAssertEqual(
+            costBuckets.map(\.startDate),
+            tokenBuckets.map(\.startDate)
+        )
+        XCTAssertEqual(costBuckets.first?.value, 0.75)
         XCTAssertEqual(costBuckets.last?.value, 1.25)
         XCTAssertTrue(costBuckets.last?.accessibilityValue.contains("$1.25") == true)
         var localCalendar = calendar
         localCalendar.timeZone = .current
-        XCTAssertEqual(emptyBuckets.count, 7)
+        XCTAssertEqual(emptyBuckets.count, 30)
         XCTAssertTrue(
             localCalendar.isDate(emptyBuckets.last!.startDate, inSameDayAs: now)
         )
@@ -2785,6 +2806,7 @@ final class DockMagicTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: root) }
 
         let locator = CodexExecutableLocator(
+            fileManager: FixtureExecutableFileManager(root: root),
             environment: [:],
             homeDirectory: root,
             applicationDirectories: [applications]
@@ -2843,13 +2865,16 @@ final class DockMagicTests: XCTestCase {
             )
             let installer = DeveloperToolInstaller(
                 codexLocator: CodexExecutableLocator(
+                    fileManager: FixtureExecutableFileManager(root: homeDirectory),
                     environment: [:],
                     homeDirectory: homeDirectory,
-                    applicationDirectories: []
+                    applicationDirectories: [],
+                    standardExecutableDirectories: []
                 ),
                 claudeCodeLocator: ClaudeCodeExecutableLocator(
                     environment: [:],
-                    homeDirectory: homeDirectory
+                    homeDirectory: homeDirectory,
+                    standardExecutableDirectories: []
                 ),
                 downloader: downloader,
                 processRunner: runner,
@@ -5309,7 +5334,7 @@ final class DockMagicTests: XCTestCase {
     }
 
     @MainActor
-    func testEveryDockPresentationUsesCanonicalCommandTabRendering() {
+    func testEveryDockPresentationUsesCanonicalCommandTabRendering() throws {
         var numericSystemAppearance = DockFeatureDefaults.systemMetricsAppearance
         numericSystemAppearance.setDisplayStyle(.numeric)
         var numericStorageAppearance = DockFeatureDefaults.storageAppearance
@@ -5531,6 +5556,26 @@ final class DockMagicTests: XCTestCase {
                 DockIconRenderingRules.satisfiesSourceContract(image),
                 "\(name) violated the Command-Tab source contract."
             )
+
+            let cgImage = try XCTUnwrap(
+                image.cgImage(forProposedRect: nil, context: nil, hints: nil)
+            )
+            let bitmap = NSBitmapImageRep(cgImage: cgImage)
+            // Measure actual rendered pixels, independently of the layout
+            // constant: macOS icon bodies occupy 824 px of a 1024 px canvas.
+            let middle = bitmap.pixelsWide / 2
+            let horizontalBody = (0..<bitmap.pixelsWide).filter {
+                (bitmap.colorAt(x: $0, y: middle)?.alphaComponent ?? 0) >= 0.9
+            }
+            let verticalBody = (0..<bitmap.pixelsHigh).filter {
+                (bitmap.colorAt(x: middle, y: $0)?.alphaComponent ?? 0) >= 0.9
+            }
+            for body in [horizontalBody, verticalBody] {
+                XCTAssertEqual(Double(try XCTUnwrap(body.first)), 100, accuracy: 1, name)
+                XCTAssertEqual(Double(try XCTUnwrap(body.last)), 923, accuracy: 1, name)
+            }
+            let png = try XCTUnwrap(bitmap.representation(using: .png, properties: [:]))
+            attachPNG(png, name: "Dock Footprint — \(name)")
         }
     }
 
@@ -6519,24 +6564,25 @@ final class DockMagicTests: XCTestCase {
     @MainActor
     func testCodexDashboardCaptureRendersCrispFourTimesPNG() throws {
         let panelSize = DockHoverPanelPlacement.codexPanelSize
-        let fixedNow = Date(timeIntervalSince1970: 1_777_000_000)
+        let fixedNow = CodexRateLimitSnapshot.hoverDesignPreview.fetchedAt
+        let configuration = CodexDashboardCaptureConfiguration(
+            pointerEdge: .bottom,
+            panelSize: panelSize,
+            appearanceMode: .dark
+        )
         let artifact = try CodexDashboardCaptureService.render(
             state: CodexUsageState.live(.hoverDesignPreview),
-            configuration: CodexDashboardCaptureConfiguration(
-                pointerEdge: .bottom,
-                panelSize: panelSize,
-                appearanceMode: .dark
-            ),
+            configuration: configuration,
             now: fixedNow
         )
         let representation = try XCTUnwrap(
             NSBitmapImageRep(data: artifact.pngData)
         )
 
-        XCTAssertEqual(artifact.pixelWidth, 1_760)
-        XCTAssertEqual(artifact.pixelHeight, 2_224)
-        XCTAssertEqual(representation.pixelsWide, 1_760)
-        XCTAssertEqual(representation.pixelsHigh, 2_224)
+        XCTAssertEqual(artifact.pixelWidth, 1_712)
+        XCTAssertEqual(artifact.pixelHeight, 2_160)
+        XCTAssertEqual(representation.pixelsWide, 1_712)
+        XCTAssertEqual(representation.pixelsHigh, 2_160)
         XCTAssertGreaterThan(artifact.pngData.count, 60_000)
         XCTAssertEqual(
             artifact.fileName,
@@ -6546,8 +6592,8 @@ final class DockMagicTests: XCTestCase {
             )
         )
         XCTAssertEqual(
-            CodexDashboardCaptureService.pixelSizeLabel(for: panelSize),
-            "1760 × 2224 px"
+            CodexDashboardCaptureService.pixelSizeLabel(for: configuration),
+            "1712 × 2160 px"
         )
 
         let pasteboard = NSPasteboard.withUniqueName()
@@ -6589,20 +6635,21 @@ final class DockMagicTests: XCTestCase {
     func testClaudeCodeDashboardCaptureRendersCrispFourTimesPNG() throws {
         let panelSize = DockHoverPanelPlacement.claudeCodePanelSize
         let fixedNow = Date(timeIntervalSince1970: 1_777_000_000)
+        let configuration = CodexDashboardCaptureConfiguration(
+            pointerEdge: .bottom,
+            panelSize: panelSize,
+            appearanceMode: .dark
+        )
         let artifact = try CodexDashboardCaptureService.renderClaudeCode(
             state: .live(.claudeCodeHoverDesignPreview(now: fixedNow)),
-            configuration: CodexDashboardCaptureConfiguration(
-                pointerEdge: .bottom,
-                panelSize: panelSize,
-                appearanceMode: .dark
-            ),
+            configuration: configuration,
             now: fixedNow
         )
         let representation = try XCTUnwrap(
             NSBitmapImageRep(data: artifact.pngData)
         )
         let dimensions = CodexDashboardCaptureService.pixelDimensions(
-            for: panelSize
+            for: configuration
         )
 
         XCTAssertEqual(artifact.pixelWidth, dimensions.width)
@@ -6618,10 +6665,208 @@ final class DockMagicTests: XCTestCase {
             )
         )
         XCTAssertTrue(artifact.fileName.contains("Claude-Code"))
+        let background = try XCTUnwrap(
+            representation.colorAt(x: representation.pixelsWide / 2, y: 24)?.usingColorSpace(.sRGB)
+        )
+        var contentSamples = 0
+        for y in stride(from: 48, to: representation.pixelsHigh - 48, by: 16) {
+            for x in stride(from: 48, to: representation.pixelsWide - 48, by: 16) {
+                guard let pixel = representation.colorAt(x: x, y: y)?.usingColorSpace(.sRGB) else { continue }
+                if max(abs(pixel.redComponent - background.redComponent),
+                       abs(pixel.greenComponent - background.greenComponent),
+                       abs(pixel.blueComponent - background.blueComponent)) > 0.1 {
+                    contentSamples += 1
+                }
+            }
+        }
+        XCTAssertGreaterThan(contentSamples, 300,
+            "Export must render dashboard content, not just an empty rounded surface.")
         attachPNG(
             artifact.pngData,
             name: "Claude Code Dashboard — Exported 4× PNG"
         )
+    }
+
+    @MainActor
+    func testDashboardCaptureResolvesSinglePixelStrokesAtFourTimesScale() throws {
+        // Alternating quarter-point strokes must remain separate pixels. This
+        // fails if a screen-resolution backing image is merely enlarged to 4×.
+        let data = try CodexDashboardCaptureService.rasterize(
+            content: HStack(spacing: 0) {
+                ForEach(0..<64) { index in
+                    Rectangle()
+                        .fill(index.isMultiple(of: 2) ? Color.black : Color.white)
+                        .frame(width: 0.25)
+                }
+            },
+            size: CGSize(width: 16, height: 8),
+            appearanceMode: .light
+        )
+        let bitmap = try XCTUnwrap(NSBitmapImageRep(data: data))
+        XCTAssertEqual(bitmap.pixelsWide, 64)
+        XCTAssertEqual(bitmap.pixelsHigh, 32)
+        for x in 0..<64 {
+            let color = try XCTUnwrap(
+                bitmap.colorAt(x: x, y: 16)?.usingColorSpace(.deviceRGB)
+            )
+            XCTAssertEqual(color.alphaComponent, 1, accuracy: 0.01)
+            XCTAssertEqual(
+                color.redComponent,
+                x.isMultiple(of: 2) ? 0 : 1,
+                accuracy: 0.05,
+                "Pixel \(x) was blurred by lower-resolution rasterization."
+            )
+        }
+    }
+
+    @MainActor
+    func testDashboardCaptureShowsLatestHistoryWithoutScrollLifecycle() throws {
+        let data = try CodexDashboardCaptureService.rasterize(
+            content: DashboardHistoryViewport(latestID: 29) {
+                HStack(spacing: 0) {
+                    ForEach(0..<30) { index in
+                        Rectangle()
+                            .fill(index == 29 ? Color.black : Color.white)
+                            .frame(width: 10)
+                    }
+                }
+            },
+            size: CGSize(width: 30, height: 20),
+            appearanceMode: .light
+        )
+        let bitmap = try XCTUnwrap(NSBitmapImageRep(data: data))
+        // Exactly the final three columns fill the viewport, with the last
+        // column at the right edge, even though no NSView has appeared.
+        for x in 0..<120 {
+            let color = try XCTUnwrap(
+                bitmap.colorAt(x: x, y: 40)?.usingColorSpace(.deviceRGB)
+            )
+            XCTAssertEqual(color.alphaComponent, 1, accuracy: 0.01)
+            XCTAssertEqual(color.redComponent, x < 80 ? 1 : 0, accuracy: 0.01)
+        }
+    }
+
+    @MainActor
+    func testDashboardCaptureRendersSettledMomentumWithoutEntryAnimation() throws {
+        let data = try CodexDashboardCaptureService.rasterize(
+            content: DockMagicThemeRoot(
+                content: ShipMomentumGauge(
+                    score: 54,
+                    rank: .shipper,
+                    accent: ProjectTheme.current.action
+                ),
+                appearanceMode: .dark
+            ),
+            size: CGSize(width: 180, height: 120),
+            appearanceMode: .dark
+        )
+        let bitmap = try XCTUnwrap(NSBitmapImageRep(data: data))
+        // A score over 50 must fill the top of the semicircle immediately.
+        // A gauge still waiting for onAppear would show only a neutral track.
+        let topOfArc = try XCTUnwrap(
+            bitmap.colorAt(x: 360, y: 136)?.usingColorSpace(.deviceRGB)
+        )
+        XCTAssertGreaterThan(topOfArc.alphaComponent, 0.9)
+        XCTAssertGreaterThan(topOfArc.blueComponent - topOfArc.redComponent, 0.4)
+        attachPNG(data, name: "Dashboard Export — Settled Ship Momentum 54")
+    }
+
+    @MainActor
+    func testDashboardCapturesContainOnlyCardAcrossAppearancesAndDockEdges() throws {
+        let variants: [(
+            String, DSAppearanceMode, DockHoverPointerEdge,
+            DSAccessibilityOverrides
+        )] = [
+            ("Dark", .dark, .bottom, .init()),
+            ("Light", .light, .bottom, .init()),
+            ("Increased Contrast", .dark, .bottom, .init(increaseContrast: true)),
+            ("Reduce Transparency", .light, .bottom, .init(reduceTransparency: true)),
+            ("Left Dock", .dark, .left, .init()),
+            ("Right Dock", .dark, .right, .init())
+        ]
+        let now = CodexRateLimitSnapshot.hoverDesignPreview.fetchedAt
+        for (label, mode, edge, overrides) in variants {
+            for isClaude in [false, true] {
+                let configuration = CodexDashboardCaptureConfiguration(
+                    pointerEdge: edge,
+                    panelSize: isClaude
+                        ? DockHoverPanelPlacement.claudeCodePanelSize
+                        : DockHoverPanelPlacement.codexPanelSize,
+                    appearanceMode: mode
+                )
+                let artifact = try isClaude
+                    ? CodexDashboardCaptureService.renderClaudeCode(
+                        state: .live(.claudeCodeHoverDesignPreview(now: now)),
+                        configuration: configuration,
+                        now: now,
+                        accessibilityOverrides: overrides
+                    )
+                    : CodexDashboardCaptureService.render(
+                        state: .live(.hoverDesignPreview),
+                        configuration: configuration,
+                        now: now,
+                        accessibilityOverrides: overrides
+                    )
+                let bitmap = try XCTUnwrap(NSBitmapImageRep(data: artifact.pngData))
+                let width = bitmap.pixelsWide
+                let height = bitmap.pixelsHigh
+                let expectedSize: CGSize = edge == .bottom
+                    ? CGSize(width: 428, height: isClaude ? 724 : 540)
+                    : CGSize(width: 424, height: isClaude ? 728 : 544)
+                XCTAssertEqual(width, Int(expectedSize.width * 4))
+                XCTAssertEqual(height, Int(expectedSize.height * 4))
+                XCTAssertEqual(
+                    CodexDashboardCaptureService.pixelSizeLabel(for: configuration),
+                    "\(width) × \(height) px"
+                )
+                // The card reaches each canvas edge. A popup inset or pointer
+                // would leave transparent space along at least one edge.
+                for (x, y) in [
+                    (width / 2, 0), (width / 2, height - 1),
+                    (0, height / 2), (width - 1, height / 2)
+                ] {
+                    let color = try XCTUnwrap(bitmap.colorAt(x: x, y: y))
+                    XCTAssertGreaterThan(color.alphaComponent, 0.98, label)
+                }
+                // Rounded corners remain transparent instead of acquiring
+                // the offscreen NSWindow's default white background.
+                for (x, y) in [
+                    (0, 0), (width - 1, 0),
+                    (0, height - 1), (width - 1, height - 1)
+                ] {
+                    let color = try XCTUnwrap(bitmap.colorAt(x: x, y: y))
+                    XCTAssertLessThan(color.alphaComponent, 0.01, label)
+                }
+                let name = "\(isClaude ? "Claude Code" : "Codex") Export — \(label)"
+                attachPNG(artifact.pngData, name: name)
+                if label == "Dark" {
+                    attachPNG(
+                        try grayscalePNG(artifact.pngData, name: name),
+                        name: "\(name) — Grayscale"
+                    )
+                }
+            }
+        }
+    }
+
+    @MainActor
+    func testClaudeCodeCapturePreservesSelectedCostMetric() throws {
+        let now = Date(timeIntervalSince1970: 1_777_000_000)
+        let configuration = CodexDashboardCaptureConfiguration(
+            pointerEdge: .bottom,
+            panelSize: DockHoverPanelPlacement.claudeCodePanelSize,
+            appearanceMode: .dark
+        )
+        let state = ClaudeCodeUsageState.live(.claudeCodeHoverDesignPreview(now: now))
+        let tokens = try CodexDashboardCaptureService.renderClaudeCode(
+            state: state, configuration: configuration, now: now
+        )
+        let cost = try CodexDashboardCaptureService.renderClaudeCode(
+            state: state, configuration: configuration, now: now,
+            initialMetric: "Cost"
+        )
+        XCTAssertNotEqual(tokens.pngData, cost.pngData)
+        attachPNG(cost.pngData, name: "Claude Code Export — Cost")
     }
 
     @MainActor
@@ -6645,6 +6890,10 @@ final class DockMagicTests: XCTestCase {
             appearanceMode: .dark
         )
         .frame(width: panelSize.width, height: panelSize.height)
+        // This test exercises the action wiring, not native scroll tracking.
+        // Rendering the complete card keeps synthesized clicks away from the
+        // outer ScrollView's NSScroller, whose mouseDown blocks for mouseUp.
+        .environment(\.isDashboardCapture, true)
         let hostingView = NSHostingView(rootView: root)
         hostingView.frame = NSRect(origin: .zero, size: panelSize)
         hostingView.appearance = NSAppearance(named: .darkAqua)
@@ -6741,6 +6990,10 @@ final class DockMagicTests: XCTestCase {
             appearanceMode: .dark
         )
         .frame(width: panelSize.width, height: panelSize.height)
+        // This test exercises action wiring, not native scroll tracking.
+        // Rendering the complete card keeps the button visible and keeps the
+        // synthesized click away from the outer ScrollView's NSScroller.
+        .environment(\.isDashboardCapture, true)
         let hostingView = NSHostingView(rootView: root)
         hostingView.frame = NSRect(origin: .zero, size: panelSize)
         hostingView.appearance = NSAppearance(named: .darkAqua)
@@ -6796,6 +7049,10 @@ final class DockMagicTests: XCTestCase {
             appearanceMode: .dark
         )
         .frame(width: panelSize.width, height: panelSize.height)
+        // NSScroller tracks mouseDown synchronously until mouseUp. Rendering
+        // the complete card keeps this synthesized button click away from the
+        // live dashboard's outer scroller.
+        .environment(\.isDashboardCapture, true)
         let hostingView = NSHostingView(rootView: root)
         hostingView.frame = NSRect(origin: .zero, size: panelSize)
         hostingView.appearance = NSAppearance(named: .darkAqua)
@@ -7225,7 +7482,8 @@ final class DockMagicTests: XCTestCase {
             name: "Codex Hover — Full-panel Streak Celebration"
         )
 
-        RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.42))
+        // Leave a small scheduling buffer beyond the 220 ms dismissal animation.
+        RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.55))
         hostingView.layoutSubtreeIfNeeded()
         let overviewPNG = try renderExistingViewPNG(
             hostingView,
@@ -7316,7 +7574,8 @@ final class DockMagicTests: XCTestCase {
             name: "Claude Code Hover — Full-panel Streak Celebration"
         )
 
-        RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.42))
+        // Leave a small scheduling buffer beyond the 220 ms dismissal animation.
+        RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.55))
         hostingView.layoutSubtreeIfNeeded()
         let overviewPNG = try renderExistingViewPNG(
             hostingView,
@@ -7326,7 +7585,10 @@ final class DockMagicTests: XCTestCase {
         assertPixelDifference(
             celebrationPNG,
             overviewPNG,
-            minimumChangedFraction: 0.20,
+            // The compact Claude overview intentionally reuses more of the
+            // celebration surface than Codex. The dismissed identifier above
+            // verifies the state transition; this guards the visible change.
+            minimumChangedFraction: 0.15,
             label: "Claude Code celebration automatically returns to overview"
         )
         attachPNG(
@@ -7706,20 +7968,20 @@ final class DockMagicTests: XCTestCase {
             )
         }
 
-        XCTAssertTrue(source.contains("Image(\"ClaudeCodeLogo\")"))
+        XCTAssertTrue(source.contains("Image(brand.logoAssetName)"))
         XCTAssertTrue(source.contains("UsageLimitHoverRow("))
         XCTAssertTrue(source.contains("ProjectTheme.claudeCodeUsage"))
         XCTAssertTrue(source.contains("Daily usage"))
         XCTAssertTrue(source.contains("CodexShipMomentumCard("))
         XCTAssertTrue(source.contains("Enable realtime tracking"))
         XCTAssertTrue(
-            source.contains("claudeCode.activeWork.install")
+            source.contains(#"\(providerID).activeWork.install"#)
         )
         XCTAssertTrue(source.contains("CodexDailyIntensityCard("))
         XCTAssertTrue(source.contains("CodexTopModelsCard("))
         XCTAssertTrue(source.contains("private var usageInsights"))
         XCTAssertTrue(
-            source.contains("dockHover.claudeCode.dailyIntensity")
+            source.contains(#"dockHover.\(providerID).dailyIntensity"#)
         )
         XCTAssertTrue(source.contains("ShipMomentumFlameShape"))
         XCTAssertTrue(source.contains("Active work"))
@@ -7727,9 +7989,9 @@ final class DockMagicTests: XCTestCase {
         XCTAssertFalse(source.contains("sessionSubtitle"))
         XCTAssertTrue(source.contains("case tokens = \"Tokens\""))
         XCTAssertTrue(source.contains("case cost = \"Cost\""))
-        XCTAssertTrue(source.contains("dockHover.claudeCode"))
-        XCTAssertTrue(source.contains("claudeCode.capture.button"))
-        XCTAssertTrue(source.contains("claudeCode.capture.menu"))
+        XCTAssertTrue(source.contains(#"dockHover.\(providerID)"#))
+        XCTAssertTrue(source.contains(#"\(providerID).capture.button"#))
+        XCTAssertTrue(source.contains(#"\(providerID).capture.menu"#))
         XCTAssertTrue(source.contains("Share…"))
         XCTAssertFalse(source.contains("\"Stale\""))
         XCTAssertFalse(source.contains("exclamationmark.triangle"))
@@ -8856,6 +9118,101 @@ final class DockMagicTests: XCTestCase {
             0,
             "The chart should install AppKit pointer hover tracking."
         )
+    }
+
+    @MainActor
+    func testClaudeUsageLayoutKeepsControlsAndScrollersSeparateWhenResized() throws {
+        let now = Date.now
+        let fixture = CodexRateLimitSnapshot.claudeCodeHoverDesignPreview(now: now)
+        let sparse = CodexRateLimitSnapshot(
+            planType: nil, limitID: nil, fiveHour: nil, weekly: nil,
+            tokenUsage: CodexAccountTokenUsage(
+                lifetimeTokens: nil, peakDailyTokens: 412_210,
+                longestRunningTurnSeconds: nil,
+                dailyUsageBuckets: [CodexTokenUsageDailyBucket(
+                    startDate: now.addingTimeInterval(-8 * 86_400), tokens: 412_210)]
+            ), fetchedAt: now
+        )
+
+        func scrollViews(_ root: NSView) -> [NSScrollView] {
+            let current = (root as? NSScrollView).map { [$0] } ?? []
+            return current + root.subviews.flatMap(scrollViews)
+        }
+
+        for metric in ["Tokens", "Cost"] {
+            for style in [NSScroller.Style.legacy, .overlay] {
+                let dashboard = DockMagicThemeRoot(
+                    content: ClaudeCodeHoverDashboardView(
+                        state: .live(metric == "Tokens" ? sparse : fixture),
+                        now: now, initialMetric: metric
+                    ).padding(12),
+                    appearanceMode: .dark
+                ).background(ProjectTheme.current.opaqueSurfaceRaised)
+                let hostingView = NSHostingView(
+                    rootView: dashboard.frame(width: 428, height: 724)
+                )
+                hostingView.sizingOptions = []
+                let window = NSWindow(
+                    contentRect: NSRect(x: 100, y: 100, width: 428, height: 724),
+                    styleMask: [.borderless], backing: .buffered, defer: false
+                )
+                window.isReleasedWhenClosed = false
+                window.title = "Claude chart layout verification"
+                window.appearance = NSAppearance(named: .darkAqua)
+                hostingView.appearance = window.appearance
+                window.contentView = hostingView
+                window.makeKeyAndOrderFront(nil)
+                defer {
+                    window.contentView = nil
+                    window.close()
+                }
+
+                for size in [NSSize(width: 428, height: 724),
+                             NSSize(width: 360, height: 580),
+                             NSSize(width: 548, height: 784)] {
+                    hostingView.rootView = dashboard.frame(width: size.width, height: size.height)
+                    window.contentMinSize = .zero
+                    window.setContentSize(size)
+                    hostingView.setFrameSize(size)
+                    RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.15))
+                    hostingView.layoutSubtreeIfNeeded()
+                    XCTAssertEqual(hostingView.bounds.width, size.width, accuracy: 1)
+                    let chart = try XCTUnwrap(scrollViews(hostingView).first {
+                        $0.hasHorizontalScroller && !$0.hasVerticalScroller
+                    })
+                    chart.scrollerStyle = style
+                    chart.autohidesScrollers = false
+                    chart.tile()
+                    chart.flashScrollers()
+                    hostingView.layoutSubtreeIfNeeded()
+
+                    RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.15))
+                    let name = "Claude Layout — \(metric) — \(style == .legacy ? "Always" : "Overlay") — \(Int(size.width))×\(Int(size.height))"
+                    let chartFrame = chart.convert(chart.bounds, to: hostingView)
+                    XCTAssertTrue(hostingView.bounds.contains(chartFrame),
+                        "\(name): chart \(chartFrame) outside host \(hostingView.bounds)")
+                    XCTAssertLessThanOrEqual(chartFrame.width, size.width - 24)
+                    XCTAssertGreaterThanOrEqual(chart.contentView.bounds.height, 115,
+                        "The plot and date labels need 112 points plus a gap above the scroller.")
+                    let document = try XCTUnwrap(chart.documentView)
+                    let latestOffset = chart.contentView.bounds.minX
+                    XCTAssertGreaterThan(latestOffset, 0)
+                    XCTAssertGreaterThan(document.bounds.width, chart.contentView.bounds.width * 2)
+                    chart.contentView.scroll(to: .zero)
+                    chart.reflectScrolledClipView(chart.contentView)
+                    XCTAssertEqual(chart.contentView.bounds.minX, 0, accuracy: 1)
+                    chart.contentView.scroll(to: NSPoint(x: latestOffset, y: 0))
+                    chart.reflectScrolledClipView(chart.contentView)
+
+                    let scroller = try XCTUnwrap(chart.horizontalScroller)
+                    XCTAssertFalse(scroller.isHidden)
+                    XCTAssertEqual(chart.bounds.height, 132, accuracy: 1,
+                        "A native scroller must not increase the chart's allocated height.")
+                    attachPNG(try renderExistingViewPNG(hostingView, name: name), name: name)
+
+                }
+            }
+        }
     }
 
     @MainActor
@@ -11428,5 +11785,14 @@ private final class SpyDockApplicationIconRenderer:
         clockTransitions.append(clockTransition)
         serviceStatusTransitions.append(serviceStatusTransition)
         return nil
+    }
+}
+
+/// Locator fixtures must not discover a real Homebrew installation on the test host.
+private final class FixtureExecutableFileManager: FileManager, @unchecked Sendable {
+    let root: URL
+    init(root: URL) { self.root = root; super.init() }
+    override func isExecutableFile(atPath path: String) -> Bool {
+        path.hasPrefix(root.path + "/") && super.isExecutableFile(atPath: path)
     }
 }

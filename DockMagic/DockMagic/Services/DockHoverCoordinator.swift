@@ -267,7 +267,7 @@ final class DockHoverCoordinator {
                 guard !self.isDockMenuPresented else {
                     return
                 }
-                self.panelController.show(
+                self.panelController.scheduleShow(
                     anchor: anchor,
                     appModel: self.appModel
                 )
@@ -674,7 +674,7 @@ enum DockHoverPanelPlacement {
             weatherPanelSize
         case .codex:
             codexPanelSize
-        case .claudeCode:
+        case .claudeCode, .antigravity:
             claudeCodePanelSize
         default:
             standardPanelSize
@@ -748,10 +748,64 @@ enum DockHoverPanelPlacement {
 final class DockHoverPanelController {
     private var panel: DockHoverPanel?
     private var hostingView: NSHostingView<AnyView>?
+    private let showDelay: Duration
+    private var pendingShowTask: Task<Void, Never>?
+    private var latestHoverAnchor: DockHoverAnchor?
     private var pendingHideTask: Task<Void, Never>?
     private var activeStreakCelebration: TokenUsageStreakCelebration?
 
-    func show(anchor: DockHoverAnchor, appModel: DockAppModel) {
+    init(showDelay: Duration = .seconds(1)) {
+        self.showDelay = showDelay
+    }
+
+    var isVisible: Bool {
+        panel?.isVisible == true
+    }
+
+    func scheduleShow(anchor: DockHoverAnchor, appModel: DockAppModel) {
+        guard appModel.preferences.isDockHoverDashboardEnabled,
+              appModel.preferences.activeFeature.hasHoverDashboard else {
+            hide()
+            return
+        }
+
+        // Returning from the dashboard to the icon keeps an open panel alive.
+        if isVisible {
+            show(anchor: anchor, appModel: appModel)
+            return
+        }
+
+        // Dock can repeat selection notifications while the icon magnifies.
+        // Update placement without restarting the continuous hover countdown.
+        latestHoverAnchor = anchor
+        guard pendingShowTask == nil else { return }
+        let delay = showDelay
+        pendingShowTask = Task { @MainActor [weak self, weak appModel] in
+            do {
+                try await Task.sleep(for: delay)
+                try Task.checkCancellation()
+                guard let self else { return }
+                self.pendingShowTask = nil
+                let anchor = self.latestHoverAnchor
+                self.latestHoverAnchor = nil
+                guard let appModel, let anchor,
+                      appModel.preferences.isDockHoverDashboardEnabled else {
+                    return
+                }
+                self.show(anchor: anchor, appModel: appModel)
+            } catch {
+                return
+            }
+        }
+    }
+
+    private func cancelPendingShow() {
+        pendingShowTask?.cancel()
+        pendingShowTask = nil
+        latestHoverAnchor = nil
+    }
+
+    private func show(anchor: DockHoverAnchor, appModel: DockAppModel) {
         guard appModel.preferences.activeFeature.hasHoverDashboard else {
             hide()
             return
@@ -807,13 +861,17 @@ final class DockHoverPanelController {
     }
 
     func hide() {
+        cancelPendingShow()
         pendingHideTask?.cancel()
         pendingHideTask = nil
         panel?.orderOut(nil)
     }
 
     func scheduleHide() {
+        cancelPendingShow()
         pendingHideTask?.cancel()
+        pendingHideTask = nil
+        guard isVisible else { return }
         pendingHideTask = Task { @MainActor [weak self] in
             do {
                 try await Task.sleep(for: .milliseconds(160))
@@ -840,6 +898,8 @@ final class DockHoverPanelController {
         switch feature {
         case .codex:
             .codex
+        case .antigravity:
+            .antigravity
         case .claudeCode:
             .claudeCode
         case .dockMagic, .systemMetrics, .network, .storage, .weather,

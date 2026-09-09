@@ -1,5 +1,6 @@
 import AppKit
 import Observation
+import OSLog
 import SwiftUI
 
 @MainActor
@@ -15,6 +16,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let notificationCenter: NotificationCenter
     private let workspaceNotificationCenter: NotificationCenter
     private let dockFeatureMenuController: DockFeatureMenuController
+    private let networkAvailabilityMonitor: any NetworkAvailabilityMonitoring
+    private var recoveryTasks: [UUID: Task<Void, Never>] = [:]
+    private let lifecycleLogger = Logger(
+        subsystem: "com.hypevibe.DockMagic", category: "Lifecycle"
+    )
     private var dockTileController: DockTileController?
     private var dockHoverCoordinator: DockHoverCoordinator?
     private var appearanceObserver: NSObjectProtocol?
@@ -105,7 +111,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         notificationCenter: NotificationCenter = .default,
         workspaceNotificationCenter: NotificationCenter = NSWorkspace.shared.notificationCenter,
         dockHoverPermissionController: DockHoverPermissionController? = nil,
-        softwareUpdateController: SoftwareUpdateController? = nil
+        softwareUpdateController: SoftwareUpdateController? = nil,
+        networkAvailabilityMonitor: (any NetworkAvailabilityMonitoring)? = nil
     ) {
         self.appModel = appModel
         self.settingsWindowRouter = settingsWindowRouter
@@ -117,14 +124,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         self.appearanceStore = appearanceStore
         self.notificationCenter = notificationCenter
         self.workspaceNotificationCenter = workspaceNotificationCenter
+        self.networkAvailabilityMonitor = networkAvailabilityMonitor
+            ?? NetworkAvailabilityMonitor()
         dockFeatureMenuController = DockFeatureMenuController(
             appModel: appModel,
             settingsWindowRouter: settingsWindowRouter
         )
         super.init()
+        installSettingsWindowFactory()
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        lifecycleLogger.notice("Starting DockMagic services.")
         NSApplication.shared.setActivationPolicy(.regular)
         dockTileController = DockTileController(
             dockTile: dockTile,
@@ -139,6 +150,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         observeDockPresentation()
         softwareUpdateController.start()
         appModel.start()
+        networkAvailabilityMonitor.start { [weak self] in
+            self?.scheduleRecovery(reason: "network restored")
+        }
         dockHoverCoordinator = DockHoverCoordinator(
             appModel: appModel,
             permissionController: dockHoverPermissionController
@@ -165,12 +179,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         _ sender: NSApplication,
         hasVisibleWindows flag: Bool
     ) -> Bool {
-        _ = settingsWindowRouter.showSettings()
-        return false
+        // Allow AppKit/SwiftUI to handle the request if our route cannot open it.
+        return !settingsWindowRouter.showSettings()
     }
 
     func applicationWillTerminate(_ notification: Notification) {
         dockHoverCoordinator?.stop()
+        networkAvailabilityMonitor.stop()
+        for task in recoveryTasks.values { task.cancel() }
+        recoveryTasks.removeAll()
         appModel.stop()
         if let appearanceObserver {
             notificationCenter.removeObserver(appearanceObserver)
@@ -256,11 +273,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             queue: .main
         ) { [weak self] _ in
             Task { @MainActor [weak self] in
-                await self?.appModel.refreshActiveWeatherAfterResume()
-                self?.appModel.refreshActiveClockAfterResume()
-                await self?.appModel.refreshActiveBatteriesAfterResume()
-                await self?.appModel.refreshActiveGitHubAfterResume()
-                await self?.appModel.refreshServiceStatusesAfterResume()
+                self?.scheduleRecovery(reason: "system wake")
             }
         }
         workspaceSessionActiveObserver = workspaceNotificationCenter.addObserver(
@@ -269,12 +282,58 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             queue: .main
         ) { [weak self] _ in
             Task { @MainActor [weak self] in
-                await self?.appModel.refreshActiveWeatherAfterResume()
-                self?.appModel.refreshActiveClockAfterResume()
-                await self?.appModel.refreshActiveBatteriesAfterResume()
-                await self?.appModel.refreshActiveGitHubAfterResume()
-                await self?.appModel.refreshServiceStatusesAfterResume()
+                self?.scheduleRecovery(reason: "session active")
             }
+        }
+    }
+
+    private func scheduleRecovery(reason: String) {
+        guard appModel.isRunning else { return }
+        lifecycleLogger.notice("Refreshing after \(reason, privacy: .public).")
+        // Every event must reach each store even when an unrelated provider is
+        // still busy. Stores coalesce their own work; quit cancels all waiters.
+        let id = UUID()
+        recoveryTasks[id] = Task { @MainActor [weak self] in
+            guard let appModel = self?.appModel else { return }
+            async let usage: Void = appModel.refreshDeveloperUsageAfterInterruption()
+            async let otherFeatures: Void = appModel.refreshAfterInterruption()
+            _ = await (usage, otherFeatures)
+            self?.recoveryTasks[id] = nil
+        }
+    }
+
+    private func installSettingsWindowFactory() {
+        // Capture the scene's dependencies, not the delegate or router, to avoid
+        // a retain cycle. This factory works even when SwiftUI has no scene yet.
+        let appModel = appModel
+        let permissionController = dockHoverPermissionController
+        let updateController = softwareUpdateController
+        settingsWindowRouter.installDefaultWindowFactory { [weak settingsWindowRouter] in
+            let window = NSWindow(
+                contentRect: NSRect(x: 0, y: 0, width: 1_160, height: 620),
+                styleMask: [.titled, .closable, .miniaturizable, .resizable],
+                backing: .buffered,
+                defer: false
+            )
+            window.title = SettingsWindowRouter.windowTitle
+            window.identifier = NSUserInterfaceItemIdentifier(
+                SettingsWindowRouter.sceneID
+            )
+            window.contentView = NSHostingView(
+                rootView: SettingsSceneRoot(
+                    appModel: appModel,
+                    dockHoverPermissionController: permissionController,
+                    windowRouter: settingsWindowRouter,
+                    softwareUpdateController: updateController
+                )
+            )
+            window.contentMinSize = NSSize(
+                width: DSLayout.minimumWindowWidth,
+                height: DSLayout.minimumWindowHeight
+            )
+            window.setFrameAutosaveName("DockMagic Settings")
+            if !window.setFrameUsingName("DockMagic Settings") { window.center() }
+            return window
         }
     }
 }
@@ -353,6 +412,8 @@ private final class DockFeatureMenuController: NSObject {
             #selector(selectGitHub(_:))
         case .codex:
             #selector(selectCodex(_:))
+        case .antigravity:
+            #selector(selectAntigravity(_:))
         case .claudeCode:
             #selector(selectClaudeCode(_:))
         case .searchConsole:
@@ -365,6 +426,8 @@ private final class DockFeatureMenuController: NSObject {
         switch feature {
         case .codex:
             _ = settingsWindowRouter.showSettings(destination: .codex)
+        case .antigravity:
+            _ = settingsWindowRouter.showSettings(destination: .antigravity)
         case .claudeCode:
             _ = settingsWindowRouter.showSettings(destination: .claudeCode)
         case .dockMagic, .systemMetrics, .network, .storage, .weather, .clock,
@@ -408,6 +471,8 @@ private final class DockFeatureMenuController: NSObject {
     @objc private func selectCodex(_ sender: Any?) {
         select(.codex)
     }
+
+    @objc private func selectAntigravity(_ sender: Any?) { select(.antigravity) }
 
     @objc private func selectClaudeCode(_ sender: Any?) {
         select(.claudeCode)
@@ -660,10 +725,8 @@ struct DockMagicApp: App {
 private struct SettingsSceneRoot: View {
     let appModel: DockAppModel
     let dockHoverPermissionController: DockHoverPermissionController
-    let windowRouter: SettingsWindowRouter
+    let windowRouter: SettingsWindowRouter?
     let softwareUpdateController: SoftwareUpdateController
-
-    @Environment(\.openWindow) private var openWindow
 
     var body: some View {
         DockMagicThemeRoot(
@@ -675,10 +738,5 @@ private struct SettingsSceneRoot: View {
             )
         )
         .defaultAppStorage(DockMagicRuntimeDefaults.current)
-        .onAppear {
-            windowRouter.install {
-                openWindow(id: SettingsWindowRouter.sceneID)
-            }
-        }
     }
 }

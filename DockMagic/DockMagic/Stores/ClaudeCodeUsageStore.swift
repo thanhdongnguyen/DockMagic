@@ -32,7 +32,7 @@ final class ClaudeCodeUsageStore {
     private let streakTracker: any TokenUsageStreakTracking
 
     @ObservationIgnored
-    private let pollingInterval: Duration
+    private var retrySchedule: UsageRetrySchedule
 
     @ObservationIgnored
     private let staleAfter: TimeInterval
@@ -44,6 +44,9 @@ final class ClaudeCodeUsageStore {
     private var pollingTask: Task<Void, Never>?
 
     @ObservationIgnored
+    private var pollingSleepTask: Task<Void, Error>?
+
+    @ObservationIgnored
     private var activeRunID: UUID?
 
     @ObservationIgnored
@@ -53,7 +56,7 @@ final class ClaudeCodeUsageStore {
     private var activeRefreshID: UUID?
 
     @ObservationIgnored
-    private var activityMonitor: ClaudeCodeActivityEventMonitor?
+    private var activityMonitor: LocalTelemetryEventMonitor?
 
     @ObservationIgnored
     private var activityDebounceTask: Task<Void, Never>?
@@ -64,6 +67,7 @@ final class ClaudeCodeUsageStore {
         activityHookBridge: (any ClaudeCodeActivityHookBridging)? = nil,
         streakTracker: (any TokenUsageStreakTracking)? = nil,
         pollingInterval: Duration = .seconds(15),
+        initialRetryInterval: Duration = .seconds(5),
         staleAfter: TimeInterval = 15 * 60,
         now: @escaping () -> Date = Date.init
     ) {
@@ -76,7 +80,10 @@ final class ClaudeCodeUsageStore {
             ?? ClaudeCodeActivityHookBridge()
         self.activityHookBridge = activityHookBridge
         self.streakTracker = streakTracker ?? TokenUsageStreakStore()
-        self.pollingInterval = pollingInterval
+        self.retrySchedule = UsageRetrySchedule(
+            pollingInterval: pollingInterval,
+            initialRetryInterval: initialRetryInterval
+        )
         self.staleAfter = staleAfter
         self.now = now
         isBridgeInstalled = bridge.isInstalled()
@@ -85,6 +92,7 @@ final class ClaudeCodeUsageStore {
 
     deinit {
         pollingTask?.cancel()
+        pollingSleepTask?.cancel()
         refreshTask?.cancel()
         activityDebounceTask?.cancel()
         activityMonitor?.stop()
@@ -99,19 +107,29 @@ final class ClaudeCodeUsageStore {
         activeRunID = runID
         isMonitoring = true
         syncActivityMonitor()
-        let pollingInterval = pollingInterval
         pollingTask = Task { [weak self] in
             while !Task.isCancelled {
-                guard self != nil else {
+                guard self?.activeRunID == runID else {
                     break
                 }
 
                 await self?.refresh()
 
-                do {
-                    try await Task.sleep(for: pollingInterval)
-                } catch {
-                    break
+                // A manual/recovery refresh can change the next deadline
+                // while this loop is asleep. Cancellation re-arms the delay;
+                // only an elapsed delay starts the next provider request.
+                var delayElapsed = false
+                while !delayElapsed, !Task.isCancelled, self?.activeRunID == runID {
+                    guard let delay = self?.retrySchedule.nextDelay else { break }
+                    let sleep = Task { try await Task.sleep(for: delay) }
+                    self?.pollingSleepTask = sleep
+                    do {
+                        try await sleep.value
+                        delayElapsed = true
+                    } catch {
+                        // A completed refresh or stop cancelled this deadline.
+                    }
+                    if self?.activeRunID == runID { self?.pollingSleepTask = nil }
                 }
             }
 
@@ -128,7 +146,9 @@ final class ClaudeCodeUsageStore {
     func stop() {
         activeRunID = nil
         pollingTask?.cancel()
+        pollingSleepTask?.cancel()
         pollingTask = nil
+        pollingSleepTask = nil
         activeRefreshID = nil
         refreshTask?.cancel()
         refreshTask = nil
@@ -138,6 +158,7 @@ final class ClaudeCodeUsageStore {
         activityMonitor = nil
         isMonitoring = false
         isRefreshing = false
+        retrySchedule.succeeded()
 
         if case .loading = state {
             state = .idle
@@ -204,6 +225,8 @@ final class ClaudeCodeUsageStore {
         isActivityHookInstalled = activityHookBridge.isInstalled()
         syncActivityMonitor()
         guard isBridgeInstalled else {
+            retrySchedule.failed()
+            pollingSleepTask?.cancel()
             state = .unavailable(
                 message: ClaudeCodeRateLimitProviderError.bridgeNotInstalled
                     .localizedDescription
@@ -237,6 +260,17 @@ final class ClaudeCodeUsageStore {
         await task.value
     }
 
+    func refreshAfterInterruption() async {
+        guard let runID = activeRunID else { return }
+        if let refreshTask { await refreshTask.value }
+        guard !Task.isCancelled, activeRunID == runID else { return }
+        // Reopen directory handles as well: a bridge can replace its events
+        // directory while the app is asleep or the user session is locked.
+        activityMonitor?.stop()
+        activityMonitor = nil
+        await refresh()
+    }
+
     private func syncActivityMonitor() {
         guard isMonitoring, isActivityHookInstalled else {
             activityMonitor?.stop()
@@ -245,7 +279,7 @@ final class ClaudeCodeUsageStore {
         }
         guard activityMonitor == nil else { return }
 
-        let monitor = ClaudeCodeActivityEventMonitor(
+        let monitor = LocalTelemetryEventMonitor(
             directoryURL: activityHookBridge.eventsDirectoryURL
         ) { [weak self] in
             Task { @MainActor [weak self] in
@@ -283,6 +317,7 @@ final class ClaudeCodeUsageStore {
                 activeRefreshID = nil
                 refreshTask = nil
                 isRefreshing = false
+                pollingSleepTask?.cancel()
             }
         }
 
@@ -292,6 +327,8 @@ final class ClaudeCodeUsageStore {
             guard activeRefreshID == id else {
                 return
             }
+
+            retrySchedule.succeeded()
 
             let observedAt = now()
             let streakSummary = streakTracker.observeToday(
@@ -317,6 +354,8 @@ final class ClaudeCodeUsageStore {
             }
 
             let message = error.localizedDescription
+            retrySchedule.failed()
+            claudeActivityLogger.error("Usage refresh failed; attempt \(self.retrySchedule.failureCount), next polling delay \(String(describing: self.retrySchedule.nextDelay), privacy: .public). Error: \(message, privacy: .private)")
             if let previousSnapshot {
                 let streakSummary = streakTracker.observeToday(
                     provider: .claudeCode,
@@ -334,7 +373,7 @@ final class ClaudeCodeUsageStore {
     }
 }
 
-private final class ClaudeCodeActivityEventMonitor: @unchecked Sendable {
+final class LocalTelemetryEventMonitor: @unchecked Sendable {
     private let directoryURL: URL
     private let onChange: @Sendable () -> Void
     private let queue = DispatchQueue(

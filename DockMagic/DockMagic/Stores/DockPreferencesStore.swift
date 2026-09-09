@@ -12,6 +12,8 @@ final class DockPreferencesStore {
     static let githubRepositoryURLKey = "DockMagicGitHubRepositoryURL"
     static let codexAppearanceKey = "DockMagicCodexAppearance"
     static let codexExecutablePathKey = "DockMagicCodexExecutablePath"
+    static let antigravityAppearanceKey = "DockMagicAntigravityAppearance"
+    static let antigravityGroupKey = "DockMagicAntigravityQuotaGroup"
     static let claudeCodeAppearanceKey = "DockMagicClaudeCodeAppearance"
     static let automaticallyConfigureClaudeCodeKey =
         "DockMagicAutomaticallyConfigureClaudeCode"
@@ -34,6 +36,8 @@ final class DockPreferencesStore {
     private(set) var storageAppearance: DockSingleRingAppearance
     private(set) var githubAppearance: DockGitHubAppearance
     private(set) var codexAppearance: DockRingAppearance
+    let antigravityGroupID = "auto"
+    private(set) var antigravityAppearance: DockRingAppearance
     private(set) var claudeCodeAppearance: DockRingAppearance
 
     var githubRepositoryURL: String {
@@ -137,6 +141,12 @@ final class DockPreferencesStore {
             from: defaults,
             key: Self.codexAppearanceKey,
             fallback: DockFeatureDefaults.codexAppearance
+        )
+        // Model selection is no longer exposed. A saved Gemini selection must
+        // not hide exhausted Claude/GPT quota behind an unrelated 100% pool.
+        defaults.removeObject(forKey: Self.antigravityGroupKey)
+        antigravityAppearance = Self.decodeAppearance(
+            from: defaults, key: Self.antigravityAppearanceKey, fallback: DockFeatureDefaults.antigravityAppearance
         )
         claudeCodeAppearance = Self.decodeAppearance(
             from: defaults,
@@ -326,6 +336,38 @@ final class DockPreferencesStore {
         persistClaudeCodeAppearance()
     }
 
+    func setAntigravityOuterColor(_ color: DockColor) {
+        antigravityAppearance.outerColor = color
+        persistAntigravityAppearance()
+    }
+
+    func setAntigravityInnerColor(_ color: DockColor) {
+        antigravityAppearance.innerColor = color
+        persistAntigravityAppearance()
+    }
+
+    func setAntigravityOuterWidth(_ value: Double) {
+        antigravityAppearance.setOuterWidth(value)
+        persistAntigravityAppearance()
+    }
+
+    func setAntigravityInnerWidth(_ value: Double) {
+        antigravityAppearance.setInnerWidth(value)
+        persistAntigravityAppearance()
+    }
+
+    func setAntigravityDisplayStyle(_ value: DockDisplayStyle) {
+        antigravityAppearance.setDisplayStyle(value)
+        persistAntigravityAppearance()
+    }
+
+    func resetAntigravityAppearance() {
+        let displayStyle = antigravityAppearance.displayStyle
+        antigravityAppearance = DockFeatureDefaults.antigravityAppearance
+        antigravityAppearance.setDisplayStyle(displayStyle)
+        persistAntigravityAppearance()
+    }
+
     private func persistClockConfiguration() {
         Self.encodeValue(
             clockConfiguration,
@@ -379,6 +421,14 @@ final class DockPreferencesStore {
             claudeCodeAppearance,
             to: defaults,
             key: Self.claudeCodeAppearanceKey
+        )
+    }
+
+    private func persistAntigravityAppearance() {
+        Self.encodeAppearance(
+            antigravityAppearance,
+            to: defaults,
+            key: Self.antigravityAppearanceKey
         )
     }
 

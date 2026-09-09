@@ -5,6 +5,69 @@ All notable changes to DockMagic will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.3] - 2026-09-09
+
+### Added
+
+- Added an Antigravity Dock integration with automatic quota selection,
+  Chart and Numbers tiles, a dedicated Settings page, and a hover dashboard.
+- Added privacy-bounded local Antigravity activity history, active-work state,
+  streaks, Ship momentum, and high-resolution dashboard image export.
+- Added save, copy, and share support for complete Codex, Claude Code, and
+  Antigravity dashboard cards rendered at 4× density.
+
+### Changed
+
+- Improved cold-launch Settings presentation and coordinated recovery after
+  network reconnection, system wake, and session unlock.
+- Reworked Codex and Claude Code dashboard history presentation and image
+  capture while preserving the selected Tokens or Cost metric.
+- Adjusted Dock and Command-Tab tile geometry to match the visible footprint
+  of standard macOS application icons.
+
+### Fixed
+
+- Fixed Dock-hover timing so repeated Dock notifications cannot shorten the
+  one-second delay and leaving, opening a menu, or disabling hover cancels it.
+- Fixed Antigravity usage attribution for missing timestamps, resumed
+  conversations, local-day boundaries, and stale parser caches.
+- Fixed Codex and Claude Code recovery when DockMagic starts offline or their
+  local usage snapshot becomes readable later.
+
+### Security
+
+- Restricted Antigravity quota access to the current user's loopback service,
+  kept CSRF credentials in memory, and bounded sanitized metadata retention.
+- Preserved unrelated status-line and hook configuration while preventing
+  malformed or externally changed configuration from being overwritten.
+
+## [1.0.2] - 2026-09-04
+
+### Added
+
+- Added signed Sparkle updates from GitHub, including manual update checks,
+  update-availability status, and automatic check and download preferences.
+- Added automatic detection and user-space installation for the Codex and
+  Claude Code CLIs when their Dock integrations are opened.
+
+### Changed
+
+- Expanded Codex discovery to find executables bundled inside Codex.app and
+  ChatGPT.app in system and user Applications directories.
+- Updated developer-tool navigation so choosing Codex or Claude Code opens the
+  matching settings page and prepares its local integration.
+
+### Fixed
+
+- Improved active-feature picker reliability and accessibility on macOS 14.
+- Fixed parsing of configured Codex data paths that contain multiple lines.
+
+### Security
+
+- Added HTTPS host validation, download-size limits, script validation, and
+  post-install executable verification for developer-tool installers.
+- Configured a dedicated Ed25519 signing key for verified Sparkle updates.
+
 ## [1.0.1] - 2026-09-04
 
 ### Added
@@ -80,6 +143,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Removed generated Xcode build products from version control and ignored
   repository-local Derived Data directories.
 
+[1.0.3]: https://github.com/thanhdongnguyen/DockMagic/compare/v1.0.2...v1.0.3
+[1.0.2]: https://github.com/thanhdongnguyen/DockMagic/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/thanhdongnguyen/DockMagic/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/thanhdongnguyen/DockMagic/compare/v0.1.0...v1.0.0
 [0.1.0]: https://github.com/thanhdongnguyen/DockMagic/releases/tag/v0.1.0

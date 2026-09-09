@@ -61,7 +61,7 @@ extension DockFeature {
         case .claudeCode:
             .claudeCode
         case .dockMagic, .systemMetrics, .network, .storage, .weather, .clock,
-             .batteries, .github, .searchConsole:
+             .batteries, .github, .searchConsole, .antigravity:
             nil
         }
     }

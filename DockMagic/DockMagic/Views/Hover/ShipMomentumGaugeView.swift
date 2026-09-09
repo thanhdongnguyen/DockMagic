@@ -10,6 +10,7 @@ struct ShipMomentumGauge: View {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.dsAccessibilityOverrides) private var accessibilityOverrides
+    @Environment(\.isDashboardCapture) private var isDashboardCapture
     @Environment(\.designTheme) private var theme
     @State private var animatedFraction = 0.0
     @State private var burstEnergy: CGFloat = 0
@@ -39,7 +40,7 @@ struct ShipMomentumGauge: View {
     }
 
     private var effectivelyReducesMotion: Bool {
-        accessibilityOverrides.reduceMotion ?? reduceMotion
+        isDashboardCapture || (accessibilityOverrides.reduceMotion ?? reduceMotion)
     }
 
     private var animatesContinuously: Bool {
@@ -91,7 +92,11 @@ struct ShipMomentumGauge: View {
 
     @ViewBuilder
     private func gaugeContent(in rect: CGRect, time: TimeInterval) -> some View {
-        let fraction = min(max(animatedFraction, 0), 1)
+        // ImageRenderer does not run onAppear or the entry animation. A PNG
+        // must show the settled score rather than the initial empty gauge.
+        let fraction = isDashboardCapture
+            ? targetFraction
+            : min(max(animatedFraction, 0), 1)
         let endpoint = ShipMomentumGaugeGeometry.point(
             in: rect,
             fraction: fraction

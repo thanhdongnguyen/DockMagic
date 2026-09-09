@@ -123,10 +123,18 @@ Click any screenshot to view it at full resolution.
   Missing or partial observations remain visibly unavailable instead of being
   estimated from fabricated prices or activity.
 - **General settings** select exactly one feature to run and display in the
-  Dock. CPU & RAM, Storage, GitHub, Codex, and Claude Code support `Chart` and
+  Dock. CPU & RAM, Storage, GitHub, Codex, Claude Code, and Antigravity support `Chart` and
   `Numbers` display styles; Clock offers `Analog`, `Digital`, and `Split-flap`
   in both General and Clock Settings. Colors and display choices are persisted
   and applied to the active tile immediately.
+- **Antigravity** displays quota for the selected Gemini or Claude/GPT group,
+  with independent Dock colors, Chart/Numbers, and a hover dashboard. Local
+  usage metadata supplies token history, top models, activity, streaks, and Ship
+  momentum. Open Antigravity and sign in to read desktop quota; Settings →
+  Antigravity → Connect activity adds the optional CLI status line and event
+  hooks while preserving existing customizations. Older versions that omit
+  quota window duration show `Quota`; unreported costs remain unavailable.
+  See [Antigravity integration](docs/ANTIGRAVITY_IMPLEMENTATION.md).
 - **Appearance** supports System, Light, and Dark. Navigation chrome uses Liquid
   Glass where available and a material fallback on the current toolchain, while
   primary content remains opaque.
@@ -163,6 +171,12 @@ DockMagic is designed for direct distribution, not the Mac App Store.
   and answer text except explicit task descriptions and goal objectives. It
   never reads Claude Code OAuth tokens. The only Keychain secret managed by the GitHub feature is the
   optional token entered by the user.
+- Antigravity connects only to the current user's local language server. Its
+  CSRF token stays in memory; DockMagic does not read Google OAuth credentials.
+  Sanitized usage metadata is kept privately under
+  `~/.gemini/dockmagic-antigravity/`. Prompts, answers, tool arguments, and
+  conversation titles are excluded. Recent metadata is bounded to 32 days and
+  the dashboard reports a partial 30-day history.
 
 The core Dock renderer does not require Accessibility, Screen Recording, Full
 Disk Access, or administrator privileges. The optional Dock-hover dashboard

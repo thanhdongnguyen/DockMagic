@@ -4,6 +4,7 @@ import SwiftData
 enum TokenUsageProvider: String, Codable, CaseIterable, Sendable {
     case codex
     case claudeCode
+    case antigravity
 }
 
 @Model

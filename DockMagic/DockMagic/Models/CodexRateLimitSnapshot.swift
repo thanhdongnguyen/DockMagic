@@ -448,6 +448,7 @@ struct CodexRateLimitSnapshot: Codable, Equatable, Sendable {
     let streakSummary: TokenUsageStreakSummary?
     let recentTaskActivity: CodexRecentTaskActivity?
     let claudeTelemetry: ClaudeCodeTelemetrySnapshot?
+    let antigravityTelemetry: AntigravityTelemetrySnapshot?
     let fetchedAt: Date
 
     init(
@@ -459,6 +460,7 @@ struct CodexRateLimitSnapshot: Codable, Equatable, Sendable {
         streakSummary: TokenUsageStreakSummary? = nil,
         recentTaskActivity: CodexRecentTaskActivity? = nil,
         claudeTelemetry: ClaudeCodeTelemetrySnapshot? = nil,
+        antigravityTelemetry: AntigravityTelemetrySnapshot? = nil,
         fetchedAt: Date
     ) {
         self.planType = planType
@@ -469,6 +471,7 @@ struct CodexRateLimitSnapshot: Codable, Equatable, Sendable {
         self.streakSummary = streakSummary
         self.recentTaskActivity = recentTaskActivity
         self.claudeTelemetry = claudeTelemetry
+        self.antigravityTelemetry = antigravityTelemetry
         self.fetchedAt = fetchedAt
     }
 
@@ -488,6 +491,7 @@ struct CodexRateLimitSnapshot: Codable, Equatable, Sendable {
             streakSummary: streakSummary,
             recentTaskActivity: recentTaskActivity,
             claudeTelemetry: claudeTelemetry,
+            antigravityTelemetry: antigravityTelemetry,
             fetchedAt: fetchedAt
         )
     }

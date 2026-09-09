@@ -4,6 +4,9 @@ import SwiftUI
 /// DockMagic's product palette. Reusable components know only `DesignTheme`;
 /// this mapping and the named Color Set values remain application-owned.
 enum ProjectTheme {
+    /// Persistent renderer default matching DSAction's Light blue. User-picked
+    /// colors remain confined to Dock renders and their Settings previews.
+    static let defaultUsageRingColor = DockColor(red: 0, green: 136 / 255, blue: 1)
     /// Claude Code usage data uses the service's clay-orange identity as its
     /// single persistent data accent. Status colors still come from
     /// `DesignTheme` and replace this accent when they carry meaning.

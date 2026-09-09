@@ -77,7 +77,9 @@ func renderIcon(pixels: Int) throws -> Data {
     NSColor.clear.setFill()
     NSBezierPath(rect: canvas).fill()
 
-    let margin = max(1, side * 0.035)
+    // Keep the bundled icon aligned with DockIconRenderingRules.contentFraction:
+    // an 824-pixel body centered inside a 1024-pixel canvas.
+    let margin = side * (100.0 / 1_024.0)
     let iconRect = canvas.insetBy(dx: margin, dy: margin)
     let cornerRadius = iconRect.width * 0.22
     let borderWidth = max(1, side * 0.018)

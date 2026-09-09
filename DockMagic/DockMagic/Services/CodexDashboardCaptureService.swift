@@ -6,6 +6,10 @@ struct CodexDashboardCaptureConfiguration: Equatable, Sendable {
     let pointerEdge: DockHoverPointerEdge
     let panelSize: CGSize
     let appearanceMode: DSAppearanceMode
+
+    var dashboardSize: CGSize {
+        DockHoverCardLayout.size(panelSize: panelSize, pointerEdge: pointerEdge)
+    }
 }
 
 struct CodexDashboardCaptureArtifact: Equatable, Sendable {
@@ -40,16 +44,19 @@ enum CodexDashboardCaptureService {
     static let rasterScale: CGFloat = 4
 
     static func pixelDimensions(
-        for panelSize: CGSize
+        for configuration: CodexDashboardCaptureConfiguration
     ) -> (width: Int, height: Int) {
-        (
-            Int((panelSize.width * rasterScale).rounded()),
-            Int((panelSize.height * rasterScale).rounded())
+        let size = configuration.dashboardSize
+        return (
+            Int((size.width * rasterScale).rounded()),
+            Int((size.height * rasterScale).rounded())
         )
     }
 
-    static func pixelSizeLabel(for panelSize: CGSize) -> String {
-        let dimensions = pixelDimensions(for: panelSize)
+    static func pixelSizeLabel(
+        for configuration: CodexDashboardCaptureConfiguration
+    ) -> String {
+        let dimensions = pixelDimensions(for: configuration)
         return "\(dimensions.width) × \(dimensions.height) px"
     }
 
@@ -62,210 +69,142 @@ enum CodexDashboardCaptureService {
         streakCelebrationAutoDismissDelay: Duration = .milliseconds(2_800),
         accessibilityOverrides: DSAccessibilityOverrides = .init()
     ) throws -> CodexDashboardCaptureArtifact {
-        let dimensions = pixelDimensions(for: configuration.panelSize)
-        let root = DockMagicThemeRoot(
-            content: DockHoverChrome(
-                pointerEdge: configuration.pointerEdge,
-                panelSize: configuration.panelSize
-            ) {
-                CodexHoverDashboardView(
-                    state: state,
-                    serviceStatus: serviceStatus,
-                    now: now,
-                    initialStreakCelebration: initialStreakCelebration,
-                    streakCelebrationAutoDismissDelay:
-                        streakCelebrationAutoDismissDelay
-                )
-            },
-            appearanceMode: configuration.appearanceMode
+        try renderDashboard(
+            content: CodexHoverDashboardView(
+                state: state,
+                serviceStatus: serviceStatus,
+                now: now,
+                initialStreakCelebration: initialStreakCelebration,
+                streakCelebrationAutoDismissDelay: streakCelebrationAutoDismissDelay
+            ),
+            configuration: configuration,
+            fileName: defaultFileName(at: now),
+            accessibilityOverrides: accessibilityOverrides
         )
-        .frame(
-            width: configuration.panelSize.width,
-            height: configuration.panelSize.height
-        )
-        .environment(\.displayScale, rasterScale)
-        .environment(\.dsAccessibilityOverrides, accessibilityOverrides)
-
-        return try autoreleasepool {
-            let hostingView = NSHostingView(rootView: root)
-            let window = NSWindow(
-                contentRect: NSRect(
-                    origin: .zero,
-                    size: configuration.panelSize
-                ),
-                styleMask: [.borderless],
-                backing: .buffered,
-                defer: false
-            )
-            window.isReleasedWhenClosed = false
-            window.setFrameOrigin(NSPoint(x: -20_000, y: -20_000))
-            window.appearance = appearance(for: configuration.appearanceMode)
-            hostingView.appearance = window.appearance
-            hostingView.frame = NSRect(
-                origin: .zero,
-                size: configuration.panelSize
-            )
-            hostingView.wantsLayer = true
-            hostingView.layer?.contentsScale = rasterScale
-            window.contentView = hostingView
-
-            defer {
-                window.contentView = nil
-                window.close()
-            }
-
-            // Let ScrollViewReader move Daily tokens to the latest bucket before
-            // the detached dashboard is rasterized.
-            RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.08))
-            hostingView.layoutSubtreeIfNeeded()
-            hostingView.displayIfNeeded()
-
-            guard let representation = NSBitmapImageRep(
-                bitmapDataPlanes: nil,
-                pixelsWide: dimensions.width,
-                pixelsHigh: dimensions.height,
-                bitsPerSample: 8,
-                samplesPerPixel: 4,
-                hasAlpha: true,
-                isPlanar: false,
-                colorSpaceName: .deviceRGB,
-                bytesPerRow: 0,
-                bitsPerPixel: 0
-            ) else {
-                throw CodexDashboardCaptureError.bitmapAllocationFailed
-            }
-            representation.size = configuration.panelSize
-            hostingView.cacheDisplay(
-                in: hostingView.bounds,
-                to: representation
-            )
-
-            guard representation.pixelsWide == dimensions.width,
-                  representation.pixelsHigh == dimensions.height else {
-                throw CodexDashboardCaptureError.unexpectedPixelSize(
-                    width: representation.pixelsWide,
-                    height: representation.pixelsHigh
-                )
-            }
-            guard let pngData = representation.representation(
-                using: .png,
-                properties: [:]
-            ) else {
-                throw CodexDashboardCaptureError.pngEncodingFailed
-            }
-
-            return CodexDashboardCaptureArtifact(
-                pngData: pngData,
-                fileName: defaultFileName(at: now),
-                pixelWidth: representation.pixelsWide,
-                pixelHeight: representation.pixelsHigh
-            )
-        }
     }
 
     static func renderClaudeCode(
         state: ClaudeCodeUsageState,
-        serviceStatus: ServiceStatusState = .operational(
-            provider: .claudeCode
-        ),
+        serviceStatus: ServiceStatusState = .operational(provider: .claudeCode),
         configuration: CodexDashboardCaptureConfiguration,
         now: Date = .now,
+        initialMetric: String = "Tokens",
         accessibilityOverrides: DSAccessibilityOverrides = .init()
     ) throws -> CodexDashboardCaptureArtifact {
-        let dimensions = pixelDimensions(for: configuration.panelSize)
+        try renderDashboard(
+            content: ClaudeCodeHoverDashboardView(
+                state: state,
+                serviceStatus: serviceStatus,
+                now: now,
+                initialMetric: initialMetric
+            ),
+            configuration: configuration,
+            fileName: defaultClaudeCodeFileName(at: now),
+            accessibilityOverrides: accessibilityOverrides
+        )
+    }
+
+    static func renderAntigravity(
+        state: ClaudeCodeUsageState,
+        configuration: CodexDashboardCaptureConfiguration,
+        now: Date = .now,
+        initialMetric: String = "Tokens",
+        accessibilityOverrides: DSAccessibilityOverrides = .init()
+    ) throws -> CodexDashboardCaptureArtifact {
+        try renderDashboard(
+            content: ClaudeCodeHoverDashboardView(
+                state: state,
+                brand: .antigravity,
+                now: now,
+                initialMetric: initialMetric
+            ),
+            configuration: configuration,
+            fileName: "DockMagic-Antigravity-\(Int(now.timeIntervalSince1970)).png",
+            accessibilityOverrides: accessibilityOverrides
+        )
+    }
+
+    private static func renderDashboard<Content: View>(
+        content: Content,
+        configuration: CodexDashboardCaptureConfiguration,
+        fileName: String,
+        accessibilityOverrides: DSAccessibilityOverrides
+    ) throws -> CodexDashboardCaptureArtifact {
+        // ImageRenderer has no window to inherit macOS accessibility settings
+        // from. Resolve them explicitly while retaining deterministic overrides.
+        let workspace = NSWorkspace.shared
+        let resolvedAccessibility = DSAccessibilityOverrides(
+            reduceTransparency: accessibilityOverrides.reduceTransparency
+                ?? workspace.accessibilityDisplayShouldReduceTransparency,
+            increaseContrast: accessibilityOverrides.increaseContrast
+                ?? workspace.accessibilityDisplayShouldIncreaseContrast,
+            reduceMotion: accessibilityOverrides.reduceMotion
+                ?? workspace.accessibilityDisplayShouldReduceMotion
+        )
         let root = DockMagicThemeRoot(
-            content: DockHoverChrome(
-                pointerEdge: configuration.pointerEdge,
-                panelSize: configuration.panelSize
-            ) {
-                ClaudeCodeHoverDashboardView(
-                    state: state,
-                    serviceStatus: serviceStatus,
-                    now: now
-                )
+            content: DockHoverDashboardCard(size: configuration.dashboardSize) {
+                content
             },
             appearanceMode: configuration.appearanceMode
         )
-        .frame(
-            width: configuration.panelSize.width,
-            height: configuration.panelSize.height
+        .environment(\.dsAccessibilityOverrides, resolvedAccessibility)
+        let pngData = try rasterize(
+            content: root,
+            size: configuration.dashboardSize,
+            appearanceMode: configuration.appearanceMode
         )
-        .environment(\.displayScale, rasterScale)
-        .environment(\.dsAccessibilityOverrides, accessibilityOverrides)
+        let dimensions = pixelDimensions(for: configuration)
+        return CodexDashboardCaptureArtifact(
+            pngData: pngData,
+            fileName: fileName,
+            pixelWidth: dimensions.width,
+            pixelHeight: dimensions.height
+        )
+    }
 
-        return try autoreleasepool {
-            let hostingView = NSHostingView(rootView: root)
-            let window = NSWindow(
-                contentRect: NSRect(
-                    origin: .zero,
-                    size: configuration.panelSize
-                ),
-                styleMask: [.borderless],
-                backing: .buffered,
-                defer: false
-            )
-            window.isReleasedWhenClosed = false
-            window.setFrameOrigin(NSPoint(x: -20_000, y: -20_000))
-            window.appearance = appearance(for: configuration.appearanceMode)
-            hostingView.appearance = window.appearance
-            hostingView.frame = NSRect(
-                origin: .zero,
-                size: configuration.panelSize
-            )
-            hostingView.wantsLayer = true
-            hostingView.layer?.contentsScale = rasterScale
-            window.contentView = hostingView
+    /// Render SwiftUI text, symbols, and paths directly at the target density.
+    /// AppKit's cached display can contain screen-resolution text layers even
+    /// when its destination bitmap is larger. The static chart viewport also
+    /// avoids native scroll views and their asynchronous scroll positioning.
+    static func rasterize<Content: View>(
+        content: Content,
+        size: CGSize,
+        appearanceMode: DSAppearanceMode
+    ) throws -> Data {
+        let colorScheme = appearanceMode.preferredColorScheme
+            ?? (NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua])
+                == .darkAqua ? .dark : .light)
+        let root = content
+            .frame(width: size.width, height: size.height)
+            .environment(\.colorScheme, colorScheme)
+            .environment(\.displayScale, rasterScale)
+            .environment(\.isDashboardCapture, true)
+        let renderer = ImageRenderer(content: root)
+        renderer.proposedSize = ProposedViewSize(size)
+        renderer.scale = rasterScale
+        renderer.isOpaque = false
+        renderer.colorMode = .nonLinear
 
-            defer {
-                window.contentView = nil
-                window.close()
-            }
-
-            RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.08))
-            hostingView.layoutSubtreeIfNeeded()
-            hostingView.displayIfNeeded()
-
-            guard let representation = NSBitmapImageRep(
-                bitmapDataPlanes: nil,
-                pixelsWide: dimensions.width,
-                pixelsHigh: dimensions.height,
-                bitsPerSample: 8,
-                samplesPerPixel: 4,
-                hasAlpha: true,
-                isPlanar: false,
-                colorSpaceName: .deviceRGB,
-                bytesPerRow: 0,
-                bitsPerPixel: 0
-            ) else {
-                throw CodexDashboardCaptureError.bitmapAllocationFailed
-            }
-            representation.size = configuration.panelSize
-            hostingView.cacheDisplay(
-                in: hostingView.bounds,
-                to: representation
-            )
-
-            guard representation.pixelsWide == dimensions.width,
-                  representation.pixelsHigh == dimensions.height else {
-                throw CodexDashboardCaptureError.unexpectedPixelSize(
-                    width: representation.pixelsWide,
-                    height: representation.pixelsHigh
-                )
-            }
-            guard let pngData = representation.representation(
-                using: .png,
-                properties: [:]
-            ) else {
-                throw CodexDashboardCaptureError.pngEncodingFailed
-            }
-
-            return CodexDashboardCaptureArtifact(
-                pngData: pngData,
-                fileName: defaultClaudeCodeFileName(at: now),
-                pixelWidth: representation.pixelsWide,
-                pixelHeight: representation.pixelsHigh
+        guard let image = renderer.cgImage else {
+            throw CodexDashboardCaptureError.bitmapAllocationFailed
+        }
+        let pixelWidth = Int((size.width * rasterScale).rounded())
+        let pixelHeight = Int((size.height * rasterScale).rounded())
+        guard image.width == pixelWidth, image.height == pixelHeight else {
+            throw CodexDashboardCaptureError.unexpectedPixelSize(
+                width: image.width,
+                height: image.height
             )
         }
+        let representation = NSBitmapImageRep(cgImage: image)
+        representation.size = size
+        guard let pngData = representation.representation(
+            using: .png,
+            properties: [:]
+        ) else {
+            throw CodexDashboardCaptureError.pngEncodingFailed
+        }
+        return pngData
     }
 
     static func presentSavePanel(
@@ -277,7 +216,9 @@ enum CodexDashboardCaptureService {
         panel.canCreateDirectories = true
         panel.isExtensionHidden = false
         panel.nameFieldStringValue = artifact.fileName
-        panel.title = artifact.fileName.contains("-Claude-Code-")
+        panel.title = artifact.fileName.contains("-Antigravity-")
+            ? "Save Antigravity Dashboard"
+            : artifact.fileName.contains("-Claude-Code-")
             ? "Save Claude Code Dashboard"
             : "Save Codex Dashboard"
         panel.prompt = "Save"
@@ -348,18 +289,5 @@ enum CodexDashboardCaptureService {
         formatter.timeZone = timeZone
         formatter.dateFormat = "yyyy-MM-dd-HHmmss"
         return "DockMagic-Claude-Code-\(formatter.string(from: date)).png"
-    }
-
-    private static func appearance(
-        for mode: DSAppearanceMode
-    ) -> NSAppearance? {
-        switch mode {
-        case .system:
-            nil
-        case .light:
-            NSAppearance(named: .aqua)
-        case .dark:
-            NSAppearance(named: .darkAqua)
-        }
     }
 }

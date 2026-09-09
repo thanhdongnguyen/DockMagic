@@ -40,15 +40,21 @@ struct ClaudeCodeExecutableLocator: ClaudeCodeExecutableLocating {
     private let fileManager: FileManager
     private let environment: [String: String]
     private let homeDirectory: URL
+    private let standardExecutableDirectories: [URL]
 
     init(
         fileManager: FileManager = .default,
         environment: [String: String] = ProcessInfo.processInfo.environment,
-        homeDirectory: URL = FileManager.default.homeDirectoryForCurrentUser
+        homeDirectory: URL = FileManager.default.homeDirectoryForCurrentUser,
+        standardExecutableDirectories: [URL]? = nil
     ) {
         self.fileManager = fileManager
         self.environment = environment
         self.homeDirectory = homeDirectory
+        self.standardExecutableDirectories = standardExecutableDirectories ?? [
+            URL(fileURLWithPath: "/opt/homebrew/bin", isDirectory: true),
+            URL(fileURLWithPath: "/usr/local/bin", isDirectory: true)
+        ]
     }
 
     func locate() throws -> URL {
@@ -75,11 +81,12 @@ struct ClaudeCodeExecutableLocator: ClaudeCodeExecutableLocating {
             })
         }
 
-        candidates.append(contentsOf: [
-            homeDirectory.appendingPathComponent(".local/bin/claude"),
-            URL(fileURLWithPath: "/opt/homebrew/bin/claude"),
-            URL(fileURLWithPath: "/usr/local/bin/claude")
-        ])
+        candidates.append(
+            homeDirectory.appendingPathComponent(".local/bin/claude")
+        )
+        candidates.append(contentsOf: standardExecutableDirectories.map {
+            $0.appendingPathComponent("claude")
+        })
 
         let nvmNodeVersions = homeDirectory
             .appendingPathComponent(".nvm/versions/node", isDirectory: true)

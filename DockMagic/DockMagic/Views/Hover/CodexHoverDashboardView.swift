@@ -161,6 +161,43 @@ struct DockHoverDashboardRoot: View {
                                     }
                                 }
                             )
+                        case .antigravity:
+                            ClaudeCodeHoverDashboardView(
+                                state: appModel.antigravityStore.state,
+                                brand: .antigravity,
+                                initialStreakDetailPresented:
+                                    initialStreakDetailPresented,
+                                initialStreakCelebration:
+                                    initialStreakCelebration,
+                                streakCelebrationAutoDismissDelay:
+                                    streakCelebrationAutoDismissDelay,
+                                onStreakCelebrationDismissed:
+                                    onStreakCelebrationDismissed,
+                                captureConfiguration: showsCaptureControls
+                                    ? CodexDashboardCaptureConfiguration(
+                                        pointerEdge: pointerEdge,
+                                        panelSize: panelSize,
+                                        appearanceMode: appearanceMode
+                                    )
+                                    : nil,
+                                initialCaptureMenuPresented:
+                                    initialCaptureMenuPresented,
+                                isActivityHookInstalled: appModel
+                                    .antigravityStore
+                                    .isBridgeInstalled,
+                                isInstallingActivityHook: appModel
+                                    .antigravityStore
+                                    .isInstallingBridge,
+                                activityHookErrorText: appModel
+                                    .antigravityStore
+                                    .bridgeError,
+                                onInstallActivityHook: {
+                                    Task { @MainActor in
+                                        await appModel.antigravityStore
+                                            .connect()
+                                    }
+                                }
+                            )
                         case .dockMagic, .network, .storage, .clock,
                              .batteries, .github, .searchConsole:
                             EmptyView()
@@ -310,9 +347,11 @@ struct CodexHoverDashboardView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(alignment: .topTrailing) {
-            CodexDashboardSharePresenter(itemURL: $pendingShareURL)
-                .frame(width: 1, height: 1)
-                .opacity(0.001)
+            if captureConfiguration != nil {
+                CodexDashboardSharePresenter(itemURL: $pendingShareURL)
+                    .frame(width: 1, height: 1)
+                    .opacity(0.001)
+            }
         }
         .onExitCommand {
             if streakCelebration != nil {
@@ -543,7 +582,7 @@ struct CodexHoverDashboardView: View {
     private var capturePixelSizeLabel: String {
         guard let captureConfiguration else { return "" }
         return CodexDashboardCaptureService.pixelSizeLabel(
-            for: captureConfiguration.panelSize
+            for: captureConfiguration
         )
     }
 
@@ -1289,6 +1328,7 @@ enum CodexHoverDashboardPresentation {
 
 struct CodexPlanBadge: View {
     let plan: String
+    var providerName: String = "Codex"
 
     @Environment(\.designTheme) private var theme
 
@@ -1320,7 +1360,7 @@ struct CodexPlanBadge: View {
             )
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("Codex \(plan.localizedCapitalized) plan")
+        .accessibilityLabel("\(providerName) \(plan.localizedCapitalized) plan")
     }
 
     private var normalizedPlan: String {
@@ -1343,6 +1383,66 @@ struct CodexPlanBadge: View {
     }
 }
 
+private struct DashboardCaptureKey: EnvironmentKey {
+    static let defaultValue = false
+}
+
+extension EnvironmentValues {
+    var isDashboardCapture: Bool {
+        get { self[DashboardCaptureKey.self] }
+        set { self[DashboardCaptureKey.self] = newValue }
+    }
+}
+
+/// Export the same trailing chart viewport without a native scroll view or an
+/// onAppear callback, neither of which is available to SwiftUI ImageRenderer.
+struct DashboardHistoryViewport<ID: Hashable, Content: View>: View {
+    let latestID: ID?
+    var viewportHeight: CGFloat? = nil
+    var documentSize: CGSize? = nil
+    @ViewBuilder let content: () -> Content
+    @Environment(\.isDashboardCapture) private var isDashboardCapture
+
+    var body: some View {
+        if isDashboardCapture {
+            GeometryReader { geometry in
+                content()
+                    .fixedSize(horizontal: true, vertical: false)
+                    .frame(
+                        width: geometry.size.width,
+                        height: geometry.size.height,
+                        alignment: .topTrailing
+                    )
+            }
+            .clipped()
+        } else if let viewportHeight, let documentSize {
+            DashboardNativeHistoryViewport(
+                latestID: latestID,
+                viewportHeight: viewportHeight,
+                documentSize: documentSize,
+                content: content
+            )
+        } else {
+            ScrollViewReader { proxy in
+                ScrollView(.horizontal, showsIndicators: true) {
+                    content()
+                }
+                .onAppear {
+                    scrollToLatest(using: proxy)
+                }
+                .onChange(of: latestID) { _, _ in
+                    scrollToLatest(using: proxy)
+                }
+            }
+        }
+    }
+
+    private func scrollToLatest(using proxy: ScrollViewProxy) {
+        guard let latestID else { return }
+        proxy.scrollTo(latestID, anchor: .trailing)
+    }
+}
+
 struct CodexTokenHistoryChart: View {
     let buckets: [CodexTokenUsageDailyBucket]
     @Binding var hoveredBucketID: Date?
@@ -1358,24 +1458,16 @@ struct CodexTokenHistoryChart: View {
         HStack(alignment: .top, spacing: 7) {
             yAxis
 
-            ScrollViewReader { proxy in
-                ScrollView(.horizontal, showsIndicators: true) {
-                    HStack(alignment: .top, spacing: columnSpacing) {
-                        ForEach(buckets) { bucket in
-                            tokenColumn(for: bucket)
-                                .id(bucket.id)
-                        }
-                    }
-                    .padding(.horizontal, 4)
-                    .background(alignment: .top) {
-                        chartGrid
+            DashboardHistoryViewport(latestID: buckets.last?.id) {
+                HStack(alignment: .top, spacing: columnSpacing) {
+                    ForEach(buckets) { bucket in
+                        tokenColumn(for: bucket)
+                            .id(bucket.id)
                     }
                 }
-                .onAppear {
-                    scrollToLatest(using: proxy)
-                }
-                .onChange(of: buckets.last?.id) { _, _ in
-                    scrollToLatest(using: proxy)
+                .padding(.horizontal, 4)
+                .background(alignment: .top) {
+                    chartGrid
                 }
             }
         }
@@ -1492,11 +1584,6 @@ struct CodexTokenHistoryChart: View {
         guard tokens > 0 else { return 0 }
         let fraction = min(1, Double(tokens) / Double(axisMaximum))
         return max(2, plotHeight * CGFloat(fraction))
-    }
-
-    private func scrollToLatest(using proxy: ScrollViewProxy) {
-        guard let latestID = buckets.last?.id else { return }
-        proxy.scrollTo(latestID, anchor: .trailing)
     }
 
     private static func tokenAxisLabel(_ tokens: Int64) -> String {
@@ -1901,6 +1988,7 @@ struct CodexTopModelsCard: View {
     let models: [CodexModelTokenUsage]
     let isPartial: Bool
     var accent: Color? = nil
+    var providerName: String = "Codex"
 
     @Environment(\.designTheme) private var theme
 
@@ -1987,6 +2075,9 @@ struct CodexTopModelsCard: View {
     }
 
     private var helpText: String {
+        if providerName == "Antigravity" {
+            return "Models ranked by locally observed tokens in the last 30 days. History is partial; unavailable model names remain unknown. Prompt and response content is not used."
+        }
         let coverage = isPartial
             ? " Coverage is partial because some recent session metadata could not be read or the scan limit was reached."
             : ""
@@ -2193,10 +2284,50 @@ struct UsageLimitHoverRow: View {
     }
 }
 
-struct DockHoverChrome<Content: View>: View {
+enum DockHoverCardLayout {
     // Keep the rounded surface fully inside the transparent NSPanel. Explicit
     // placement prevents AppKit from clipping its top outline at the host edge.
-    private static var panelInset: CGFloat { 6 }
+    static let panelInset: CGFloat = 6
+
+    static func size(
+        panelSize: CGSize,
+        pointerEdge: DockHoverPointerEdge
+    ) -> CGSize {
+        switch pointerEdge {
+        case .bottom:
+            CGSize(
+                width: panelSize.width - panelInset * 2,
+                height: panelSize.height
+                    - DockHoverPanelPlacement.pointerExtent - panelInset
+            )
+        case .left, .right:
+            CGSize(
+                width: panelSize.width
+                    - DockHoverPanelPlacement.pointerExtent - panelInset,
+                height: panelSize.height - panelInset * 2
+            )
+        }
+    }
+}
+
+/// The dashboard surface shared by the live popup and PNG export. The popup
+/// owns its external inset and Dock pointer; neither belongs in an image.
+struct DockHoverDashboardCard<Content: View>: View {
+    let size: CGSize
+    @ViewBuilder let content: () -> Content
+
+    var body: some View {
+        content()
+            .padding(12)
+            .frame(width: size.width, height: size.height)
+            .dsSurface(
+                RoundedRectangle(cornerRadius: 18, style: .continuous),
+                kind: .raised
+            )
+    }
+}
+
+struct DockHoverChrome<Content: View>: View {
 
     let pointerEdge: DockHoverPointerEdge
     let panelSize: CGSize
@@ -2208,13 +2339,11 @@ struct DockHoverChrome<Content: View>: View {
         switch pointerEdge {
         case .bottom:
             ZStack(alignment: .topLeading) {
-                card(
-                    width: panelSize.width - (Self.panelInset * 2),
-                    height: panelSize.height
-                        - DockHoverPanelPlacement.pointerExtent
-                        - Self.panelInset
-                )
-                    .offset(x: Self.panelInset, y: Self.panelInset)
+                card
+                    .offset(
+                        x: DockHoverCardLayout.panelInset,
+                        y: DockHoverCardLayout.panelInset
+                    )
 
                 DockHoverPointerShape(direction: .down)
                     .fill(theme.opaqueSurfaceRaised)
@@ -2230,15 +2359,10 @@ struct DockHoverChrome<Content: View>: View {
             }
         case .left:
             ZStack(alignment: .topLeading) {
-                card(
-                    width: panelSize.width
-                        - DockHoverPanelPlacement.pointerExtent
-                        - Self.panelInset,
-                    height: panelSize.height - (Self.panelInset * 2)
-                )
+                card
                     .offset(
                         x: DockHoverPanelPlacement.pointerExtent,
-                        y: Self.panelInset
+                        y: DockHoverCardLayout.panelInset
                     )
 
                 DockHoverPointerShape(direction: .left)
@@ -2255,14 +2379,11 @@ struct DockHoverChrome<Content: View>: View {
             }
         case .right:
             ZStack(alignment: .topLeading) {
-                card(
-                    width: panelSize.width
-                        - DockHoverPanelPlacement.pointerExtent
-                        - Self.panelInset,
-                    height: panelSize.height
-                        - (Self.panelInset * 2)
-                )
-                    .offset(x: Self.panelInset, y: Self.panelInset)
+                card
+                    .offset(
+                        x: DockHoverCardLayout.panelInset,
+                        y: DockHoverCardLayout.panelInset
+                    )
 
                 DockHoverPointerShape(direction: .right)
                     .fill(theme.opaqueSurfaceRaised)
@@ -2279,14 +2400,14 @@ struct DockHoverChrome<Content: View>: View {
         }
     }
 
-    private func card(width: CGFloat, height: CGFloat) -> some View {
-        content()
-            .padding(12)
-            .frame(width: width, height: height)
-            .dsSurface(
-                RoundedRectangle(cornerRadius: 18, style: .continuous),
-                kind: .raised
-            )
+    private var card: some View {
+        DockHoverDashboardCard(
+            size: DockHoverCardLayout.size(
+                panelSize: panelSize,
+                pointerEdge: pointerEdge
+            ),
+            content: content
+        )
     }
 }
 

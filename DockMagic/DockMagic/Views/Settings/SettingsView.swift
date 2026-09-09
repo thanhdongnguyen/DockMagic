@@ -12,6 +12,7 @@ enum SettingsDestination: String, CaseIterable, Identifiable {
     case github
     case codex
     case claudeCode
+    case antigravity
     case searchConsole
 
     var id: Self { self }
@@ -36,6 +37,8 @@ enum SettingsDestination: String, CaseIterable, Identifiable {
             "GitHub"
         case .codex:
             "Codex"
+        case .antigravity:
+            "Antigravity"
         case .claudeCode:
             "Claude Code"
         case .searchConsole:
@@ -63,6 +66,8 @@ enum SettingsDestination: String, CaseIterable, Identifiable {
             "Track repository stars and forks in the Dock."
         case .codex:
             "Show Codex rate limits and aggregate token usage."
+        case .antigravity:
+            "Show model quota, token history and local agent activity."
         case .claudeCode:
             "Show remaining 5-hour and weekly Claude Code limits."
         case .searchConsole:
@@ -90,6 +95,8 @@ enum SettingsDestination: String, CaseIterable, Identifiable {
             "point.3.connected.trianglepath.dotted"
         case .codex:
             "sparkles"
+        case .antigravity:
+            "sparkle"
         case .claudeCode:
             "chevron.left.forwardslash.chevron.right"
         case .searchConsole:
@@ -117,6 +124,8 @@ enum SettingsDestination: String, CaseIterable, Identifiable {
             .github
         case .codex:
             .codex
+        case .antigravity:
+            .antigravity
         case .claudeCode:
             .claudeCode
         case .searchConsole:
@@ -198,7 +207,7 @@ struct SettingsView: View {
             case .searchConsole:
                 appModel.searchConsoleStore.start()
             case .general, .systemMetrics, .network, .storage, .codex,
-                 .claudeCode, .github:
+                 .claudeCode, .antigravity, .github:
                 if newDestination == .general {
                     launchAtLoginController.refresh()
                 }
@@ -286,6 +295,7 @@ struct SettingsView: View {
                     sidebarRow(.github)
                     sidebarRow(.codex)
                     sidebarRow(.claudeCode)
+                    sidebarRow(.antigravity)
                     sidebarRow(.searchConsole)
                 }
                 .padding(.horizontal, DSSpacing.medium)
@@ -482,6 +492,8 @@ struct SettingsView: View {
             githubContent
         case .codex:
             codexContent
+        case .antigravity:
+            AntigravitySettingsView(appModel: appModel)
         case .claudeCode:
             claudeCodeContent
         case .searchConsole:
@@ -587,7 +599,7 @@ struct SettingsView: View {
 
             DSSettingsSection(
                 title: "Dock hover dashboard",
-                detail: "Available for CPU & RAM, Weather, Codex, and Claude Code. Clock and other Dock-only features never open a hover dashboard."
+                detail: "Available for CPU & RAM, Weather, Codex, Claude Code, and Antigravity. Clock and other Dock-only features never open a hover dashboard."
             ) {
                 VStack(spacing: DSSpacing.standard) {
                     DSSettingsRow(
@@ -1294,6 +1306,8 @@ struct SettingsView: View {
                     appModel.searchConsoleStore.start()
                 case .codex:
                     navigate(to: .codex)
+                case .antigravity:
+                    navigate(to: .antigravity)
                 case .claudeCode:
                     navigate(to: .claudeCode)
                 case .dockMagic, .systemMetrics, .network, .storage, .clock:
@@ -2107,6 +2121,10 @@ private struct DockFeatureIcon: View {
                 Image("CodexLogo")
                     .resizable()
                     .scaledToFit()
+            case .antigravity:
+                Image("AntigravityLogo")
+                    .resizable()
+                    .scaledToFit()
             case .claudeCode:
                 Image("ClaudeCodeLogo")
                     .resizable()
@@ -2201,6 +2219,8 @@ private struct DockFeatureIcon: View {
             "point.3.connected.trianglepath.dotted"
         case .codex:
             "sparkles"
+        case .antigravity:
+            "sparkle"
         case .claudeCode:
             "chevron.left.forwardslash.chevron.right"
         case .searchConsole:
@@ -2247,7 +2267,7 @@ private final class WindowTitleVisibilityView: NSView {
     }
 }
 
-private struct DockDisplayStyleEditor: View {
+struct DockDisplayStyleEditor: View {
     let featureTitle: String
     @Binding var selection: DockDisplayStyle
 
@@ -2274,7 +2294,7 @@ private struct DockDisplayStyleEditor: View {
     }
 }
 
-private struct RingAppearanceEditor: View {
+struct RingAppearanceEditor: View {
     let outerTitle: String
     let innerTitle: String
     let appearance: DockRingAppearance
@@ -2588,7 +2608,7 @@ private struct PreviewTextMetric: View {
     }
 }
 
-private struct PreviewMetric: View {
+struct PreviewMetric: View {
     let title: String
     let value: Double?
     let color: Color

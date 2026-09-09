@@ -12,6 +12,10 @@ enum DockIconRenderingRules {
     static let canvasDimension: CGFloat = 512
     static let rasterScale: CGFloat = 2
 
+    /// Match the 824-pixel icon body on a 1024-pixel macOS icon canvas.
+    /// Apply this once in DockTileView, including Settings previews.
+    static let contentFraction: CGFloat = 824.0 / 1_024.0
+
     static let canvasSize = NSSize(
         width: canvasDimension,
         height: canvasDimension
