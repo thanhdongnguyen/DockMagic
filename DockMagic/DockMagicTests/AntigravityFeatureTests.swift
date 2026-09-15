@@ -82,6 +82,49 @@ final class AntigravityFeatureTests: XCTestCase {
         XCTAssertEqual(call.timeout, 45)
     }
 
+    func testAuthenticationProviderSignsOutWithoutInteractiveTerminal()
+        async throws {
+        let runner = RecordingAntigravityRunner(
+            output: #"{"status":"SUCCESS"}"#
+        )
+        let provider = AntigravityCLIAuthenticationProvider(
+            processRunner: runner,
+            environment: ["PATH": "/usr/bin"]
+        )
+
+        try await provider.signOut(
+            executableURL: URL(fileURLWithPath: "/tmp/agy")
+        )
+
+        let calls = await runner.calls
+        let call = try XCTUnwrap(calls.first)
+        XCTAssertEqual(call.arguments, [
+            "-p", "/logout", "--output-format", "json",
+            "--print-timeout", "30s"
+        ])
+        XCTAssertEqual(call.environment["AGY_CLI_DISABLE_AUTO_UPDATE"], "true")
+        XCTAssertEqual(call.environment["NO_COLOR"], "1")
+        XCTAssertEqual(call.timeout, 45)
+    }
+
+    func testAuthenticationProviderRejectsUnconfirmedSignOut() async {
+        let runner = RecordingAntigravityRunner(
+            output: #"{"status":"ERROR","error":"keyring unavailable"}"#
+        )
+        let provider = AntigravityCLIAuthenticationProvider(
+            processRunner: runner
+        )
+
+        do {
+            try await provider.signOut(
+                executableURL: URL(fileURLWithPath: "/tmp/agy")
+            )
+            XCTFail("An unsuccessful logout envelope must not be accepted.")
+        } catch {
+            XCTAssertEqual(error as? AntigravityUsageError, .signOutFailed)
+        }
+    }
+
     @MainActor
     func testStoreExposesSignedOutAuthenticationState() async {
         let cacheDirectory = temporaryDirectory()
@@ -122,6 +165,138 @@ final class AntigravityFeatureTests: XCTestCase {
         XCTAssertEqual(store.connectionState, .signedOut)
         let callCount = await provider.callCount
         XCTAssertEqual(callCount, 1, "Cancel must not start another auth probe.")
+    }
+
+    @MainActor
+    func testSignInRetriesACancelledQuotaProbeInsteadOfStayingChecking()
+        async throws {
+        let cacheDirectory = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: cacheDirectory) }
+        let quota = try AntigravityUsageResponseParser.parse(
+            output: Self.usageJSON,
+            fetchedAt: Date(timeIntervalSince1970: 1_800_000_000)
+        )
+        let provider = CancellableAntigravityProvider(snapshot: quota)
+        let store = AntigravityUsageStore(
+            provider: provider,
+            locator: FixedAntigravityLocator(),
+            bridge: FakeAntigravityBridge(
+                sessionsDirectoryURL: cacheDirectory.appendingPathComponent(
+                    "sessions", isDirectory: true
+                )
+            ),
+            streakTracker: FakeAntigravityStreakTracker(),
+            cacheURL: cacheDirectory.appendingPathComponent("cache.json"),
+            readSessions: { [] },
+            pollingInterval: .seconds(60)
+        )
+
+        let firstRefresh = Task { await store.refresh() }
+        await provider.waitUntilStarted()
+        XCTAssertEqual(store.connectionState, .checking)
+
+        store.beginSignIn()
+        await store.signInProcessDidFinish()
+        await firstRefresh.value
+
+        guard case .connected = store.connectionState else {
+            return XCTFail("A completed sign-in must not remain Checking.")
+        }
+        XCTAssertNotNil(store.state.snapshot?.quota)
+        let callCount = await provider.callCount
+        XCTAssertEqual(callCount, 2)
+    }
+
+    @MainActor
+    func testStoppingACheckCancelsCheckingAndAllowsRetry() async throws {
+        let cacheDirectory = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: cacheDirectory) }
+        let quota = try AntigravityUsageResponseParser.parse(
+            output: Self.usageJSON,
+            fetchedAt: Date(timeIntervalSince1970: 1_800_000_000)
+        )
+        let provider = CancellableAntigravityProvider(snapshot: quota)
+        let store = AntigravityUsageStore(
+            provider: provider,
+            locator: FixedAntigravityLocator(),
+            bridge: FakeAntigravityBridge(
+                sessionsDirectoryURL: cacheDirectory.appendingPathComponent(
+                    "sessions", isDirectory: true
+                )
+            ),
+            streakTracker: FakeAntigravityStreakTracker(),
+            cacheURL: cacheDirectory.appendingPathComponent("cache.json"),
+            readSessions: { [] },
+            pollingInterval: .seconds(60)
+        )
+
+        let firstRefresh = Task { await store.refresh() }
+        await provider.waitUntilStarted()
+        XCTAssertEqual(store.connectionState, .checking)
+
+        store.stop()
+        guard case .failed = store.connectionState else {
+            return XCTFail("An interrupted check must offer Retry, not Checking.")
+        }
+
+        let retry = Task { await store.refresh() }
+        await retry.value
+        await firstRefresh.value
+        guard case .connected = store.connectionState else {
+            return XCTFail(
+                "Retry must survive a late cancelled check and connect."
+            )
+        }
+        let callCount = await provider.callCount
+        XCTAssertEqual(callCount, 2)
+    }
+
+    @MainActor
+    func testStoreShowsSigningOutUntilLogoutIsVerified() async throws {
+        let cacheDirectory = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: cacheDirectory) }
+        let quota = try AntigravityUsageResponseParser.parse(
+            output: Self.usageJSON,
+            fetchedAt: Date(timeIntervalSince1970: 1_800_000_000)
+        )
+        let provider = SequencedAntigravityProvider(results: [
+            .success(quota),
+            .failure(.signedOut)
+        ])
+        let authenticator = SuspendedAntigravityAuthenticator()
+        let store = AntigravityUsageStore(
+            provider: provider,
+            authenticationProvider: authenticator,
+            locator: FixedAntigravityLocator(),
+            bridge: FakeAntigravityBridge(
+                sessionsDirectoryURL: cacheDirectory.appendingPathComponent(
+                    "sessions",
+                    isDirectory: true
+                )
+            ),
+            streakTracker: FakeAntigravityStreakTracker(),
+            cacheURL: cacheDirectory.appendingPathComponent("cache.json"),
+            readSessions: { [] },
+            pollingInterval: .seconds(60)
+        )
+        await store.refresh()
+        guard case .connected = store.connectionState else {
+            return XCTFail("The fixture must begin connected.")
+        }
+
+        let signOutTask = Task { await store.signOut() }
+        await authenticator.waitUntilStarted()
+        XCTAssertEqual(store.connectionState, .signingOut)
+
+        await authenticator.resume()
+        await signOutTask.value
+
+        XCTAssertEqual(store.connectionState, .signedOut)
+        XCTAssertNil(store.state.snapshot?.quota)
+        let signOutCount = await authenticator.signOutCount
+        let quotaCallCount = await provider.callCount
+        XCTAssertEqual(signOutCount, 1)
+        XCTAssertEqual(quotaCallCount, 2)
     }
 
     @MainActor
@@ -339,6 +514,23 @@ final class AntigravityFeatureTests: XCTestCase {
             80
         )
         XCTAssertEqual(store.state.snapshot?.historyIsPartial, true)
+        XCTAssertEqual(
+            store.state.snapshot?.activityObservedAt,
+            observedAt.addingTimeInterval(60)
+        )
+        sessions.value = [
+            Self.session(
+                input: 160,
+                output: 45,
+                at: observedAt.addingTimeInterval(61)
+            )
+        ]
+        await store.refresh()
+        XCTAssertEqual(
+            store.state.snapshot?.activityObservedAt,
+            observedAt.addingTimeInterval(60),
+            "A later session sample without a token delta must not freshen the activity card."
+        )
     }
 
     @MainActor
@@ -567,6 +759,75 @@ private actor RecordingAntigravityRunner: InstallerProcessRunning {
             timeout: timeout
         ))
         return InstallerProcessResult(terminationStatus: 0, output: output)
+    }
+}
+
+private actor SequencedAntigravityProvider: AntigravityQuotaProviding {
+    private var results: [
+        Result<AntigravityQuotaSnapshot, AntigravityUsageError>
+    ]
+    private(set) var callCount = 0
+
+    init(
+        results: [Result<AntigravityQuotaSnapshot, AntigravityUsageError>]
+    ) {
+        self.results = results
+    }
+
+    func fetchQuota(executableURL: URL) async throws
+        -> AntigravityQuotaSnapshot {
+        callCount += 1
+        guard !results.isEmpty else {
+            throw AntigravityUsageError.commandFailed
+        }
+        return try results.removeFirst().get()
+    }
+}
+
+private actor CancellableAntigravityProvider: AntigravityQuotaProviding {
+    let snapshot: AntigravityQuotaSnapshot
+    private var firstCallStarted = false
+    private(set) var callCount = 0
+
+    init(snapshot: AntigravityQuotaSnapshot) {
+        self.snapshot = snapshot
+    }
+
+    func fetchQuota(executableURL: URL) async throws
+        -> AntigravityQuotaSnapshot {
+        callCount += 1
+        if callCount == 1 {
+            firstCallStarted = true
+            try await Task.sleep(for: .seconds(30))
+        }
+        return snapshot
+    }
+
+    func waitUntilStarted() async {
+        while !firstCallStarted { await Task.yield() }
+    }
+}
+
+private actor SuspendedAntigravityAuthenticator:
+    AntigravityAuthenticationProviding
+{
+    private var isStarted = false
+    private var continuation: CheckedContinuation<Void, Never>?
+    private(set) var signOutCount = 0
+
+    func signOut(executableURL: URL) async throws {
+        signOutCount += 1
+        isStarted = true
+        await withCheckedContinuation { continuation = $0 }
+    }
+
+    func waitUntilStarted() async {
+        while !isStarted { await Task.yield() }
+    }
+
+    func resume() {
+        continuation?.resume()
+        continuation = nil
     }
 }
 

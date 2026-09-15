@@ -71,6 +71,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let antigravitySignedOut = environment[
                 "DockMagicUITestAntigravitySignedOut"
             ] == "1"
+            let antigravityConnected = environment[
+                "DockMagicUITestAntigravityConnected"
+            ] == "1"
+            let antigravityBridgeInstalled = environment[
+                "DockMagicUITestAntigravityBridgeInstalled"
+            ] == "1"
             let antigravityExecutableURL = environment[
                 "DockMagicUITestAntigravityExecutablePath"
             ].map { URL(fileURLWithPath: $0) }
@@ -93,6 +99,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 installedTools: installedTools,
                 executableOverrides: executableOverrides
             )
+            let antigravityProvider = DockMagicUITestAntigravityProvider(
+                signedOut: antigravitySignedOut
+            )
+            let antigravityStore = AntigravityUsageStore(
+                provider: antigravityProvider,
+                authenticationProvider: antigravityProvider,
+                locator: DockMagicUITestAntigravityLocator(
+                    executableURL: antigravityExecutableURL
+                ),
+                bridge: DockMagicUITestAntigravityBridge(
+                    installed: antigravityBridgeInstalled
+                ),
+                cacheURL: FileManager.default.temporaryDirectory
+                    .appendingPathComponent(
+                        "dockmagic-ui-test-antigravity-\(antigravityCacheSuffix).json"
+                    ),
+                readSessions: { [] },
+                pollingInterval: .seconds(60)
+            )
+            if antigravityConnected {
+                Task { await antigravityStore.refresh() }
+            }
             return DockAppModel(
                 preferences: DockPreferencesStore(
                     defaults: DockMagicRuntimeDefaults.current
@@ -127,21 +155,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     ),
                     pollingInterval: .seconds(60)
                 ),
-                antigravityStore: AntigravityUsageStore(
-                    provider: DockMagicUITestAntigravityProvider(
-                        signedOut: antigravitySignedOut
-                    ),
-                    locator: DockMagicUITestAntigravityLocator(
-                        executableURL: antigravityExecutableURL
-                    ),
-                    bridge: DockMagicUITestAntigravityBridge(),
-                    cacheURL: FileManager.default.temporaryDirectory
-                        .appendingPathComponent(
-                            "dockmagic-ui-test-antigravity-\(antigravityCacheSuffix).json"
-                        ),
-                    readSessions: { [] },
-                    pollingInterval: .seconds(60)
-                ),
+                antigravityStore: antigravityStore,
                 developerToolInstallationStore:
                     DeveloperToolInstallationStore(
                         installer: developerToolInstaller
@@ -667,10 +681,14 @@ private struct DockMagicUITestServiceStatusProvider:
     }
 }
 
-private struct DockMagicUITestAntigravityProvider:
-    AntigravityQuotaProviding
+private actor DockMagicUITestAntigravityProvider:
+    AntigravityQuotaProviding, AntigravityAuthenticationProviding
 {
-    let signedOut: Bool
+    private var signedOut: Bool
+
+    init(signedOut: Bool) {
+        self.signedOut = signedOut
+    }
 
     func fetchQuota(executableURL: URL) async throws
         -> AntigravityQuotaSnapshot {
@@ -700,6 +718,13 @@ private struct DockMagicUITestAntigravityProvider:
             cliVersion: "UI Test"
         )
     }
+
+    func signOut(executableURL: URL) async throws {
+        // Keep the processing state visible long enough for UI automation to
+        // assert that sign-out never reveals a terminal surface.
+        try await Task.sleep(for: .seconds(4))
+        signedOut = true
+    }
 }
 
 private struct DockMagicUITestAntigravityLocator:
@@ -716,12 +741,17 @@ private struct DockMagicUITestAntigravityLocator:
 private final class DockMagicUITestAntigravityBridge:
     AntigravityStatusLineBridging
 {
+    private var installed: Bool
     let sessionsDirectoryURL = FileManager.default.temporaryDirectory
         .appendingPathComponent("dockmagic-ui-test-antigravity-sessions")
 
-    func isInstalled() -> Bool { false }
-    func install() throws {}
-    func uninstall() throws {}
+    init(installed: Bool) {
+        self.installed = installed
+    }
+
+    func isInstalled() -> Bool { installed }
+    func install() throws { installed = true }
+    func uninstall() throws { installed = false }
 }
 
 @MainActor

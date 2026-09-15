@@ -16,6 +16,9 @@ This file is the durable source of truth. Provider-specific documents record
 acquisition details and evidence. The repository skill at
 `.codex/skills/ai-provider-integration/SKILL.md` supplies the repeatable
 research and implementation workflow and must not duplicate this contract.
+The dashboard UI and composition rules live in
+[AI_DASHBOARD_DESIGN_SYSTEM.md](AI_DASHBOARD_DESIGN_SYSTEM.md); they do not
+override this file's capability or data semantics.
 
 When current implementation and older provider documentation disagree, verify
 the running code and authoritative upstream source, then update the stale
@@ -74,6 +77,7 @@ future providers fabricate parity.
 | Ship momentum | Score/rank from eligible current-day activity | Same | Capability-gated derived module |
 | Active work | No dedicated module | Sessions/tasks/goals and realtime hook setup | Capability-gated |
 | Activity-card export | Save, copy, share a dedicated 1200×1200 PNG | Same | Capability-gated shared action |
+| Quota-card export | Not currently shipped | Not currently shipped | Capability-gated action when provider-reported quota is available |
 | Failure states | Idle, loading, live, stale, unavailable | Same data states plus detailed connection states | Required |
 
 An existing provider-specific module is evidence that the product can host that
@@ -143,7 +147,9 @@ Settings must provide:
 Do not show sign-in, sign-out, executable, permission, or hook controls when the
 provider does not require them. A setup action must run only the documented
 provider command or public system flow it names; it must not become a general
-shell or credential collector.
+shell or credential collector. A non-interactive sign-out must remain in a
+stable processing state until the provider command and a signed-out status
+probe both succeed; it must not expose background command output as terminal UI.
 
 ### Dock tile
 
@@ -174,6 +180,8 @@ capability status warrants them:
 6. active sessions, tasks, goals, or tools;
 7. observed cost;
 8. activity-card export.
+9. quota-card export when the provider reports scoped quota but eligible activity
+   is unavailable.
 
 If a capability is supported but temporarily missing, preserve the module's
 place only when it helps explain setup, loading, stale, or unavailable state.
@@ -198,6 +206,17 @@ same dedicated opaque 1200×1200 artifact rather than a screenshot of popup
 chrome. Include provider identity, the selected activity values, and clear
 stale/partial semantics; never export internal paths, account identifiers,
 prompts, answers, task descriptions, or goal text.
+
+### Quota-card export
+
+A provider may offer Save, Copy, and Share of a dedicated quota card when a
+valid provider-reported quota snapshot exists but activity-card export is not
+eligible. Show each included bucket's upstream scope, window, remaining value,
+and reset time when reported; identify omitted buckets explicitly if the card
+cannot fit them all. Preserve last-known and source-timestamp semantics. Never
+derive token activity, an aggregate account quota, or a missing reset from the
+quota snapshot. Apply the same PNG resolution and redaction rules as the
+activity card.
 
 ## 6. Data semantics and derivation rules
 

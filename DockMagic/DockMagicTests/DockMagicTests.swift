@@ -6915,7 +6915,8 @@ final class DockMagicTests: XCTestCase {
                 currentSession: nil,
                 activeSessionCount: 0,
                 historyIsPartial: true,
-                fetchedAt: fixedNow
+                fetchedAt: fixedNow,
+                activityObservedAt: fixedNow
             )
         )
         let antigravityArtifact = try CodexDashboardCaptureService
@@ -6947,6 +6948,23 @@ final class DockMagicTests: XCTestCase {
         try antigravityArtifact.pngData.write(
             to: destination.appendingPathComponent("antigravity-dark.png"),
             options: .atomic
+        )
+        let quotaFailureArtifact = try CodexDashboardCaptureService
+            .renderActivityCard(
+                state: .stale(
+                    try XCTUnwrap(antigravityState.snapshot),
+                    message: "Quota refresh failed"
+                ),
+                appearanceMode: .dark,
+                now: fixedNow
+            )
+        XCTAssertEqual(quotaFailureArtifact.pngData, antigravityArtifact.pngData)
+        XCTAssertThrowsError(
+            try CodexDashboardCaptureService.renderActivityCard(
+                state: .loading,
+                appearanceMode: .dark,
+                now: fixedNow
+            )
         )
         attachPNG(
             antigravityArtifact.pngData,
@@ -6997,7 +7015,8 @@ final class DockMagicTests: XCTestCase {
                 currentSession: nil,
                 activeSessionCount: 0,
                 historyIsPartial: true,
-                fetchedAt: captionlessNow
+                fetchedAt: captionlessNow,
+                activityObservedAt: captionlessNow
             )
         )
         let captionlessArtifact = try CodexDashboardCaptureService
@@ -7041,6 +7060,19 @@ final class DockMagicTests: XCTestCase {
                 to: destination.appendingPathComponent("codex-\(name).png"),
                 options: .atomic
             )
+            let antigravityVariant = try CodexDashboardCaptureService
+                .renderActivityCard(
+                    state: antigravityState,
+                    appearanceMode: mode,
+                    now: fixedNow,
+                    accessibilityOverrides: overrides
+                )
+            try antigravityVariant.pngData.write(
+                to: destination.appendingPathComponent(
+                    "antigravity-\(name).png"
+                ),
+                options: .atomic
+            )
         }
 
         let darkData = try Data(
@@ -7053,6 +7085,330 @@ final class DockMagicTests: XCTestCase {
         try grayscale.write(
             to: destination.appendingPathComponent("codex-grayscale.png"),
             options: .atomic
+        )
+        let antigravityGrayscale = try grayscalePNG(
+            antigravityArtifact.pngData,
+            name: "Antigravity activity card"
+        )
+        try antigravityGrayscale.write(
+            to: destination.appendingPathComponent(
+                "antigravity-grayscale.png"
+            ),
+            options: .atomic
+        )
+    }
+
+    @MainActor
+    func testAntigravityQuotaOnlyDashboardOffersShareAndRendersQuotaCard() throws {
+        let now = Date(timeIntervalSince1970: 1_779_000_000)
+        let quota = AntigravityQuotaSnapshot(
+            buckets: [
+                AntigravityQuotaBucket(
+                    id: "gemini-weekly",
+                    groupName: "Gemini Models",
+                    title: "Weekly",
+                    description: nil,
+                    windowDurationMinutes: 10_080,
+                    remainingFraction: 0,
+                    resetsAt: nil
+                ),
+                AntigravityQuotaBucket(
+                    id: "3p-weekly",
+                    groupName: "Claude and GPT models",
+                    title: "Weekly",
+                    description: nil,
+                    windowDurationMinutes: 10_080,
+                    remainingFraction: 0.31,
+                    resetsAt: now.addingTimeInterval(86_400)
+                )
+            ],
+            fetchedAt: now,
+            cliVersion: "1.2.2"
+        )
+        let snapshot = AntigravityUsageSnapshot(
+            quota: quota,
+            tokenUsage: nil,
+            streakSummary: nil,
+            currentSession: nil,
+            activeSessionCount: 0,
+            historyIsPartial: true,
+            fetchedAt: now
+        )
+        let state = AntigravityUsageState.live(snapshot)
+        let artifact = try CodexDashboardCaptureService
+            .renderAntigravityQuotaCard(
+                state: state,
+                appearanceMode: .dark,
+                now: now
+            )
+        let bitmap = try XCTUnwrap(NSBitmapImageRep(data: artifact.pngData))
+        XCTAssertEqual(artifact.pixelWidth, 1_200)
+        XCTAssertEqual(artifact.pixelHeight, 1_200)
+        XCTAssertEqual(bitmap.pixelsWide, 1_200)
+        XCTAssertEqual(bitmap.pixelsHigh, 1_200)
+        XCTAssertTrue(artifact.fileName.contains("Antigravity-Quota"))
+        XCTAssertGreaterThan(artifact.pngData.count, 20_000)
+        XCTAssertEqual(
+            try XCTUnwrap(bitmap.colorAt(x: 1, y: 1)).alphaComponent,
+            1,
+            accuracy: 0.01
+        )
+        let destination = URL(
+            fileURLWithPath: "/private/tmp/dockmagic-share-card-qa",
+            isDirectory: true
+        )
+        try FileManager.default.createDirectory(
+            at: destination,
+            withIntermediateDirectories: true
+        )
+        try artifact.pngData.write(
+            to: destination.appendingPathComponent(
+                "antigravity-quota-dark.png"
+            ),
+            options: .atomic
+        )
+
+        let pasteboard = NSPasteboard.withUniqueName()
+        try CodexDashboardCaptureService.copy(artifact, to: pasteboard)
+        XCTAssertEqual(pasteboard.data(forType: .png), artifact.pngData)
+        let shareDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: shareDirectory,
+            withIntermediateDirectories: true
+        )
+        defer { try? FileManager.default.removeItem(at: shareDirectory) }
+        let shareURL = try CodexDashboardCaptureService.temporaryShareURL(
+            for: artifact,
+            directory: shareDirectory
+        )
+        XCTAssertEqual(try Data(contentsOf: shareURL), artifact.pngData)
+
+        let stale = try CodexDashboardCaptureService
+            .renderAntigravityQuotaCard(
+                state: .stale(snapshot, message: "Offline"),
+                appearanceMode: .dark,
+                now: now
+            )
+        XCTAssertNotEqual(artifact.pngData, stale.pngData)
+        let aged = try CodexDashboardCaptureService
+            .renderAntigravityQuotaCard(
+                state: state,
+                appearanceMode: .dark,
+                now: now.addingTimeInterval(10 * 60)
+            )
+        XCTAssertEqual(aged.pngData, stale.pngData)
+        try stale.pngData.write(
+            to: destination.appendingPathComponent(
+                "antigravity-quota-stale.png"
+            ),
+            options: .atomic
+        )
+        let stressQuota = AntigravityQuotaSnapshot(
+            buckets: quota.buckets + [
+                AntigravityQuotaBucket(
+                    id: "gemini-five-hour",
+                    groupName: "Gemini Models",
+                    title: "5-hour Limit Remaining",
+                    description: nil,
+                    windowDurationMinutes: 300,
+                    remainingFraction: 0.72,
+                    resetsAt: now.addingTimeInterval(3_600)
+                ),
+                AntigravityQuotaBucket(
+                    id: "3p-five-hour",
+                    groupName: "Claude and GPT models",
+                    title: "5-hour Limit Remaining",
+                    description: nil,
+                    windowDurationMinutes: 300,
+                    remainingFraction: 0.47,
+                    resetsAt: now.addingTimeInterval(5_400)
+                ),
+                AntigravityQuotaBucket(
+                    id: "additional-weekly",
+                    groupName: "Additional model pool",
+                    title: "Weekly Limit Remaining",
+                    description: nil,
+                    windowDurationMinutes: 10_080,
+                    remainingFraction: 0.61,
+                    resetsAt: nil
+                )
+            ],
+            fetchedAt: now,
+            cliVersion: "1.2.2"
+        )
+        let stressState = AntigravityUsageState.live(
+            AntigravityUsageSnapshot(
+                quota: stressQuota,
+                tokenUsage: nil,
+                streakSummary: nil,
+                currentSession: nil,
+                activeSessionCount: 0,
+                historyIsPartial: true,
+                fetchedAt: now
+            )
+        )
+        let stressArtifact = try CodexDashboardCaptureService
+            .renderAntigravityQuotaCard(
+                state: stressState,
+                appearanceMode: .dark,
+                now: now
+            )
+        XCTAssertEqual(stressArtifact.pixelWidth, 1_200)
+        XCTAssertEqual(stressArtifact.pixelHeight, 1_200)
+        try stressArtifact.pngData.write(
+            to: destination.appendingPathComponent(
+                "antigravity-quota-four-pools-plus-omitted.png"
+            ),
+            options: .atomic
+        )
+        XCTAssertThrowsError(
+            try CodexDashboardCaptureService.renderAntigravityQuotaCard(
+                state: .loading,
+                appearanceMode: .dark,
+                now: now
+            )
+        )
+
+        let panelSize = DockHoverPanelPlacement.antigravityPanelSize
+        func dashboard(
+            menuPresented: Bool,
+            appearanceMode: DSAppearanceMode = .dark,
+            overrides: DSAccessibilityOverrides = .init()
+        ) -> some View {
+            let configuration = CodexDashboardCaptureConfiguration(
+                pointerEdge: .bottom,
+                panelSize: panelSize,
+                appearanceMode: appearanceMode
+            )
+            return DockMagicThemeRoot(
+                content: DockHoverChrome(
+                    pointerEdge: .bottom,
+                    panelSize: panelSize
+                ) {
+                    AntigravityHoverDashboardView(
+                        state: state,
+                        now: now,
+                        captureConfiguration: configuration,
+                        initialCaptureMenuPresented: menuPresented
+                    )
+                },
+                appearanceMode: appearanceMode
+            )
+            .environment(\.dsAccessibilityOverrides, overrides)
+            .frame(width: panelSize.width, height: panelSize.height)
+        }
+        let closed = try renderPNG(
+            of: dashboard(menuPresented: false),
+            size: panelSize,
+            appearanceName: .darkAqua,
+            name: "Antigravity quota-only share button"
+        )
+        let open = try renderPNG(
+            of: dashboard(menuPresented: true),
+            size: panelSize,
+            appearanceName: .darkAqua,
+            name: "Antigravity quota-only share menu"
+        )
+        assertPixelDifference(
+            closed,
+            open,
+            minimumChangedFraction: 0.005,
+            label: "Quota-only Share menu must be visible"
+        )
+        try open.write(
+            to: destination.appendingPathComponent(
+                "antigravity-quota-export-menu.png"
+            ),
+            options: .atomic
+        )
+        attachPNG(open, name: "Antigravity — Quota-only Share menu")
+        for (name, appearanceMode, appearanceName, overrides) in [
+            (
+                "light", DSAppearanceMode.light, NSAppearance.Name.aqua,
+                DSAccessibilityOverrides()
+            ),
+            (
+                "contrast", .dark, .darkAqua,
+                DSAccessibilityOverrides(increaseContrast: true)
+            ),
+            (
+                "reduce-transparency", .dark, .darkAqua,
+                DSAccessibilityOverrides(reduceTransparency: true)
+            )
+        ] {
+            let menu = try renderPNG(
+                of: dashboard(
+                    menuPresented: true,
+                    appearanceMode: appearanceMode,
+                    overrides: overrides
+                ),
+                size: panelSize,
+                appearanceName: appearanceName,
+                name: "Antigravity quota export menu — \(name)"
+            )
+            try menu.write(
+                to: destination.appendingPathComponent(
+                    "antigravity-quota-export-menu-\(name).png"
+                ),
+                options: .atomic
+            )
+            attachPNG(menu, name: "Antigravity quota export menu — \(name)")
+        }
+        let grayscaleMenu = try grayscalePNG(
+            open,
+            name: "Antigravity quota export menu"
+        )
+        try grayscaleMenu.write(
+            to: destination.appendingPathComponent(
+                "antigravity-quota-export-menu-grayscale.png"
+            ),
+            options: .atomic
+        )
+
+        for (name, mode, overrides) in [
+            ("Light", DSAppearanceMode.light, DSAccessibilityOverrides()),
+            (
+                "Increased Contrast", .dark,
+                DSAccessibilityOverrides(increaseContrast: true)
+            ),
+            (
+                "Reduced Transparency", .dark,
+                DSAccessibilityOverrides(reduceTransparency: true)
+            ),
+            (
+                "Reduce Motion", .dark,
+                DSAccessibilityOverrides(reduceMotion: true)
+            )
+        ] {
+            let variant = try CodexDashboardCaptureService
+                .renderAntigravityQuotaCard(
+                    state: state,
+                    appearanceMode: mode,
+                    now: now,
+                    accessibilityOverrides: overrides
+                )
+            attachPNG(variant.pngData, name: "Antigravity quota card — \(name)")
+            try variant.pngData.write(
+                to: destination.appendingPathComponent(
+                    "antigravity-quota-\(name.lowercased().replacingOccurrences(of: " ", with: "-"))" + ".png"
+                ),
+                options: .atomic
+            )
+        }
+        let grayscale = try grayscalePNG(
+            artifact.pngData,
+            name: "Antigravity quota card"
+        )
+        try grayscale.write(
+            to: destination.appendingPathComponent(
+                "antigravity-quota-grayscale.png"
+            ),
+            options: .atomic
+        )
+        attachPNG(
+            grayscale,
+            name: "Antigravity quota card — Grayscale"
         )
     }
 

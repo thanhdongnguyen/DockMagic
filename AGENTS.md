@@ -18,6 +18,16 @@
 - Use semantic `DesignTheme` roles and shared components. Do not add direct RGB, hex, system color names, or asset lookups in feature views when a semantic role exists.
 - Verify changed UI in Light, Dark, Increased Contrast, Reduce Transparency, and grayscale. State, selection, and data must not depend on color alone.
 
+## AI dashboards
+
+- Treat docs/AI_DASHBOARD_DESIGN_SYSTEM.md as the normative AI dashboard UI and composition contract. Use the existing color, component, and provider-data contracts for their respective decisions.
+- Select dashboard modules through an explicit, evidence-backed provider manifest. A shared UI change updates dashboards already using that module; a new metric must not appear in another provider without approved scope and proven capability.
+
+## AI Share images
+
+- Treat docs/AI_SHARE_ACTIVITY_CARD_LAYOUT.md as the normative layout contract for AI provider activity-card Save, Copy, and Share images. Use the Codex and Claude Code card as the shared layout baseline; include each metric only when the provider data contract permits it.
+- Keep quota-card exports as a separate layout. Any shared activity-card layout change must update participating provider fixtures and preserve the same dedicated PNG artifact across Save, Copy, and Share.
+
 ## AI provider features
 
 - Treat `docs/AI_PROVIDER_FEATURE_CONTRACT.md` as the normative product and data contract when researching, designing, implementing, or reviewing an AI provider integration.

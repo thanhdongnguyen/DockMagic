@@ -98,7 +98,7 @@ enum SettingsDestination: String, CaseIterable, Identifiable {
         case .claudeCode:
             "Show remaining 5-hour and weekly Claude Code limits."
         case .antigravity:
-            "Show official model-pool quota and optional local session activity."
+            "Show official model-pool quota from Antigravity."
         case .searchConsole:
             "A focused view of your Google Search performance."
         }
@@ -1381,41 +1381,6 @@ struct SettingsView: View {
                 innerWidth: antigravityInnerWidthBinding,
                 reset: appModel.preferences.resetAntigravityAppearance
             )
-
-            DSSettingsSection(
-                title: "Local session metrics",
-                detail: "Optional. Uses Antigravity's documented statusLine JSON, stores an allowlisted snapshot on this Mac, and discards paths, email, transcript content, and raw session identifiers."
-            ) {
-                HStack(spacing: DSSpacing.standard) {
-                    VStack(alignment: .leading, spacing: DSSpacing.xSmall) {
-                        Text(appModel.antigravityStore.isBridgeInstalled
-                            ? "Session metrics connected"
-                            : "Session metrics not connected")
-                            .font(DSTypography.body.weight(.semibold))
-                            .foregroundStyle(theme.textPrimary)
-                        if let error = appModel.antigravityStore.bridgeErrorText {
-                            Text(error)
-                                .font(DSTypography.metadata)
-                                .foregroundStyle(theme.dangerForeground)
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
-                    }
-                    Spacer(minLength: DSSpacing.standard)
-                    Button(appModel.antigravityStore.isBridgeInstalled
-                        ? "Disconnect"
-                        : "Connect") {
-                        if appModel.antigravityStore.isBridgeInstalled {
-                            appModel.antigravityStore.disconnectStatusLine()
-                        } else {
-                            Task {
-                                await appModel.antigravityStore.connectStatusLine()
-                            }
-                        }
-                    }
-                    .disabled(appModel.antigravityStore.isInstallingBridge)
-                    .accessibilityIdentifier("settings.antigravity.statusLine")
-                }
-            }
         }
     }
 

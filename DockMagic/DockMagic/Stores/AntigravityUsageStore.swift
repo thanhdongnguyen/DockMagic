@@ -16,6 +16,8 @@ final class AntigravityUsageStore {
     var resolvedExecutablePath: String? { executableURL?.path }
 
     @ObservationIgnored private let provider: any AntigravityQuotaProviding
+    @ObservationIgnored private let authenticationProvider:
+        any AntigravityAuthenticationProviding
     @ObservationIgnored private let locator: any AntigravityExecutableLocating
     @ObservationIgnored private let bridge: any AntigravityStatusLineBridging
     @ObservationIgnored private let streakTracker: any TokenUsageStreakTracking
@@ -27,6 +29,9 @@ final class AntigravityUsageStore {
     @ObservationIgnored private let now: () -> Date
     @ObservationIgnored private var pollingTask: Task<Void, Never>?
     @ObservationIgnored private var refreshTask: Task<Void, Never>?
+    @ObservationIgnored private var refreshTaskIncludesQuota = false
+    @ObservationIgnored private var refreshGeneration: UUID?
+    @ObservationIgnored private var authenticationTask: Task<Void, Never>?
     @ObservationIgnored private var pollingSleepTask: Task<Void, Error>?
     @ObservationIgnored private var eventMonitor: LocalTelemetryEventMonitor?
     @ObservationIgnored private var eventDebounceTask: Task<Void, Never>?
@@ -38,6 +43,8 @@ final class AntigravityUsageStore {
 
     init(
         provider: any AntigravityQuotaProviding = AntigravityCLIUsageProvider(),
+        authenticationProvider: any AntigravityAuthenticationProviding =
+            AntigravityCLIAuthenticationProvider(),
         locator: any AntigravityExecutableLocating = AntigravityExecutableLocator(),
         bridge: (any AntigravityStatusLineBridging)? = nil,
         streakTracker: (any TokenUsageStreakTracking)? = nil,
@@ -57,6 +64,7 @@ final class AntigravityUsageStore {
                 "Library/Application Support/DockMagic/antigravity-usage-v2.json"
             )
         self.provider = provider
+        self.authenticationProvider = authenticationProvider
         self.locator = locator
         self.bridge = bridge
         self.streakTracker = streakTracker ?? TokenUsageStreakStore()
@@ -92,6 +100,7 @@ final class AntigravityUsageStore {
     deinit {
         pollingTask?.cancel()
         refreshTask?.cancel()
+        authenticationTask?.cancel()
         pollingSleepTask?.cancel()
         eventDebounceTask?.cancel()
         eventMonitor?.stop()
@@ -127,12 +136,17 @@ final class AntigravityUsageStore {
     }
 
     func stop() {
+        let interruptedConnectionCheck = connectionState == .checking
         pollingTask?.cancel()
         refreshTask?.cancel()
+        authenticationTask?.cancel()
         pollingSleepTask?.cancel()
         eventDebounceTask?.cancel()
         pollingTask = nil
         refreshTask = nil
+        refreshTaskIncludesQuota = false
+        refreshGeneration = nil
+        authenticationTask = nil
         pollingSleepTask = nil
         eventDebounceTask = nil
         eventMonitor?.stop()
@@ -140,6 +154,11 @@ final class AntigravityUsageStore {
         isMonitoring = false
         isRefreshing = false
         if case .loading = state { state = .idle }
+        if interruptedConnectionCheck {
+            connectionState = .failed(
+                message: "Connection check was interrupted. Retry to verify Antigravity."
+            )
+        }
     }
 
     func beginSignIn() {
@@ -149,32 +168,74 @@ final class AntigravityUsageStore {
         connectionState = .signingIn
     }
 
-    func beginSignOut() {
-        refreshTask?.cancel()
-        pollingSleepTask?.cancel()
-        connectionStateBeforeAuthentication = connectionState
-        connectionState = .signingOut
-    }
-
     func signInProcessDidFinish() async {
-        if let refreshTask { await refreshTask.value }
         connectionStateBeforeAuthentication = nil
         connectionState = .checking
         await refresh(forceQuota: true)
     }
 
-    func signOutProcessDidFinish() async {
-        if let refreshTask { await refreshTask.value }
+    func signOut() async {
+        if let authenticationTask {
+            await authenticationTask.value
+            return
+        }
+        guard let executableURL else {
+            connectionState = .cliMissing
+            return
+        }
+
+        let previousConnectionState = connectionState
+        let previousSnapshot = state.snapshot
+        let pendingRefresh = refreshTask
+        pendingRefresh?.cancel()
+        pollingSleepTask?.cancel()
         connectionStateBeforeAuthentication = nil
-        clearQuota()
-        connectionState = executableURL == nil ? .cliMissing : .signedOut
-        let sessions = readSessions()
-        ingest(sessions)
-        persistCache()
-        rebuildState(
-            sessions: sessions,
-            errorMessage: AntigravityUsageError.signedOut.localizedDescription
-        )
+        connectionState = .signingOut
+
+        let task = Task { @MainActor [weak self] in
+            guard let self else { return }
+            defer { self.authenticationTask = nil }
+            if let pendingRefresh { await pendingRefresh.value }
+            guard !Task.isCancelled else {
+                self.connectionState = previousConnectionState
+                return
+            }
+
+            do {
+                try await self.authenticationProvider.signOut(
+                    executableURL: executableURL
+                )
+                guard !Task.isCancelled else { throw CancellationError() }
+
+                do {
+                    _ = try await self.provider.fetchQuota(
+                        executableURL: executableURL
+                    )
+                } catch let error as AntigravityUsageError
+                    where error == .signedOut {
+                    self.completeSignOut()
+                    return
+                }
+                throw AntigravityUsageError.signOutFailed
+            } catch is CancellationError {
+                self.connectionState = previousConnectionState
+            } catch {
+                let message = error.localizedDescription
+                self.updateConnectionState(
+                    for: error,
+                    previousSnapshot: previousSnapshot
+                )
+                let sessions = self.readSessions()
+                self.ingest(sessions)
+                self.persistCache()
+                self.rebuildState(
+                    sessions: sessions,
+                    errorMessage: message
+                )
+            }
+        }
+        authenticationTask = task
+        await task.value
     }
 
     func cancelAuthentication() async {
@@ -222,19 +283,31 @@ final class AntigravityUsageStore {
     func refresh(forceQuota: Bool = true) async {
         guard !isAuthenticating || !forceQuota else { return }
         if let refreshTask {
+            let needsQuotaRetry = forceQuota
+                && (!refreshTaskIncludesQuota || refreshTask.isCancelled)
             await refreshTask.value
+            if needsQuotaRetry { await refresh(forceQuota: true) }
             return
         }
         isRefreshing = true
         let previousSnapshot = state.snapshot
+        let previousConnectionState = connectionState
         if state.snapshot == nil { state = .loading }
+        refreshTaskIncludesQuota = forceQuota
+        let generation = UUID()
+        refreshGeneration = generation
         let task = Task { @MainActor [weak self] in
             guard let self else { return }
             defer {
-                self.isRefreshing = false
-                self.refreshTask = nil
-                self.pollingSleepTask?.cancel()
+                if self.refreshGeneration == generation {
+                    self.isRefreshing = false
+                    self.refreshTask = nil
+                    self.refreshTaskIncludesQuota = false
+                    self.refreshGeneration = nil
+                    self.pollingSleepTask?.cancel()
+                }
             }
+            guard self.refreshGeneration == generation else { return }
 
             var errorMessage: String?
             self.resolveExecutableAvailability()
@@ -259,14 +332,21 @@ final class AntigravityUsageStore {
                     let quota = try await self.provider.fetchQuota(
                         executableURL: executableURL
                     )
+                    try Task.checkCancellation()
+                    guard self.refreshGeneration == generation else { return }
                     self.lastQuota = quota
                     self.cache.lastQuota = self.lastQuota
                     self.connectionState = .connected(
                         lastUpdated: quota.fetchedAt
                     )
                 } catch is CancellationError {
+                    if self.refreshGeneration == generation
+                        && self.connectionState == .checking {
+                        self.connectionState = previousConnectionState
+                    }
                     return
                 } catch {
+                    guard self.refreshGeneration == generation else { return }
                     errorMessage = error.localizedDescription
                     self.updateConnectionState(
                         for: error,
@@ -311,7 +391,8 @@ final class AntigravityUsageStore {
                 clearQuota()
                 connectionState = .signedOut
                 return
-            case .commandFailed, .invalidResponse, .unsupportedResponse,
+            case .commandFailed, .signOutFailed, .invalidResponse,
+                 .unsupportedResponse,
                  .invalidConfiguration, .bridgeConflict:
                 break
             }
@@ -368,6 +449,18 @@ final class AntigravityUsageStore {
         lastQuotaAttemptAt = nil
     }
 
+    private func completeSignOut() {
+        clearQuota()
+        connectionState = executableURL == nil ? .cliMissing : .signedOut
+        let sessions = readSessions()
+        ingest(sessions)
+        persistCache()
+        rebuildState(
+            sessions: sessions,
+            errorMessage: AntigravityUsageError.signedOut.localizedDescription
+        )
+    }
+
     private func ingest(_ sessions: [AntigravitySessionSnapshot]) {
         for session in sessions.sorted(by: { $0.observedAt < $1.observedAt }) {
             guard let input = session.context?.totalInputTokens,
@@ -397,6 +490,10 @@ final class AntigravityUsageStore {
             let outputDelta = output - previous.outputTokens
             let (delta, overflow) = inputDelta.addingReportingOverflow(outputDelta)
             guard !overflow, delta > 0 else { continue }
+            cache.latestTokenDeltaAt = max(
+                cache.latestTokenDeltaAt ?? session.observedAt,
+                session.observedAt
+            )
             let day = TokenUsageCalendarDay.containing(
                 session.observedAt,
                 calendar: .current
@@ -426,13 +523,13 @@ final class AntigravityUsageStore {
                 && $0.isActiveWork
         }.count
         let tokenUsage = normalizedTokenUsage()
-        let latestObservedActivity = cache.baselines.values
+        let latestObservedSession = cache.baselines.values
             .map(\.observedAt)
             .max()
         let freshest = [
             lastQuota?.fetchedAt,
             currentSession?.observedAt,
-            latestObservedActivity
+            latestObservedSession
         ]
             .compactMap { $0 }
             .max()
@@ -453,7 +550,8 @@ final class AntigravityUsageStore {
             currentSession: currentSession,
             activeSessionCount: activeCount,
             historyIsPartial: true,
-            fetchedAt: fetchedAt
+            fetchedAt: fetchedAt,
+            activityObservedAt: cache.latestTokenDeltaAt
         )
         let summary = streakTracker.observeToday(
             provider: .antigravity,
@@ -528,6 +626,10 @@ final class AntigravityUsageStore {
         }
         cache.dailyModelTokens = cache.dailyModelTokens.filter {
             Self.date(for: $0.key).map { $0 >= cutoff } == true
+        }
+        if let latestTokenDeltaAt = cache.latestTokenDeltaAt,
+           latestTokenDeltaAt < cutoff {
+            cache.latestTokenDeltaAt = nil
         }
         cache.baselines = cache.baselines.filter {
             timestamp.timeIntervalSince($0.value.observedAt) <= 32 * 86_400
@@ -606,5 +708,6 @@ final class AntigravityUsageStore {
         var baselines: [String: Baseline] = [:]
         var dailyTokens: [String: Int64] = [:]
         var dailyModelTokens: [String: [String: Int64]] = [:]
+        var latestTokenDeltaAt: Date?
     }
 }

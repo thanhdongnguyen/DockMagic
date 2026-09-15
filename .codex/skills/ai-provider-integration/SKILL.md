@@ -14,8 +14,10 @@ that an upstream provider exposes the same data.
 Before taking provider-specific action, read
 [the AI Provider Feature Contract](../../../docs/AI_PROVIDER_FEATURE_CONTRACT.md)
 completely. Read `docs/COLOR_DESIGN_SYSTEM.md` and `docs/DESIGN_SYSTEM.md` before
-changing UI. Read `docs/ARCHITECTURE.md` before changing composition, lifecycle,
-or persistence. Read only the provider-specific documents and source files
+changing UI. Read `docs/AI_DASHBOARD_DESIGN_SYSTEM.md` completely before
+designing, implementing, or reviewing a dashboard or its module manifest.
+Read `docs/ARCHITECTURE.md` before changing composition, lifecycle, or
+persistence. Read only the provider-specific documents and source files
 needed for the current provider.
 
 The contract is authoritative. Update it only for a product-wide invariant;
@@ -39,6 +41,9 @@ provider document.
    separate from runtime observation state.
 5. Produce the provider research document from the contract template. End with
    a clear recommendation: full slice, limited slice, more research, or reject.
+6. When a dashboard is in scope, propose an explicit provider module manifest
+   using the dashboard contract. Identify requested modules that cannot ship
+   and existing modules that must remain out of scope.
 
 Do not write implementation merely because research found a possible source
 unless the user also requested implementation.
@@ -53,8 +58,10 @@ unless the user also requested implementation.
 4. Gate optional modules by proven capability. Never infer missing quota,
    convert absence to zero, hide partialness, substitute model-specific limits,
    or let one optional-source failure erase other valid data.
-5. Reuse the design system and production Dock renderer. Add provider-specific
-   UI only when the source or setup genuinely differs.
+5. Reuse the design system, dashboard module catalog, and production Dock
+   renderer. Select only dossier-supported modules in the provider manifest.
+   Add provider-specific UI only when source, semantics, or setup genuinely
+   differ.
 6. Add sanitized parser fixtures and state-transition tests, then run focused
    tests plus the broadest practical build/test gate for the change.
 7. Verify affected UI modes and accessibility states required by the contract.
@@ -66,6 +73,8 @@ unless the user also requested implementation.
 ### Review
 
 Trace every displayed value back to its capability-dossier row and source.
+Check each rendered module against the provider manifest and the dashboard
+contract, including excluded modules and shared-component states.
 Report actionable findings first. Pay particular attention to invented or
 mis-scoped quota, zero-vs-missing handling, stale-data loss, partial history,
 credential access, private endpoints, raw-content logging, direct-distribution

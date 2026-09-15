@@ -61,6 +61,10 @@ protocol AntigravityQuotaProviding {
     func fetchQuota(executableURL: URL) async throws -> AntigravityQuotaSnapshot
 }
 
+protocol AntigravityAuthenticationProviding {
+    func signOut(executableURL: URL) async throws
+}
+
 struct AntigravityCLIUsageProvider: AntigravityQuotaProviding {
     private let processRunner: any InstallerProcessRunning
     private let environment: [String: String]
@@ -78,14 +82,6 @@ struct AntigravityCLIUsageProvider: AntigravityQuotaProviding {
     }
 
     func fetchQuota(executableURL: URL) async throws -> AntigravityQuotaSnapshot {
-        var launchEnvironment = environment
-        launchEnvironment["AGY_CLI_DISABLE_AUTO_UPDATE"] = "true"
-        launchEnvironment["NO_COLOR"] = "1"
-        let parent = executableURL.deletingLastPathComponent().path
-        let existingPath = launchEnvironment["PATH"]
-            ?? "/usr/bin:/bin:/usr/sbin:/sbin"
-        launchEnvironment["PATH"] = "\(parent):\(existingPath)"
-
         let result = try await processRunner.run(
             executableURL: executableURL,
             arguments: [
@@ -93,7 +89,10 @@ struct AntigravityCLIUsageProvider: AntigravityQuotaProviding {
                 "--output-format", "json",
                 "--print-timeout", "30s"
             ],
-            environment: launchEnvironment,
+            environment: AntigravityCLIEnvironment.make(
+                base: environment,
+                executableURL: executableURL
+            ),
             timeout: 45
         )
         guard result.terminationStatus == 0 else {
@@ -110,6 +109,83 @@ struct AntigravityCLIUsageProvider: AntigravityQuotaProviding {
             output: result.output,
             fetchedAt: now()
         )
+    }
+}
+
+struct AntigravityCLIAuthenticationProvider:
+    AntigravityAuthenticationProviding
+{
+    private let processRunner: any InstallerProcessRunning
+    private let environment: [String: String]
+
+    init(
+        processRunner: any InstallerProcessRunning =
+            FoundationInstallerProcessRunner(),
+        environment: [String: String] = ProcessInfo.processInfo.environment
+    ) {
+        self.processRunner = processRunner
+        self.environment = environment
+    }
+
+    func signOut(executableURL: URL) async throws {
+        let result = try await processRunner.run(
+            executableURL: executableURL,
+            arguments: [
+                "-p", "/logout",
+                "--output-format", "json",
+                "--print-timeout", "30s"
+            ],
+            environment: AntigravityCLIEnvironment.make(
+                base: environment,
+                executableURL: executableURL
+            ),
+            timeout: 45
+        )
+        try AntigravityAuthenticationResponseParser.validateSignOut(
+            output: result.output,
+            terminationStatus: result.terminationStatus
+        )
+    }
+}
+
+enum AntigravityAuthenticationResponseParser {
+    private struct Envelope: Decodable {
+        let status: String
+    }
+
+    static func validateSignOut(
+        output: String,
+        terminationStatus: Int32
+    ) throws {
+        if indicatesSignedOut(output) { return }
+        guard terminationStatus == 0,
+              let data = JSONEnvelopeExtractor.lastJSONObject(in: output),
+              let envelope = try? JSONDecoder().decode(Envelope.self, from: data),
+              envelope.status.uppercased() == "SUCCESS" else {
+            throw AntigravityUsageError.signOutFailed
+        }
+    }
+
+    private static func indicatesSignedOut(_ output: String) -> Bool {
+        let normalized = output.lowercased()
+        return normalized.contains("authentication required")
+            || normalized.contains("not authenticated")
+            || normalized.contains("sign in first")
+    }
+}
+
+private enum AntigravityCLIEnvironment {
+    static func make(
+        base: [String: String],
+        executableURL: URL
+    ) -> [String: String] {
+        var result = base
+        result["AGY_CLI_DISABLE_AUTO_UPDATE"] = "true"
+        result["NO_COLOR"] = "1"
+        let parent = executableURL.deletingLastPathComponent().path
+        let existingPath = result["PATH"] ?? "/usr/bin:/bin:/usr/sbin:/sbin"
+        result["PATH"] = "\(parent):\(existingPath)"
+        return result
     }
 }
 
@@ -251,7 +327,7 @@ enum AntigravityUsageResponseParser {
 
 private enum JSONEnvelopeExtractor {
     static func lastJSONObject(in output: String) -> Data? {
-        for line in output.split(whereSeparator: \Character.isNewline).reversed() {
+        for line in output.split(whereSeparator: { $0.isNewline }).reversed() {
             let candidate = line.trimmingCharacters(in: .whitespacesAndNewlines)
             guard candidate.first == "{", candidate.last == "}",
                   let data = candidate.data(using: .utf8), data.count <= 1_000_000,

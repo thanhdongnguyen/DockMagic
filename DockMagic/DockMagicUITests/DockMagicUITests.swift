@@ -220,7 +220,7 @@ final class DockMagicUITests: XCTestCase {
     }
 
     func testSettingsDestinationsExposeFeatureControls() {
-        let app = launchApp()
+        let app = launchApp(antigravityConnected: true)
         XCTAssertTrue(
             app.windows["DockMagic Settings"].waitForExistence(timeout: 5),
             app.debugDescription
@@ -474,20 +474,22 @@ final class DockMagicUITests: XCTestCase {
             app.descendants(matching: .any)["settings.antigravity"]
                 .waitForExistence(timeout: 3)
         )
-        XCTAssertTrue(app.staticTexts["Antigravity connection"].exists)
+        XCTAssertTrue(app.staticTexts["Antigravity"].exists)
         XCTAssertTrue(
             app.descendants(matching: .any)[
                 "settings.antigravity.connectionStatus"
-            ].exists
+            ].waitForExistence(timeout: 5)
         )
         XCTAssertTrue(
-            app.buttons["settings.antigravity.refresh"].exists
+            app.buttons["settings.antigravity.refresh"]
+                .waitForExistence(timeout: 5)
         )
         XCTAssertFalse(
             app.buttons["settings.antigravity.installationIndicator"].exists,
             "Authentication state should not overlay the Dock preview."
         )
-        XCTAssertTrue(
+        XCTAssertFalse(app.staticTexts["Local session metrics"].exists)
+        XCTAssertFalse(
             app.buttons["settings.antigravity.statusLine"].exists
         )
         selectDisplayStyle(.chart, in: app, feature: "Antigravity")
@@ -889,9 +891,70 @@ final class DockMagicUITests: XCTestCase {
     }
 
     func testAntigravityLoginOpensInteractiveCLIInsideSettings() throws {
+        try assertAntigravityLoginCLIIsFullyVisible(appearance: "light")
+    }
+
+    func testAntigravityLoginCLIIsFullyVisibleInDarkAppearance() throws {
+        try assertAntigravityLoginCLIIsFullyVisible(appearance: "dark")
+    }
+
+    func testAntigravitySettingsHidesLocalMetricsButCanDisconnectLegacyBridge() {
+        assertAntigravitySettingsHasNoLocalMetrics(appearance: "dark")
+    }
+
+    func testAntigravitySettingsHidesLocalMetricsInLightAppearance() {
+        assertAntigravitySettingsHasNoLocalMetrics(appearance: "light")
+    }
+
+    private func assertAntigravitySettingsHasNoLocalMetrics(
+        appearance: String
+    ) {
+        let app = launchApp(
+            appearance: appearance,
+            activeFeature: "antigravity",
+            antigravitySignedOut: true,
+            antigravityBridgeInstalled: true,
+            antigravityExecutablePath: "/usr/bin/true"
+        )
+        XCTAssertTrue(
+            app.windows["DockMagic Settings"].waitForExistence(timeout: 5),
+            app.debugDescription
+        )
+
+        openSidebarDestination(named: "Antigravity", in: app)
+        XCTAssertTrue(
+            app.buttons["settings.antigravity.signIn"]
+                .waitForExistence(timeout: 5)
+        )
+        XCTAssertFalse(app.staticTexts["Local session metrics"].exists)
+        XCTAssertFalse(app.buttons["settings.antigravity.statusLine"].exists)
+
+        let moreActions = app.descendants(matching: .any)[
+            "settings.antigravity.moreActions"
+        ]
+        XCTAssertTrue(moreActions.waitForExistence(timeout: 3))
+        moreActions.click()
+        let disconnect = app.descendants(matching: .any)[
+            "settings.antigravity.disconnectSessionMetrics"
+        ]
+        XCTAssertTrue(disconnect.waitForExistence(timeout: 3))
+        disconnect.click()
+
+        XCTAssertTrue(app.buttons["settings.antigravity.signIn"].exists)
+        XCTAssertFalse(app.staticTexts["Local session metrics"].exists)
+        XCTAssertFalse(moreActions.exists)
+        attachScreenshot(
+            named: "Settings — Antigravity — No Local Session Metrics — \(appearance)",
+            in: app
+        )
+    }
+
+    private func assertAntigravityLoginCLIIsFullyVisible(
+        appearance: String
+    ) throws {
         let executableURL = try makeAntigravityLoginFixtureExecutable()
         let app = launchApp(
-            appearance: "light",
+            appearance: appearance,
             activeFeature: "antigravity",
             antigravitySignedOut: true,
             antigravityExecutablePath: executableURL.path
@@ -923,14 +986,87 @@ final class DockMagicUITests: XCTestCase {
         )
 
         attachScreenshot(
-            named: "Settings — Antigravity — Interactive CLI Sign In",
+            named: "Settings — Antigravity — Interactive CLI Sign In — \(appearance)",
             in: app
         )
 
+        let detailScrollView = app.scrollViews[
+            "settings.antigravity"
+        ].firstMatch
+        detailScrollView.scroll(byDeltaX: 0, deltaY: -180)
+        XCTAssertGreaterThanOrEqual(
+            terminal.frame.height,
+            240,
+            "The native CLI surface must retain enough height for its 18 rows."
+        )
         let cancel = app.buttons["settings.antigravity.cancelAuth"]
-        XCTAssertTrue(cancel.exists)
+        XCTAssertTrue(cancel.isHittable)
+        XCTAssertGreaterThan(
+            cancel.frame.minY,
+            terminal.frame.maxY,
+            "Authentication actions must stay below the complete CLI surface."
+        )
+        attachScreenshot(
+            named: "Settings — Antigravity — Full CLI and Actions — \(appearance)",
+            in: app
+        )
         cancel.click()
         XCTAssertTrue(signIn.waitForExistence(timeout: 3))
+    }
+
+    func testAntigravitySignOutUsesLoadingWithoutShowingTerminal() {
+        let app = launchApp(
+            appearance: "light",
+            activeFeature: "antigravity",
+            antigravityConnected: true,
+            antigravityExecutablePath: "/usr/bin/true"
+        )
+        XCTAssertTrue(
+            app.windows["DockMagic Settings"].waitForExistence(timeout: 5),
+            app.debugDescription
+        )
+
+        openSidebarDestination(named: "Antigravity", in: app)
+        let connectionStatus = app.descendants(matching: .any)[
+            "settings.antigravity.connectionStatus"
+        ]
+        let connected = expectation(
+            for: NSPredicate(format: "value CONTAINS %@", "Connected"),
+            evaluatedWith: connectionStatus
+        )
+        wait(for: [connected], timeout: 5)
+
+        let moreActions = app.descendants(matching: .any)[
+            "settings.antigravity.moreActions"
+        ]
+        XCTAssertTrue(moreActions.waitForExistence(timeout: 3))
+        moreActions.click()
+        let signOut = app.descendants(matching: .any)[
+            "settings.antigravity.signOut"
+        ]
+        XCTAssertTrue(signOut.waitForExistence(timeout: 3))
+        signOut.click()
+
+        let signingOut = expectation(
+            for: NSPredicate(format: "value CONTAINS %@", "Signing out"),
+            evaluatedWith: connectionStatus
+        )
+        wait(for: [signingOut], timeout: 3)
+        XCTAssertFalse(
+            app.descendants(matching: .any)[
+                "settings.antigravity.authTerminal"
+            ].exists,
+            "Signing out must not expose the Antigravity terminal UI."
+        )
+
+        let signIn = app.buttons["settings.antigravity.signIn"]
+        XCTAssertTrue(signIn.waitForExistence(timeout: 8))
+        XCTAssertEqual(signIn.label, "Sign in with Antigravity")
+        XCTAssertFalse(
+            app.descendants(matching: .any)[
+                "settings.antigravity.authTerminal"
+            ].exists
+        )
     }
 
     func testSearchConsoleEveryMetricTimeRangeAndDisplayMode() {
@@ -1366,6 +1502,8 @@ final class DockMagicUITests: XCTestCase {
         claudeLoginMarkerPath: String? = nil,
         claudeLoginWorkingDirectoryPath: String? = nil,
         antigravitySignedOut: Bool = false,
+        antigravityConnected: Bool = false,
+        antigravityBridgeInstalled: Bool = false,
         antigravityExecutablePath: String? = nil
     ) -> XCUIApplication {
         let app = XCUIApplication()
@@ -1418,6 +1556,16 @@ final class DockMagicUITests: XCTestCase {
         if antigravitySignedOut {
             app.launchEnvironment[
                 "DockMagicUITestAntigravitySignedOut"
+            ] = "1"
+        }
+        if antigravityConnected {
+            app.launchEnvironment[
+                "DockMagicUITestAntigravityConnected"
+            ] = "1"
+        }
+        if antigravityBridgeInstalled {
+            app.launchEnvironment[
+                "DockMagicUITestAntigravityBridgeInstalled"
             ] = "1"
         }
         if let antigravityExecutablePath {
@@ -1485,6 +1633,9 @@ final class DockMagicUITests: XCTestCase {
         printf '\\033[1;36mAntigravity CLI\\033[0m\\r\\n'
         printf 'Paste your Antigravity code and press Return > '
         IFS= read -r code
+        while true; do
+          /bin/sleep 1
+        done
         """
         try Data(script.utf8).write(to: executableURL, options: .atomic)
         try FileManager.default.setAttributes(

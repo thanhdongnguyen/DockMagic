@@ -8,17 +8,18 @@ and Antigravity IDE 2.5.5 were present but are not data sources.
 
 ## Recommendation
 
-Ship a limited CLI-backed slice. Use the documented `agy /usage` command for
-product quota and the documented CLI `statusLine` extension for passive current
-session metadata. Do not restore the previous Desktop loopback adapter, inspect
+Ship a limited CLI-backed quota slice. Use the documented `agy /usage` command
+for product quota. Continue to handle an already-installed documented CLI
+`statusLine` bridge for passive session metadata, but do not offer new setup in
+Settings. Do not restore the previous Desktop loopback adapter, inspect
 credential stores, parse transcripts, or infer account quota from session
 tokens.
 
 ## Supported user story
 
 A signed-in `agy` user can see each reported Antigravity model-pool quota in
-the Dock, Settings, and hover dashboard. After enabling the optional status-line
-connection, DockMagic can also show the latest plan, model, context usage,
+the Dock, Settings, and hover dashboard. For users with an already-enabled
+status-line connection, DockMagic can also show the latest plan, model, context usage,
 agent state, background-task count, and a partial local daily-token chart,
 top-model ranking, daily intensity, streak, and Ship momentum derived only from
 activity observed while DockMagic is running. Missing sources and unobserved
@@ -30,7 +31,7 @@ days remain unavailable rather than becoming zero.
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | `identity.provider` | supported | Stable Antigravity identity in navigation and data surfaces. | Product identity; official public site. | Provider ID `antigravity`; display name `Antigravity`. | Product identity, not an account identifier. | None. | Static. | Complete. | Bounded official logo only; Developer ID compatible. | `https://antigravity.google/`; verified 2026-09-14. | Static model test. |
 | `cli.presence` / `cli.version` | presence supported; version supported conditionally | Explains setup and compatibility. | Official local executable and optional status-line event. | Executable name `agy`; installer validation uses `agy --version`; the hover version label uses `statusLine.version` when present. | Runnable CLI presence plus an optional provider-supplied version label. | Official installer places it at `~/.local/bin/agy`; PATH and standard local-bin discovery also apply. Version display requires a status-line event. | Presence checked at setup/recovery; displayed version is event-driven. | Complete for searched executable locations; version may be absent. | DockMagic launches the unmodified CLI and does not read its keyring. | `https://antigravity.google/docs/cli/install/` and `/cli/statusline/`; local 1.2.2 observation, 2026-09-14. | Locator, installer validation, and missing-version fixtures. |
-| `auth.status` | supported conditionally | Distinguishes missing sign-in from an empty quota response and provides an in-app path to authenticate. | Official local `agy` headless command for status; official interactive `agy` session for sign-in and `/logout`. | JSON envelope `status`, `error`; successful local command has `status: "SUCCESS"`. | Connection outcome only; no credential value is returned or read. DockMagic hosts the unmodified interactive CLI in a PTY; browser sign-in and credential storage remain owned by `agy`. | `agy` must be installed. Headless mode reports signed-out state; interactive mode opens the default browser when no session exists. Sign-out requires the documented `/logout` command in the interactive session. | With each quota refresh and after the user checks authentication status. | Error wording is version-dependent; unknown failures remain generic. | Authentication stays inside `agy`, the browser, and the system keyring. | `https://antigravity.google/docs/cli/headless/` and `/cli/install/`; verified 2026-09-15. | Connected, signed-out, missing-CLI, stale, and failure states. |
+| `auth.status` | supported conditionally | Distinguishes missing sign-in from an empty quota response and provides an in-app path to authenticate. | Official interactive `agy` session for sign-in; fixed headless `/logout` followed by fixed headless `/usage` for verified sign-out. | JSON envelope `status`, `error`; the follow-up usage probe must report authentication required before DockMagic presents signed-out state. | Connection outcome only; no credential value is returned or read. DockMagic hosts the unmodified interactive CLI in a PTY only for browser sign-in; sign-out runs without terminal UI. | `agy` must be installed. Interactive mode opens the default browser when no session exists. The documented `/logout` slash command must be accepted in headless mode; otherwise existing quota is retained and the failure is shown. | With each quota refresh and after sign-in; sign-out remains processing until its verification probe completes. | Error wording is version-dependent; unknown failures remain generic. | Authentication stays inside `agy`, the browser, and the system keyring. | `https://antigravity.google/docs/cli/headless/`, `/cli/install/`, and `/cli/reference/`; verified 2026-09-15. | Connected, signing-out, verified signed-out, missing-CLI, stale, and failure states. |
 | `quota.window` | supported conditionally | Primary glanceable Dock metric. | Official local `agy -p /usage --output-format json`; public `/usage` documentation plus observed 1.2.2 command payload. | `command.data.groups[].name`, `.description`, `.buckets[].id`, `.name`, `.description`, `.window`, `.remaining_fraction`, `.reset_time`. | `remaining_fraction` is remaining, not used. Each group is a separate model pool. `window == "weekly"` is 10,080 minutes. Zero is a real exhausted value. | Structured `command.data` verified in `agy` 1.2.2. Older/changed output becomes unavailable; it is not parsed from prose. | Five-minute poll; reset time comes from the provider. Previous valid quota becomes stale on failure. | Complete for buckets returned by the signed-in account; no aggregate account bucket is invented. | No prompt is sent; `/usage` is a CLI-handled slash command and reported zero model tokens in the headless envelope. Raw output is bounded and ephemeral. | `https://antigravity.google/docs/cli/commands/usage` and `/cli/headless/`; local 1.2.2 sanitized observation, 2026-09-14. | `antigravity-usage-success.json`, zero/missing/unknown-window variants. |
 | `identity.plan` | supported conditionally | Useful hover context. | Official local `statusLine` JSON. | `plan_tier`. | Provider-supplied subscription label. | Optional field; appears only after a CLI status event. | Event-driven; stale after 15 minutes without a new sample. | Current observed CLI session only. | The bridge allowlists the plan label and rejects `email`, IDs, paths, and unknown future fields. | `https://antigravity.google/docs/cli/statusline/`; schema verified 2026-09-14. | Sanitized status-line fixture. |
 | `usage.session.context` | supported conditionally | Shows the current conversation's context pressure and token counters. | Official local `statusLine` JSON. | `context_window.total_input_tokens`, `.total_output_tokens`, `.context_window_size`, `.used_percentage`, `.remaining_percentage`, `.current_usage.input_tokens`, `.output_tokens`, `.cache_creation_input_tokens`, `.cache_read_input_tokens`. | Session/context values, not account usage or quota. Percentages are provider-reported. Missing fields stay missing. | Optional; requires the DockMagic status-line command and at least one agent-state change. | Event-driven; stale after 15 minutes. | Latest observed session only. | Only numeric allowlisted fields are persisted in a private local cache. | `https://antigravity.google/docs/cli/statusline/`; verified 2026-09-14. | Valid, missing, invalid, and oversized samples. |
@@ -46,17 +47,23 @@ days remain unavailable rather than becoming zero.
 | `cost.observed` / currency | unsupported | Prevents invented spend estimates. | No field in eligible `/usage` or status-line schemas. | None. | No pricing-table estimate and no subscription-cost inference. | N/A. | N/A. | N/A. | No billing endpoint or credential mediation. | Official schemas checked 2026-09-14. | Omission tests. |
 | `work.goal` | unsupported | Prevents fabricated goal counts. | No eligible status-line field. | None. | `task_count` is not a goal count. | N/A. | N/A. | N/A. | No transcript or private trajectory parsing. | Official status-line schema checked 2026-09-14. | Omission tests. |
 | `service.status` | unknown | Provider health must not be confused with local setup. | No official Antigravity status endpoint was found. | None. | Local CLI failures are not provider incidents. | N/A. | N/A. | N/A. | Unofficial outage trackers are not embedded. | Official site/docs search, 2026-09-14. | Service-status surface omitted. |
-| `activity.export` | supported conditionally | Lets users share the same bounded badge, observed-token, trend, and Ship-momentum story as other providers without implying account-wide coverage. | Derived only from the normalized partial daily ledger and provider-separated streak summary. | Current earned badge, explicit current-local-day observed tokens, up to 14 local-day samples, Ship score/rank, provider identity, snapshot timestamp. | Today's value is locally observed input-plus-output tokens. Missing days remain missing; they are never converted to zero. The mini area chart has no numeric labels or caption. | Requires the optional status-line connection, an explicit current-day observation, and at least two retained daily samples with positive activity. | Rendered on demand from the latest live or retained stale snapshot. | Explicitly partial; the visible `TOKENS OBSERVED TODAY` label preserves the local-observation qualifier while the chart follows Codex's caption-free layout. | No session identifier, account identifier, path, prompt, response, task description, or raw bridge payload is exported. | Derived from the supported local ledger under the activity-card export contract; product decision verified 2026-09-15. | Activity-card renderer fixture covers 1200×1200 output, provider filename, clipboard payload, missing-day preservation, and appearance states. |
+| `activity.export` | supported conditionally | Lets users share the same bounded badge, observed-token, trend, and Ship-momentum story as other providers without implying account-wide coverage. | Derived only from the normalized partial daily ledger and provider-separated streak summary. | Current earned badge, explicit current-local-day observed tokens, up to 14 local-day samples, Ship score/rank, provider identity, last successful token-delta observation time. | Today's value is locally observed input-plus-output tokens. Missing days remain missing; they are never converted to zero. The mini area chart has no numeric labels or caption. | Requires the optional status-line connection, a positive current-day observation, and at least two retained daily samples with positive activity. | Rendered on demand from the retained local ledger; the activity timestamp is independent of `/usage` quota and session-only updates. Observations older than 15 minutes read Last known. | Explicitly partial; the visible `TOKENS OBSERVED TODAY` label preserves the local-observation qualifier while the chart follows Codex's caption-free layout. | No session identifier, account identifier, path, prompt, response, task description, or raw bridge payload is exported. | Derived from the supported local ledger under the activity-card export contract; product decision verified 2026-09-15. | Activity-card renderer fixture covers 1200×1200 output, provider filename, clipboard payload, missing-day preservation, and appearance states. |
+| `quota.export` | supported conditionally | Makes Share available for a signed-in Antigravity dashboard even without optional local activity metrics. | The normalized provider-reported `agy /usage` quota snapshot. | Provider identity, each displayed model-pool name and window, remaining fraction, reported reset time, quota fetch timestamp, and omitted-pool count. | A fraction is remaining, not used; zero is exhausted and unknown reset stays unknown. At most four pools fit in one card; any remainder is stated. No activity value is inferred. | At least one structured quota bucket must exist; activity card remains preferred when its own eligibility is met. | Rendered on demand from live or retained stale quota with its original fetch timestamp. | Complete for displayed pools; omitted pools are explicitly counted, not silently aggregated. | The 1200×1200 PNG contains no account identifier, session key, path, prompt, response, or raw CLI output; no new collection or entitlement. | Derived from the supported `quota.window` source and normalized snapshot; product decision 2026-09-15. | Quota-only dashboard gate, PNG dimensions, stale/zero/missing reset, Save/Copy/Share artifact, and appearance fixtures. |
 
 ## Surface map
 
 - Settings: a Claude Code-style authentication card for CLI installation,
   signed-out, checking, connected, stale, and failed states; an embedded
   official `agy` session where the user can type or paste an Antigravity code
-  with standard terminal input, or enter `/logout`; production Dock preview
-  without an installation checkmark overlay; reported quota values, optional
-  status-line setup, freshness/error text, and shared display/appearance
-  controls.
+  with standard terminal input. The terminal uses an 80-column, 18-row viewport
+  and the authentication card grows with its content instead of clipping the
+  terminal or its actions; background sign-out shows only processing UI
+  until `/logout` is verified by `/usage`; production Dock preview without an
+  installation checkmark overlay; reported quota values, freshness/error text,
+  and shared display/appearance controls. The local session metrics section and
+  Connect action are omitted. An already-installed DockMagic-owned bridge can
+  still be disconnected from More Actions; no configuration is changed merely
+  by visiting Settings.
 - Dock: up to two provider-reported quota pools. A single bucket uses the
   balanced single-ring layout. Unknown or missing buckets are not zero.
 - Hover: identity, plan/freshness, all reported quota rows, a partial 30-day
@@ -65,9 +72,23 @@ days remain unavailable rather than becoming zero.
   current-session context/cache counters, and current agent/background-task
   state.
 - Drill-down: omitted because hourly detail is unsupported.
-- Export: Save, Copy, and Share appear only when today's local observation and
-  enough retained history make the partial activity card meaningful.
+- Export: Save, Copy, and Share use the partial activity card when today's local
+  observation and retained history are sufficient. Otherwise, a valid
+  provider-reported quota enables a quota card without inventing token history.
+  With neither source, the control remains absent.
 - Service status: omitted until Google publishes an official source.
+
+The export fixtures are sanitized design previews, not live-account captures.
+The activity card has [Dark](share-card-concepts/implementation/antigravity-dark.png),
+[Light](share-card-concepts/implementation/antigravity-light.png),
+[Increased Contrast](share-card-concepts/implementation/antigravity-contrast.png),
+and [grayscale](share-card-concepts/implementation/antigravity-grayscale.png)
+versions. The separate quota card has [Dark](share-card-concepts/implementation/antigravity-quota-dark.png),
+[Light](share-card-concepts/implementation/antigravity-quota-light.png),
+[Increased Contrast](share-card-concepts/implementation/antigravity-quota-contrast.png),
+[grayscale](share-card-concepts/implementation/antigravity-quota-grayscale.png),
+[Last known](share-card-concepts/implementation/antigravity-quota-stale.png),
+and a [four-pool overflow fixture](share-card-concepts/implementation/antigravity-quota-four-pools-plus-omitted.png).
 
 ## State and freshness policy
 
@@ -80,21 +101,27 @@ after 30 minutes. If refresh fails after a valid quota, DockMagic preserves it
 as stale with the scoped error. A supported field that is missing from the
 current account remains unavailable; it never becomes zero.
 
-The store coalesces refreshes, cancels child processes on stop, refreshes after
-wake/network recovery, and keeps optional session telemetry independent from
-quota success.
+The store coalesces refreshes but runs a fresh quota probe after sign-in if the
+pending refresh was metadata-only or cancelled. Stopping an in-flight check
+does not leave an indefinite `Checking` label: it exposes `Retry`. The store
+cancels child processes on stop, refreshes after wake/network recovery, and
+keeps optional session telemetry independent from quota success.
+Activity-card freshness uses the last successful local token delta. A later
+quota fetch or session sample without a token delta cannot change its source
+date or turn Last known activity into Today's activity.
 
 ## Privacy, security, and distribution
 
 For quota, DockMagic launches only the installed `agy` executable with the fixed
-local slash command `/usage`; it does not send a model prompt. For an explicit
-sign-in or sign-out action, it launches the same executable without injected
-commands inside a local PTY. The user types or pastes the Antigravity code
-directly into that terminal, or enters the documented `/logout`. Standard
+local slash command `/usage`; it does not send a model prompt. Explicit sign-in
+launches the same executable without injected commands inside a local PTY. The
+user types or pastes the Antigravity code directly into that terminal. Standard
 terminal paste and the explicit Paste code action send clipboard text straight
-to the PTY without retaining it in DockMagic state. DockMagic neither reads nor
-deletes credentials. Authentication remains inside `agy`, the browser, and the
-OS keyring. The
+to the PTY without retaining it in DockMagic state. Explicit sign-out runs the
+fixed headless `/logout` command without terminal UI, then uses `/usage` only to
+confirm that the cached account session is gone. DockMagic neither reads nor
+deletes credentials itself. Authentication remains inside `agy`, the browser,
+and the OS keyring. The
 status-line bridge is an official extension point and allowlists only
 displayable metadata. It discards `email`, raw session IDs, current/project
 directories, transcript paths, VCS state, sandbox state, and unknown future
@@ -113,6 +140,7 @@ Primary sources:
 
 - `https://antigravity.google/docs/cli/install/`
 - `https://antigravity.google/docs/cli/headless/`
+- `https://antigravity.google/docs/cli/reference/`
 - `https://antigravity.google/docs/cli/commands/usage`
 - `https://antigravity.google/docs/cli/statusline/`
 - `https://antigravity.google/docs/hooks`
@@ -135,6 +163,11 @@ prompts, answers, or credentials.
 - The `command.data` extension to the documented headless envelope is verified
   in 1.2.2 but is not fully enumerated on the public `/usage` page. Therefore
   support is version/schema-gated and never falls back to parsing prose.
+- The public docs define `/logout` and standalone headless slash-command
+  execution separately, but do not show a headless `/logout` example. DockMagic
+  therefore requires both a success envelope and a signed-out `/usage` probe,
+  and preserves existing quota on any ambiguous result. Automated validation
+  did not run `/logout` against the developer's real signed-in account.
 - It is unknown whether Google will publish an official Antigravity service
   status feed.
 - Desktop loopback endpoints, CSRF material, local language-server RPC, private
@@ -147,13 +180,35 @@ prompts, answers, or credentials.
 
 - Read-only real probe: `agy` 1.2.2 returned the separate `gemini-weekly` and
   `3p-weekly` structured buckets with zero generated model turns/tokens.
+  A 2026-09-15 `/usage` probe exited successfully in about six seconds with
+  account output suppressed; this checked CLI responsiveness, not live Settings
+  rendering or the returned quota schema.
 - Focused Xcode suite: parser separation and exact zero, missing/signed-out and
   unknown-window behavior, rejection of prose fallback, fixed CLI
-  arguments/environment, status-line field allowlist and hashed session ID,
-  positive same-session delta accumulation, session expiry, and the dedicated
+  arguments/environment, non-interactive fixed `/logout`, verified sign-out
+  state transition, cancelled sign-in probe retry, interrupted `Checking`
+  recovery, status-line field allowlist and hashed session ID, positive
+  same-session delta accumulation, session expiry, and the dedicated
   missing-CLI/signed-out authentication states.
 - Integration tests: feature/hover registration, preference persistence, and a
   pixel-difference check between Antigravity Chart and Numbers renderers.
+- Quota-only Share test: a signed-in snapshot without local token observations
+  displays the hover export menu and renders an opaque 1200×1200 PNG from the
+  reported pools. The test covers a real zero fraction, unknown reset time,
+  stale rendering, clipboard bytes, and the temporary file consumed by the
+  macOS Share presenter. Light, Dark, Increased Contrast, Reduce Transparency,
+  Reduce Motion, and grayscale artifacts were generated; the Light card and
+  Dark hover-menu artifacts were visually inspected.
+- Focused signed UI tests: the authentication terminal and actions fit inside
+  Settings in Light and Dark; connected state transitions through visible
+  `Signing out` progress without a terminal surface, then returns to the
+  `Sign in with Antigravity` action. Test fixture screenshots do not establish
+  that the real `agy` sign-in prompt is rendered, so that remains a live check.
+- Settings UI tests in Light and Dark: the local session metrics section and
+  Connect action are absent, while an already-installed test bridge can be
+  disconnected from More Actions without removing Sign in. The
+  cross-destination Settings test also passed with Antigravity quota controls
+  still available.
 - Unsigned Debug build with code signing disabled.
 
 The full visual matrix (Dock at 32/48/64/128 pt, Light, Dark, Increased

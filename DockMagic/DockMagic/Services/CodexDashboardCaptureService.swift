@@ -24,6 +24,8 @@ enum CodexDashboardCaptureError: LocalizedError {
     case pngEncodingFailed
     case unexpectedPixelSize(width: Int, height: Int)
     case pasteboardWriteFailed
+    case noShareableActivity
+    case noShareableQuota
 
     var errorDescription: String? {
         switch self {
@@ -35,6 +37,10 @@ enum CodexDashboardCaptureError: LocalizedError {
             "The dashboard rendered at an unexpected size: \(width) × \(height) px."
         case .pasteboardWriteFailed:
             "DockMagic could not copy the PNG to the clipboard."
+        case .noShareableActivity:
+            "Antigravity activity is not available to share yet."
+        case .noShareableQuota:
+            "Antigravity quota is not available to share yet."
         }
     }
 }
@@ -152,20 +158,72 @@ enum CodexDashboardCaptureService {
         let snapshot = state.snapshot
         let observations = AntigravityHoverDashboardPresentation
             .dayObservations(from: snapshot?.tokenUsage, now: now)
+        let momentum = AntigravityHoverDashboardPresentation.shipMomentum(
+            from: observations,
+            now: now
+        )
+        let samples = activityCardChartSamples(
+            from: snapshot?.tokenUsage,
+            now: now
+        )
+        guard (momentum?.todayTokens ?? 0) > 0,
+              activityCardChartHasRenderableTrend(samples) else {
+            throw CodexDashboardCaptureError.noShareableActivity
+        }
+        let activityTimestamp = snapshot?.activityObservedAt
+            ?? snapshot?.tokenUsage?.dailyUsageBuckets.map(\.startDate).max()
+            ?? snapshot?.fetchedAt
+            ?? now
+        let activityAge = now.timeIntervalSince(activityTimestamp)
         return try renderActivityCard(
             tokenUsage: snapshot?.tokenUsage,
             streakSummary: snapshot?.streakSummary,
-            momentum: AntigravityHoverDashboardPresentation.shipMomentum(
-                from: observations,
-                now: now
-            ),
+            momentum: momentum,
             brand: .antigravity,
             appearanceMode: appearanceMode,
             now: now,
-            dataTimestamp: snapshot?.fetchedAt ?? now,
-            isStale: state.isStale,
+            dataTimestamp: activityTimestamp,
+            isStale: activityAge < -60 || activityAge > 15 * 60,
             isHistoryPartial: snapshot?.historyIsPartial ?? true,
             accessibilityOverrides: accessibilityOverrides
+        )
+    }
+
+    static func renderAntigravityQuotaCard(
+        state: AntigravityUsageState,
+        appearanceMode: DSAppearanceMode,
+        now: Date = .now,
+        accessibilityOverrides: DSAccessibilityOverrides = .init()
+    ) throws -> CodexDashboardCaptureArtifact {
+        guard let quota = state.snapshot?.quota,
+              !quota.buckets.isEmpty else {
+            throw CodexDashboardCaptureError.noShareableQuota
+        }
+        let resolvedAccessibility = resolvedAccessibilityOverrides(
+            accessibilityOverrides
+        )
+        let quotaAge = now.timeIntervalSince(quota.fetchedAt)
+        let root = DockMagicThemeRoot(
+            content: AntigravityQuotaShareCard(
+                quota: quota,
+                isStale: state.isStale
+                    || quotaAge < -60
+                    || quotaAge > 5 * 60
+            ),
+            appearanceMode: appearanceMode
+        )
+        .environment(\.dsAccessibilityOverrides, resolvedAccessibility)
+        let pngData = try rasterize(
+            content: root,
+            size: activityCardSize,
+            appearanceMode: appearanceMode
+        )
+        let dimensions = activityCardPixelDimensions
+        return CodexDashboardCaptureArtifact(
+            pngData: pngData,
+            fileName: antigravityQuotaCardFileName(at: quota.fetchedAt),
+            pixelWidth: dimensions.width,
+            pixelHeight: dimensions.height
         )
     }
 
@@ -356,7 +414,9 @@ enum CodexDashboardCaptureService {
         panel.canCreateDirectories = true
         panel.isExtensionHidden = false
         panel.nameFieldStringValue = artifact.fileName
-        panel.title = if artifact.fileName.contains("-Antigravity-") {
+        panel.title = if artifact.fileName.contains("-Antigravity-Quota-") {
+            "Save Antigravity Quota Card"
+        } else if artifact.fileName.contains("-Antigravity-") {
             "Save Antigravity Activity Card"
         } else if artifact.fileName.contains("-Claude-Code-") {
             "Save Claude Code Activity Card"
@@ -449,6 +509,191 @@ enum CodexDashboardCaptureService {
         case .antigravity: "Antigravity"
         }
         return "DockMagic-\(provider)-Activity-\(formatter.string(from: date)).png"
+    }
+
+    static func antigravityQuotaCardFileName(
+        at date: Date,
+        timeZone: TimeZone = .current
+    ) -> String {
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = timeZone
+        formatter.dateFormat = "yyyy-MM-dd-HHmmss"
+        return "DockMagic-Antigravity-Quota-\(formatter.string(from: date)).png"
+    }
+}
+
+@MainActor
+private struct AntigravityQuotaShareCard: View {
+    let quota: AntigravityQuotaSnapshot
+    let isStale: Bool
+
+    @Environment(\.designTheme) private var theme
+    @Environment(\.dsAccessibilityOverrides) private var accessibilityOverrides
+
+    private let maximumVisibleBuckets = 4
+    private var isDense: Bool { quota.buckets.count > 2 }
+
+    var body: some View {
+        ZStack {
+            theme.opaqueSurface
+
+            VStack(alignment: .leading, spacing: isDense ? 5 : 8) {
+                HStack(spacing: 8) {
+                    PreservedVectorAssetImage(
+                        assetName: StreakServiceBrand.antigravity.logoAssetName
+                    )
+                    .scaledToFit()
+                    .frame(
+                        width: isDense ? 20 : 22,
+                        height: isDense ? 20 : 22
+                    )
+                    .clipShape(
+                        RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    )
+                    .accessibilityHidden(true)
+
+                    Text("Antigravity")
+                        .font(.system(size: isDense ? 14 : 16, weight: .bold))
+                        .foregroundStyle(theme.textPrimary)
+
+                    Spacer(minLength: 0)
+
+                    Text("\(isStale ? "LAST KNOWN" : "CHECKED") · \(Self.shortDate(quota.fetchedAt))")
+                        .font(.system(size: isDense ? 6.5 : 7, weight: .bold))
+                        .tracking(0.9)
+                        .foregroundStyle(theme.textSecondary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.75)
+                }
+
+                Rectangle()
+                    .fill(theme.outline)
+                    .frame(height: 0.5)
+                    .accessibilityHidden(true)
+
+                Text("MODEL-POOL QUOTA")
+                    .font(.system(size: isDense ? 7.5 : 8, weight: .bold))
+                    .tracking(1)
+                    .foregroundStyle(theme.textSecondary)
+
+                Spacer(minLength: isDense ? 0 : 4)
+
+                VStack(alignment: .leading, spacing: isDense ? 5 : 8) {
+                    ForEach(Array(quota.buckets.prefix(maximumVisibleBuckets))) {
+                        bucket in
+                        quotaRow(bucket)
+                    }
+                }
+
+                Spacer(minLength: isDense ? 0 : 4)
+
+                if quota.buckets.count > maximumVisibleBuckets {
+                    Text("+\(quota.buckets.count - maximumVisibleBuckets) model \(quota.buckets.count - maximumVisibleBuckets == 1 ? "pool" : "pools") omitted")
+                        .font(.system(size: isDense ? 7.5 : 8, weight: .medium))
+                        .foregroundStyle(theme.textSecondary)
+                }
+
+                HStack(spacing: 4) {
+                    Text("agy /usage · \(quota.fetchedAt.formatted(.dateTime.year().month(.abbreviated).day().hour().minute()))")
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                    Spacer(minLength: 0)
+                    Text("DockMagic")
+                }
+                .font(.system(size: isDense ? 6.5 : 7, weight: .semibold))
+                .foregroundStyle(theme.textTertiary)
+            }
+            .padding(isDense ? 10 : 14)
+        }
+        .frame(width: 300, height: 300)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Antigravity model-pool quota card")
+        .accessibilityValue(accessibilityValue)
+    }
+
+    private func quotaRow(_ bucket: AntigravityQuotaBucket) -> some View {
+        let remaining = min(1, max(0, bucket.remainingFraction))
+        let progressFill = remaining <= 0.05 ? theme.danger
+            : remaining <= 0.2 ? theme.warning : theme.action
+        let valueForeground = remaining <= 0.05 ? theme.dangerForeground
+            : remaining <= 0.2 ? theme.warningForeground : theme.textPrimary
+        return VStack(alignment: .leading, spacing: isDense ? 2 : 3) {
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Text(bucket.groupName)
+                    .font(.system(size: isDense ? 9 : 10, weight: .semibold))
+                    .foregroundStyle(theme.textPrimary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
+
+                Spacer(minLength: 0)
+
+                Text("\(Int((remaining * 100).rounded()))% LEFT")
+                    .font(.system(
+                        size: isDense ? 11 : 12,
+                        weight: .bold,
+                        design: .rounded
+                    ))
+                    .foregroundStyle(valueForeground)
+                    .monospacedDigit()
+            }
+
+            Text(bucket.title == bucket.windowTitle
+                 ? "\(bucket.windowTitle) window"
+                 : "\(bucket.title) · \(bucket.windowTitle) window")
+                .font(.system(size: isDense ? 7.5 : 8, weight: .medium))
+                .foregroundStyle(theme.textSecondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+
+            GeometryReader { geometry in
+                ZStack(alignment: .leading) {
+                    Capsule().fill(theme.outlineStrong)
+                    Capsule()
+                        .fill(progressFill)
+                        .frame(width: geometry.size.width * CGFloat(remaining))
+                }
+            }
+            .frame(height: isDense ? 4 : 5)
+            .overlay {
+                Capsule().strokeBorder(
+                    theme.outlineStrong,
+                    lineWidth: accessibilityOverrides.increaseContrast == true
+                        ? 1.25 : 0.75
+                )
+            }
+            .accessibilityHidden(true)
+
+            Text(bucket.resetsAt.map {
+                "Resets \($0.formatted(.dateTime.year().month(.abbreviated).day().hour().minute()))"
+            } ?? "Reset time unavailable")
+            .font(.system(size: isDense ? 7.5 : 8, weight: .medium))
+            .foregroundStyle(theme.textSecondary)
+        }
+    }
+
+    private var accessibilityValue: String {
+        let poolValues = quota.buckets.prefix(maximumVisibleBuckets).map { bucket in
+            let remaining = min(1, max(0, bucket.remainingFraction))
+            let reset = bucket.resetsAt.map { "resets \($0.formatted())" }
+                ?? "reset time unavailable"
+            return "\(bucket.groupName), \(bucket.title), \(bucket.windowTitle) window, \(Int((remaining * 100).rounded())) percent remaining, \(reset)"
+        }
+        let additionalCount = quota.buckets.count - poolValues.count
+        let omitted = additionalCount > 0
+            ? ". \(additionalCount) more pools are not shown on this card"
+            : ""
+        return "\(isStale ? "Last known. " : "")\(poolValues.joined(separator: ". "))\(omitted). Checked \(quota.fetchedAt.formatted())."
+    }
+
+    private static func shortDate(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = .current
+        formatter.dateFormat = "MMM d, yyyy"
+        return formatter.string(from: date).localizedUppercase
     }
 }
 
@@ -565,7 +810,7 @@ private struct DockMagicUsageActivityCard: View {
 
             Spacer(minLength: 8)
 
-            Text(Self.dateLabel(dataTimestamp, isStale: isStale))
+            Text(Self.dateLabel(dataTimestamp, now: now, isStale: isStale))
                 .font(.system(size: 7.5, weight: .bold))
                 .tracking(0.8)
                 .foregroundStyle(theme.textSecondary)
@@ -706,16 +951,23 @@ private struct DockMagicUsageActivityCard: View {
                 ? "Partial locally observed 14-day token history."
                 : "14-day token history."
             : "Token history unavailable."
-        return "Badge: \(badge). Tokens today: \(tokens). \(history) Ship momentum: \(ship)."
+        let dailyLabel = isHistoryPartial ? "Tokens observed today" : "Tokens today"
+        let freshness = isStale ? "Last known at \(dataTimestamp.formatted()). " : ""
+        return "\(freshness)Badge: \(badge). \(dailyLabel): \(tokens). \(history) Ship momentum: \(ship)."
     }
 
-    private static func dateLabel(_ date: Date, isStale: Bool) -> String {
+    private static func dateLabel(
+        _ date: Date,
+        now: Date,
+        isStale: Bool
+    ) -> String {
         let formatter = DateFormatter()
         formatter.calendar = Calendar(identifier: .gregorian)
         formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.timeZone = .current
         formatter.dateFormat = "MMM d, yyyy"
-        let prefix = isStale ? "LAST KNOWN" : "TODAY"
+        let prefix = isStale || !Calendar.current.isDate(date, inSameDayAs: now)
+            ? "LAST KNOWN" : "TODAY"
         return "\(prefix) · \(formatter.string(from: date).localizedUppercase)"
     }
 

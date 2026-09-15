@@ -555,7 +555,7 @@ private struct SwiftTermClaudeCodeUsageSessionBuilder:
 @MainActor
 private final class SwiftTermClaudeCodeUsageSession:
     ClaudeCodeUsageTerminalSession,
-    @preconcurrency LocalProcessDelegate
+    LocalProcessDelegate
 {
     private static let maximumBufferBytes = 256 * 1_024
 
@@ -607,19 +607,26 @@ private final class SwiftTermClaudeCodeUsageSession:
         process.terminate()
     }
 
-    func processTerminated(_ source: LocalProcess, exitCode: Int32?) {
-        onExit(exitCode)
-    }
-
-    func dataReceived(slice: ArraySlice<UInt8>) {
-        rawBuffer.append(contentsOf: slice)
-        let overflow = rawBuffer.count - Self.maximumBufferBytes
-        if overflow > 0 {
-            rawBuffer.removeFirst(overflow)
+    nonisolated func processTerminated(
+        _ source: LocalProcess,
+        exitCode: Int32?
+    ) {
+        MainActor.assumeIsolated {
+            onExit(exitCode)
         }
     }
 
-    func getWindowSize() -> winsize {
+    nonisolated func dataReceived(slice: ArraySlice<UInt8>) {
+        MainActor.assumeIsolated {
+            rawBuffer.append(contentsOf: slice)
+            let overflow = rawBuffer.count - Self.maximumBufferBytes
+            if overflow > 0 {
+                rawBuffer.removeFirst(overflow)
+            }
+        }
+    }
+
+    nonisolated func getWindowSize() -> winsize {
         winsize(
             ws_row: 50,
             ws_col: 132,

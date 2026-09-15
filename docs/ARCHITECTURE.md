@@ -28,8 +28,10 @@ Settings uses a native `NavigationSplitView`:
   rings; there are no connection controls.
 - `Antigravity`: a Claude Code-style authentication card backed by an embedded
   official `agy` session, structured model-pool quota from the CLI, shared
-  display controls, and an explicit opt-in for allowlisted local `statusLine`
-  session metrics. Authentication state is not overlaid on the Dock preview.
+  display controls, and no local session metrics setup section. Existing
+  DockMagic-owned `statusLine` connections remain observable and can be
+  disconnected from More Actions; authentication state is not overlaid on the
+  Dock preview.
 
 ## 2. Ownership
 
@@ -64,7 +66,7 @@ Settings uses a native `NavigationSplitView`:
 | `ClaudeCodeHoverDashboardView` | Renders quota rows, next reset, snapshot freshness, and all availability states without reading private session data |
 | `AntigravityUsageStore` | Polls official model-pool quota, ingests optional status-line observations, owns freshness, and derives bounded partial daily usage |
 | `AntigravityCLIUsageProvider` | Resolves `agy`, launches the fixed documented `/usage` command, and schema-gates structured quota buckets without parsing prose |
-| `AntigravityConnectionSettingsView` | Presents missing-CLI, signed-out, checking, connected, stale, and failed states and hosts the unmodified interactive `agy` session for browser sign-in or `/logout` |
+| `AntigravityConnectionSettingsView` | Presents missing-CLI, signed-out, checking, connected, stale, and failed states, hosts the unmodified interactive `agy` session for browser sign-in, and keeps fixed-command sign-out non-interactive |
 | `AntigravityStatusLineBridge` / `AntigravityStatusLineReader` | Preserve the prior command, write/read only allowlisted private snapshots, and hash raw session identifiers |
 | `AntigravityHoverDashboardView` | Renders all quota pools plus clearly labelled partial local context, activity, and streak observations |
 | `DockTileController` | Renders the canonical high-resolution application icon, publishes minute-boundary Clock animation frames, and calls `NSDockTile.display()` |
@@ -494,14 +496,17 @@ headless `/usage` result. When signed out, the user can launch the installed
 session. The PTY remains first-responder capable so the user can type or paste
 the Antigravity code with standard terminal input; an explicit paste action
 forwards the current text clipboard directly to SwiftTerm without storing it in
-SwiftUI state. Sign-out uses the same interactive CLI, where the user enters
-the documented `/logout` command. DockMagic injects no credential and reads no
-credential store. On completion or cancellation it reruns the fixed `/usage`
-probe to resolve the resulting state. The Dock preview remains a pure renderer
-and carries no installation/authentication button overlay.
+SwiftUI state. Sign-out runs the fixed headless `/logout` slash command in the
+background and keeps Settings in a processing state without presenting terminal
+UI. DockMagic then reruns the fixed `/usage` probe and shows the sign-in action
+only after `agy` confirms that authentication is required. DockMagic injects no
+credential and reads no credential store. The Dock preview remains a pure
+renderer and carries no installation/authentication button overlay.
 
-The optional session connection installs a wrapper around Antigravity's
-documented `statusLine` command. Before writing under
+An already-installed optional session connection uses a wrapper around
+Antigravity's documented `statusLine` command. Settings no longer offers a
+Connect action or local session metrics section; it keeps only a legacy
+Disconnect action so an existing connection is not stranded. Before writing under
 `~/.gemini/dockmagic-antigravity/`, the wrapper allowlists model/plan labels,
 context token counters/percentages, agent/execution state, bounded task fields,
 CLI version, and observation time. It discards email, current/project paths,
@@ -528,7 +533,11 @@ tokens, goals, and service health are omitted because no eligible official
 passive source was established. Activity-card export is capability-gated on an
 explicit current-day observation plus enough retained daily samples to render
 a meaningful partial-history chart; the card labels those values as locally
-observed and never exports session identifiers or content. The complete
+observed and never exports session identifiers or content. When that activity
+card is ineligible but `/usage` has a valid quota snapshot, the same hover
+export control renders a dedicated quota card from provider-reported model
+pools, remaining fractions, reset times, and the original fetch timestamp.
+Missing activity is not inferred from quota. The complete
 evidence and field classification are in
 [ANTIGRAVITY_USAGE.md](ANTIGRAVITY_USAGE.md).
 
@@ -594,8 +603,9 @@ The Claude Code bridge persists a minimal usage snapshot because the status
 line delivers data only in response to events; the file contains only the two
 `rate_limits` windows and is deleted when the bridge is removed.
 Antigravity uses the sign-in owned by `agy` without reading credentials. The
-Settings PTY runs only the installed executable; browser authentication,
-keyring persistence, and interactive `/logout` remain inside the official CLI.
+Settings PTY runs only the installed executable for browser authentication;
+keyring persistence and the background fixed `/logout` command remain inside
+the official CLI.
 Its optional bridge persists only the allowlisted session fields described
 above with private permissions; prompts, answers, transcripts, paths, email,
 and raw session identifiers never enter DockMagic's cache.

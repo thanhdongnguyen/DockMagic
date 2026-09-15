@@ -10,7 +10,6 @@ struct AntigravityConnectionSettingsView: View {
     let installCLI: () -> Void
 
     @State private var terminalSessionID: UUID?
-    @State private var terminalPurpose = AntigravityTerminalPurpose.signIn
     @State private var showsTerminal = false
     @State private var ignoresNextTerminalExit = false
     @State private var terminalController = AntigravityTerminalController()
@@ -39,7 +38,7 @@ struct AntigravityConnectionSettingsView: View {
                     sessionID: terminalSessionID,
                     executableURL: executableURL
                 )
-                .frame(height: showsTerminal ? 410 : 0)
+                .frame(height: showsTerminal ? nil : 0)
                 .clipped()
                 .allowsHitTesting(showsTerminal)
                 .accessibilityHidden(!showsTerminal)
@@ -59,21 +58,18 @@ struct AntigravityConnectionSettingsView: View {
 
     private var connectionRow: some View {
         HStack(spacing: DSSpacing.standard) {
-            if case .signedOut = store.connectionState {
-                Spacer(minLength: 0)
-                actions
-            } else {
-                Text("Antigravity connection")
-                    .font(DSTypography.sectionTitle)
-                    .foregroundStyle(theme.textPrimary)
-                    .lineLimit(1)
-                    .layoutPriority(1)
+            Text("Antigravity connection")
+                .font(DSTypography.sectionTitle)
+                .foregroundStyle(theme.textPrimary)
+                .lineLimit(1)
+                .layoutPriority(1)
 
-                Spacer(minLength: DSSpacing.section)
+            Spacer(minLength: DSSpacing.section)
 
+            if showsConnectionSummary {
                 connectionSummary
-                actions
             }
+            actions
         }
         .frame(maxWidth: .infinity, minHeight: 46, alignment: .leading)
     }
@@ -117,17 +113,23 @@ struct AntigravityConnectionSettingsView: View {
     private var actions: some View {
         switch store.connectionState {
         case .cliMissing:
-            Button("Install agy", action: installCLI)
-                .buttonStyle(DSButtonStyle(kind: .primary))
-                .disabled(installationState == .installing)
-                .accessibilityIdentifier("settings.antigravity.install")
-        case .signedOut:
-            Button("Sign in with Antigravity") {
-                startAuthentication(.signIn)
+            HStack(spacing: DSSpacing.small) {
+                Button("Install agy", action: installCLI)
+                    .buttonStyle(DSButtonStyle(kind: .primary))
+                    .disabled(installationState == .installing)
+                    .accessibilityIdentifier("settings.antigravity.install")
+                if store.isBridgeInstalled { moreActions }
             }
-            .buttonStyle(DSButtonStyle(kind: .primary))
-            .focused($focusedAction, equals: .signIn)
-            .accessibilityIdentifier("settings.antigravity.signIn")
+        case .signedOut:
+            HStack(spacing: DSSpacing.small) {
+                Button("Sign in with Antigravity") {
+                    startSignIn()
+                }
+                .buttonStyle(DSButtonStyle(kind: .primary))
+                .focused($focusedAction, equals: .signIn)
+                .accessibilityIdentifier("settings.antigravity.signIn")
+                if store.isBridgeInstalled { moreActions }
+            }
         case .connected:
             HStack(spacing: DSSpacing.small) {
                 refreshButton
@@ -142,10 +144,13 @@ struct AntigravityConnectionSettingsView: View {
                 moreActions
             }
         case .failed:
-            Button("Retry") { Task { await store.refresh() } }
-                .buttonStyle(DSButtonStyle(kind: .primary))
-                .disabled(store.isRefreshing)
-                .accessibilityIdentifier("settings.antigravity.retry")
+            HStack(spacing: DSSpacing.small) {
+                Button("Retry") { Task { await store.refresh() } }
+                    .buttonStyle(DSButtonStyle(kind: .primary))
+                    .disabled(store.isRefreshing)
+                    .accessibilityIdentifier("settings.antigravity.retry")
+                if store.isBridgeInstalled { moreActions }
+            }
         case .checking, .signingIn, .signingOut:
             EmptyView()
         }
@@ -173,18 +178,34 @@ struct AntigravityConnectionSettingsView: View {
                 }
                 .accessibilityIdentifier("settings.antigravity.showAuthLog")
 
-                Divider()
+                if store.isBridgeInstalled || canSignOut { Divider() }
             }
 
-            Button(role: .destructive) {
-                startAuthentication(.signOut)
-            } label: {
-                Label(
-                    "Sign Out",
-                    systemImage: "rectangle.portrait.and.arrow.right"
+            if store.isBridgeInstalled {
+                Button("Disconnect local session metrics") {
+                    store.disconnectStatusLine()
+                }
+                .accessibilityIdentifier(
+                    "settings.antigravity.disconnectSessionMetrics"
                 )
+                if store.bridgeErrorText != nil {
+                    Text("Could not disconnect local session metrics. Try again.")
+                        .foregroundStyle(theme.dangerForeground)
+                }
+                if canSignOut { Divider() }
             }
-            .accessibilityIdentifier("settings.antigravity.signOut")
+
+            if canSignOut {
+                Button(role: .destructive) {
+                    startSignOut()
+                } label: {
+                    Label(
+                        "Sign Out",
+                        systemImage: "rectangle.portrait.and.arrow.right"
+                    )
+                }
+                .accessibilityIdentifier("settings.antigravity.signOut")
+            }
         } label: {
             Image(systemName: "ellipsis")
                 .font(.system(size: 12, weight: .semibold))
@@ -208,16 +229,28 @@ struct AntigravityConnectionSettingsView: View {
         .accessibilityIdentifier("settings.antigravity.moreActions")
     }
 
+    private var canSignOut: Bool {
+        switch store.connectionState {
+        case .connected, .stale:
+            true
+        case .cliMissing, .checking, .signedOut, .signingIn, .signingOut,
+             .failed:
+            false
+        }
+    }
+
     private func authenticationTerminal(
         sessionID: UUID,
         executableURL: URL
     ) -> some View {
         VStack(alignment: .leading, spacing: DSSpacing.standard) {
             VStack(alignment: .leading, spacing: DSSpacing.xSmall) {
-                Text(terminalPurpose.heading)
+                Text("Sign in with Antigravity CLI")
                     .font(DSTypography.bodyEmphasis)
                     .foregroundStyle(theme.textPrimary)
-                Text(terminalPurpose.instructions)
+                Text(
+                    "Use the CLI below directly. Type or paste the Antigravity code with ⌘V, press Return, then choose Check connection. DockMagic does not store the code or credentials."
+                )
                     .font(DSTypography.metadata)
                     .foregroundStyle(theme.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -235,11 +268,11 @@ struct AntigravityConnectionSettingsView: View {
                     }
                     guard exitCode == 0 else { return }
                     showsTerminal = false
-                    await finishAuthentication(terminalPurpose)
+                    await store.signInProcessDidFinish()
                     updateFocusAfterAuthentication()
                 }
             }
-            .frame(maxWidth: .infinity, minHeight: 268)
+            .frame(maxWidth: .infinity, minHeight: 320)
 
             HStack(spacing: DSSpacing.small) {
                 Button("Cancel") {
@@ -259,10 +292,10 @@ struct AntigravityConnectionSettingsView: View {
                 .help("Paste the clipboard into the Antigravity CLI")
                 .accessibilityIdentifier("settings.antigravity.pasteCode")
 
-                Button(terminalPurpose.completionTitle) {
+                Button("Check connection") {
                     stopTerminal()
                     Task {
-                        await finishAuthentication(terminalPurpose)
+                        await store.signInProcessDidFinish()
                         updateFocusAfterAuthentication()
                     }
                 }
@@ -272,20 +305,24 @@ struct AntigravityConnectionSettingsView: View {
         }
     }
 
-    private func startAuthentication(_ purpose: AntigravityTerminalPurpose) {
+    private func startSignIn() {
         guard store.executableURL != nil else {
             installCLI()
             return
         }
-        terminalPurpose = purpose
         terminalController = AntigravityTerminalController()
         terminalSessionID = UUID()
         ignoresNextTerminalExit = false
         showsTerminal = true
-        if purpose == .signIn {
-            store.beginSignIn()
-        } else {
-            store.beginSignOut()
+        store.beginSignIn()
+    }
+
+    private func startSignOut() {
+        showsTerminal = false
+        terminalSessionID = nil
+        Task {
+            await store.signOut()
+            updateFocusAfterAuthentication()
         }
     }
 
@@ -293,17 +330,6 @@ struct AntigravityConnectionSettingsView: View {
         ignoresNextTerminalExit = true
         terminalController.cancel()
         showsTerminal = false
-    }
-
-    private func finishAuthentication(
-        _ purpose: AntigravityTerminalPurpose
-    ) async {
-        switch purpose {
-        case .signIn:
-            await store.signInProcessDidFinish()
-        case .signOut:
-            await store.signOutProcessDidFinish()
-        }
     }
 
     private func updateFocusAfterAuthentication() {
@@ -384,6 +410,15 @@ struct AntigravityConnectionSettingsView: View {
         }
     }
 
+    private var showsConnectionSummary: Bool {
+        switch store.connectionState {
+        case .cliMissing, .signedOut:
+            false
+        case .checking, .signingIn, .signingOut, .connected, .stale, .failed:
+            true
+        }
+    }
+
     private func relative(_ date: Date) -> String {
         let formatter = RelativeDateTimeFormatter()
         formatter.unitsStyle = .full
@@ -397,36 +432,6 @@ struct AntigravityConnectionSettingsView: View {
         case .cliMissing, .checking, .signedOut, .signingIn, .signingOut,
              .failed:
             "settings.antigravity.connectionDetail"
-        }
-    }
-}
-
-private enum AntigravityTerminalPurpose: Equatable {
-    case signIn
-    case signOut
-
-    var heading: String {
-        switch self {
-        case .signIn:
-            "Sign in with Antigravity CLI"
-        case .signOut:
-            "Sign out with the official CLI"
-        }
-    }
-
-    var instructions: String {
-        switch self {
-        case .signIn:
-            "Use the CLI below directly. Type or paste the Antigravity code with ⌘V, press Return, then choose Check connection. DockMagic does not store the code or credentials."
-        case .signOut:
-            "Enter `/logout` in agy to clear its saved session, then choose Check status. DockMagic never reads or deletes the credential itself."
-        }
-    }
-
-    var completionTitle: String {
-        switch self {
-        case .signIn: "Check connection"
-        case .signOut: "Check status"
         }
     }
 }
@@ -572,7 +577,7 @@ private struct AntigravityTerminalView: NSViewRepresentable {
 
     func makeNSView(context: Context) -> LocalProcessTerminalView {
         let options = TerminalOptions(
-            cols: 108,
+            cols: 80,
             rows: 18,
             termName: "xterm-256color",
             screenReaderMode: true,

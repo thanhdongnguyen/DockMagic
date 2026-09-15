@@ -93,6 +93,7 @@ struct AntigravityUsageSnapshot: Codable, Equatable, Sendable {
     let activeSessionCount: Int
     let historyIsPartial: Bool
     let fetchedAt: Date
+    var activityObservedAt: Date? = nil
 
     var planType: String? { currentSession?.planTier }
     var cliVersion: String? { currentSession?.cliVersion ?? quota?.cliVersion }
@@ -106,7 +107,8 @@ struct AntigravityUsageSnapshot: Codable, Equatable, Sendable {
             currentSession: currentSession,
             activeSessionCount: activeSessionCount,
             historyIsPartial: historyIsPartial,
-            fetchedAt: fetchedAt
+            fetchedAt: fetchedAt,
+            activityObservedAt: activityObservedAt
         )
     }
 }
@@ -151,6 +153,7 @@ enum AntigravityUsageError: LocalizedError, Equatable {
     case executableNotFound
     case commandFailed
     case signedOut
+    case signOutFailed
     case invalidResponse
     case unsupportedResponse
     case invalidConfiguration
@@ -164,6 +167,8 @@ enum AntigravityUsageError: LocalizedError, Equatable {
             "Antigravity usage could not be refreshed. Try again after checking agy."
         case .signedOut:
             "Sign in to agy, then refresh Antigravity usage."
+        case .signOutFailed:
+            "Antigravity could not be signed out. Check agy and try again."
         case .invalidResponse:
             "agy returned an invalid usage response. Existing data was preserved."
         case .unsupportedResponse:

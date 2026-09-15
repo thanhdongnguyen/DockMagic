@@ -1075,7 +1075,7 @@
 			repositoryURL = "https://github.com/migueldeicaza/SwiftTerm";
 			requirement = {
 				kind = exactVersion;
-				version = 1.19.0;
+				version = 1.18.0;
 			};
 		};
 		C7D000000000000000000001 /* XCRemoteSwiftPackageReference "Sparkle" */ = {

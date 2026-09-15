@@ -25,6 +25,9 @@ carries state, and prohibits product gradients. This document defines the
 broader component and appearance architecture; the color contract wins if a
 legacy example conflicts with it.
 
+The AI hover dashboard module and composition contract is defined in
+[AI_DASHBOARD_DESIGN_SYSTEM.md](AI_DASHBOARD_DESIGN_SYSTEM.md).
+
 Feature views do not create one-off materials, shadows, focus rings, or status
 colors. Dock ring and chart colors are preferences owned by the product model
 because users can change them; a renderer receives only the corresponding
@@ -149,6 +152,11 @@ elevation.
   Its chart uses the same caption-free treatment as Codex. The token label
   remains `TOKENS OBSERVED TODAY` so the local observation is not presented as
   complete provider history.
+- When Antigravity has a reported `/usage` quota but not enough local activity,
+  the same header export control offers a dedicated 1200 × 1200 quota card for
+  Save, Copy, and Share. It shows model-pool scope, window, remaining percentage,
+  reported reset time, and last-checked/last-known semantics. The card never
+  substitutes quota for token activity or silently hides additional pools.
 
 ## 7. Accessibility
 

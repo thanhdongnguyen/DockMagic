@@ -90,7 +90,7 @@ struct AntigravityHoverDashboardView: View {
             if streakCelebration == nil,
                !isStreakDetailPresented,
                isCaptureMenuPresented,
-               isActivityCardExportAvailable {
+               isExportAvailable {
                 captureMenu
                     .padding(.top, 29)
                     .zIndex(2)
@@ -209,7 +209,7 @@ struct AntigravityHoverDashboardView: View {
 
             Spacer(minLength: 4)
 
-            if isActivityCardExportAvailable {
+            if isExportAvailable {
                 captureButton
             }
         }
@@ -255,8 +255,8 @@ struct AntigravityHoverDashboardView: View {
         .onHover { isHovering in
             isCaptureButtonHovered = isHovering
         }
-        .help("Export activity card")
-        .accessibilityLabel("Export activity card")
+        .help("Share or export Antigravity \(exportCardName)")
+        .accessibilityLabel("Share Antigravity \(exportCardName)")
         .accessibilityHint("Opens 1200 by 1200 PNG export options")
         .accessibilityIdentifier("antigravity.capture.button")
     }
@@ -273,6 +273,14 @@ struct AntigravityHoverDashboardView: View {
                 .padding(.trailing, 7)
 
             VStack(spacing: 1) {
+                Text(exportCardName.localizedUppercase)
+                    .font(.system(size: 7, weight: .bold))
+                    .tracking(0.8)
+                    .foregroundStyle(theme.textSecondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 4)
+
                 captureMenuRow(
                     captureAction: .save,
                     title: "Save 4× PNG",
@@ -315,7 +323,7 @@ struct AntigravityHoverDashboardView: View {
             )
         }
         .accessibilityElement(children: .contain)
-        .accessibilityLabel("Activity card export options")
+        .accessibilityLabel("Antigravity \(exportCardName) export options")
         .accessibilityIdentifier("antigravity.capture.menu")
     }
 
@@ -417,7 +425,14 @@ struct AntigravityHoverDashboardView: View {
         guard let captureConfiguration else { return nil }
         do {
             captureErrorText = nil
-            return try CodexDashboardCaptureService.renderActivityCard(
+            if isActivityCardExportAvailable {
+                return try CodexDashboardCaptureService.renderActivityCard(
+                    state: state,
+                    appearanceMode: captureConfiguration.appearanceMode,
+                    now: now
+                )
+            }
+            return try CodexDashboardCaptureService.renderAntigravityQuotaCard(
                 state: state,
                 appearanceMode: captureConfiguration.appearanceMode,
                 now: now
@@ -631,7 +646,8 @@ struct AntigravityHoverDashboardView: View {
         snapshot?.streakSummary
     }
     private var isActivityCardExportAvailable: Bool {
-        guard captureConfiguration != nil, shipMomentum != nil else {
+        guard captureConfiguration != nil,
+              (shipMomentum?.todayTokens ?? 0) > 0 else {
             return false
         }
         let samples = CodexDashboardCaptureService.activityCardChartSamples(
@@ -641,6 +657,16 @@ struct AntigravityHoverDashboardView: View {
         return CodexDashboardCaptureService.activityCardChartHasRenderableTrend(
             samples
         )
+    }
+
+    private var isExportAvailable: Bool {
+        guard captureConfiguration != nil else { return false }
+        return isActivityCardExportAvailable
+            || !(snapshot?.quota?.buckets.isEmpty ?? true)
+    }
+
+    private var exportCardName: String {
+        isActivityCardExportAvailable ? "activity card" : "quota card"
     }
 
     private var dayObservations: [AntigravityDailyTokenObservation] {
