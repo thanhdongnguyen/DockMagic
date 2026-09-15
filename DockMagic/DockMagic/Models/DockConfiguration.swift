@@ -39,10 +39,10 @@ enum DockFeature: String, CaseIterable, Codable, Identifiable, Sendable {
             "GitHub"
         case .codex:
             "Codex"
-        case .antigravity:
-            "Antigravity"
         case .claudeCode:
             "Claude Code"
+        case .antigravity:
+            "Antigravity"
         case .searchConsole:
             "Search Console"
         }
@@ -68,10 +68,10 @@ enum DockFeature: String, CaseIterable, Codable, Identifiable, Sendable {
             "Repository stars and forks"
         case .codex:
             "Remaining usage limits"
-        case .antigravity:
-            "Model quota and local agent activity"
         case .claudeCode:
             "Remaining usage limits"
+        case .antigravity:
+            "Model-pool quota and local agent activity"
         case .searchConsole:
             "Google Search clicks and impressions"
         }
@@ -97,10 +97,10 @@ enum DockFeature: String, CaseIterable, Codable, Identifiable, Sendable {
             "point.3.connected.trianglepath.dotted"
         case .codex:
             "sparkles"
-        case .antigravity:
-            "sparkle"
         case .claudeCode:
             "chevron.left.forwardslash.chevron.right"
+        case .antigravity:
+            "sparkle"
         case .searchConsole:
             "magnifyingglass"
         }
@@ -568,15 +568,16 @@ enum DockFeatureDefaults {
         innerWidth: 0.18
     )
 
-    static let antigravityAppearance = DockRingAppearance(
-        outerColor: ProjectTheme.defaultUsageRingColor,
-        innerColor: ProjectTheme.defaultUsageRingColor,
-        outerWidth: 0.12, innerWidth: 0.18
-    )
-
     static let claudeCodeAppearance = DockRingAppearance(
         outerColor: DockColor(red: 217 / 255, green: 119 / 255, blue: 87 / 255),
         innerColor: DockColor(red: 217 / 255, green: 119 / 255, blue: 87 / 255),
+        outerWidth: 0.12,
+        innerWidth: 0.18
+    )
+
+    static let antigravityAppearance = DockRingAppearance(
+        outerColor: ProjectTheme.defaultUsageRingColor,
+        innerColor: ProjectTheme.defaultUsageRingColor,
         outerWidth: 0.12,
         innerWidth: 0.18
     )
@@ -612,13 +613,16 @@ enum DockTilePresentation: Equatable, Sendable {
         appearance: DockRingAppearance,
         serviceStatus: ServiceStatusState = .operational(provider: .codex)
     )
-    case antigravity(state: CodexUsageState, appearance: DockRingAppearance)
     case claudeCode(
         state: ClaudeCodeUsageState,
         appearance: DockRingAppearance,
         serviceStatus: ServiceStatusState = .operational(
             provider: .claudeCode
         )
+    )
+    case antigravity(
+        state: AntigravityUsageState,
+        appearance: DockRingAppearance
     )
     case searchConsole(
         state: SearchConsoleState,

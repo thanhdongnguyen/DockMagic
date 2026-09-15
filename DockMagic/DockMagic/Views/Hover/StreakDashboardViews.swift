@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 enum StreakServiceBrand: Sendable {
@@ -22,6 +23,28 @@ enum StreakServiceBrand: Sendable {
     }
 }
 
+struct PreservedVectorAssetImage: View {
+    let assetName: String
+
+    private var artwork: Image {
+        guard let source = NSImage(named: NSImage.Name(assetName)),
+              let copy = source.copy() as? NSImage else {
+            return Image(assetName)
+        }
+        // Asset-catalog SVGs share their named NSImage globally. Disable the
+        // shared raster cache so one small presentation cannot degrade a
+        // later larger presentation of the same vector artwork.
+        copy.cacheMode = .never
+        return Image(nsImage: copy)
+    }
+
+    var body: some View {
+        artwork
+            .resizable()
+            .interpolation(.high)
+    }
+}
+
 struct StreakBadgeView: View {
     let milestone: TokenUsageStreakMilestone
     let size: CGFloat
@@ -29,18 +52,10 @@ struct StreakBadgeView: View {
     var showsLock = false
 
     @Environment(\.designTheme) private var theme
-    @Environment(\.displayScale) private var displayScale
-
-    private var interpolation: Image.Interpolation {
-        guard size <= 60 else { return .high }
-        return displayScale >= 2 ? .none : .medium
-    }
 
     var body: some View {
         ZStack {
-            Image(milestone.assetName)
-                .resizable()
-                .interpolation(interpolation)
+            PreservedVectorAssetImage(assetName: milestone.assetName)
                 .scaledToFit()
                 .saturation(isUnlocked ? 1 : 0)
                 .opacity(isUnlocked ? 1 : 0.34)
@@ -200,9 +215,7 @@ struct StreakCelebrationView: View {
     private var brandLogo: some View {
         switch brand {
         case .codex:
-            Image(brand.logoAssetName)
-                .resizable()
-                .interpolation(.high)
+            PreservedVectorAssetImage(assetName: brand.logoAssetName)
                 .scaledToFill()
                 .frame(width: 42, height: 42)
                 .frame(width: 26, height: 26)
@@ -211,9 +224,7 @@ struct StreakCelebrationView: View {
                 )
                 .accessibilityHidden(true)
         case .claudeCode, .antigravity:
-            Image(brand.logoAssetName)
-                .resizable()
-                .interpolation(.high)
+            PreservedVectorAssetImage(assetName: brand.logoAssetName)
                 .scaledToFit()
                 .frame(width: 26, height: 26)
                 .clipShape(
@@ -429,12 +440,12 @@ struct StreakContinuityStrip: View {
     }
 
     private var streakTitle: String {
-        guard let summary else { return brand == .antigravity ? "No streak data" : "Streak unavailable" }
+        guard let summary else { return "Streak unavailable" }
         return "\(summary.currentDays)-day streak"
     }
 
     private var streakSubtitle: String {
-        guard let summary else { return brand == .antigravity ? "Awaiting usage" : "Waiting for usage data" }
+        guard let summary else { return "Waiting for usage data" }
         if let earned = summary.earnedBadge {
             return "\(earned.title) · best \(summary.bestDays)"
         }
@@ -483,15 +494,9 @@ struct StreakContinuityStrip: View {
 struct StreakDetailView: View {
     let summary: TokenUsageStreakSummary?
     let brand: StreakServiceBrand
-    let accent: Color
     let onBack: () -> Void
 
     @Environment(\.designTheme) private var theme
-
-    private let columns = [
-        GridItem(.flexible(), spacing: 7),
-        GridItem(.flexible(), spacing: 7)
-    ]
 
     var body: some View {
         VStack(spacing: 8) {
@@ -543,9 +548,7 @@ struct StreakDetailView: View {
 
             Spacer(minLength: 0)
 
-            Image(brand.logoAssetName)
-                .resizable()
-                .interpolation(.high)
+            PreservedVectorAssetImage(assetName: brand.logoAssetName)
                 .scaledToFit()
                 .frame(width: 24, height: 24)
                 .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
@@ -642,7 +645,11 @@ struct StreakDetailView: View {
             if let days = summary?.recentDays {
                 HStack(spacing: 8) {
                     ForEach(days) { day in
-                        StreakDayNode(day: day, accent: accent, compact: false)
+                        StreakDayNode(
+                            day: day,
+                            accent: theme.action,
+                            compact: false
+                        )
                             .frame(maxWidth: .infinity)
                     }
                 }
@@ -663,76 +670,222 @@ struct StreakDetailView: View {
     }
 
     private var collection: some View {
-        VStack(alignment: .leading, spacing: 7) {
+        VStack(alignment: .leading, spacing: 9) {
             HStack(alignment: .firstTextBaseline) {
-                Text("Badge collection")
-                    .font(.system(size: 11, weight: .bold))
-                    .foregroundStyle(theme.textPrimary)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Badge roadmap")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(theme.textPrimary)
+
+                    Text("Build momentum one active day at a time")
+                        .font(.system(size: 8.5, weight: .medium))
+                        .foregroundStyle(theme.textTertiary)
+                }
+
                 Spacer(minLength: 4)
+
                 Text(collectionCountLabel)
                     .font(.system(size: 8.5, weight: .semibold))
-                    .foregroundStyle(theme.textTertiary)
+                    .foregroundStyle(theme.textSecondary)
                     .monospacedDigit()
             }
 
-            LazyVGrid(columns: columns, spacing: 7) {
-                ForEach(TokenUsageStreakMilestone.allCases) { milestone in
-                    collectionCell(milestone)
-                }
-            }
+            StreakBadgeRoadmap(
+                milestones: TokenUsageStreakMilestone.allCases,
+                bestDays: summary?.bestDays,
+                currentMilestone: summary?.earnedBadge,
+                nextMilestone: summary?.nextBadge
+            )
         }
     }
 
     private var collectionCountLabel: String {
-        let count = summary?.earnedMilestones.count ?? 0
+        guard let summary else { return "Progress unavailable" }
+        let count = summary.earnedMilestones.count
         return "\(count) of \(TokenUsageStreakMilestone.allCases.count) unlocked"
     }
+}
 
-    private func collectionCell(
-        _ milestone: TokenUsageStreakMilestone
-    ) -> some View {
-        let isUnlocked = (summary?.bestDays ?? 0) >= milestone.requiredDays
-        let isCurrent = summary?.earnedBadge == milestone
+private struct StreakBadgeRoadmap: View {
+    let milestones: [TokenUsageStreakMilestone]
+    let bestDays: Int64?
+    let currentMilestone: TokenUsageStreakMilestone?
+    let nextMilestone: TokenUsageStreakMilestone?
 
-        return HStack(spacing: 8) {
-            StreakBadgeView(
-                milestone: milestone,
-                size: 58,
-                isUnlocked: isUnlocked,
-                showsLock: true
-            )
+    @Environment(\.colorSchemeContrast) private var contrast
+    @Environment(\.dsAccessibilityOverrides) private var accessibilityOverrides
+    @Environment(\.designTheme) private var theme
 
-            VStack(alignment: .leading, spacing: 3) {
-                Text(milestone.title)
-                    .font(.system(size: 9.5, weight: .bold))
-                    .foregroundStyle(
-                        isUnlocked ? theme.textPrimary : theme.textSecondary
+    private let rowHeight: CGFloat = 98
+    private let horizontalInset: CGFloat = 39
+
+    var body: some View {
+        ZStack(alignment: .topLeading) {
+            GeometryReader { _ in
+                let path = StreakRoadmapPath(
+                    milestoneCount: milestones.count,
+                    rowHeight: rowHeight,
+                    horizontalInset: horizontalInset
+                )
+                let completedPath = StreakRoadmapPath(
+                    milestoneCount: milestones.count,
+                    rowHeight: rowHeight,
+                    horizontalInset: horizontalInset,
+                    reachedMilestoneCount: unlockedCount
+                )
+
+                path
+                    .stroke(
+                        theme.outline,
+                        style: StrokeStyle(
+                            lineWidth: isIncreasedContrast ? 12 : 10,
+                            lineCap: .round,
+                            lineJoin: .round
+                        )
                     )
-                    .lineLimit(1)
 
-                HStack(spacing: 3) {
-                    Image(systemName: isUnlocked ? "checkmark.circle.fill" : "lock.fill")
-                        .symbolRenderingMode(.monochrome)
-                        .font(.system(size: 7, weight: .bold))
-                        .accessibilityHidden(true)
-                    Text("\(milestone.requiredDays) days")
-                        .font(.system(size: 8, weight: .semibold, design: .rounded))
-                        .monospacedDigit()
-                }
-                .foregroundStyle(isUnlocked ? accent : theme.textTertiary)
+                path
+                    .stroke(
+                        theme.outlineStrong,
+                        style: StrokeStyle(
+                            lineWidth: isIncreasedContrast ? 2 : 1.25,
+                            lineCap: .round,
+                            lineJoin: .round,
+                            dash: [5, 7]
+                        )
+                    )
 
-                if isCurrent {
-                    Text("Current")
-                        .font(.system(size: 7.5, weight: .bold))
-                        .foregroundStyle(theme.textPrimary)
+                completedPath
+                    .stroke(
+                        theme.action,
+                        style: StrokeStyle(
+                            lineWidth: isIncreasedContrast ? 5 : 4,
+                            lineCap: .round,
+                            lineJoin: .round
+                        )
+                    )
+            }
+            .accessibilityHidden(true)
+
+            VStack(spacing: 0) {
+                ForEach(milestones.indices, id: \.self) { index in
+                    milestoneRow(milestones[index], index: index)
                 }
             }
-
-            Spacer(minLength: 0)
         }
-        .padding(.horizontal, 7)
-        .frame(maxWidth: .infinity, minHeight: 70, alignment: .leading)
-        .background(isCurrent ? theme.selectionFill : theme.opaqueSurfaceInset)
+        .frame(height: rowHeight * CGFloat(milestones.count))
+        .padding(.horizontal, 10)
+        .padding(.vertical, 4)
+        .background(theme.opaqueSurfaceInset)
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .strokeBorder(theme.outline, lineWidth: 0.5)
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Badge roadmap")
+    }
+
+    private var unlockedCount: Int {
+        guard let bestDays else { return 0 }
+        return milestones.filter { bestDays >= $0.requiredDays }.count
+    }
+
+    private var isIncreasedContrast: Bool {
+        accessibilityOverrides.increaseContrast ?? (contrast == .increased)
+    }
+
+    private func milestoneRow(
+        _ milestone: TokenUsageStreakMilestone,
+        index: Int
+    ) -> some View {
+        let isLeading = index.isMultiple(of: 2)
+
+        return HStack(spacing: 8) {
+            if isLeading {
+                badgeSlot(for: milestone)
+                milestoneLabel(for: milestone, alignment: .leading)
+                Spacer(minLength: 0)
+            } else {
+                Spacer(minLength: 0)
+                milestoneLabel(for: milestone, alignment: .trailing)
+                badgeSlot(for: milestone)
+            }
+        }
+        .frame(maxWidth: .infinity, minHeight: rowHeight, maxHeight: rowHeight)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(accessibilityLabel(for: milestone))
+        .accessibilityIdentifier("dockHover.streak.badge.\(milestone.rawValue)")
+    }
+
+    private func badgeSlot(
+        for milestone: TokenUsageStreakMilestone
+    ) -> some View {
+        let isUnlocked = bestDays.map { $0 >= milestone.requiredDays } ?? false
+        let isCurrent = currentMilestone == milestone
+
+        return ZStack {
+            Circle()
+                .fill(theme.opaqueSurfaceRaised)
+                .overlay {
+                    Circle().strokeBorder(theme.outline, lineWidth: 0.5)
+                }
+                .frame(
+                    width: isCurrent ? 80 : 74,
+                    height: isCurrent ? 80 : 74
+                )
+
+            StreakBadgeView(
+                milestone: milestone,
+                size: isCurrent ? 75 : 69,
+                isUnlocked: isUnlocked,
+                showsLock: bestDays != nil
+            )
+        }
+        .frame(width: 78, height: rowHeight)
+        .accessibilityHidden(true)
+    }
+
+    private func milestoneLabel(
+        for milestone: TokenUsageStreakMilestone,
+        alignment: HorizontalAlignment
+    ) -> some View {
+        let isCurrent = currentMilestone == milestone
+
+        return VStack(alignment: alignment, spacing: 3) {
+            Text("DAY \(milestone.requiredDays)")
+                .font(.system(size: 7.5, weight: .bold, design: .rounded))
+                .tracking(0.65)
+                .foregroundStyle(theme.textTertiary)
+                .monospacedDigit()
+
+            Text(milestone.title)
+                .font(.system(size: 11, weight: .bold))
+                .foregroundStyle(theme.textPrimary)
+                .lineLimit(1)
+
+            HStack(spacing: 3) {
+                Image(systemName: statusSymbol(for: milestone))
+                    .symbolRenderingMode(.monochrome)
+                    .font(.system(size: 7, weight: .bold))
+                    .accessibilityHidden(true)
+
+                Text(statusLabel(for: milestone))
+                    .font(.system(size: 8, weight: .semibold))
+            }
+            .foregroundStyle(isCurrent ? theme.action : theme.textSecondary)
+
+            Text(milestone.detail)
+                .font(.system(size: 7.5, weight: .medium))
+                .foregroundStyle(theme.textTertiary)
+                .lineLimit(2)
+                .multilineTextAlignment(alignment == .leading ? .leading : .trailing)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 7)
+        .frame(width: 146, alignment: frameAlignment(for: alignment))
+        .frame(minHeight: 72, alignment: frameAlignment(for: alignment))
+        .background(isCurrent ? theme.selectionFill : theme.opaqueSurfaceRaised)
         .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 9, style: .continuous)
@@ -741,8 +894,115 @@ struct StreakDetailView: View {
                     lineWidth: isCurrent ? 1 : 0.5
                 )
         }
-        .accessibilityElement(children: .combine)
-        .accessibilityIdentifier("dockHover.streak.badge.\(milestone.rawValue)")
+    }
+
+    private func statusLabel(
+        for milestone: TokenUsageStreakMilestone
+    ) -> String {
+        guard let bestDays else {
+            return "Progress unavailable"
+        }
+        if currentMilestone == milestone {
+            return "Current badge"
+        }
+        if bestDays >= milestone.requiredDays {
+            return "Earned"
+        }
+        if nextMilestone == milestone {
+            return "Up next"
+        }
+        return "Locked"
+    }
+
+    private func statusSymbol(
+        for milestone: TokenUsageStreakMilestone
+    ) -> String {
+        guard let bestDays else {
+            return "questionmark.circle"
+        }
+        if currentMilestone == milestone {
+            return "location.fill"
+        }
+        if bestDays >= milestone.requiredDays {
+            return "checkmark.circle.fill"
+        }
+        if nextMilestone == milestone {
+            return "flag.fill"
+        }
+        return "lock.fill"
+    }
+
+    private func accessibilityLabel(
+        for milestone: TokenUsageStreakMilestone
+    ) -> String {
+        "\(milestone.title), day \(milestone.requiredDays), "
+            + "\(statusLabel(for: milestone)). \(milestone.detail)"
+    }
+
+    private func frameAlignment(
+        for alignment: HorizontalAlignment
+    ) -> Alignment {
+        alignment == .leading ? .leading : .trailing
+    }
+}
+
+struct StreakRoadmapPath: Shape {
+    let milestoneCount: Int
+    let rowHeight: CGFloat
+    let horizontalInset: CGFloat
+    let reachedMilestoneCount: Int?
+
+    init(
+        milestoneCount: Int,
+        rowHeight: CGFloat,
+        horizontalInset: CGFloat,
+        reachedMilestoneCount: Int? = nil
+    ) {
+        self.milestoneCount = milestoneCount
+        self.rowHeight = rowHeight
+        self.horizontalInset = horizontalInset
+        self.reachedMilestoneCount = reachedMilestoneCount
+    }
+
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let visibleMilestoneCount = min(
+            max(reachedMilestoneCount ?? milestoneCount, 0),
+            milestoneCount
+        )
+        guard visibleMilestoneCount > 0 else { return path }
+
+        func point(for index: Int) -> CGPoint {
+            CGPoint(
+                x: index.isMultiple(of: 2)
+                    ? horizontalInset
+                    : rect.width - horizontalInset,
+                y: rowHeight * (CGFloat(index) + 0.5)
+            )
+        }
+
+        let firstPoint = point(for: 0)
+        path.move(to: CGPoint(x: firstPoint.x, y: rect.minY))
+        path.addLine(to: firstPoint)
+
+        if visibleMilestoneCount > 1 {
+            for index in 1..<visibleMilestoneCount {
+                let previousPoint = point(for: index - 1)
+                let nextPoint = point(for: index)
+                let middleY = (previousPoint.y + nextPoint.y) / 2
+
+                path.addCurve(
+                    to: nextPoint,
+                    control1: CGPoint(x: previousPoint.x, y: middleY),
+                    control2: CGPoint(x: nextPoint.x, y: middleY)
+                )
+            }
+        }
+
+        guard reachedMilestoneCount == nil else { return path }
+        let lastPoint = point(for: milestoneCount - 1)
+        path.addLine(to: CGPoint(x: lastPoint.x, y: rect.maxY))
+        return path
     }
 }
 

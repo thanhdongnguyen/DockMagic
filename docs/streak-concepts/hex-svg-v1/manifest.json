@@ -1,0 +1,198 @@
+{
+  "status": "production-svg-source",
+  "format": "pure-svg",
+  "viewBox": "0 0 1024 1024",
+  "generator": "script/generate_streak_hex_svg.mjs",
+  "badges": [
+    {
+      "day": 1,
+      "title": "First Prompt",
+      "slug": "01-first-prompt",
+      "asset": "StreakBadgeFirstPrompt",
+      "tier": "violet",
+      "stars": 0,
+      "source": "../hex-collectibles-v1/assets/01-first-prompt.png",
+      "variants": {
+        "master": {
+          "file": "assets/01-first-prompt.svg",
+          "bytes": 3388
+        },
+        "compact": {
+          "file": "assets/01-first-prompt-compact.svg",
+          "bytes": 3086
+        }
+      }
+    },
+    {
+      "day": 3,
+      "title": "Spark",
+      "slug": "03-spark",
+      "asset": "StreakBadgeSpark",
+      "tier": "violet",
+      "stars": 0,
+      "source": "../hex-collectibles-v1/assets/03-spark.png",
+      "variants": {
+        "master": {
+          "file": "assets/03-spark.svg",
+          "bytes": 3403
+        },
+        "compact": {
+          "file": "assets/03-spark-compact.svg",
+          "bytes": 3232
+        }
+      }
+    },
+    {
+      "day": 7,
+      "title": "Loop",
+      "slug": "07-loop",
+      "asset": "StreakBadgeLoop",
+      "tier": "violet",
+      "stars": 0,
+      "source": "../hex-collectibles-v1/assets/07-loop.png",
+      "variants": {
+        "master": {
+          "file": "assets/07-loop.svg",
+          "bytes": 3843
+        },
+        "compact": {
+          "file": "assets/07-loop-compact.svg",
+          "bytes": 3483
+        }
+      }
+    },
+    {
+      "day": 14,
+      "title": "Builder",
+      "slug": "14-builder",
+      "asset": "StreakBadgeBuilder",
+      "tier": "violet",
+      "stars": 1,
+      "source": "../hex-collectibles-v1/assets/14-builder.png",
+      "variants": {
+        "master": {
+          "file": "assets/14-builder.svg",
+          "bytes": 4237
+        },
+        "compact": {
+          "file": "assets/14-builder-compact.svg",
+          "bytes": 3440
+        }
+      }
+    },
+    {
+      "day": 30,
+      "title": "Flow",
+      "slug": "30-flow",
+      "asset": "StreakBadgeFlow",
+      "tier": "violet",
+      "stars": 1,
+      "source": "../hex-collectibles-v1/assets/30-flow.png",
+      "variants": {
+        "master": {
+          "file": "assets/30-flow.svg",
+          "bytes": 5032
+        },
+        "compact": {
+          "file": "assets/30-flow-compact.svg",
+          "bytes": 4177
+        }
+      }
+    },
+    {
+      "day": 60,
+      "title": "Navigator",
+      "slug": "60-navigator",
+      "asset": "StreakBadgeNavigator",
+      "tier": "violet",
+      "stars": 1,
+      "source": "../hex-collectibles-v1/assets/60-navigator.png",
+      "variants": {
+        "master": {
+          "file": "assets/60-navigator.svg",
+          "bytes": 4001
+        },
+        "compact": {
+          "file": "assets/60-navigator-compact.svg",
+          "bytes": 3424
+        }
+      }
+    },
+    {
+      "day": 100,
+      "title": "Century",
+      "slug": "100-century",
+      "asset": "StreakBadgeCentury",
+      "tier": "gold",
+      "stars": 2,
+      "source": "../hex-collectibles-v1/assets/100-century.png",
+      "variants": {
+        "master": {
+          "file": "assets/100-century.svg",
+          "bytes": 5002
+        },
+        "compact": {
+          "file": "assets/100-century-compact.svg",
+          "bytes": 4208
+        }
+      }
+    },
+    {
+      "day": 180,
+      "title": "Architect",
+      "slug": "180-architect",
+      "asset": "StreakBadgeArchitect",
+      "tier": "gold",
+      "stars": 2,
+      "source": "../hex-collectibles-v1/assets/180-architect.png",
+      "variants": {
+        "master": {
+          "file": "assets/180-architect.svg",
+          "bytes": 4751
+        },
+        "compact": {
+          "file": "assets/180-architect-compact.svg",
+          "bytes": 3901
+        }
+      }
+    },
+    {
+      "day": 365,
+      "title": "Keystone",
+      "slug": "365-keystone",
+      "asset": "StreakBadgeCodexCore",
+      "tier": "gold",
+      "stars": 2,
+      "source": "../hex-collectibles-v1/assets/365-keystone.png",
+      "variants": {
+        "master": {
+          "file": "assets/365-keystone.svg",
+          "bytes": 5951
+        },
+        "compact": {
+          "file": "assets/365-keystone-compact.svg",
+          "bytes": 5100
+        }
+      }
+    },
+    {
+      "day": 730,
+      "title": "Continuum",
+      "slug": "730-continuum",
+      "asset": "StreakBadgeContinuum",
+      "tier": "platinum",
+      "stars": 3,
+      "source": "../hex-collectibles-v1/assets/730-continuum.png",
+      "variants": {
+        "master": {
+          "file": "assets/730-continuum.svg",
+          "bytes": 4957
+        },
+        "compact": {
+          "file": "assets/730-continuum-compact.svg",
+          "bytes": 3581
+        }
+      }
+    }
+  ]
+}

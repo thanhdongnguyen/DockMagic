@@ -15,8 +15,8 @@ struct ClaudeCodeHoverDashboardView: View {
 
     let state: ClaudeCodeUsageState
     let brand: StreakServiceBrand
-    private var providerID: String { brand == .antigravity ? "antigravity" : "claudeCode" }
-    private var usageAccent: Color { brand == .antigravity ? theme.action : ProjectTheme.claudeCodeUsage }
+    private let providerID = "claudeCode"
+    private var usageAccent: Color { ProjectTheme.claudeCodeUsage }
     let serviceStatus: ServiceStatusState
     var now: Date = .now
     let streakCelebrationAutoDismissDelay: Duration
@@ -106,7 +106,6 @@ struct ClaudeCodeHoverDashboardView: View {
                 StreakDetailView(
                     summary: streakSummary,
                     brand: brand,
-                    accent: usageAccent,
                     onBack: { setStreakDetailPresented(false) }
                 )
                 .transition(.opacity)
@@ -187,7 +186,7 @@ struct ClaudeCodeHoverDashboardView: View {
         VStack(spacing: 6) {
             Group {
                 header
-                if brand == .antigravity { AntigravityQuotaRows(state: state) } else { quotaRows }
+                quotaRows
                 usageCard
                     .layoutPriority(1)
                 StreakContinuityStrip(
@@ -208,9 +207,7 @@ struct ClaudeCodeHoverDashboardView: View {
     private var header: some View {
         VStack(spacing: 2) {
             HStack(spacing: 8) {
-                Image(brand.logoAssetName)
-                    .resizable()
-                    .interpolation(.high)
+                PreservedVectorAssetImage(assetName: brand.logoAssetName)
                     .scaledToFit()
                     .frame(width: 26, height: 26)
                     .clipShape(
@@ -248,9 +245,7 @@ struct ClaudeCodeHoverDashboardView: View {
             }
             .frame(height: 30)
 
-            if brand != .antigravity {
-                ServiceStatusHeaderView(state: serviceStatus)
-            }
+            ServiceStatusHeaderView(state: serviceStatus)
         }
     }
 
@@ -293,9 +288,9 @@ struct ClaudeCodeHoverDashboardView: View {
         .onHover { isHovering in
             isCaptureButtonHovered = isHovering
         }
-        .help("Capture dashboard")
-        .accessibilityLabel("Capture dashboard")
-        .accessibilityHint("Opens high-resolution PNG export options")
+        .help("Export activity card")
+        .accessibilityLabel("Export activity card")
+        .accessibilityHint("Opens 1200 by 1200 PNG export options")
         .accessibilityIdentifier("\(providerID).capture.button")
     }
 
@@ -352,15 +347,13 @@ struct ClaudeCodeHoverDashboardView: View {
             )
         }
         .accessibilityElement(children: .contain)
-        .accessibilityLabel("Dashboard capture options")
+        .accessibilityLabel("Activity card export options")
         .accessibilityIdentifier("\(providerID).capture.menu")
     }
 
     private var capturePixelSizeLabel: String {
-        guard let captureConfiguration else { return "" }
-        return CodexDashboardCaptureService.pixelSizeLabel(
-            for: captureConfiguration
-        )
+        guard captureConfiguration != nil else { return "" }
+        return CodexDashboardCaptureService.activityCardPixelSizeLabel
     }
 
     private func captureMenuRow(
@@ -461,18 +454,11 @@ struct ClaudeCodeHoverDashboardView: View {
         guard let captureConfiguration else { return nil }
         do {
             captureErrorText = nil
-            if brand == .antigravity {
-                return try CodexDashboardCaptureService.renderAntigravity(
-                    state: state, configuration: captureConfiguration, now: now,
-                    initialMetric: selectedMetric.rawValue
-                )
-            }
-            return try CodexDashboardCaptureService.renderClaudeCode(
+            return try CodexDashboardCaptureService.renderActivityCard(
                 state: state,
-                serviceStatus: serviceStatus,
-                configuration: captureConfiguration,
-                now: now,
-                initialMetric: selectedMetric.rawValue
+                brand: brand,
+                appearanceMode: captureConfiguration.appearanceMode,
+                now: now
             )
         } catch {
             captureErrorText = error.localizedDescription
@@ -531,7 +517,7 @@ struct ClaudeCodeHoverDashboardView: View {
             UsageLimitHoverRow(
                 title: title,
                 systemImage: systemImage,
-                window: window,
+                remainingFraction: window.remainingFraction,
                 resetLabel: CodexHoverDashboardPresentation.resetLabel(
                     for: window
                 ),
@@ -570,7 +556,7 @@ struct ClaudeCodeHoverDashboardView: View {
                 }
             }
 
-            ClaudeCodeUsageBars(
+            ProviderDailyUsageBars(
                 buckets: visibleChartBuckets,
                 metric: selectedMetric.rawValue,
                 accent: usageAccent,
@@ -592,7 +578,7 @@ struct ClaudeCodeHoverDashboardView: View {
     }
 
     private var usageRange: some View {
-        Text(brand == .antigravity ? "Observed · " + usageRangeLabel : usageRangeLabel)
+        Text(usageRangeLabel)
             .font(.system(size: 8.5, weight: .medium))
             .foregroundStyle(theme.textTertiary)
             .fixedSize()
@@ -682,9 +668,9 @@ struct ClaudeCodeHoverDashboardView: View {
                     .font(.system(size: 10.5, weight: .bold))
                     .foregroundStyle(theme.textPrimary)
                 Spacer(minLength: 4)
-                if isActivityHookInstalled || brand == .antigravity,
+                if isActivityHookInstalled,
                    visibleActiveTasks.count + activeGoals.count > 0 {
-                    Text(brand == .antigravity ? "\(visibleActiveTasks.count) active" :
+                    Text(
                         "\(visibleActiveTasks.count) active · \(activeGoals.count) "
                             + (activeGoals.count == 1 ? "goal" : "goals")
                     )
@@ -694,22 +680,8 @@ struct ClaudeCodeHoverDashboardView: View {
                 }
             }
 
-            if !isActivityHookInstalled && (brand != .antigravity || visibleActiveTasks.isEmpty) {
-                if brand == .antigravity {
-                    HStack(spacing: 8) {
-                        Text(activityHookErrorText ?? "Connect local events to track active sessions.")
-                            .font(.system(size: 8.5, weight: .medium))
-                            .foregroundStyle(activityHookErrorText == nil ? theme.textTertiary : theme.dangerForeground)
-                            .lineLimit(2)
-                        Spacer(minLength: 0)
-                        Button(isInstallingActivityHook ? "Connecting…" : "Connect activity", action: onInstallActivityHook)
-                            .buttonStyle(DSButtonStyle(kind: .primary))
-                            .disabled(isInstallingActivityHook)
-                            .accessibilityIdentifier("antigravity.activeWork.install")
-                    }
-                } else {
-                    activityHookSetup
-                }
+            if !isActivityHookInstalled {
+                activityHookSetup
             } else if let task = visibleActiveTasks.first {
                 workRow(
                     systemImage: "bolt.horizontal.circle",
@@ -855,15 +827,13 @@ struct ClaudeCodeHoverDashboardView: View {
         snapshot?.streakSummary
     }
     private var telemetry: ClaudeCodeTelemetrySnapshot? {
-        snapshot?.antigravityTelemetry?.local ?? snapshot?.claudeTelemetry
+        snapshot?.claudeTelemetry
     }
     private var activeTasks: [ClaudeCodeActiveTask] {
         telemetry?.activeTasks ?? []
     }
     private var visibleActiveTasks: [ClaudeCodeActiveTask] {
-        brand == .antigravity
-            ? activeTasks.filter { now.timeIntervalSince($0.observedAt) < 30 * 60 }
-            : activeTasks
+        activeTasks
     }
     private var activeGoals: [ClaudeCodeActiveGoal] {
         telemetry?.activeGoals.filter { $0.state != .complete } ?? []
@@ -877,9 +847,7 @@ struct ClaudeCodeHoverDashboardView: View {
     private var compactTopModels: [CodexModelTokenUsage] {
         topModels.map {
             CodexModelTokenUsage(
-                model: brand == .antigravity ? $0.model : ClaudeCodeHoverDashboardPresentation.modelLabel(
-                    $0.model
-                ),
+                model: ClaudeCodeHoverDashboardPresentation.modelLabel($0.model),
                 tokens: $0.tokens
             )
         }
@@ -902,7 +870,7 @@ struct ClaudeCodeHoverDashboardView: View {
         )
     }
 
-    private var visibleChartBuckets: [ClaudeCodeUsageChartBucket] {
+    private var visibleChartBuckets: [ProviderDailyUsageChartBucket] {
         ClaudeCodeHoverDashboardPresentation.chartBuckets(
             tokenUsage: snapshot?.tokenUsage,
             dailyCosts: dailyCosts,
@@ -1052,16 +1020,17 @@ struct ClaudeCodeHoverDashboardView: View {
     }
 }
 
-struct ClaudeCodeUsageChartBucket: Identifiable, Equatable, Sendable {
+struct ProviderDailyUsageChartBucket: Identifiable, Equatable, Sendable {
     let startDate: Date
     let value: Double
     let accessibilityValue: String
+    var isAvailable = true
 
     var id: Date { startDate }
 }
 
-private struct ClaudeCodeUsageBars: View {
-    let buckets: [ClaudeCodeUsageChartBucket]
+struct ProviderDailyUsageBars: View {
+    let buckets: [ProviderDailyUsageChartBucket]
     let metric: String
     let accent: Color
     let providerID: String
@@ -1122,7 +1091,7 @@ private struct ClaudeCodeUsageBars: View {
                     Image(systemName: "chart.bar.xaxis")
                         .symbolRenderingMode(.monochrome)
                         .accessibilityHidden(true)
-                    Text(providerID == "antigravity" && metric == "Cost" ? "Antigravity has not reported cost" : "Waiting for real \(metric.lowercased()) data")
+                    Text("Waiting for real \(metric.lowercased()) data")
                         .font(.system(size: 9, weight: .medium))
                 }
                 .foregroundStyle(theme.textTertiary)
@@ -1147,7 +1116,7 @@ private struct ClaudeCodeUsageBars: View {
     }
 
     private func usageColumn(
-        for bucket: ClaudeCodeUsageChartBucket
+        for bucket: ProviderDailyUsageChartBucket
     ) -> some View {
         VStack(spacing: 4) {
             bar(bucket, height: plotHeight)
@@ -1172,26 +1141,42 @@ private struct ClaudeCodeUsageBars: View {
     }
 
     private func bar(
-        _ bucket: ClaudeCodeUsageChartBucket,
+        _ bucket: ProviderDailyUsageChartBucket,
         height: CGFloat
     ) -> some View {
-        let maximum = max(buckets.map(\.value).max() ?? 0, 1)
+        let maximum = max(
+            buckets.filter(\.isAvailable).map(\.value).max() ?? 0,
+            1
+        )
         let fraction = min(max(bucket.value / maximum, 0), 1)
         return VStack(spacing: 0) {
             Spacer(minLength: 0)
-            RoundedRectangle(cornerRadius: 3, style: .continuous)
-                .fill(
-                    bucket.value > 0
-                        ? accent
-                        : theme.dockTrack
-                )
-                .frame(height: bucket.value > 0 ? max(4, height * fraction) : 2)
+            if bucket.isAvailable {
+                RoundedRectangle(cornerRadius: 3, style: .continuous)
+                    .fill(
+                        bucket.value > 0
+                            ? accent
+                            : theme.dockTrack
+                    )
+                    .frame(
+                        height: bucket.value > 0
+                            ? max(4, height * fraction)
+                            : 2
+                    )
+            } else {
+                RoundedRectangle(cornerRadius: 2, style: .continuous)
+                    .stroke(
+                        theme.outlineStrong,
+                        style: StrokeStyle(lineWidth: 0.75, dash: [2, 2])
+                    )
+                    .frame(height: 4)
+            }
         }
         .frame(maxWidth: .infinity)
     }
 
     private var axisMaximum: Double {
-        max(buckets.map(\.value).max() ?? 0, 1)
+        max(buckets.filter(\.isAvailable).map(\.value).max() ?? 0, 1)
     }
 
     private func axisLabel(_ value: Double) -> String {
@@ -1239,7 +1224,7 @@ enum ClaudeCodeHoverDashboardPresentation {
         metric: String,
         now: Date,
         calendar inputCalendar: Calendar = .current
-    ) -> [ClaudeCodeUsageChartBucket] {
+    ) -> [ProviderDailyUsageChartBucket] {
         var calendar = inputCalendar
         calendar.timeZone = .current
         let today = calendar.startOfDay(for: now)
@@ -1262,14 +1247,14 @@ enum ClaudeCodeHoverDashboardPresentation {
             ) else { return nil }
             if metric == "Cost" {
                 let cost = costsByDay[date] ?? 0
-                return ClaudeCodeUsageChartBucket(
+                return ProviderDailyUsageChartBucket(
                     startDate: date,
                     value: cost,
                     accessibilityValue: "\(costLabel(cost)) observed estimated cost"
                 )
             }
             let tokens = tokensByDay[date] ?? 0
-            return ClaudeCodeUsageChartBucket(
+            return ProviderDailyUsageChartBucket(
                 startDate: date,
                 value: Double(tokens),
                 accessibilityValue: "\(tokens.formatted()) tokens"

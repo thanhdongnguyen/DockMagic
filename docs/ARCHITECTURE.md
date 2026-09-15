@@ -26,6 +26,10 @@ Settings uses a native `NavigationSplitView`:
   there are no connection controls.
 - `Claude Code`: quota preview, display style, colors, and widths for the two
   rings; there are no connection controls.
+- `Antigravity`: a Claude Code-style authentication card backed by an embedded
+  official `agy` session, structured model-pool quota from the CLI, shared
+  display controls, and an explicit opt-in for allowlisted local `statusLine`
+  session metrics. Authentication state is not overlaid on the Dock preview.
 
 ## 2. Ownership
 
@@ -58,8 +62,13 @@ Settings uses a native `NavigationSplitView`:
 | `ClaudeCodeStatusLineBridge` | Installs/removes the status-line wrapper and preserves the previous configuration |
 | `ClaudeCodeStatusLineRateLimitProvider` | Reads and parses only the local `rate_limits` cache |
 | `ClaudeCodeHoverDashboardView` | Renders quota rows, next reset, snapshot freshness, and all availability states without reading private session data |
+| `AntigravityUsageStore` | Polls official model-pool quota, ingests optional status-line observations, owns freshness, and derives bounded partial daily usage |
+| `AntigravityCLIUsageProvider` | Resolves `agy`, launches the fixed documented `/usage` command, and schema-gates structured quota buckets without parsing prose |
+| `AntigravityConnectionSettingsView` | Presents missing-CLI, signed-out, checking, connected, stale, and failed states and hosts the unmodified interactive `agy` session for browser sign-in or `/logout` |
+| `AntigravityStatusLineBridge` / `AntigravityStatusLineReader` | Preserve the prior command, write/read only allowlisted private snapshots, and hash raw session identifiers |
+| `AntigravityHoverDashboardView` | Renders all quota pools plus clearly labelled partial local context, activity, and streak observations |
 | `DockTileController` | Renders the canonical high-resolution application icon, publishes minute-boundary Clock animation frames, and calls `NSDockTile.display()` |
-| `DockMetricsView` / `DockNetworkView` / `DockStorageView` / `DockWeatherView` / `DockClockView` / `DockBatteryView` / `DockGitHubView` / `CodexDockView` | Pure renderers driven by input models and appearance |
+| `DockMetricsView` / `DockNetworkView` / `DockStorageView` / `DockWeatherView` / `DockClockView` / `DockBatteryView` / `DockGitHubView` / `CodexDockView` / `DockAntigravityView` | Pure renderers driven by input models and appearance |
 | `SettingsView` | Preference UI; does not create timers or call Mach APIs |
 | `DesignSystem` / `ProjectTheme` | Tokens, components, semantic palette, and appearance-aware theme root |
 
@@ -101,8 +110,10 @@ flowchart LR
     A -->|"GitHub active"| G["GitHubRepositoryStore 15 min"]
     A -->|"background token observation"| C["CodexUsageStore 5 min"]
     A -->|"background when bridge exists"| L["ClaudeCodeUsageStore 15 s"]
+    A -->|"active or optional bridge exists"| Q["AntigravityUsageStore 15 s / quota 5 min"]
     C --> T["TokenUsageStreakStore / SwiftData"]
     L --> T
+    Q --> T
     M --> D["DockTilePresentation"]
     M --> X["SystemMetricsHoverDashboardView"]
     R --> D
@@ -114,19 +125,23 @@ flowchart LR
     G --> D
     C --> D
     L --> D
+    Q --> D
     P --> D
     D --> H["DockTileController"]
     H --> N["NSDockTile.display()"]
     L --> V["ClaudeCodeHoverDashboardView"]
+    Q --> Z["AntigravityHoverDashboardView"]
     P --> V
+    P --> Z
 ```
 
 When the feature changes, the coordinator stops the previous feature-bound
 provider before starting the new one. Codex observation remains active in the
-background, and Claude Code observation remains active whenever DockMagic's
-status-line bridge is installed, so switching the visible Dock feature cannot
-silently skip a streak day. All `start()` and `stop()` operations are
-idempotent. When the appearance preference, effective macOS Light/Dark
+background. Claude Code observation remains active whenever DockMagic's
+status-line bridge is installed; Antigravity does the same only after its
+optional bridge is connected. Switching the visible Dock feature therefore
+does not silently skip an observable streak day. All `start()` and `stop()`
+operations are idempotent. When the appearance preference, effective macOS Light/Dark
 appearance, or accessibility display options change, the Dock controller
 re-hosts the current presentation with the new theme and redraws immediately
 without waiting for the next sample.
@@ -446,7 +461,7 @@ background even when another Dock feature is selected. Without the bridge,
 DockMagic does not install it merely to collect streak data; automatic setup
 still occurs when the user selects Claude Code and has not opted out.
 
-Codex and Claude Code are inputs, not streak authorities. On every successful
+Codex, Claude Code, and Antigravity are inputs, not streak authorities. On every successful
 usage observation, `TokenUsageStreakStore` checks only the matching provider's
 bucket for the current local day. Positive usage is upserted into SwiftData
 under `provider|YYYY-MM-DD`; zero or missing usage does not create a record.
@@ -455,7 +470,69 @@ from these records. Repeated polling remains idempotent, providers never merge
 into one streak, and a missed persisted day breaks only the current run. The
 best run and earned badges remain available after a reset.
 
-## 13. Dock rendering
+## 13. Antigravity quota and session observations
+
+Antigravity quota uses the official local CLI extension point:
+
+```text
+agy -p /usage --output-format json --print-timeout 30s
+```
+
+DockMagic disables CLI auto-update for the child process, uses the CLI's
+existing authentication, and requires a successful JSON envelope whose
+`command.name` is `usage`. It reads only
+`command.data.groups[].buckets[]`, preserving every reported group as a
+separate pool. `remaining_fraction` is remaining quota; exact zero means
+exhausted. Known weekly and five-hour window labels are normalized, while an
+unknown window remains provider-labelled rather than being substituted.
+Human-readable response text is never parsed. Quota refreshes every five
+minutes and becomes stale after fifteen minutes.
+
+Settings derives a separate authentication state from CLI discovery and the
+headless `/usage` result. When signed out, the user can launch the installed
+`agy` executable in an embedded PTY; `agy` owns browser sign-in and its keyring
+session. The PTY remains first-responder capable so the user can type or paste
+the Antigravity code with standard terminal input; an explicit paste action
+forwards the current text clipboard directly to SwiftTerm without storing it in
+SwiftUI state. Sign-out uses the same interactive CLI, where the user enters
+the documented `/logout` command. DockMagic injects no credential and reads no
+credential store. On completion or cancellation it reruns the fixed `/usage`
+probe to resolve the resulting state. The Dock preview remains a pure renderer
+and carries no installation/authentication button overlay.
+
+The optional session connection installs a wrapper around Antigravity's
+documented `statusLine` command. Before writing under
+`~/.gemini/dockmagic-antigravity/`, the wrapper allowlists model/plan labels,
+context token counters/percentages, agent/execution state, bounded task fields,
+CLI version, and observation time. It discards email, current/project paths,
+transcript path/content, VCS and sandbox data, raw IDs, and unknown future
+fields. The raw conversation/session ID is transformed into a SHA-256 filename.
+An existing status-line command is backed up and receives the same bounded
+payload after DockMagic captures its subset; disconnect restores it only while
+DockMagic still owns the setting.
+
+Successive total input/output counters create daily activity only for positive
+deltas from the same hashed session on the same local day. The first sample,
+counter decreases, cross-day changes, and model changes establish or update a
+baseline without inventing attribution. Model totals require the model to be
+unchanged across the delta. The 30-day result is always labelled partial because
+it misses activity before setup and while DockMagic is not observing events.
+A partial-aware chart and intensity grid render days without an observed bucket
+as unavailable dashed marks rather than zero. Top models use only attributed
+deltas, and streak plus Ship momentum are derived from the same provider-local
+ledger; Ship momentum is unavailable until the current local day has an
+explicit observed token bucket.
+A session older than 15 minutes is no longer presented as current; active work
+expires after 30 minutes. Account lifetime/hourly totals, cost, reasoning/tool
+tokens, goals, and service health are omitted because no eligible official
+passive source was established. Activity-card export is capability-gated on an
+explicit current-day observation plus enough retained daily samples to render
+a meaningful partial-history chart; the card labels those values as locally
+observed and never exports session identifiers or content. The complete
+evidence and field classification are in
+[ANTIGRAVITY_USAGE.md](ANTIGRAVITY_USAGE.md).
+
+## 14. Dock rendering
 
 `DockTileController` installs one `NSHostingView` into
 `NSApp.dockTile.contentView` and retains that host for the app's lifetime. It
@@ -464,8 +541,10 @@ needs refreshing, then calls `display()` on the main actor.
 
 - The CPU, Codex five-hour, and Claude Code five-hour metrics use the outer
   ring; RAM, Codex weekly, and Claude Code weekly metrics use the inner ring.
-  Storage uses one ring. Network uses a diverging chart around a baseline.
-  Weather uses a condition symbol and temperature instead of the ring metaphor.
+  Antigravity maps up to two provider-reported pools to the shared outer/inner
+  layout without merging them. Storage uses one ring. Network uses a diverging
+  chart around a baseline. Weather uses a condition symbol and temperature
+  instead of the ring metaphor.
 - Dock Network is limited to 30 samples and uses one scale for upload and
   download; zero and unavailable states have distinct symbols to avoid drawing
   a false chart.
@@ -485,7 +564,7 @@ needs refreshing, then calls `display()` on the main actor.
 The Settings preview uses the same production renderer but allows short
 animations to provide immediate interaction feedback.
 
-## 14. Persistence and privacy
+## 15. Persistence and privacy
 
 `UserDefaults` stores only:
 
@@ -495,12 +574,14 @@ animations to provide immediate interaction feedback.
 - the Clock display style, current-time-zone choice, and selected IANA
   identifier;
 - RGBA values, stroke widths, and Chart/Numbers display styles for CPU/RAM,
-  Storage, Codex, and Claude Code;
+  Storage, Codex, Claude Code, and Antigravity;
 - RGBA values for the Network download and upload series;
 - the GitHub repository URL, star/fork colors, display style, and up to seven
   days of count/timestamp history with its ETag;
 - the last successful Weather snapshot;
 - the Codex executable override, if present.
+- Antigravity's last structured quota snapshot, hashed counter baselines, and
+  positive partial daily/model totals for at most 30 local calendar days.
 
 Real-time metric samples, Network history, prompts, and account metadata are not
 persisted in the app container. The optional GitHub access token is persisted
@@ -512,8 +593,14 @@ history. The Codex app-server uses the login session owned by the Codex CLI.
 The Claude Code bridge persists a minimal usage snapshot because the status
 line delivers data only in response to events; the file contains only the two
 `rate_limits` windows and is deleted when the bridge is removed.
+Antigravity uses the sign-in owned by `agy` without reading credentials. The
+Settings PTY runs only the installed executable; browser authentication,
+keyring persistence, and interactive `/logout` remain inside the official CLI.
+Its optional bridge persists only the allowlisted session fields described
+above with private permissions; prompts, answers, transcripts, paths, email,
+and raw session identifiers never enter DockMagic's cache.
 
-## 15. Threading and failure containment
+## 16. Threading and failure containment
 
 Stores, the app model, and the AppKit bridge are `@MainActor`. Mach, network,
 and file-system reads and process I/O are encapsulated behind protocols so they
@@ -524,7 +611,7 @@ loop.
 Provider or process failures must become descriptive UI states. They must not
 crash the app or leave another feature running in the background.
 
-## 16. Verification contract
+## 17. Verification contract
 
 Every change must be checked according to its risk:
 
@@ -537,7 +624,7 @@ Every change must be checked according to its risk:
    Reduce Motion settled state; the
    Weather hover dashboard in Light, Dark, Increased Contrast, Reduce
    Transparency, grayscale, live/stale/loading/unavailable states; Network and
-   Storage; and CPU, Codex, and Claude Code in
+   Storage; and CPU, Codex, Claude Code, and Antigravity in
    loading/live/weekly-only/stale/error states, including Chart and Numbers at
    multiple tile sizes.
 3. UI: launch Settings with glass chrome, three appearance options, every

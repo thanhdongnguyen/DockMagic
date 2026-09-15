@@ -1,0 +1,38 @@
+[
+  {
+    "file" : "assets\/07-loop.png",
+    "height" : 1254,
+    "method" : "border-connected neutral-background flood fill; preserved all retained RGBA pixels",
+    "removedExteriorPixels" : 708228,
+    "retainedPixelsChanged" : 0,
+    "source" : "references\/opaque-originals\/07-loop.png",
+    "width" : 1254
+  },
+  {
+    "file" : "assets\/60-navigator.png",
+    "height" : 1254,
+    "method" : "border-connected neutral-background flood fill; preserved all retained RGBA pixels",
+    "removedExteriorPixels" : 716455,
+    "retainedPixelsChanged" : 0,
+    "source" : "references\/opaque-originals\/60-navigator.png",
+    "width" : 1254
+  },
+  {
+    "file" : "assets\/365-keystone.png",
+    "height" : 1254,
+    "method" : "border-connected neutral-background flood fill; preserved all retained RGBA pixels",
+    "removedExteriorPixels" : 672213,
+    "retainedPixelsChanged" : 0,
+    "source" : "references\/opaque-originals\/365-keystone.png",
+    "width" : 1254
+  },
+  {
+    "file" : "assets\/730-continuum.png",
+    "height" : 1254,
+    "method" : "border-connected neutral-background flood fill; preserved all retained RGBA pixels",
+    "removedExteriorPixels" : 657872,
+    "retainedPixelsChanged" : 0,
+    "source" : "references\/opaque-originals\/730-continuum.png",
+    "width" : 1254
+  }
+]

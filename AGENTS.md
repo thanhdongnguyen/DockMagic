@@ -17,3 +17,9 @@
 - Keep user-selected and data-series colors inside their renderer, preview, swatch, and legend boundaries. Never reuse them for chrome, selection, focus, buttons, or status.
 - Use semantic `DesignTheme` roles and shared components. Do not add direct RGB, hex, system color names, or asset lookups in feature views when a semantic role exists.
 - Verify changed UI in Light, Dark, Increased Contrast, Reduce Transparency, and grayscale. State, selection, and data must not depend on color alone.
+
+## AI provider features
+
+- Treat `docs/AI_PROVIDER_FEATURE_CONTRACT.md` as the normative product and data contract when researching, designing, implementing, or reviewing an AI provider integration.
+- Classify each candidate metric as supported, unsupported, unknown, or prohibited before adding UI. Never convert absence into zero, infer quota from activity, or substitute one provider/window/model bucket for another.
+- Use `.codex/skills/ai-provider-integration/SKILL.md` for the repeatable provider research and implementation workflow; keep durable product rules in the contract instead of duplicating them in the skill.

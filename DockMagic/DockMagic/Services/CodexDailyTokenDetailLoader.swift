@@ -185,7 +185,8 @@ struct CodexLocalDailyTokenDetailReader: Sendable {
             ORDER BY created_at ASC, id ASC;
             """
         let process = Process()
-        let output = Pipe()
+        guard let output = try? ProcessPipe() else { return nil }
+        defer { output.close() }
         process.executableURL = URL(fileURLWithPath: "/usr/bin/sqlite3")
         process.arguments = [
             "-readonly",
@@ -193,11 +194,12 @@ struct CodexLocalDailyTokenDetailReader: Sendable {
             stateDatabaseURL.path,
             query
         ]
-        process.standardOutput = output
+        process.standardOutput = output.fileHandleForWriting
         process.standardError = FileHandle.nullDevice
 
         do {
             try process.run()
+            output.closeWriteEnd()
             // Drain stdout before waiting so a large history cannot fill the
             // pipe buffer and block sqlite3 from terminating.
             let data = output.fileHandleForReading.readDataToEndOfFile()

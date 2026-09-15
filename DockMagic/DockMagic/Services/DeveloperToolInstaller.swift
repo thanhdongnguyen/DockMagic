@@ -188,15 +188,29 @@ struct FoundationInstallerProcessRunner: InstallerProcessRunning {
                 }
 
                 let process = Process()
-                let outputPipe = Pipe()
+                let outputPipe = try ProcessPipe()
+                defer { outputPipe.close() }
                 let timeoutState = InstallerProcessTimeoutState()
 
                 process.executableURL = executableURL
                 process.arguments = arguments
                 process.environment = environment
-                process.standardOutput = outputPipe
-                process.standardError = outputPipe
+                process.standardOutput = outputPipe.fileHandleForWriting
+                process.standardError = outputPipe.fileHandleForWriting
 
+                do {
+                    try process.run()
+                    outputPipe.closeWriteEnd()
+                    cancellation.install(process)
+                } catch {
+                    throw DeveloperToolInstallerError.installerLaunchFailed(
+                        error.localizedDescription
+                    )
+                }
+                defer { cancellation.clear(process) }
+
+                // Create the timer only after launch succeeds. Releasing a
+                // suspended dispatch source on a failed launch can itself crash.
                 let timeoutTimer = DispatchSource.makeTimerSource(
                     queue: DispatchQueue.global(qos: .utility)
                 )
@@ -208,16 +222,8 @@ struct FoundationInstallerProcessRunner: InstallerProcessRunning {
                     }
                 }
 
-                do {
-                    try process.run()
-                    cancellation.install(process)
-                } catch {
-                    throw DeveloperToolInstallerError.installerLaunchFailed(
-                        error.localizedDescription
-                    )
-                }
-                defer { cancellation.clear(process) }
                 timeoutTimer.resume()
+                defer { timeoutTimer.cancel() }
 
                 let outputData = outputPipe.fileHandleForReading
                     .readDataToEndOfFile()
@@ -328,10 +334,12 @@ struct DeveloperToolInstaller: DeveloperToolInstalling {
         let url: URL
         let allowedHosts: Set<String>
         let shellURL: URL
+        let arguments: [String]
     }
 
     private let codexLocator: any CodexExecutableLocating
     private let claudeCodeLocator: any ClaudeCodeExecutableLocating
+    private let antigravityLocator: any AntigravityExecutableLocating
     private let downloader: any InstallerScriptDownloading
     private let processRunner: any InstallerProcessRunning
     private let fileManager: FileManager
@@ -342,6 +350,8 @@ struct DeveloperToolInstaller: DeveloperToolInstalling {
         codexLocator: any CodexExecutableLocating = CodexExecutableLocator(),
         claudeCodeLocator: any ClaudeCodeExecutableLocating =
             ClaudeCodeExecutableLocator(),
+        antigravityLocator: any AntigravityExecutableLocating =
+            AntigravityExecutableLocator(),
         downloader: any InstallerScriptDownloading =
             URLSessionInstallerScriptDownloader(),
         processRunner: any InstallerProcessRunning =
@@ -352,6 +362,7 @@ struct DeveloperToolInstaller: DeveloperToolInstalling {
     ) {
         self.codexLocator = codexLocator
         self.claudeCodeLocator = claudeCodeLocator
+        self.antigravityLocator = antigravityLocator
         self.downloader = downloader
         self.processRunner = processRunner
         self.fileManager = fileManager
@@ -373,6 +384,8 @@ struct DeveloperToolInstaller: DeveloperToolInstalling {
             }
         case .claudeCode:
             return try claudeCodeLocator.locate()
+        case .antigravity:
+            return try antigravityLocator.locate()
         }
     }
 
@@ -416,7 +429,7 @@ struct DeveloperToolInstaller: DeveloperToolInstalling {
 
         let result = try await processRunner.run(
             executableURL: definition.shellURL,
-            arguments: [scriptURL.path],
+            arguments: [scriptURL.path] + definition.arguments,
             environment: installEnvironment,
             timeout: 5 * 60
         )
@@ -461,13 +474,22 @@ struct DeveloperToolInstaller: DeveloperToolInstalling {
             InstallerDefinition(
                 url: URL(string: "https://chatgpt.com/codex/install.sh")!,
                 allowedHosts: ["chatgpt.com", "releases.openai.com"],
-                shellURL: URL(fileURLWithPath: "/bin/sh")
+                shellURL: URL(fileURLWithPath: "/bin/sh"),
+                arguments: []
             )
         case .claudeCode:
             InstallerDefinition(
                 url: URL(string: "https://claude.ai/install.sh")!,
                 allowedHosts: ["claude.ai", "downloads.claude.ai"],
-                shellURL: URL(fileURLWithPath: "/bin/bash")
+                shellURL: URL(fileURLWithPath: "/bin/bash"),
+                arguments: []
+            )
+        case .antigravity:
+            InstallerDefinition(
+                url: URL(string: "https://antigravity.google/cli/install.sh")!,
+                allowedHosts: ["antigravity.google"],
+                shellURL: URL(fileURLWithPath: "/bin/sh"),
+                arguments: []
             )
         }
     }

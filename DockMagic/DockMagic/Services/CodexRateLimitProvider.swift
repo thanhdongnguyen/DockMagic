@@ -179,14 +179,18 @@ struct CodexAppServerRateLimitProvider: CodexRateLimitProviding {
         }
 
         let process = Process()
-        let standardInput = Pipe()
-        let standardOutput = Pipe()
+        let standardInput = try ProcessPipe()
+        let standardOutput = try ProcessPipe()
+        defer {
+            standardInput.close()
+            standardOutput.close()
+        }
         let timeoutState = ProcessTimeoutState()
 
         process.executableURL = executableURL
         process.arguments = ["app-server", "--stdio"]
-        process.standardInput = standardInput
-        process.standardOutput = standardOutput
+        process.standardInput = standardInput.fileHandleForReading
+        process.standardOutput = standardOutput.fileHandleForWriting
         process.standardError = FileHandle.nullDevice
 
         var environment = ProcessInfo.processInfo.environment
@@ -197,6 +201,8 @@ struct CodexAppServerRateLimitProvider: CodexRateLimitProviding {
 
         do {
             try process.run()
+            standardInput.closeReadEnd()
+            standardOutput.closeWriteEnd()
             cancellation.install(process)
         } catch {
             throw CodexRateLimitProviderError.launchFailed(
@@ -516,7 +522,8 @@ struct CodexLocalModelUsageReader: Sendable {
             ORDER BY SUM(tokens_used) DESC, model COLLATE NOCASE ASC;
             """
         let process = Process()
-        let output = Pipe()
+        guard let output = try? ProcessPipe() else { return nil }
+        defer { output.close() }
         process.executableURL = URL(fileURLWithPath: "/usr/bin/sqlite3")
         process.arguments = [
             "-readonly",
@@ -525,18 +532,21 @@ struct CodexLocalModelUsageReader: Sendable {
             stateDatabaseURL.path,
             query
         ]
-        process.standardOutput = output
+        process.standardOutput = output.fileHandleForWriting
         process.standardError = FileHandle.nullDevice
 
+        let data: Data
         do {
             try process.run()
+            output.closeWriteEnd()
+            // Drain before waiting: sqlite3 can fill stdout on large histories.
+            data = try output.fileHandleForReading.readToEnd() ?? Data()
             process.waitUntilExit()
         } catch {
+            if process.isRunning { process.terminate() }
             return nil
         }
         guard process.terminationStatus == 0 else { return nil }
-
-        let data = output.fileHandleForReading.readDataToEndOfFile()
         guard let value = String(data: data, encoding: .utf8) else {
             return nil
         }

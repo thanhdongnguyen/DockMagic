@@ -1,123 +1,177 @@
 import Foundation
-import CoreFoundation
 
-/// A quota bucket is independent of token/cost telemetry. Legacy IDEs do not
-/// identify the window duration, so `kind == nil` deliberately means unknown.
 struct AntigravityQuotaBucket: Codable, Equatable, Identifiable, Sendable {
     let id: String
+    let groupName: String
     let title: String
-    let kind: CodexRateLimitWindowKind?
-    let remainingFraction: Double?
+    let description: String?
+    let windowDurationMinutes: Int?
+    let remainingFraction: Double
     let resetsAt: Date?
-    let resetDescription: String?
 
     var shortTitle: String {
-        switch kind {
-        case .fiveHour: "5H"
-        case .weekly: "7D"
-        case nil: "QUOTA"
+        let normalized = "\(id) \(groupName)".lowercased()
+        if normalized.contains("gemini") { return "GEM" }
+        if normalized.contains("3p")
+            || normalized.contains("claude")
+            || normalized.contains("gpt") {
+            return "3P"
         }
+        return windowDurationMinutes == 10_080 ? "7D" : "Q"
     }
 
-    var normalizedWindow: CodexRateLimitWindow? {
-        guard let kind, let remainingFraction else { return nil }
-        return CodexRateLimitWindow(
-            kind: kind,
-            usedPercent: Int(((1 - remainingFraction) * 100).rounded()),
-            windowDurationMinutes: kind == .fiveHour ? 300 : 10_080,
-            resetsAt: resetsAt
+    var windowTitle: String {
+        switch windowDurationMinutes {
+        case 300: "5-hour"
+        case 10_080: "Weekly"
+        case nil: title
+        default: title
+        }
+    }
+}
+
+struct AntigravityQuotaSnapshot: Codable, Equatable, Sendable {
+    let buckets: [AntigravityQuotaBucket]
+    let fetchedAt: Date
+    let cliVersion: String?
+
+    var dockBuckets: [AntigravityQuotaBucket] {
+        Array(buckets.prefix(2))
+    }
+}
+
+struct AntigravityContextUsage: Codable, Equatable, Sendable {
+    let totalInputTokens: Int64?
+    let totalOutputTokens: Int64?
+    let contextWindowSize: Int64?
+    let usedPercent: Double?
+    let remainingPercent: Double?
+    let currentInputTokens: Int64?
+    let currentOutputTokens: Int64?
+    let cacheCreationInputTokens: Int64?
+    let cacheReadInputTokens: Int64?
+
+    var observedTotalTokens: Int64? {
+        guard totalInputTokens != nil || totalOutputTokens != nil else {
+            return nil
+        }
+        return (totalInputTokens ?? 0) + (totalOutputTokens ?? 0)
+    }
+}
+
+struct AntigravitySessionSnapshot: Codable, Equatable, Identifiable, Sendable {
+    let id: String
+    let modelID: String?
+    let modelDisplayName: String?
+    let cliVersion: String?
+    let planTier: String?
+    let agentState: String?
+    let executionMode: String?
+    let taskCount: Int?
+    let artifactCount: Int?
+    let pendingInputCount: Int?
+    let toolConfirmationPending: Bool
+    let context: AntigravityContextUsage?
+    let observedAt: Date
+
+    var isActiveWork: Bool {
+        toolConfirmationPending
+            || (taskCount ?? 0) > 0
+            || ![nil, "", "idle"].contains(agentState?.lowercased())
+    }
+
+    var modelLabel: String? {
+        modelDisplayName ?? modelID
+    }
+}
+
+struct AntigravityUsageSnapshot: Codable, Equatable, Sendable {
+    let quota: AntigravityQuotaSnapshot?
+    let tokenUsage: CodexAccountTokenUsage?
+    let streakSummary: TokenUsageStreakSummary?
+    let currentSession: AntigravitySessionSnapshot?
+    let activeSessionCount: Int
+    let historyIsPartial: Bool
+    let fetchedAt: Date
+
+    var planType: String? { currentSession?.planTier }
+    var cliVersion: String? { currentSession?.cliVersion ?? quota?.cliVersion }
+    var dockBuckets: [AntigravityQuotaBucket] { quota?.dockBuckets ?? [] }
+
+    func withStreakSummary(_ summary: TokenUsageStreakSummary) -> Self {
+        Self(
+            quota: quota,
+            tokenUsage: tokenUsage,
+            streakSummary: summary,
+            currentSession: currentSession,
+            activeSessionCount: activeSessionCount,
+            historyIsPartial: historyIsPartial,
+            fetchedAt: fetchedAt
         )
     }
 }
 
-struct AntigravityQuotaGroup: Codable, Equatable, Identifiable, Sendable {
-    let id: String
-    let title: String
-    let buckets: [AntigravityQuotaBucket]
+enum AntigravityUsageState: Equatable, Sendable {
+    case idle
+    case loading
+    case live(AntigravityUsageSnapshot)
+    case stale(AntigravityUsageSnapshot, message: String)
+    case unavailable(message: String)
 
-    var lowestRemaining: Double? { buckets.compactMap(\.remainingFraction).min() }
-}
+    var snapshot: AntigravityUsageSnapshot? {
+        switch self {
+        case let .live(snapshot), let .stale(snapshot, _): snapshot
+        case .idle, .loading, .unavailable: nil
+        }
+    }
 
-struct AntigravityQuotaSnapshot: Codable, Equatable, Sendable {
-    let groups: [AntigravityQuotaGroup]
-    let plan: String?
-    let source: String
-    let observedAt: Date
-
-    func selectedGroup(_ id: String) -> AntigravityQuotaGroup? {
-        if id != "auto" { return groups.first { $0.id == id } }
-        return groups.min {
-            ($0.lowestRemaining ?? 2, $0.id) < ($1.lowestRemaining ?? 2, $1.id)
+    var statusTitle: String {
+        switch self {
+        case .idle: "Not connected"
+        case .loading: "Loading"
+        case .live: "Live"
+        case .stale: "Last known"
+        case .unavailable: "Unavailable"
         }
     }
 }
 
-struct AntigravityTelemetrySnapshot: Codable, Equatable, Sendable {
-    let quota: AntigravityQuotaSnapshot?
-    let selectedGroupID: String
-    /// Shared normalized session/task/cost fields; the legacy type name is kept
-    /// for backwards-compatible Claude cache decoding.
-    let local: ClaudeCodeTelemetrySnapshot?
-    let diagnostic: String?
-
-    var selectedGroup: AntigravityQuotaGroup? {
-        quota?.selectedGroup(selectedGroupID)
-    }
+enum AntigravityConnectionState: Equatable, Sendable {
+    case cliMissing
+    case checking
+    case signedOut
+    case signingIn
+    case signingOut
+    case connected(lastUpdated: Date)
+    case stale(lastSnapshot: AntigravityUsageSnapshot, message: String)
+    case failed(message: String)
 }
 
-enum AntigravityDataError: LocalizedError {
-    case notRunning
-    case unavailable
+enum AntigravityUsageError: LocalizedError, Equatable {
+    case executableNotFound
+    case commandFailed
+    case signedOut
+    case invalidResponse
+    case unsupportedResponse
     case invalidConfiguration
     case bridgeConflict
-    case missingPython
 
     var errorDescription: String? {
         switch self {
-        case .notRunning:
-            "Open Antigravity and sign in, or enable the local CLI bridge to receive usage."
-        case .unavailable:
-            "Antigravity did not return quota. Open its usage panel, then refresh."
+        case .executableNotFound:
+            "Antigravity CLI is not installed. Install agy to load usage."
+        case .commandFailed:
+            "Antigravity usage could not be refreshed. Try again after checking agy."
+        case .signedOut:
+            "Sign in to agy, then refresh Antigravity usage."
+        case .invalidResponse:
+            "agy returned an invalid usage response. Existing data was preserved."
+        case .unsupportedResponse:
+            "This agy version does not expose structured quota data. Update agy and try again."
         case .invalidConfiguration:
             "Antigravity settings could not be read. Existing settings were preserved."
         case .bridgeConflict:
-            "The DockMagic integration configuration was changed externally. Restore it before reconnecting."
-        case .missingPython:
-            "The local bridge requires Python 3. Install Apple's command line tools, then reconnect."
+            "The Antigravity status-line configuration changed outside DockMagic. Review it before reconnecting."
         }
-    }
-}
-
-enum AntigravityJSON {
-    static func number(_ value: Any?) -> Double? {
-        guard let number = value as? NSNumber,
-              CFGetTypeID(number) != CFBooleanGetTypeID(),
-              number.doubleValue.isFinite else { return nil }
-        return number.doubleValue
-    }
-
-    static func count(_ value: Any?) -> Int64? {
-        guard let value = number(value), value >= 0,
-              value < Double(Int64.max), value.rounded(.down) == value else { return nil }
-        return Int64(value)
-    }
-
-    static func date(_ value: Any?) -> Date? {
-        if let value = number(value), value > 0 {
-            return Date(timeIntervalSince1970: value > 10_000_000_000 ? value / 1000 : value)
-        }
-        guard let text = value as? String else { return nil }
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        if let date = formatter.date(from: text) { return date }
-        formatter.formatOptions = [.withInternetDateTime]
-        return formatter.date(from: text)
-    }
-
-    static func text(_ value: Any?, limit: Int = 160) -> String? {
-        guard let value = value as? String else { return nil }
-        let clean = value.unicodeScalars.filter { !CharacterSet.controlCharacters.contains($0) }
-        let result = String(String.UnicodeScalarView(clean)).trimmingCharacters(in: .whitespacesAndNewlines)
-        return result.isEmpty ? nil : String(result.prefix(limit))
     }
 }

@@ -5,6 +5,7 @@ struct CodexDailyTokenDetailView: View {
     let accountBucket: CodexTokenUsageDailyBucket
     let detail: CodexDailyTokenDetail?
     let loadState: CodexDailyTokenDetailLoadState
+    var providerName: String = "Codex"
     let onBack: @MainActor () -> Void
 
     @Environment(\.designTheme) private var theme
@@ -22,9 +23,9 @@ struct CodexDailyTokenDetailView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .accessibilityElement(children: .contain)
         .accessibilityLabel(
-            "Codex token detail for \(Self.fullDateLabel(accountBucket.startDate))"
+            "\(providerName) token detail for \(Self.fullDateLabel(accountBucket.startDate))"
         )
-        .accessibilityIdentifier("codex.dailyDetail")
+        .accessibilityIdentifier("\(providerID).dailyDetail")
     }
 
     private var header: some View {
@@ -55,7 +56,7 @@ struct CodexDailyTokenDetailView: View {
                 .buttonStyle(.plain)
                 .help("Back to Daily tokens")
                 .accessibilityLabel("Back to Daily tokens")
-                .accessibilityIdentifier("codex.dailyDetail.back")
+                .accessibilityIdentifier("\(providerID).dailyDetail.back")
 
                 Spacer(minLength: 0)
             }
@@ -65,7 +66,7 @@ struct CodexDailyTokenDetailView: View {
 
     private var summary: some View {
         HStack {
-            Text(Self.tokenLabel(localUsage.totalTokens))
+            Text(Self.tokenLabel(accountBucket.tokens))
                 .font(.system(size: 25, weight: .bold, design: .rounded))
                 .foregroundStyle(theme.textPrimary)
                 .monospacedDigit()
@@ -94,6 +95,21 @@ struct CodexDailyTokenDetailView: View {
                 }
                 .accessibilityElement(children: .combine)
                 .accessibilityLabel("Loading token detail")
+            } else if let detailErrorMessage {
+                VStack(spacing: 5) {
+                    Image(systemName: "exclamationmark.triangle")
+                        .symbolRenderingMode(.monochrome)
+                        .foregroundStyle(theme.warningForeground)
+                        .accessibilityHidden(true)
+                    Text(detailErrorMessage)
+                        .font(.system(size: 9, weight: .semibold))
+                        .foregroundStyle(theme.textSecondary)
+                        .multilineTextAlignment(.center)
+                        .lineLimit(3)
+                }
+                .padding(.horizontal, 24)
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel(detailErrorMessage)
             }
         }
         .frame(height: 142)
@@ -108,32 +124,41 @@ struct CodexDailyTokenDetailView: View {
             HStack(alignment: .firstTextBaseline, spacing: 10) {
                 metric(
                     title: "Input",
-                    value: Self.tokenLabel(localUsage.inputTokens)
+                    value: localUsage.map { Self.tokenLabel($0.inputTokens) }
+                        ?? "—"
                 )
 
                 Spacer(minLength: 4)
 
                 metric(
                     title: "Output",
-                    value: Self.tokenLabel(localUsage.outputTokens)
+                    value: localUsage.map { Self.tokenLabel($0.outputTokens) }
+                        ?? "—"
                 )
             }
 
-            HStack(spacing: 5) {
-                Image(systemName: "arrow.turn.down.right")
-                    .symbolRenderingMode(.monochrome)
-                    .font(.system(size: 8, weight: .semibold))
-                    .foregroundStyle(theme.textTertiary)
-                    .accessibilityHidden(true)
-
-                Text(cachedInputLabel)
-                    .font(.system(size: 9, weight: .semibold))
-                    .foregroundStyle(theme.textSecondary)
-                    .monospacedDigit()
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                compactMetric(
+                    title: "Cached input",
+                    value: localUsage.map {
+                        Self.tokenLabel($0.cachedInputTokens)
+                    } ?? "—"
+                )
+                Spacer(minLength: 2)
+                compactMetric(
+                    title: "Reasoning",
+                    value: localUsage.map {
+                        Self.tokenLabel($0.reasoningOutputTokens)
+                    } ?? "—"
+                )
+                Spacer(minLength: 2)
+                compactMetric(
+                    title: "Tool",
+                    value: localUsage.map {
+                        Self.tokenLabel($0.toolTokens)
+                    } ?? "—"
+                )
             }
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel("Cached input")
-            .accessibilityValue(cachedInputAccessibilityValue)
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 7)
@@ -201,6 +226,19 @@ struct CodexDailyTokenDetailView: View {
         }
     }
 
+    private func compactMetric(title: String, value: String) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 3) {
+            Text(title)
+                .font(.system(size: 8, weight: .semibold))
+                .foregroundStyle(theme.textSecondary)
+            Text(value)
+                .font(.system(size: 9, weight: .bold, design: .rounded))
+                .foregroundStyle(theme.textPrimary)
+                .monospacedDigit()
+        }
+        .accessibilityElement(children: .combine)
+    }
+
     private func modelRow(_ model: CodexDailyModelTokenUsage) -> some View {
         VStack(spacing: 4) {
             HStack(alignment: .firstTextBaseline, spacing: 6) {
@@ -260,8 +298,8 @@ struct CodexDailyTokenDetailView: View {
             .accessibilityHidden(true)
     }
 
-    private var localUsage: CodexTokenBreakdown {
-        detail?.usage ?? .zero
+    private var localUsage: CodexTokenBreakdown? {
+        detail?.usage
     }
 
     private var isLoading: Bool {
@@ -275,11 +313,30 @@ struct CodexDailyTokenDetailView: View {
             "Loading model detail…"
         case let .failed(message):
             message.isEmpty
-                ? "Codex sessions could not be read."
+                ? "\(providerName) sessions could not be read."
                 : "Token detail unavailable: \(message)"
         case .idle, .loaded:
-            "No model detail was found in Codex sessions."
+            "No model detail was found in \(providerName) sessions."
         }
+    }
+
+    private var detailErrorMessage: String? {
+        switch loadState {
+        case let .failed(message):
+            return message.isEmpty
+                ? "Token detail is unavailable."
+                : "Token detail unavailable: \(message)"
+        case .loaded(nil):
+            return "No matching local detail was found for this day."
+        case .idle where detail == nil:
+            return "No matching local detail was found for this day."
+        case .idle, .loading, .loaded:
+            return nil
+        }
+    }
+
+    private var providerID: String {
+        providerName.lowercased().replacingOccurrences(of: " ", with: "-")
     }
 
     private var hourlyBuckets: [CodexHourlyTokenUsageBucket] {
@@ -295,19 +352,9 @@ struct CodexDailyTokenDetailView: View {
 
     private var summaryAccessibilityValue: String {
         if isLoading {
-            return "Loading token detail for the selected day."
+            return "\(accountBucket.tokens.formatted()) tokens. Loading detail for the selected day."
         }
-        return "\(localUsage.totalTokens.formatted()) tokens."
-    }
-
-    private var cachedInputLabel: String {
-        "\(Self.tokenLabel(localUsage.cachedInputTokens)) cached · "
-            + "\(Self.cachedPercentLabel(localUsage)) of input"
-    }
-
-    private var cachedInputAccessibilityValue: String {
-        "\(localUsage.cachedInputTokens.formatted()) tokens, "
-            + "\(Self.cachedPercentLabel(localUsage)) of input"
+        return "\(accountBucket.tokens.formatted()) tokens."
     }
 
     private func modelFraction(_ tokens: Int64) -> CGFloat {

@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" role="img" aria-labelledby="title desc">
+<title id="title">DockMagic Century — compact</title>
+<desc id="desc">100-day streak collectible. 2 rank stars. Solid vector reconstruction of the approved hexagonal concept; transparent canvas.</desc>
+<path d="M491 80 Q512 68 533 80 L873 276 Q895 289 895 314 L895 710 Q895 736 873 748 L533 944 Q512 956 491 944 L151 748 Q129 736 129 710 L129 314 Q129 289 151 276 Z" fill="#ffe949" />
+<path d="M512 74 Q523 74 533 80 L873 276 Q884 283 889 296 L824 330 L512 150 Z" fill="#ffd10a" />
+<path d="M889 296 Q895 304 895 314 L895 710 Q895 724 889 735 L824 694 L824 330 Z" fill="#f29400" />
+<path d="M889 735 Q884 743 873 748 L533 944 Q523 950 512 950 L512 874 L824 694 Z" fill="#be7100" />
+<path d="M512 950 Q501 950 491 944 L151 748 Q140 742 135 734 L200 694 L512 874 Z" fill="#f6a400" />
+<path d="M135 734 Q129 724 129 710 L129 314 Q129 304 135 296 L200 330 L200 694 Z" fill="#ffce08" />
+<polygon points="512,150 824,330 824,694 512,874 200,694 200,330" fill="#ffd51b" />
+<polygon points="512,150 824,330 799,344 512,178" fill="#ed9800" />
+<polygon points="824,330 824,694 799,680 799,344" fill="#cd7700" />
+<polygon points="824,694 512,874 512,846 799,680" fill="#cd7700" />
+<polygon points="512,874 200,694 225,680 512,846" fill="#ffeb69" />
+<polygon points="512,178 799,344 799,680 512,846 225,680 225,344" fill="#13245b" stroke="#0d163e" stroke-width="14" stroke-linejoin="round" stroke-linecap="round"/>
+<polygon points="512,185 792,348 792,676 512,837" fill="#18255e" />
+<path d="M191 276 L321 201" fill="none" stroke="#fffaaa" stroke-width="20" stroke-linecap="round" stroke-linejoin="round"/>
+
+<path d="M491 80 Q512 68 533 80 L873 276 Q895 289 895 314 L895 710 Q895 736 873 748 L533 944 Q512 956 491 944 L151 748 Q129 736 129 710 L129 314 Q129 289 151 276 Z" fill="none" stroke="#0d163e" stroke-width="16" stroke-linejoin="round"/>
+<g transform="translate(512 475) scale(1.12) translate(-512 -505)"><path d="M394 375 H337 Q291 376 298 424 Q307 507 400 523 L412 484 Q349 476 340 424 Q338 414 350 414 H401 Z" fill="#ffcb09" stroke="#0d163e" stroke-width="18" stroke-linejoin="round" stroke-linecap="round"/><g transform="translate(1024 0) scale(-1 1)"><path d="M394 375 H337 Q291 376 298 424 Q307 507 400 523 L412 484 Q349 476 340 424 Q338 414 350 414 H401 Z" fill="#ffcb09" stroke="#0d163e" stroke-width="18" stroke-linejoin="round" stroke-linecap="round"/></g><path d="M481 566 H543 V607 Q550 620 578 622 V649 H446 V622 Q474 620 481 607 Z" fill="#ffcb09" stroke="#0d163e" stroke-width="18" stroke-linejoin="round" stroke-linecap="round"/><path d="M512 571 H543 V607 Q550 620 578 622 V642 H512 Z" fill="#ed9800" /><path d="M378 348 Q512 322 646 348 L625 478 Q604 570 534 590 H490 Q420 570 399 478 Z" fill="#ffcb09" stroke="#0d163e" stroke-width="18" stroke-linejoin="round" stroke-linecap="round"/><path d="M583 341 L646 348 L625 478 Q604 570 534 590 H501 Q565 554 583 341 Z" fill="#ed9800" /><path d="M378 348 Q512 322 646 348 L625 478 Q604 570 534 590 H490 Q420 570 399 478 Z" fill="none" stroke="#0d163e" stroke-width="18" stroke-linejoin="round" stroke-linecap="round"/><ellipse cx="512" cy="346" rx="134" ry="28" fill="#c47800" stroke="#ffeb69" stroke-width="10"/><path d="M405 390 L455 401 L457 474 L415 451 Z" fill="#fffbea" /><path d="M420 643 L451 625 H573 L604 643 V699 H420 Z" fill="#fffbea" stroke="#0d163e" stroke-width="18" stroke-linejoin="round" stroke-linecap="round"/><path d="M565 643 H604 V699 H565 Z" fill="#b8bfce" /><path d="M420 643 H604" fill="none" stroke="#d9d8ca" stroke-width="7"/><polygon points="512,650 539,674 512,695 484,674" fill="#0d163e" /></g>
+<polygon points="441,697 459.79,739.14 505.67,743.99 471.4,774.88 480.97,820.01 441,796.96 401.03,820.01 410.6,774.88 376.33,743.99 422.21,739.14" fill="#ffcb09" stroke="#0d163e" stroke-width="12" stroke-linejoin="round"/><polygon points="583,697 601.79,739.14 647.67,743.99 613.4,774.88 622.97,820.01 583,796.96 543.03,820.01 552.6,774.88 518.33,743.99 564.21,739.14" fill="#ffcb09" stroke="#0d163e" stroke-width="12" stroke-linejoin="round"/>
+</svg>

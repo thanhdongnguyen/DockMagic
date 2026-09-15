@@ -1,0 +1,122 @@
+[
+  {
+    "day": 1,
+    "title": "First Prompt",
+    "selectedSource": "/Users/dongnt/.codex/generated_images/01a086e0-8630-7e22-b40c-c85b9c7fe3ae/exec-ca71ceba-02c6-499c-806d-de74e38a4699.png",
+    "initialSource": "/Users/dongnt/.codex/generated_images/01a086e0-8630-7e22-b40c-c85b9c7fe3ae/exec-d6c211f0-3d4c-4204-bb8e-227b8e92bd70.png",
+    "firstExtraction": "/Users/dongnt/.codex/generated_images/01a086e0-8630-7e22-b40c-c85b9c7fe3ae/exec-ca71ceba-02c6-499c-806d-de74e38a4699.png",
+    "secondExtraction": null,
+    "finalFile": "assets/01-first-prompt.png",
+    "alphaVerified": true,
+    "finishing": "built-in ImageGen background extraction",
+    "backup": null
+  },
+  {
+    "day": 3,
+    "title": "Spark",
+    "selectedSource": "/Users/dongnt/.codex/generated_images/01a086e0-8630-7e22-b40c-c85b9c7fe3ae/exec-2732fdc4-6ffc-40d0-98e4-33308456b0f4.png",
+    "initialSource": "/Users/dongnt/.codex/generated_images/01a086e0-8630-7e22-b40c-c85b9c7fe3ae/exec-9a41a9fb-f118-428c-817f-4033c95de166.png",
+    "firstExtraction": "/Users/dongnt/.codex/generated_images/01a086e0-8630-7e22-b40c-c85b9c7fe3ae/exec-967930d3-ba75-4ecd-a227-8d0e3036ecd5.png",
+    "secondExtraction": "/Users/dongnt/.codex/generated_images/01a086e0-8630-7e22-b40c-c85b9c7fe3ae/exec-2732fdc4-6ffc-40d0-98e4-33308456b0f4.png",
+    "finalFile": "assets/03-spark.png",
+    "alphaVerified": true,
+    "finishing": "built-in ImageGen background extraction",
+    "backup": null
+  },
+  {
+    "day": 7,
+    "title": "Loop",
+    "selectedSource": "/Users/dongnt/.codex/generated_images/01a086e0-8630-7e22-b40c-c85b9c7fe3ae/exec-9213b293-32b7-4c62-bbd9-8bb41e799186.png",
+    "initialSource": "/Users/dongnt/.codex/generated_images/01a086e0-8630-7e22-b40c-c85b9c7fe3ae/exec-9213b293-32b7-4c62-bbd9-8bb41e799186.png",
+    "firstExtraction": "/Users/dongnt/.codex/generated_images/01a086e0-8630-7e22-b40c-c85b9c7fe3ae/exec-c9eabcc1-7ed9-4959-8b69-bb7c9e3b7ec1.png",
+    "secondExtraction": "/Users/dongnt/.codex/generated_images/01a086e0-8630-7e22-b40c-c85b9c7fe3ae/exec-8526eeec-ee4c-498e-8677-36d02ee2223f.png",
+    "finalFile": "assets/07-loop.png",
+    "alphaVerified": true,
+    "finishing": "user-authorized local border-connected background removal",
+    "backup": "references/opaque-originals/07-loop.png"
+  },
+  {
+    "day": 14,
+    "title": "Builder",
+    "selectedSource": "/Users/dongnt/.codex/generated_images/01a086e0-8630-7e22-b40c-c85b9c7fe3ae/exec-11330bab-75db-44cc-8c3f-b3f619834d01.png",
+    "initialSource": "/Users/dongnt/.codex/generated_images/01a086e0-8630-7e22-b40c-c85b9c7fe3ae/exec-114e2831-b303-4d9d-9711-c96a13f106c7.png",
+    "firstExtraction": "/Users/dongnt/.codex/generated_images/01a086e0-8630-7e22-b40c-c85b9c7fe3ae/exec-11330bab-75db-44cc-8c3f-b3f619834d01.png",
+    "secondExtraction": null,
+    "finalFile": "assets/14-builder.png",
+    "alphaVerified": true,
+    "finishing": "built-in ImageGen background extraction",
+    "backup": null
+  },
+  {
+    "day": 30,
+    "title": "Flow",
+    "selectedSource": "/Users/dongnt/.codex/generated_images/01a086e0-8630-7e22-b40c-c85b9c7fe3ae/exec-bfc581a3-6212-41f4-ab78-11613e550180.png",
+    "initialSource": "/Users/dongnt/.codex/generated_images/01a086e0-8630-7e22-b40c-c85b9c7fe3ae/exec-0a21310b-9dfb-4879-81c8-a5f87ae6b89b.png",
+    "firstExtraction": "/Users/dongnt/.codex/generated_images/01a086e0-8630-7e22-b40c-c85b9c7fe3ae/exec-8c61fb88-0ba0-4fa1-8274-10a86025d324.png",
+    "secondExtraction": "/Users/dongnt/.codex/generated_images/01a086e0-8630-7e22-b40c-c85b9c7fe3ae/exec-bfc581a3-6212-41f4-ab78-11613e550180.png",
+    "finalFile": "assets/30-flow.png",
+    "alphaVerified": true,
+    "finishing": "built-in ImageGen background extraction",
+    "backup": null
+  },
+  {
+    "day": 60,
+    "title": "Navigator",
+    "selectedSource": "/Users/dongnt/.codex/generated_images/01a086e0-8630-7e22-b40c-c85b9c7fe3ae/exec-60072b42-f3ca-4f97-a3fa-de7770eae1bd.png",
+    "initialSource": "/Users/dongnt/.codex/generated_images/01a086e0-8630-7e22-b40c-c85b9c7fe3ae/exec-60072b42-f3ca-4f97-a3fa-de7770eae1bd.png",
+    "firstExtraction": "/Users/dongnt/.codex/generated_images/01a086e0-8630-7e22-b40c-c85b9c7fe3ae/exec-0dddbc25-1dff-43a9-848e-94e0f319b6e7.png",
+    "secondExtraction": "/Users/dongnt/.codex/generated_images/01a086e0-8630-7e22-b40c-c85b9c7fe3ae/exec-49b16fde-6e8c-488c-9de6-532e46120810.png",
+    "finalFile": "assets/60-navigator.png",
+    "alphaVerified": true,
+    "finishing": "user-authorized local border-connected background removal",
+    "backup": "references/opaque-originals/60-navigator.png"
+  },
+  {
+    "day": 100,
+    "title": "Century",
+    "selectedSource": "/Users/dongnt/.codex/generated_images/01a086e0-8630-7e22-b40c-c85b9c7fe3ae/exec-b96c44f2-a303-4899-8576-7faa0d84e773.png",
+    "initialSource": "/Users/dongnt/.codex/generated_images/01a086e0-8630-7e22-b40c-c85b9c7fe3ae/exec-b177d648-1a11-4ae7-8b70-1e7a17ab5712.png",
+    "firstExtraction": "/Users/dongnt/.codex/generated_images/01a086e0-8630-7e22-b40c-c85b9c7fe3ae/exec-b96c44f2-a303-4899-8576-7faa0d84e773.png",
+    "secondExtraction": null,
+    "finalFile": "assets/100-century.png",
+    "alphaVerified": true,
+    "finishing": "built-in ImageGen background extraction",
+    "backup": null
+  },
+  {
+    "day": 180,
+    "title": "Architect",
+    "selectedSource": "/Users/dongnt/.codex/generated_images/01a086e0-8630-7e22-b40c-c85b9c7fe3ae/exec-c5ab6477-6efd-428d-93cd-523e1485eb5b.png",
+    "initialSource": "/Users/dongnt/.codex/generated_images/01a086e0-8630-7e22-b40c-c85b9c7fe3ae/exec-3f9ea4a7-f311-46fe-b579-2e4fdc6143c2.png",
+    "firstExtraction": "/Users/dongnt/.codex/generated_images/01a086e0-8630-7e22-b40c-c85b9c7fe3ae/exec-89ac5666-ec97-4ca9-a4a6-0d0fec5513f1.png",
+    "secondExtraction": "/Users/dongnt/.codex/generated_images/01a086e0-8630-7e22-b40c-c85b9c7fe3ae/exec-c5ab6477-6efd-428d-93cd-523e1485eb5b.png",
+    "finalFile": "assets/180-architect.png",
+    "alphaVerified": true,
+    "finishing": "built-in ImageGen background extraction",
+    "backup": null
+  },
+  {
+    "day": 365,
+    "title": "Keystone",
+    "selectedSource": "/Users/dongnt/.codex/generated_images/01a086e0-8630-7e22-b40c-c85b9c7fe3ae/exec-2914b7a3-7725-4c43-b14f-37ea7a37d826.png",
+    "initialSource": "/Users/dongnt/.codex/generated_images/01a086e0-8630-7e22-b40c-c85b9c7fe3ae/exec-2914b7a3-7725-4c43-b14f-37ea7a37d826.png",
+    "firstExtraction": "/Users/dongnt/.codex/generated_images/01a086e0-8630-7e22-b40c-c85b9c7fe3ae/exec-208ace25-af74-4db4-a773-d5ad35f18759.png",
+    "secondExtraction": "/Users/dongnt/.codex/generated_images/01a086e0-8630-7e22-b40c-c85b9c7fe3ae/exec-5dcd63fe-ef71-4687-8b6b-c2cd79b8ac39.png",
+    "finalFile": "assets/365-keystone.png",
+    "alphaVerified": true,
+    "finishing": "user-authorized local border-connected background removal",
+    "backup": "references/opaque-originals/365-keystone.png"
+  },
+  {
+    "day": 730,
+    "title": "Continuum",
+    "selectedSource": "/Users/dongnt/.codex/generated_images/01a086e0-8630-7e22-b40c-c85b9c7fe3ae/exec-5516a3bf-4a41-4b95-a6f5-2fb15d6e3cdf.png",
+    "initialSource": "/Users/dongnt/.codex/generated_images/01a086e0-8630-7e22-b40c-c85b9c7fe3ae/exec-5516a3bf-4a41-4b95-a6f5-2fb15d6e3cdf.png",
+    "firstExtraction": "/Users/dongnt/.codex/generated_images/01a086e0-8630-7e22-b40c-c85b9c7fe3ae/exec-25a6763a-47f2-4a17-95ee-3e92621632c4.png",
+    "secondExtraction": "/Users/dongnt/.codex/generated_images/01a086e0-8630-7e22-b40c-c85b9c7fe3ae/exec-d9197d5f-fcc0-40ef-ba6e-b5245391eed5.png",
+    "finalFile": "assets/730-continuum.png",
+    "alphaVerified": true,
+    "finishing": "user-authorized local border-connected background removal",
+    "backup": "references/opaque-originals/730-continuum.png"
+  }
+]

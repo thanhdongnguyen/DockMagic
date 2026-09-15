@@ -455,10 +455,7 @@ final class GitHubFeatureTests: XCTestCase {
         XCTAssertFalse(appModel.weatherStore.isMonitoring)
         XCTAssertFalse(appModel.batteryStore.isMonitoring)
         XCTAssertTrue(appModel.codexStore.isMonitoring)
-        XCTAssertEqual(
-            appModel.claudeCodeStore.isMonitoring,
-            appModel.claudeCodeStore.isBridgeInstalled
-        )
+        XCTAssertTrue(appModel.claudeCodeStore.isMonitoring)
         guard case let .github(history, _, error) = appModel.dockPresentation else {
             return XCTFail("Expected GitHub Dock presentation")
         }

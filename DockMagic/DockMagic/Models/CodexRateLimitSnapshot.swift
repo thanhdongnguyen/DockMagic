@@ -36,7 +36,59 @@ struct CodexTokenBreakdown: Codable, Equatable, Sendable {
     let cacheWriteInputTokens: Int64
     let outputTokens: Int64
     let reasoningOutputTokens: Int64
+    let toolTokens: Int64
     let totalTokens: Int64
+
+    init(
+        inputTokens: Int64,
+        cachedInputTokens: Int64,
+        cacheWriteInputTokens: Int64,
+        outputTokens: Int64,
+        reasoningOutputTokens: Int64,
+        toolTokens: Int64 = 0,
+        totalTokens: Int64
+    ) {
+        self.inputTokens = inputTokens
+        self.cachedInputTokens = cachedInputTokens
+        self.cacheWriteInputTokens = cacheWriteInputTokens
+        self.outputTokens = outputTokens
+        self.reasoningOutputTokens = reasoningOutputTokens
+        self.toolTokens = toolTokens
+        self.totalTokens = totalTokens
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case inputTokens
+        case cachedInputTokens
+        case cacheWriteInputTokens
+        case outputTokens
+        case reasoningOutputTokens
+        case toolTokens
+        case totalTokens
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        inputTokens = try container.decode(Int64.self, forKey: .inputTokens)
+        cachedInputTokens = try container.decode(
+            Int64.self,
+            forKey: .cachedInputTokens
+        )
+        cacheWriteInputTokens = try container.decode(
+            Int64.self,
+            forKey: .cacheWriteInputTokens
+        )
+        outputTokens = try container.decode(Int64.self, forKey: .outputTokens)
+        reasoningOutputTokens = try container.decode(
+            Int64.self,
+            forKey: .reasoningOutputTokens
+        )
+        toolTokens = try container.decodeIfPresent(
+            Int64.self,
+            forKey: .toolTokens
+        ) ?? 0
+        totalTokens = try container.decode(Int64.self, forKey: .totalTokens)
+    }
 
     static let zero = CodexTokenBreakdown(
         inputTokens: 0,
@@ -44,6 +96,7 @@ struct CodexTokenBreakdown: Codable, Equatable, Sendable {
         cacheWriteInputTokens: 0,
         outputTokens: 0,
         reasoningOutputTokens: 0,
+        toolTokens: 0,
         totalTokens: 0
     )
 
@@ -64,6 +117,7 @@ struct CodexTokenBreakdown: Codable, Equatable, Sendable {
             outputTokens: outputTokens + other.outputTokens,
             reasoningOutputTokens:
                 reasoningOutputTokens + other.reasoningOutputTokens,
+            toolTokens: toolTokens + other.toolTokens,
             totalTokens: totalTokens + other.totalTokens
         )
     }
@@ -439,6 +493,62 @@ struct ClaudeCodeTelemetrySnapshot: Codable, Equatable, Sendable {
     let costIsPartial: Bool
 }
 
+/// Provider-neutral quota data shared by Dock and hover dashboard UI.
+struct UsageQuotaMetric: Equatable, Identifiable, Sendable {
+    let id: String
+    let shortLabel: String
+    let title: String
+    let systemImage: String
+    let remainingFraction: Double?
+    let resetsAt: Date?
+
+    var usesSecondaryAppearance: Bool { id == "weekly" }
+}
+
+enum UsageQuotaPresentation {
+    static func codex(
+        _ snapshot: CodexRateLimitSnapshot?,
+        includesMissing: Bool = false
+    ) -> [UsageQuotaMetric] {
+        let metrics = [
+            metric(
+                id: "five-hour",
+                shortLabel: "5H",
+                title: "5-hour",
+                systemImage: "clock",
+                window: snapshot?.fiveHour
+            ),
+            metric(
+                id: "weekly",
+                shortLabel: "7D",
+                title: "Weekly",
+                systemImage: "calendar",
+                window: snapshot?.weekly
+            )
+        ]
+        return includesMissing
+            ? metrics
+            : metrics.filter { $0.remainingFraction != nil }
+    }
+
+    private static func metric(
+        id: String,
+        shortLabel: String,
+        title: String,
+        systemImage: String,
+        window: CodexRateLimitWindow?
+    ) -> UsageQuotaMetric {
+        UsageQuotaMetric(
+            id: id,
+            shortLabel: shortLabel,
+            title: title,
+            systemImage: systemImage,
+            remainingFraction: window?.remainingFraction,
+            resetsAt: window?.resetsAt
+        )
+    }
+}
+
 struct CodexRateLimitSnapshot: Codable, Equatable, Sendable {
     let planType: String?
     let limitID: String?
@@ -448,7 +558,6 @@ struct CodexRateLimitSnapshot: Codable, Equatable, Sendable {
     let streakSummary: TokenUsageStreakSummary?
     let recentTaskActivity: CodexRecentTaskActivity?
     let claudeTelemetry: ClaudeCodeTelemetrySnapshot?
-    let antigravityTelemetry: AntigravityTelemetrySnapshot?
     let fetchedAt: Date
 
     init(
@@ -460,7 +569,6 @@ struct CodexRateLimitSnapshot: Codable, Equatable, Sendable {
         streakSummary: TokenUsageStreakSummary? = nil,
         recentTaskActivity: CodexRecentTaskActivity? = nil,
         claudeTelemetry: ClaudeCodeTelemetrySnapshot? = nil,
-        antigravityTelemetry: AntigravityTelemetrySnapshot? = nil,
         fetchedAt: Date
     ) {
         self.planType = planType
@@ -471,7 +579,6 @@ struct CodexRateLimitSnapshot: Codable, Equatable, Sendable {
         self.streakSummary = streakSummary
         self.recentTaskActivity = recentTaskActivity
         self.claudeTelemetry = claudeTelemetry
-        self.antigravityTelemetry = antigravityTelemetry
         self.fetchedAt = fetchedAt
     }
 
@@ -491,7 +598,6 @@ struct CodexRateLimitSnapshot: Codable, Equatable, Sendable {
             streakSummary: streakSummary,
             recentTaskActivity: recentTaskActivity,
             claudeTelemetry: claudeTelemetry,
-            antigravityTelemetry: antigravityTelemetry,
             fetchedAt: fetchedAt
         )
     }

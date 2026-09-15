@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="540" height="540" viewBox="0 0 540 540">
+  <defs>
+    <linearGradient id="antigravity-spectrum" x1="135" y1="145" x2="405" y2="145" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#55C98C"/>
+      <stop offset="0.25" stop-color="#C6C84C"/>
+      <stop offset="0.5" stop-color="#F6923A"/>
+      <stop offset="0.75" stop-color="#EE5C50"/>
+      <stop offset="1" stop-color="#B65E98"/>
+    </linearGradient>
+    <linearGradient id="antigravity-blue" x1="270" y1="84" x2="270" y2="456" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#3B9CFB" stop-opacity="0"/>
+      <stop offset="0.21" stop-color="#3B9CFB" stop-opacity="0.1"/>
+      <stop offset="0.48" stop-color="#3B9CFB" stop-opacity="0.82"/>
+      <stop offset="0.68" stop-color="#3B9CFB" stop-opacity="0.96"/>
+      <stop offset="1" stop-color="#3B9CFB"/>
+    </linearGradient>
+    <radialGradient id="antigravity-left" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(178 199) rotate(55) scale(150 132)">
+      <stop offset="0" stop-color="#40B7B0" stop-opacity="0.7"/>
+      <stop offset="1" stop-color="#40B7B0" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="antigravity-right" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(359 191) rotate(127) scale(143 128)">
+      <stop offset="0" stop-color="#9B7EC0" stop-opacity="0.62"/>
+      <stop offset="1" stop-color="#9B7EC0" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <path fill="url(#antigravity-spectrum)" d="M269.5 84c42.4 0 67 27.1 83.9 70.8 16.8 43.4 25.7 91.5 36.1 133.7 10.8 43.9 18.8 75.1 35.9 104.7 10.1 17.6 21.8 30.2 39.7 47.5 10.7 10.4 6.2 15.3-8.6 15.3-27.3 0-48.4-22.7-64.5-50.9l-66.1-92.8c-13.2-18.6-30.2-28.3-56.4-28.3s-43.2 9.7-56.4 28.3L147 405.1C130.9 433.3 109.8 456 82.5 456c-14.8 0-19.3-4.9-8.6-15.3 17.9-17.3 29.6-29.9 39.7-47.5 17.1-29.6 25.1-60.8 35.9-104.7 10.4-42.2 19.3-90.3 36.1-133.7C202.5 111.1 227.1 84 269.5 84Z"/>
+  <path fill="url(#antigravity-blue)" d="M269.5 84c42.4 0 67 27.1 83.9 70.8 16.8 43.4 25.7 91.5 36.1 133.7 10.8 43.9 18.8 75.1 35.9 104.7 10.1 17.6 21.8 30.2 39.7 47.5 10.7 10.4 6.2 15.3-8.6 15.3-27.3 0-48.4-22.7-64.5-50.9l-66.1-92.8c-13.2-18.6-30.2-28.3-56.4-28.3s-43.2 9.7-56.4 28.3L147 405.1C130.9 433.3 109.8 456 82.5 456c-14.8 0-19.3-4.9-8.6-15.3 17.9-17.3 29.6-29.9 39.7-47.5 17.1-29.6 25.1-60.8 35.9-104.7 10.4-42.2 19.3-90.3 36.1-133.7C202.5 111.1 227.1 84 269.5 84Z"/>
+  <path fill="url(#antigravity-left)" d="M269.5 84c42.4 0 67 27.1 83.9 70.8 16.8 43.4 25.7 91.5 36.1 133.7 10.8 43.9 18.8 75.1 35.9 104.7 10.1 17.6 21.8 30.2 39.7 47.5 10.7 10.4 6.2 15.3-8.6 15.3-27.3 0-48.4-22.7-64.5-50.9l-66.1-92.8c-13.2-18.6-30.2-28.3-56.4-28.3s-43.2 9.7-56.4 28.3L147 405.1C130.9 433.3 109.8 456 82.5 456c-14.8 0-19.3-4.9-8.6-15.3 17.9-17.3 29.6-29.9 39.7-47.5 17.1-29.6 25.1-60.8 35.9-104.7 10.4-42.2 19.3-90.3 36.1-133.7C202.5 111.1 227.1 84 269.5 84Z"/>
+  <path fill="url(#antigravity-right)" d="M269.5 84c42.4 0 67 27.1 83.9 70.8 16.8 43.4 25.7 91.5 36.1 133.7 10.8 43.9 18.8 75.1 35.9 104.7 10.1 17.6 21.8 30.2 39.7 47.5 10.7 10.4 6.2 15.3-8.6 15.3-27.3 0-48.4-22.7-64.5-50.9l-66.1-92.8c-13.2-18.6-30.2-28.3-56.4-28.3s-43.2 9.7-56.4 28.3L147 405.1C130.9 433.3 109.8 456 82.5 456c-14.8 0-19.3-4.9-8.6-15.3 17.9-17.3 29.6-29.9 39.7-47.5 17.1-29.6 25.1-60.8 35.9-104.7 10.4-42.2 19.3-90.3 36.1-133.7C202.5 111.1 227.1 84 269.5 84Z"/>
+</svg>

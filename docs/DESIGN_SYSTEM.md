@@ -123,38 +123,32 @@ elevation.
   accessibility labels and values.
 - Loading, stale, and unavailable states have appropriate symbols and text
   semantics.
+- Antigravity uses the same shared ring/number primitives as Codex and Claude
+  Code. Each reported model pool remains a distinct value; unknown or absent
+  pools are never rendered as zero.
 - Animation is enabled in previews but disabled in the AppKit Dock host.
 
-### Dashboard image export
+### Activity card image export
 
-- Codex, Claude Code, and Antigravity PNGs contain the complete dashboard card, including its
-  normal internal padding and rounded outline. External popup insets, the Dock
-  pointer, window shadows, and capture menus are excluded.
-- Export uses the same card layout as the live dashboard. Only the rounded
-  corners are transparent; no surrounding white or transparent canvas is added.
-- SwiftUI content is rasterized at 4× before encoding. Enlarging a cached
-  screen-resolution bitmap is insufficient. The save menu reports the actual
-  card pixel dimensions for the current Dock edge.
-- Save, Copy, and Share use the same PNG. Claude Code and Antigravity preserve the selected
-  Tokens/Cost metric in that image.
-
-### Antigravity
-
-- Use the shared usage dashboard, ring renderer, numeric tile, chart, streak,
-  and Ship momentum components. The vendor logo stays in the header identity
-  region. Dashboard chrome uses the shared action role.
-- Settings and the hover dashboard do not expose model group selection. Legacy
-  selections are cleared; Settings, Dock, and dashboard automatically select the
-  group with the lowest reported remaining quota. The dashboard header omits the
-  model-group/live row.
-- Antigravity Settings shows connection state through one icon in the upper-right
-  corner of Dock preview, matching Codex/Claude. Hover reveals details; clicking
-  connects or retries. There is no separate Connection or Model quota section,
-  and no Preview dashboard button.
-- Show only reported quota buckets. Legacy model quota has no inferred duration;
-  labels read `Model quota`/`QUOTA` and `Window not reported`.
-- Missing token history and unreported costs stay unavailable; observed history
-  is labeled partial. Completion and stale event expiry remove active work.
+- Codex, Claude Code, and Antigravity export a purpose-built activity card;
+  popup insets, the Dock pointer, window shadows, capture menus, and the full
+  dashboard layout are excluded.
+- The 300 × 300 pt SwiftUI card is rasterized directly at 4× before encoding
+  into an opaque 1200 × 1200 PNG. Enlarging a cached screen-resolution bitmap
+  is insufficient. The save menu reports the fixed activity-card dimensions.
+- Save, Copy, and Share all render the same dedicated `1200 × 1200` activity
+  card with the provider identity, current earned badge, today's token total,
+  and Ship momentum score/rank. The card uses neutral chrome plus the provider's
+  existing single accent; badge colors stay inside the artwork silhouette.
+- A compact, unlabeled 14-day area chart sits beside the token total. It uses a
+  solid low-opacity fill plus a single accent stroke, with no gradient, axes,
+  ticks, legend, or chart numbers. Missing calendar days remain gaps rather
+  than becoming zero.
+- Antigravity export is available only when the optional local bridge has
+  enough observed activity for both today's momentum and a meaningful chart.
+  Its chart uses the same caption-free treatment as Codex. The token label
+  remains `TOKENS OBSERVED TODAY` so the local observation is not presented as
+  complete provider history.
 
 ## 7. Accessibility
 

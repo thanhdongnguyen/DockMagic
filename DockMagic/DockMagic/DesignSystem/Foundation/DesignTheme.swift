@@ -43,6 +43,14 @@ struct DesignTheme {
     let sidebarSelectionFill: Color
     let sidebarIconFill: Color
     let onSidebarIcon: Color
+    let terminalBackground: Color
+    let terminalChrome: Color
+    let terminalForeground: Color
+    let terminalSecondary: Color
+    let terminalOutline: Color
+    let terminalClose: Color
+    let terminalMinimize: Color
+    let terminalZoom: Color
 
     func surface(for kind: DSSurfaceKind) -> Color {
         switch kind {

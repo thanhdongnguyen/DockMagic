@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" role="img" aria-labelledby="title desc">
+<title id="title">DockMagic Architect — compact</title>
+<desc id="desc">180-day streak collectible. 2 rank stars. Solid vector reconstruction of the approved hexagonal concept; transparent canvas.</desc>
+<path d="M491 80 Q512 68 533 80 L873 276 Q895 289 895 314 L895 710 Q895 736 873 748 L533 944 Q512 956 491 944 L151 748 Q129 736 129 710 L129 314 Q129 289 151 276 Z" fill="#ffe949" />
+<path d="M512 74 Q523 74 533 80 L873 276 Q884 283 889 296 L824 330 L512 150 Z" fill="#ffd10a" />
+<path d="M889 296 Q895 304 895 314 L895 710 Q895 724 889 735 L824 694 L824 330 Z" fill="#f29400" />
+<path d="M889 735 Q884 743 873 748 L533 944 Q523 950 512 950 L512 874 L824 694 Z" fill="#be7100" />
+<path d="M512 950 Q501 950 491 944 L151 748 Q140 742 135 734 L200 694 L512 874 Z" fill="#f6a400" />
+<path d="M135 734 Q129 724 129 710 L129 314 Q129 304 135 296 L200 330 L200 694 Z" fill="#ffce08" />
+<polygon points="512,150 824,330 824,694 512,874 200,694 200,330" fill="#ffd51b" />
+<polygon points="512,150 824,330 799,344 512,178" fill="#ed9800" />
+<polygon points="824,330 824,694 799,680 799,344" fill="#cd7700" />
+<polygon points="824,694 512,874 512,846 799,680" fill="#cd7700" />
+<polygon points="512,874 200,694 225,680 512,846" fill="#ffeb69" />
+<polygon points="512,178 799,344 799,680 512,846 225,680 225,344" fill="#13245b" stroke="#0d163e" stroke-width="14" stroke-linejoin="round" stroke-linecap="round"/>
+<polygon points="512,185 792,348 792,676 512,837" fill="#18255e" />
+<path d="M191 276 L321 201" fill="none" stroke="#fffaaa" stroke-width="20" stroke-linecap="round" stroke-linejoin="round"/>
+
+<path d="M491 80 Q512 68 533 80 L873 276 Q895 289 895 314 L895 710 Q895 736 873 748 L533 944 Q512 956 491 944 L151 748 Q129 736 129 710 L129 314 Q129 289 151 276 Z" fill="none" stroke="#0d163e" stroke-width="16" stroke-linejoin="round"/>
+<g transform="translate(512 -45) scale(1.14 1) translate(-512 0)"><path d="M350 637 L392 614 V559 L438 536 V437 H417 V397 L449 383 V350 L512 292 L618 365 V405 L639 416 V447 H618 V538 L667 563 V615 L706 638 V713 L655 738 L609 721 L551 737 L486 719 L421 737 L350 711 Z" fill="#fffbea" stroke="#0d163e" stroke-width="18" stroke-linejoin="round" stroke-linecap="round"/><polygon points="551,444 618,437 618,538 667,563 609,588 609,721 551,737" fill="#8eabff" /><polygon points="667,615 706,638 706,713 655,738 655,644" fill="#8eabff" /><polygon points="392,559 438,536 438,705 421,737 392,720" fill="#dce4ff" /><polygon points="392,614 421,631 421,737 377,721 377,637" fill="#8eabff" /><polygon points="449,350 512,292 618,365 551,392" fill="#ffeb69" /><polygon points="512,292 551,392 618,365" fill="#ed9800" /><polygon points="449,350 551,372 551,407 449,383" fill="#ffcb09" /><polygon points="551,372 618,365 618,405 551,417" fill="#ed9800" /><path d="M449 350 L512 292 L618 365 V405 L551 427 L449 399 Z" fill="none" stroke="#0d163e" stroke-width="18" stroke-linejoin="round" stroke-linecap="round"/><path d="M417 397 L551 418 L639 405 V444 L551 463 L417 440 Z" fill="#dce4ff" stroke="#0d163e" stroke-width="10" stroke-linejoin="round"/><path d="M417 397 L551 418 V446 L417 425 Z" fill="#fffbea" /><path d="M490 560 V507.5 a24.5 24.5 0 0 1 49 0 V560 Z" fill="#0d163e" /><path d="M485 722 V641 a30 30 0 0 1 60 0 V722 Z" fill="#0d163e" /></g>
+<polygon points="441,697 459.79,739.14 505.67,743.99 471.4,774.88 480.97,820.01 441,796.96 401.03,820.01 410.6,774.88 376.33,743.99 422.21,739.14" fill="#ffcb09" stroke="#0d163e" stroke-width="12" stroke-linejoin="round"/><polygon points="583,697 601.79,739.14 647.67,743.99 613.4,774.88 622.97,820.01 583,796.96 543.03,820.01 552.6,774.88 518.33,743.99 564.21,739.14" fill="#ffcb09" stroke="#0d163e" stroke-width="12" stroke-linejoin="round"/>
+</svg>

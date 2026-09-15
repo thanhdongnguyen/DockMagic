@@ -1,132 +1,690 @@
 import AppKit
+import Observation
+import SwiftTerm
 import SwiftUI
 
 @MainActor
-struct AntigravitySettingsView: View {
-    let appModel: DockAppModel
+struct AntigravityConnectionSettingsView: View {
+    let store: AntigravityUsageStore
+    let installationState: DeveloperToolInstallationState
+    let installCLI: () -> Void
+
+    @State private var terminalSessionID: UUID?
+    @State private var terminalPurpose = AntigravityTerminalPurpose.signIn
+    @State private var showsTerminal = false
+    @State private var ignoresNextTerminalExit = false
+    @State private var terminalController = AntigravityTerminalController()
+    @FocusState private var focusedAction: FocusedAction?
     @Environment(\.designTheme) private var theme
 
-    private var store: AntigravityUsageStore { appModel.antigravityStore }
-    private var appearance: DockRingAppearance { appModel.preferences.antigravityAppearance }
-    private var quota: AntigravityQuotaSnapshot? { store.state.snapshot?.antigravityTelemetry?.quota }
-    private var buckets: [AntigravityQuotaBucket] { store.state.snapshot?.antigravityTelemetry?.selectedGroup?.buckets ?? [] }
+    private enum FocusedAction: Hashable {
+        case signIn
+        case refresh
+    }
 
     var body: some View {
-        VStack(spacing: DSSpacing.section) {
-            DSSettingsSection(title: "Antigravity Dock preview", detail: "Remaining Antigravity quota.") {
-                HStack(spacing: DSSpacing.xLarge) {
-                    DockAntigravityView(state: store.state, appearance: appearance, animatesChanges: true)
-                        .frame(width: DSLayout.dockPreviewSize, height: DSLayout.dockPreviewSize)
-                        .accessibilityIdentifier("settings.dockPreview")
-                    VStack(alignment: .leading, spacing: DSSpacing.standard) {
-                        if buckets.isEmpty {
-                            Text("Open Antigravity to see your quota here.").foregroundStyle(theme.textSecondary)
-                        } else {
-                            ForEach(Array(buckets.prefix(2).enumerated()), id: \.element.id) { index, bucket in
-                                PreviewMetric(title: "\(bucket.title) left", value: bucket.remainingFraction,
-                                              color: index == 0 ? appearance.outerColor.color : appearance.innerColor.color)
-                            }
-                        }
-                        if appModel.preferences.activeFeature != .antigravity {
-                            Button("Show in Dock") { appModel.activateFeature(.antigravity) }
-                                .buttonStyle(DSButtonStyle(kind: .primary))
-                        }
+        VStack(alignment: .leading, spacing: DSSpacing.large) {
+            connectionRow
+
+            if let detail = presentation.detail {
+                Text(detail)
+                    .font(DSTypography.metadata)
+                    .foregroundStyle(theme.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier(detailAccessibilityIdentifier)
+            }
+
+            if let terminalSessionID, let executableURL = store.executableURL {
+                authenticationTerminal(
+                    sessionID: terminalSessionID,
+                    executableURL: executableURL
+                )
+                .frame(height: showsTerminal ? 410 : 0)
+                .clipped()
+                .allowsHitTesting(showsTerminal)
+                .accessibilityHidden(!showsTerminal)
+            }
+        }
+        .padding(DSSpacing.xLarge)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .dsSurface(
+            RoundedRectangle(
+                cornerRadius: DSRadius.largePanel,
+                style: .continuous
+            ),
+            kind: .raised,
+            elevation: .primary
+        )
+    }
+
+    private var connectionRow: some View {
+        HStack(spacing: DSSpacing.standard) {
+            if case .signedOut = store.connectionState {
+                Spacer(minLength: 0)
+                actions
+            } else {
+                Text("Antigravity connection")
+                    .font(DSTypography.sectionTitle)
+                    .foregroundStyle(theme.textPrimary)
+                    .lineLimit(1)
+                    .layoutPriority(1)
+
+                Spacer(minLength: DSSpacing.section)
+
+                connectionSummary
+                actions
+            }
+        }
+        .frame(maxWidth: .infinity, minHeight: 46, alignment: .leading)
+    }
+
+    private var connectionSummary: some View {
+        HStack(spacing: DSSpacing.small) {
+            if isProcessing {
+                ProgressView()
+                    .controlSize(.small)
+                    .accessibilityHidden(true)
+            } else if let systemImage = presentation.systemImage {
+                Image(systemName: systemImage)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(
+                        presentation.role == .neutral
+                            ? theme.textSecondary
+                            : theme.accentForeground(for: presentation.role)
+                    )
+                    .accessibilityHidden(true)
+            }
+
+            Text(presentation.title)
+                .font(DSTypography.bodyEmphasis)
+                .foregroundStyle(theme.textPrimary)
+                .lineLimit(1)
+
+            if let metadata = presentation.metadata {
+                Text(metadata)
+                    .font(DSTypography.metadata)
+                    .foregroundStyle(theme.textSecondary)
+                    .lineLimit(1)
+                    .accessibilityIdentifier(detailAccessibilityIdentifier)
+            }
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(presentation.accessibilityLabel)
+        .accessibilityIdentifier("settings.antigravity.connectionStatus")
+    }
+
+    @ViewBuilder
+    private var actions: some View {
+        switch store.connectionState {
+        case .cliMissing:
+            Button("Install agy", action: installCLI)
+                .buttonStyle(DSButtonStyle(kind: .primary))
+                .disabled(installationState == .installing)
+                .accessibilityIdentifier("settings.antigravity.install")
+        case .signedOut:
+            Button("Sign in with Antigravity") {
+                startAuthentication(.signIn)
+            }
+            .buttonStyle(DSButtonStyle(kind: .primary))
+            .focused($focusedAction, equals: .signIn)
+            .accessibilityIdentifier("settings.antigravity.signIn")
+        case .connected:
+            HStack(spacing: DSSpacing.small) {
+                refreshButton
+                moreActions
+            }
+        case .stale:
+            HStack(spacing: DSSpacing.small) {
+                Button("Retry") { Task { await store.refresh() } }
+                    .buttonStyle(DSButtonStyle(kind: .primary))
+                    .disabled(store.isRefreshing)
+                    .accessibilityIdentifier("settings.antigravity.retry")
+                moreActions
+            }
+        case .failed:
+            Button("Retry") { Task { await store.refresh() } }
+                .buttonStyle(DSButtonStyle(kind: .primary))
+                .disabled(store.isRefreshing)
+                .accessibilityIdentifier("settings.antigravity.retry")
+        case .checking, .signingIn, .signingOut:
+            EmptyView()
+        }
+    }
+
+    private var refreshButton: some View {
+        Button {
+            Task { await store.refresh() }
+        } label: {
+            Image(systemName: "arrow.clockwise")
+        }
+        .buttonStyle(DSIconButtonStyle(visualSize: 28, hitSize: 36))
+        .disabled(store.isRefreshing)
+        .focused($focusedAction, equals: .refresh)
+        .help("Refresh Antigravity quota")
+        .accessibilityLabel("Refresh Antigravity quota")
+        .accessibilityIdentifier("settings.antigravity.refresh")
+    }
+
+    private var moreActions: some View {
+        Menu {
+            if terminalSessionID != nil {
+                Button(showsTerminal ? "Hide authentication log" : "Show authentication log") {
+                    showsTerminal.toggle()
+                }
+                .accessibilityIdentifier("settings.antigravity.showAuthLog")
+
+                Divider()
+            }
+
+            Button(role: .destructive) {
+                startAuthentication(.signOut)
+            } label: {
+                Label(
+                    "Sign Out",
+                    systemImage: "rectangle.portrait.and.arrow.right"
+                )
+            }
+            .accessibilityIdentifier("settings.antigravity.signOut")
+        } label: {
+            Image(systemName: "ellipsis")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(theme.textPrimary)
+                .frame(width: 28, height: 28)
+                .background(
+                    theme.opaqueSurfaceChrome,
+                    in: RoundedRectangle(
+                        cornerRadius: DSRadius.control,
+                        style: .continuous
+                    )
+                )
+                .frame(width: 36, height: 36)
+                .contentShape(Rectangle())
+        }
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .help("More Antigravity connection actions")
+        .accessibilityLabel("More Antigravity connection actions")
+        .accessibilityIdentifier("settings.antigravity.moreActions")
+    }
+
+    private func authenticationTerminal(
+        sessionID: UUID,
+        executableURL: URL
+    ) -> some View {
+        VStack(alignment: .leading, spacing: DSSpacing.standard) {
+            VStack(alignment: .leading, spacing: DSSpacing.xSmall) {
+                Text(terminalPurpose.heading)
+                    .font(DSTypography.bodyEmphasis)
+                    .foregroundStyle(theme.textPrimary)
+                Text(terminalPurpose.instructions)
+                    .font(DSTypography.metadata)
+                    .foregroundStyle(theme.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            AntigravityTerminalSurface(
+                sessionID: sessionID,
+                executableURL: executableURL,
+                controller: terminalController
+            ) { exitCode in
+                Task { @MainActor in
+                    if ignoresNextTerminalExit {
+                        ignoresNextTerminalExit = false
+                        return
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                    guard exitCode == 0 else { return }
+                    showsTerminal = false
+                    await finishAuthentication(terminalPurpose)
+                    updateFocusAfterAuthentication()
                 }
             }
-            .overlay(alignment: .topTrailing) {
-                connectionIndicator
-                    .padding(DSSpacing.xLarge)
+            .frame(maxWidth: .infinity, minHeight: 268)
+
+            HStack(spacing: DSSpacing.small) {
+                Button("Cancel") {
+                    stopTerminal()
+                    Task {
+                        await store.cancelAuthentication()
+                        updateFocusAfterAuthentication()
+                    }
+                }
+                .buttonStyle(DSButtonStyle())
+                .accessibilityIdentifier("settings.antigravity.cancelAuth")
+
+                Button("Paste code") {
+                    terminalController.paste()
+                }
+                .buttonStyle(DSButtonStyle())
+                .help("Paste the clipboard into the Antigravity CLI")
+                .accessibilityIdentifier("settings.antigravity.pasteCode")
+
+                Button(terminalPurpose.completionTitle) {
+                    stopTerminal()
+                    Task {
+                        await finishAuthentication(terminalPurpose)
+                        updateFocusAfterAuthentication()
+                    }
+                }
+                .buttonStyle(DSButtonStyle(kind: .primary))
+                .accessibilityIdentifier("settings.antigravity.checkAuth")
             }
-
-            DockDisplayStyleEditor(featureTitle: "Antigravity", selection: Binding(
-                get: { appearance.displayStyle }, set: { appModel.preferences.setAntigravityDisplayStyle($0) }
-            ))
-            RingAppearanceEditor(
-                outerTitle: buckets.first?.title ?? "Primary quota",
-                innerTitle: buckets.dropFirst().first?.title ?? "Second quota",
-                appearance: appearance,
-                outerColor: Binding(get: { appearance.outerColor.color }, set: { appModel.preferences.setAntigravityOuterColor(DockColor($0)) }),
-                innerColor: Binding(get: { appearance.innerColor.color }, set: { appModel.preferences.setAntigravityInnerColor(DockColor($0)) }),
-                outerWidth: Binding(get: { appearance.outerWidth }, set: { appModel.preferences.setAntigravityOuterWidth($0) }),
-                innerWidth: Binding(get: { appearance.innerWidth }, set: { appModel.preferences.setAntigravityInnerWidth($0) }),
-                reset: appModel.preferences.resetAntigravityAppearance
-            )
         }
-        .task { store.start() }
     }
 
-    private var connectionIndicator: some View {
-        let presentation = connectionPresentation
-        return Button {
-            if case .unavailable = store.state { openAntigravity() }
-            Task { await appModel.prepareDeveloperToolIntegration(for: .antigravity) }
-        } label: {
-            DSIconPlate(
-                systemImage: presentation.systemImage,
-                role: presentation.role,
-                size: 32
-            )
+    private func startAuthentication(_ purpose: AntigravityTerminalPurpose) {
+        guard store.executableURL != nil else {
+            installCLI()
+            return
         }
-        .buttonStyle(.plain)
-        .disabled(store.isInstallingBridge || store.isRefreshing)
-        .help("\(presentation.title). \(presentation.detail)")
-        .accessibilityIdentifier("settings.antigravity.installationIndicator")
-        .accessibilityLabel(presentation.title)
-        .accessibilityValue(presentation.detail)
-        .accessibilityHint("Connect or check the Antigravity connection")
+        terminalPurpose = purpose
+        terminalController = AntigravityTerminalController()
+        terminalSessionID = UUID()
+        ignoresNextTerminalExit = false
+        showsTerminal = true
+        if purpose == .signIn {
+            store.beginSignIn()
+        } else {
+            store.beginSignOut()
+        }
     }
 
-    private var connectionPresentation: (
-        title: String, detail: String, systemImage: String, role: DSSemanticRole
+    private func stopTerminal() {
+        ignoresNextTerminalExit = true
+        terminalController.cancel()
+        showsTerminal = false
+    }
+
+    private func finishAuthentication(
+        _ purpose: AntigravityTerminalPurpose
+    ) async {
+        switch purpose {
+        case .signIn:
+            await store.signInProcessDidFinish()
+        case .signOut:
+            await store.signOutProcessDidFinish()
+        }
+    }
+
+    private func updateFocusAfterAuthentication() {
+        switch store.connectionState {
+        case .connected, .stale:
+            focusedAction = .refresh
+        case .signedOut:
+            focusedAction = .signIn
+        case .cliMissing, .checking, .signingIn, .signingOut, .failed:
+            break
+        }
+    }
+
+    private var presentation: (
+        title: String,
+        detail: String?,
+        metadata: String?,
+        systemImage: String?,
+        role: DSSemanticRole,
+        accessibilityLabel: String
     ) {
-        if store.isInstallingBridge {
-            return ("Connecting Antigravity", "Setting up local activity. Keep DockMagic open until this finishes.",
-                    "arrow.down.circle.fill", .processing)
-        }
-        if store.isRefreshing {
-            return ("Checking Antigravity", "Reading the latest local usage.",
-                    "magnifyingglass", .processing)
-        }
-        if let error = store.bridgeError {
-            return ("Antigravity setup failed", "\(error) Click to retry.",
-                    "exclamationmark.triangle.fill", .danger)
-        }
-        if !store.isBridgeInstalled {
-            return ("Connect Antigravity", "Click to connect local activity and check usage.",
-                    "link", .warning)
-        }
-        switch store.state {
-        case .idle, .loading:
-            return ("Checking Antigravity", "Waiting for local usage.", "magnifyingglass", .processing)
-        case .live:
-            return ("Antigravity connected", "\(connectionDetail) Click to check the connection.",
-                    "checkmark.circle.fill", .information)
-        case .stale:
-            return ("Antigravity needs attention", "\(connectionDetail) Click to retry.",
-                    "clock.badge.exclamationmark", .warning)
-        case .unavailable:
-            return ("Antigravity unavailable", "\(connectionDetail) Click to open Antigravity and reconnect.",
-                    "exclamationmark.triangle.fill", .warning)
+        switch store.connectionState {
+        case .cliMissing:
+            return (
+                "CLI required", nil, nil, "terminal", .warning,
+                "Antigravity CLI required"
+            )
+        case .checking:
+            return (
+                "Checking", nil, nil, nil, .processing,
+                "Checking Antigravity connection"
+            )
+        case .signedOut:
+            return (
+                "Not signed in", nil, nil,
+                "person.crop.circle.badge.xmark", .warning,
+                "Not signed in to Antigravity"
+            )
+        case .signingIn:
+            return (
+                "Signing in", nil, nil, nil, .processing,
+                "Signing in to Antigravity"
+            )
+        case .signingOut:
+            return (
+                "Signing out", nil, nil, nil, .processing,
+                "Signing out of Antigravity"
+            )
+        case let .connected(lastUpdated):
+            return (
+                "Connected", nil,
+                "Updated \(relative(lastUpdated))",
+                "checkmark.circle.fill", .information,
+                "Connected to Antigravity, updated \(relative(lastUpdated))"
+            )
+        case let .stale(snapshot, message):
+            return (
+                "Last known quota", message,
+                "Updated \(relative(snapshot.fetchedAt))",
+                "clock.badge.exclamationmark", .warning,
+                "Last known Antigravity quota, updated \(relative(snapshot.fetchedAt))"
+            )
+        case let .failed(message):
+            return (
+                "Connection failed", message, nil,
+                "xmark.octagon.fill", .danger,
+                "Antigravity connection failed"
+            )
         }
     }
 
-    private var connectionDetail: String {
-        switch store.state {
-        case .unavailable(let message), .stale(_, let message): message
-        case .idle, .loading: "Waiting for Antigravity usage."
-        case .live:
-            quota.map { "\($0.source) · Updated \($0.observedAt.formatted(date: .omitted, time: .shortened))" }
-                ?? "Receiving local Antigravity activity. Quota has not been reported yet."
+    private var isProcessing: Bool {
+        switch store.connectionState {
+        case .checking, .signingIn, .signingOut:
+            true
+        case .cliMissing, .signedOut, .connected, .stale, .failed:
+            false
         }
     }
 
-    private func openAntigravity() {
-        let candidates = [URL(fileURLWithPath: "/Applications/Antigravity.app"),
-                          FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Applications/Antigravity.app")]
-        if let app = candidates.first(where: { FileManager.default.fileExists(atPath: $0.path) }) {
-            NSWorkspace.shared.openApplication(at: app, configuration: .init())
-        } else if let url = URL(string: "https://antigravity.google/download") { NSWorkspace.shared.open(url) }
+    private func relative(_ date: Date) -> String {
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .full
+        return formatter.localizedString(for: date, relativeTo: Date())
+    }
+
+    private var detailAccessibilityIdentifier: String {
+        switch store.connectionState {
+        case .connected, .stale:
+            "settings.antigravity.lastUpdated"
+        case .cliMissing, .checking, .signedOut, .signingIn, .signingOut,
+             .failed:
+            "settings.antigravity.connectionDetail"
+        }
+    }
+}
+
+private enum AntigravityTerminalPurpose: Equatable {
+    case signIn
+    case signOut
+
+    var heading: String {
+        switch self {
+        case .signIn:
+            "Sign in with Antigravity CLI"
+        case .signOut:
+            "Sign out with the official CLI"
+        }
+    }
+
+    var instructions: String {
+        switch self {
+        case .signIn:
+            "Use the CLI below directly. Type or paste the Antigravity code with ⌘V, press Return, then choose Check connection. DockMagic does not store the code or credentials."
+        case .signOut:
+            "Enter `/logout` in agy to clear its saved session, then choose Check status. DockMagic never reads or deletes the credential itself."
+        }
+    }
+
+    var completionTitle: String {
+        switch self {
+        case .signIn: "Check connection"
+        case .signOut: "Check status"
+        }
+    }
+}
+
+private struct AntigravityTerminalSurface: View {
+    let sessionID: UUID
+    let executableURL: URL
+    let controller: AntigravityTerminalController
+    let onExit: (Int32?) -> Void
+
+    @Environment(\.designTheme) private var theme
+
+    var body: some View {
+        VStack(spacing: 0) {
+            terminalTitleBar
+
+            Rectangle()
+                .fill(theme.terminalOutline)
+                .frame(height: 1)
+                .accessibilityHidden(true)
+
+            AntigravityTerminalView(
+                sessionID: sessionID,
+                executableURL: executableURL,
+                controller: controller,
+                onExit: onExit
+            )
+            .padding(.horizontal, DSSpacing.standard)
+            .padding(.vertical, DSSpacing.standard)
+            .background(theme.terminalBackground)
+        }
+        .background(theme.terminalBackground)
+        .clipShape(
+            RoundedRectangle(cornerRadius: DSRadius.row, style: .continuous)
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: DSRadius.row, style: .continuous)
+                .strokeBorder(theme.terminalOutline, lineWidth: 1)
+                .allowsHitTesting(false)
+        }
+    }
+
+    private var terminalTitleBar: some View {
+        ZStack {
+            Text("Antigravity authentication")
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(theme.terminalSecondary)
+                .lineLimit(1)
+                .accessibilityIdentifier(
+                    "settings.antigravity.terminal.title"
+                )
+
+            HStack(spacing: 0) {
+                AntigravityTerminalTrafficLights()
+                    .frame(width: 58, height: 18)
+                    .accessibilityHidden(true)
+
+                Spacer(minLength: DSSpacing.standard)
+
+                Text("agy CLI")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(theme.terminalForeground)
+                    .padding(.horizontal, DSSpacing.standard)
+                    .frame(height: 28)
+                    .background(
+                        theme.terminalBackground,
+                        in: RoundedRectangle(
+                            cornerRadius: DSRadius.control,
+                            style: .continuous
+                        )
+                    )
+                    .overlay {
+                        RoundedRectangle(
+                            cornerRadius: DSRadius.control,
+                            style: .continuous
+                        )
+                        .strokeBorder(theme.terminalOutline, lineWidth: 1)
+                    }
+                    .accessibilityLabel("agy CLI authentication session")
+                    .accessibilityIdentifier(
+                        "settings.antigravity.terminal.profile"
+                    )
+            }
+        }
+        .padding(.horizontal, DSSpacing.standard)
+        .frame(height: 48)
+        .background(theme.terminalChrome)
+    }
+}
+
+private struct AntigravityTerminalTrafficLights: View {
+    @Environment(\.designTheme) private var theme
+
+    var body: some View {
+        HStack(spacing: 8) {
+            light(color: theme.terminalClose)
+            light(color: theme.terminalMinimize)
+            light(color: theme.terminalZoom)
+        }
+    }
+
+    private func light(color: SwiftUI.Color) -> some View {
+        Image(systemName: "circle.fill")
+            .font(.system(size: 12, weight: .regular))
+            .foregroundStyle(color)
+    }
+}
+
+@MainActor
+@Observable
+private final class AntigravityTerminalController {
+    @ObservationIgnored weak var terminalView: LocalProcessTerminalView?
+
+    func attach(_ terminalView: LocalProcessTerminalView) {
+        self.terminalView = terminalView
+    }
+
+    func cancel() {
+        terminalView?.process.send(data: [0x03][...])
+        let process = terminalView?.process
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(350))
+            if process?.running == true { process?.terminate() }
+        }
+    }
+
+    func paste() {
+        guard let terminalView else { return }
+        terminalView.window?.makeFirstResponder(terminalView)
+        terminalView.paste(self)
+    }
+}
+
+private struct AntigravityTerminalView: NSViewRepresentable {
+    let sessionID: UUID
+    let executableURL: URL
+    let controller: AntigravityTerminalController
+    let onExit: (Int32?) -> Void
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(onExit: onExit)
+    }
+
+    func makeNSView(context: Context) -> LocalProcessTerminalView {
+        let options = TerminalOptions(
+            cols: 108,
+            rows: 18,
+            termName: "xterm-256color",
+            screenReaderMode: true,
+            scrollback: 400,
+            enableSixelReported: false,
+            kittyImageCacheLimitBytes: 0
+        )
+        let view = LocalProcessTerminalView(
+            frame: .zero,
+            font: NSFont.monospacedSystemFont(ofSize: 13, weight: .regular),
+            options: options
+        )
+        view.setAccessibilityElement(true)
+        view.setAccessibilityRole(.group)
+        view.setAccessibilityLabel("agy authentication terminal")
+        view.setAccessibilityIdentifier("settings.antigravity.authTerminal")
+        view.processDelegate = context.coordinator
+        applyAppearance(to: view, theme: context.environment.designTheme)
+        view.allowMouseReporting = false
+        view.startProcess(
+            executable: executableURL.path,
+            args: [],
+            environment: authenticationEnvironment,
+            execName: "agy",
+            currentDirectory: authenticationCurrentDirectory
+        )
+        controller.attach(view)
+        DispatchQueue.main.async {
+            view.window?.makeFirstResponder(view)
+        }
+        return view
+    }
+
+    func updateNSView(
+        _ nsView: LocalProcessTerminalView,
+        context: Context
+    ) {
+        applyAppearance(to: nsView, theme: context.environment.designTheme)
+    }
+
+    static func dismantleNSView(
+        _ nsView: LocalProcessTerminalView,
+        coordinator: Coordinator
+    ) {
+        if nsView.process.running { nsView.terminate() }
+    }
+
+    private var authenticationEnvironment: [String] {
+        var environment = ProcessInfo.processInfo.environment
+        environment["TERM"] = "xterm-256color"
+        environment["LANG"] = "en_US.UTF-8"
+        environment["LC_ALL"] = "en_US.UTF-8"
+        environment["AGY_CLI_DISABLE_AUTO_UPDATE"] = "true"
+        let parent = executableURL.deletingLastPathComponent().path
+        let currentPath = environment["PATH"]
+            ?? "/usr/bin:/bin:/usr/sbin:/sbin"
+        environment["PATH"] = "\(parent):\(currentPath)"
+        return environment.map { "\($0.key)=\($0.value)" }
+    }
+
+    private var authenticationCurrentDirectory: String {
+        let environment = ProcessInfo.processInfo.environment
+        if environment["DockMagicUITesting"] == "1",
+           let override = environment[
+               "DockMagicUITestAntigravityAuthWorkingDirectoryPath"
+           ],
+           !override.isEmpty {
+            return override
+        }
+        return FileManager.default.temporaryDirectory.path
+    }
+
+    private func applyAppearance(
+        to view: LocalProcessTerminalView,
+        theme: DesignTheme
+    ) {
+        view.nativeBackgroundColor = NSColor(theme.terminalBackground)
+        view.nativeForegroundColor = NSColor(theme.terminalForeground)
+        view.caretColor = NSColor(theme.terminalForeground)
+        view.selectedTextBackgroundColor = NSColor(theme.selectionFill)
+        view.selectedTextForegroundColor = NSColor(theme.terminalForeground)
+        view.needsDisplay = true
+    }
+
+    final class Coordinator: NSObject, LocalProcessTerminalViewDelegate {
+        let onExit: (Int32?) -> Void
+
+        init(onExit: @escaping (Int32?) -> Void) {
+            self.onExit = onExit
+        }
+
+        func sizeChanged(
+            source: LocalProcessTerminalView,
+            newCols: Int,
+            newRows: Int
+        ) {}
+
+        func setTerminalTitle(
+            source: LocalProcessTerminalView,
+            title: String
+        ) {}
+
+        func hostCurrentDirectoryUpdate(
+            source: TerminalView,
+            directory: String?
+        ) {}
+
+        func processTerminated(
+            source: TerminalView,
+            exitCode: Int32?
+        ) {
+            onExit(exitCode)
+        }
     }
 }

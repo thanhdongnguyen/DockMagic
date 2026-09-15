@@ -278,10 +278,7 @@ final class SearchConsoleFeatureTests: XCTestCase {
         XCTAssertFalse(appModel.weatherStore.isMonitoring)
         XCTAssertFalse(appModel.batteryStore.isMonitoring)
         XCTAssertTrue(appModel.codexStore.isMonitoring)
-        XCTAssertEqual(
-            appModel.claudeCodeStore.isMonitoring,
-            appModel.claudeCodeStore.isBridgeInstalled
-        )
+        XCTAssertTrue(appModel.claudeCodeStore.isMonitoring)
 
         appModel.stop()
 

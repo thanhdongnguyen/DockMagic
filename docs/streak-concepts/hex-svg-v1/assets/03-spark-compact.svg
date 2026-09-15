@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" role="img" aria-labelledby="title desc">
+<title id="title">DockMagic Spark — compact</title>
+<desc id="desc">3-day streak collectible. 0 rank stars. Solid vector reconstruction of the approved hexagonal concept; transparent canvas.</desc>
+<path d="M491 80 Q512 68 533 80 L873 276 Q895 289 895 314 L895 710 Q895 736 873 748 L533 944 Q512 956 491 944 L151 748 Q129 736 129 710 L129 314 Q129 289 151 276 Z" fill="#a49bff" />
+<path d="M512 74 Q523 74 533 80 L873 276 Q884 283 889 296 L824 330 L512 150 Z" fill="#6e60ff" />
+<path d="M889 296 Q895 304 895 314 L895 710 Q895 724 889 735 L824 694 L824 330 Z" fill="#403ce0" />
+<path d="M889 735 Q884 743 873 748 L533 944 Q523 950 512 950 L512 874 L824 694 Z" fill="#3432b1" />
+<path d="M512 950 Q501 950 491 944 L151 748 Q140 742 135 734 L200 694 L512 874 Z" fill="#4e3aff" />
+<path d="M135 734 Q129 724 129 710 L129 314 Q129 304 135 296 L200 330 L200 694 Z" fill="#786cff" />
+<polygon points="512,150 824,330 824,694 512,874 200,694 200,330" fill="#4542ff" />
+<polygon points="512,150 824,330 799,344 512,178" fill="#4542ff" />
+<polygon points="824,330 824,694 799,680 799,344" fill="#9890ff" />
+<polygon points="824,694 512,874 512,846 799,680" fill="#9890ff" />
+<polygon points="512,874 200,694 225,680 512,846" fill="#a49bff" />
+<polygon points="512,178 799,344 799,680 512,846 225,680 225,344" fill="#13245b" stroke="#0d163e" stroke-width="14" stroke-linejoin="round" stroke-linecap="round"/>
+<polygon points="512,185 792,348 792,676 512,837" fill="#18255e" />
+<path d="M191 276 L321 201" fill="none" stroke="#e4e0ff" stroke-width="20" stroke-linecap="round" stroke-linejoin="round"/>
+
+<path d="M491 80 Q512 68 533 80 L873 276 Q895 289 895 314 L895 710 Q895 736 873 748 L533 944 Q512 956 491 944 L151 748 Q129 736 129 710 L129 314 Q129 289 151 276 Z" fill="none" stroke="#0d163e" stroke-width="16" stroke-linejoin="round"/>
+<path d="M501 267 Q512 245 523 267 L589 410 Q598 432 620 442 L731 493 Q758 506 731 520 L616 573 Q595 582 586 602 L523 746 Q512 772 501 746 L434 602 Q425 582 404 573 L283 520 Q258 506 283 493 L403 442 Q425 432 434 411 Z" fill="#ffcb09" stroke="#0d163e" stroke-width="18" stroke-linejoin="round" stroke-linecap="round"/><path d="M512 262 L512 506 L273 506 L404 573 Q425 582 434 602 L501 746 Q512 772 523 746 L586 602 Q595 582 616 573 L748 510 L512 506 Z" fill="#ed9800" /><path d="M501 267 Q512 245 523 267 L550 329 L469 493 H280 L403 442 Q425 432 434 411 Z" fill="#ffeb69" /><path d="M501 267 Q512 245 523 267 L589 410 Q598 432 620 442 L731 493 Q758 506 731 520 L616 573 Q595 582 586 602 L523 746 Q512 772 501 746 L434 602 Q425 582 404 573 L283 520 Q258 506 283 493 L403 442 Q425 432 434 411 Z" fill="none" stroke="#0d163e" stroke-width="18" stroke-linejoin="round" stroke-linecap="round"/><path d="M529 366 L418 538 H495 L484 662 L594 483 H521 Z" fill="#fffbea" stroke="#fffbea" stroke-width="8" stroke-linejoin="round"/><g transform="translate(690 352) scale(0.69)"><path d="M0 -100 L29 -30 L100 0 L30 28 L0 100 L-29 29 L-100 0 L-30 -29 Z" fill="#ffcb09" stroke="#0d163e" stroke-width="14" stroke-linejoin="round"/></g>
+
+</svg>

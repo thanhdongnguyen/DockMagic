@@ -9,9 +9,9 @@ enum ClaudeCodeRateLimitProviderError: LocalizedError, Equatable {
     var errorDescription: String? {
         switch self {
         case .bridgeNotInstalled:
-            "Activate Claude Code in General so DockMagic can configure its status line bridge automatically."
+            "The retired DockMagic status line bridge is not installed."
         case .snapshotMissing:
-            "Complete one Claude Code response after automatic setup finishes."
+            "No local Claude Code activity has been recorded yet."
         case .invalidSnapshot:
             "Claude Code wrote an unreadable usage snapshot."
         case .supportedWindowsMissing:
@@ -24,6 +24,9 @@ protocol ClaudeCodeRateLimitProviding: Sendable {
     func fetchRateLimits() async throws -> ClaudeCodeRateLimitSnapshot
 }
 
+/// Reads local Claude activity only. Product quota deliberately does not flow
+/// through statusLine snapshots; 5H and 7D are supplied exclusively by the
+/// interactive `/usage` PTY collector.
 struct ClaudeCodeStatusLineRateLimitProvider: ClaudeCodeRateLimitProviding {
     let snapshotURL: URL
     let sessionSnapshotsDirectoryURL: URL
@@ -90,8 +93,8 @@ struct ClaudeCodeStatusLineRateLimitProvider: ClaudeCodeRateLimitProviding {
             return ClaudeCodeRateLimitSnapshot(
                 planType: nil,
                 limitID: "claude-code-local",
-                fiveHour: result.parsedStatus?.fiveHour,
-                weekly: result.parsedStatus?.weekly,
+                fiveHour: nil,
+                weekly: nil,
                 tokenUsage: result.tokenUsage,
                 recentTaskActivity: result.recentTaskActivity,
                 claudeTelemetry: telemetry,

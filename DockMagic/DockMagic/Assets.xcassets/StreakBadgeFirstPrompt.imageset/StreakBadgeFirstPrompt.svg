@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" role="img" aria-labelledby="title desc">
+<title id="title">DockMagic First Prompt — master</title>
+<desc id="desc">1-day streak collectible. 0 rank stars. Solid vector reconstruction of the approved hexagonal concept; transparent canvas.</desc>
+<path d="M491 80 Q512 68 533 80 L873 276 Q895 289 895 314 L895 710 Q895 736 873 748 L533 944 Q512 956 491 944 L151 748 Q129 736 129 710 L129 314 Q129 289 151 276 Z" fill="#a49bff" />
+<path d="M512 74 Q523 74 533 80 L873 276 Q884 283 889 296 L824 330 L512 150 Z" fill="#6e60ff" />
+<path d="M889 296 Q895 304 895 314 L895 710 Q895 724 889 735 L824 694 L824 330 Z" fill="#403ce0" />
+<path d="M889 735 Q884 743 873 748 L533 944 Q523 950 512 950 L512 874 L824 694 Z" fill="#3432b1" />
+<path d="M512 950 Q501 950 491 944 L151 748 Q140 742 135 734 L200 694 L512 874 Z" fill="#4e3aff" />
+<path d="M135 734 Q129 724 129 710 L129 314 Q129 304 135 296 L200 330 L200 694 Z" fill="#786cff" />
+<polygon points="512,150 824,330 824,694 512,874 200,694 200,330" fill="#4542ff" />
+<polygon points="512,150 824,330 799,344 512,178" fill="#4542ff" />
+<polygon points="824,330 824,694 799,680 799,344" fill="#9890ff" />
+<polygon points="824,694 512,874 512,846 799,680" fill="#9890ff" />
+<polygon points="512,874 200,694 225,680 512,846" fill="#a49bff" />
+<polygon points="512,178 799,344 799,680 512,846 225,680 225,344" fill="#13245b" stroke="#0d163e" stroke-width="14" stroke-linejoin="round" stroke-linecap="round"/>
+<polygon points="512,185 792,348 792,676 512,837" fill="#18255e" />
+<path d="M191 276 L321 201" fill="none" stroke="#e4e0ff" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M154 442 Q154 436 160 432 L183 418 Q190 414 190 423 L190 538 L154 559 Z" fill="#e4e0ff" />
+<path d="M491 80 Q512 68 533 80 L873 276 Q895 289 895 314 L895 710 Q895 736 873 748 L533 944 Q512 956 491 944 L151 748 Q129 736 129 710 L129 314 Q129 289 151 276 Z" fill="none" stroke="#0d163e" stroke-width="12" stroke-linejoin="round"/>
+<path d="M405 339 H609 Q710 339 710 436 V546 Q710 643 616 643 H444 L357 698 Q342 707 347 686 L362 627 Q310 607 310 549 V432 Q310 339 405 339 Z" fill="#fffbea" stroke="#0d163e" stroke-width="14" stroke-linejoin="round" stroke-linecap="round"/><path d="M683 424 V544 Q683 613 615 613 H435 L351 688 L357 698 L444 643 H616 Q710 643 710 546 V436 Q710 414 707 402 Z" fill="#d9d8ca" /><path d="M405 339 H609 Q710 339 710 436 V546 Q710 643 616 643 H444 L357 698 Q342 707 347 686 L362 627 Q310 607 310 549 V432 Q310 339 405 339 Z" fill="none" stroke="#0d163e" stroke-width="14" stroke-linejoin="round" stroke-linecap="round"/><path d="M412 447 L473 501 L412 555" fill="none" stroke="#0d163e" stroke-width="32" stroke-linecap="round" stroke-linejoin="round"/><path d="M516 555 H608" fill="none" stroke="#0d163e" stroke-width="30" stroke-linecap="round" stroke-linejoin="round"/><path d="M339 418 Q348 368 402 369" fill="none" stroke="#ffffff" stroke-width="20" stroke-linecap="round" stroke-linejoin="round"/><g transform="translate(664 358) scale(0.78)"><path d="M0 -100 L29 -30 L100 0 L30 28 L0 100 L-29 29 L-100 0 L-30 -29 Z" fill="#ffcb09" stroke="#0d163e" stroke-width="14" stroke-linejoin="round"/><path d="M0 -93 V0 H92 L30 28 L0 93 V0 H-92 L-30 -29 Z" fill="#ffeb69" /></g>
+
+</svg>

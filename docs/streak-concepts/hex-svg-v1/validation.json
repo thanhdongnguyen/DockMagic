@@ -1,0 +1,201 @@
+{
+  "status": "passed",
+  "svgCount": 20,
+  "nativeVectorCount": 20,
+  "productionAssetCount": 10,
+  "totalBytes": 82197,
+  "checks": [
+    {
+      "file": "assets/01-first-prompt.svg",
+      "bytes": 3388,
+      "sha256": "c2c03f2094acce2ec755f7ddb857247d9b14e006229f2a1dbbe9ce717967358e",
+      "nativeVector": true
+    },
+    {
+      "file": "assets/01-first-prompt-compact.svg",
+      "bytes": 3086,
+      "sha256": "3d2b1c955adeb87204b4a81d2f70662a2b650f15e042e7d5401b67b245f86214",
+      "nativeVector": true
+    },
+    {
+      "file": "assets/03-spark.svg",
+      "bytes": 3403,
+      "sha256": "dfad5a3fa2e88ae1042a916b465827edd9b7c1b06ceb22940ef742441283d2f1",
+      "nativeVector": true
+    },
+    {
+      "file": "assets/03-spark-compact.svg",
+      "bytes": 3232,
+      "sha256": "802440f922e4f3b36b578d85af47d485f07358e7a7984c1e555e554c825a06d5",
+      "nativeVector": true
+    },
+    {
+      "file": "assets/07-loop.svg",
+      "bytes": 3843,
+      "sha256": "34563813291f177a11c37a796201ae319a511524e36d49eac9cc835b1ccf2484",
+      "nativeVector": true
+    },
+    {
+      "file": "assets/07-loop-compact.svg",
+      "bytes": 3483,
+      "sha256": "11a562abf2bf55c02acb0298ff330c6fee6c5785d5daa8ad53f59906fa8de23b",
+      "nativeVector": true
+    },
+    {
+      "file": "assets/14-builder.svg",
+      "bytes": 4237,
+      "sha256": "db4f93bc5fbd66bf8a847972f52e6b6c045e9fb3a8ef9ec1e2b300b92e2ae83d",
+      "nativeVector": true
+    },
+    {
+      "file": "assets/14-builder-compact.svg",
+      "bytes": 3440,
+      "sha256": "495d6026c2825846ad983e54820954937c0b03dff5763c73e1c2217ed40b11eb",
+      "nativeVector": true
+    },
+    {
+      "file": "assets/30-flow.svg",
+      "bytes": 5032,
+      "sha256": "a7d51c2e9bdc3a450338c91ea7d572cb02d82186839dd3678a674fa6c0669f83",
+      "nativeVector": true
+    },
+    {
+      "file": "assets/30-flow-compact.svg",
+      "bytes": 4177,
+      "sha256": "a4defafeda895e92fa279248c7f29359e08d75f8761dd036901eaa0e6460130c",
+      "nativeVector": true
+    },
+    {
+      "file": "assets/60-navigator.svg",
+      "bytes": 4001,
+      "sha256": "dec0c62c2fb80c90a98c0cdb1ea2e4b261ce88651040aa5f76ca766310ec73dd",
+      "nativeVector": true
+    },
+    {
+      "file": "assets/60-navigator-compact.svg",
+      "bytes": 3424,
+      "sha256": "ffbe684e53df4499f55391b7ce1ebca627c2b1dab24a33bf756c5496109d5dfe",
+      "nativeVector": true
+    },
+    {
+      "file": "assets/100-century.svg",
+      "bytes": 5002,
+      "sha256": "825edf3fbc7c136eec19afd5e8882abbad49485d2ff1eeeafa026e419401c42b",
+      "nativeVector": true
+    },
+    {
+      "file": "assets/100-century-compact.svg",
+      "bytes": 4208,
+      "sha256": "4fc66ec1c9ca73808dfc2e322d04212f4059ebc50b855be9c2706d9a080d75dd",
+      "nativeVector": true
+    },
+    {
+      "file": "assets/180-architect.svg",
+      "bytes": 4751,
+      "sha256": "0bef7e3625e0be191391c4c64b457033b9b46e3dd4d0673277295d8117b48994",
+      "nativeVector": true
+    },
+    {
+      "file": "assets/180-architect-compact.svg",
+      "bytes": 3901,
+      "sha256": "8f28653894cc1ea55d193d04597df28fb1f48a3055384d359459b79e4d11e44a",
+      "nativeVector": true
+    },
+    {
+      "file": "assets/365-keystone.svg",
+      "bytes": 5951,
+      "sha256": "afa70b7b63dfa9f2627940465023460b74bc18910ce374f40fc2f0e423aa8fab",
+      "nativeVector": true
+    },
+    {
+      "file": "assets/365-keystone-compact.svg",
+      "bytes": 5100,
+      "sha256": "454bcb4bbe9f50f9b98aefc4c7a807eefd943031f49abe380793989768673395",
+      "nativeVector": true
+    },
+    {
+      "file": "assets/730-continuum.svg",
+      "bytes": 4957,
+      "sha256": "152b448a0be0708f9fe75c30b323658270483df693a467e2308dd94b28370c78",
+      "nativeVector": true
+    },
+    {
+      "file": "assets/730-continuum-compact.svg",
+      "bytes": 3581,
+      "sha256": "0357a7c5e9a7ed9ffcf2b448e726e9ec3c3c88ddc755385c67073ee9a890dbb6",
+      "nativeVector": true
+    }
+  ],
+  "productionAssets": [
+    {
+      "asset": "StreakBadgeFirstPrompt",
+      "file": "StreakBadgeFirstPrompt.imageset/StreakBadgeFirstPrompt.svg",
+      "source": "assets/01-first-prompt.svg",
+      "sha256": "c2c03f2094acce2ec755f7ddb857247d9b14e006229f2a1dbbe9ce717967358e",
+      "preservesVectorRepresentation": true
+    },
+    {
+      "asset": "StreakBadgeSpark",
+      "file": "StreakBadgeSpark.imageset/StreakBadgeSpark.svg",
+      "source": "assets/03-spark.svg",
+      "sha256": "dfad5a3fa2e88ae1042a916b465827edd9b7c1b06ceb22940ef742441283d2f1",
+      "preservesVectorRepresentation": true
+    },
+    {
+      "asset": "StreakBadgeLoop",
+      "file": "StreakBadgeLoop.imageset/StreakBadgeLoop.svg",
+      "source": "assets/07-loop.svg",
+      "sha256": "34563813291f177a11c37a796201ae319a511524e36d49eac9cc835b1ccf2484",
+      "preservesVectorRepresentation": true
+    },
+    {
+      "asset": "StreakBadgeBuilder",
+      "file": "StreakBadgeBuilder.imageset/StreakBadgeBuilder.svg",
+      "source": "assets/14-builder.svg",
+      "sha256": "db4f93bc5fbd66bf8a847972f52e6b6c045e9fb3a8ef9ec1e2b300b92e2ae83d",
+      "preservesVectorRepresentation": true
+    },
+    {
+      "asset": "StreakBadgeFlow",
+      "file": "StreakBadgeFlow.imageset/StreakBadgeFlow.svg",
+      "source": "assets/30-flow.svg",
+      "sha256": "a7d51c2e9bdc3a450338c91ea7d572cb02d82186839dd3678a674fa6c0669f83",
+      "preservesVectorRepresentation": true
+    },
+    {
+      "asset": "StreakBadgeNavigator",
+      "file": "StreakBadgeNavigator.imageset/StreakBadgeNavigator.svg",
+      "source": "assets/60-navigator.svg",
+      "sha256": "dec0c62c2fb80c90a98c0cdb1ea2e4b261ce88651040aa5f76ca766310ec73dd",
+      "preservesVectorRepresentation": true
+    },
+    {
+      "asset": "StreakBadgeCentury",
+      "file": "StreakBadgeCentury.imageset/StreakBadgeCentury.svg",
+      "source": "assets/100-century.svg",
+      "sha256": "825edf3fbc7c136eec19afd5e8882abbad49485d2ff1eeeafa026e419401c42b",
+      "preservesVectorRepresentation": true
+    },
+    {
+      "asset": "StreakBadgeArchitect",
+      "file": "StreakBadgeArchitect.imageset/StreakBadgeArchitect.svg",
+      "source": "assets/180-architect.svg",
+      "sha256": "0bef7e3625e0be191391c4c64b457033b9b46e3dd4d0673277295d8117b48994",
+      "preservesVectorRepresentation": true
+    },
+    {
+      "asset": "StreakBadgeCodexCore",
+      "file": "StreakBadgeCodexCore.imageset/StreakBadgeCodexCore.svg",
+      "source": "assets/365-keystone.svg",
+      "sha256": "afa70b7b63dfa9f2627940465023460b74bc18910ce374f40fc2f0e423aa8fab",
+      "preservesVectorRepresentation": true
+    },
+    {
+      "asset": "StreakBadgeContinuum",
+      "file": "StreakBadgeContinuum.imageset/StreakBadgeContinuum.svg",
+      "source": "assets/730-continuum.svg",
+      "sha256": "152b448a0be0708f9fe75c30b323658270483df693a467e2308dd94b28370c78",
+      "preservesVectorRepresentation": true
+    }
+  ]
+}

@@ -656,6 +656,7 @@ enum DockHoverPanelPlacement {
     static let weatherPanelSize = CGSize(width: 440, height: 420)
     static let codexPanelSize = CGSize(width: 440, height: 556)
     static let claudeCodePanelSize = CGSize(width: 440, height: 740)
+    static let antigravityPanelSize = CGSize(width: 440, height: 556)
     static let pointerExtent: CGFloat = 10
     static let iconClearance: CGFloat = 2
     static let windowLevel = NSWindow.Level(
@@ -674,8 +675,10 @@ enum DockHoverPanelPlacement {
             weatherPanelSize
         case .codex:
             codexPanelSize
-        case .claudeCode, .antigravity:
+        case .claudeCode:
             claudeCodePanelSize
+        case .antigravity:
+            antigravityPanelSize
         default:
             standardPanelSize
         }
@@ -898,10 +901,10 @@ final class DockHoverPanelController {
         switch feature {
         case .codex:
             .codex
-        case .antigravity:
-            .antigravity
         case .claudeCode:
             .claudeCode
+        case .antigravity:
+            .antigravity
         case .dockMagic, .systemMetrics, .network, .storage, .weather,
              .clock, .batteries, .github, .searchConsole:
             nil

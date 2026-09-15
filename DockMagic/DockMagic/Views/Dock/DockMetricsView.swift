@@ -86,14 +86,18 @@ struct DockTileView: View {
                 serviceStatusTransition: serviceStatusTransition,
                 animatesChanges: animatesChanges
             )
-        case let .antigravity(state, appearance):
-            DockAntigravityView(state: state, appearance: appearance, animatesChanges: animatesChanges)
         case let .claudeCode(state, appearance, serviceStatus):
             DockClaudeCodeView(
                 state: state,
                 appearance: appearance,
                 serviceStatus: serviceStatus,
                 serviceStatusTransition: serviceStatusTransition,
+                animatesChanges: animatesChanges
+            )
+        case let .antigravity(state, appearance):
+            DockAntigravityView(
+                state: state,
+                appearance: appearance,
                 animatesChanges: animatesChanges
             )
         case let .searchConsole(state, configuration):
@@ -216,6 +220,7 @@ struct DockCodexView: View {
     var body: some View {
         DockUsageLimitView(
             state: state,
+            metrics: UsageQuotaPresentation.codex(state.snapshot),
             appearance: appearance,
             serviceStatus: serviceStatus,
             serviceStatusTransition: serviceStatusTransition,
@@ -239,19 +244,23 @@ struct DockClaudeCodeView: View {
     var body: some View {
         DockUsageLimitView(
             state: state,
+            metrics: UsageQuotaPresentation.codex(state.snapshot),
             appearance: appearance,
             serviceStatus: serviceStatus,
             serviceStatusTransition: serviceStatusTransition,
             animatesChanges: animatesChanges,
             showsStateSymbol: false,
             accessibilityLabel: "Claude Code usage remaining",
-            accessibilityIdentifier: "dock.claudeCode"
+            accessibilityIdentifier: "dock.claudeCode",
+            usesWindowPlaceholders: true
         )
     }
 }
 
-private struct DockUsageLimitView: View {
+struct DockUsageLimitView: View {
+    @Environment(\.designTheme) private var theme
     let state: CodexUsageState
+    let metrics: [UsageQuotaMetric]
     let appearance: DockRingAppearance
     let serviceStatus: ServiceStatusState
     let serviceStatusTransition: DockServiceStatusTransition?
@@ -259,6 +268,7 @@ private struct DockUsageLimitView: View {
     let showsStateSymbol: Bool
     let accessibilityLabel: String
     let accessibilityIdentifier: String
+    var usesWindowPlaceholders = false
 
     @ViewBuilder
     var body: some View {
@@ -296,99 +306,56 @@ private struct DockUsageLimitView: View {
     }
 
     private var numericValues: [DockNumericValue] {
-        guard let snapshot = state.snapshot else {
-            return placeholderNumericValues
-        }
-
-        var values: [DockNumericValue] = []
-        if let fiveHour = snapshot.fiveHour {
-            values.append(
+        let resolved = Array(metrics.prefix(2))
+        guard !resolved.isEmpty else {
+            if usesWindowPlaceholders {
+                return [
+                    DockNumericValue(label: "5H", value: "—", color: appearance.outerColor.color),
+                    DockNumericValue(label: "7D", value: "—", color: appearance.innerColor.color)
+                ]
+            }
+            return [
                 DockNumericValue(
-                    label: "5H",
-                    value: percentage(fiveHour.remainingFraction),
-                    color: appearance.outerColor.color
+                    label: "QUOTA",
+                    value: "—",
+                    color: theme.dockOutline
                 )
+            ]
+        }
+        return resolved.map { metric in
+            DockNumericValue(
+                label: metric.shortLabel,
+                value: metric.remainingFraction.map(percentage) ?? "—",
+                color: metric.usesSecondaryAppearance
+                    ? appearance.innerColor.color
+                    : appearance.outerColor.color
             )
         }
-        if let weekly = snapshot.weekly {
-            values.append(
-                DockNumericValue(
-                    label: "7D",
-                    value: percentage(weekly.remainingFraction),
-                    color: appearance.innerColor.color
-                )
-            )
-        }
-        return values.isEmpty ? placeholderNumericValues : values
-    }
-
-    private var placeholderNumericValues: [DockNumericValue] {
-        [
-            DockNumericValue(
-                label: "5H",
-                value: "—",
-                color: appearance.outerColor.color
-            ),
-            DockNumericValue(
-                label: "7D",
-                value: "—",
-                color: appearance.innerColor.color
-            )
-        ]
     }
 
     private var outerRing: DockRingDescriptor? {
-        guard let snapshot = state.snapshot else {
-            return placeholderOuterRing
+        guard let metric = metrics.first else {
+            return usesWindowPlaceholders ? DockRingDescriptor(
+                progress: nil, color: appearance.outerColor.color, width: appearance.outerWidth
+            ) : nil
         }
-
-        if let fiveHour = snapshot.fiveHour {
-            return DockRingDescriptor(
-                progress: fiveHour.remainingFraction,
-                color: appearance.outerColor.color,
-                width: appearance.outerWidth
-            )
-        }
-
-        if let weekly = snapshot.weekly {
-            return DockRingDescriptor(
-                progress: weekly.remainingFraction,
-                color: appearance.innerColor.color,
-                width: appearance.innerWidth,
-                usesSingleRingLayout: true
-            )
-        }
-
-        return placeholderOuterRing
+        return DockRingDescriptor(
+            progress: metric.remainingFraction,
+            color: metric.usesSecondaryAppearance ? appearance.innerColor.color : appearance.outerColor.color,
+            width: metric.usesSecondaryAppearance ? appearance.innerWidth : appearance.outerWidth,
+            usesSingleRingLayout: metrics.count == 1
+                && (!usesWindowPlaceholders || metric.usesSecondaryAppearance)
+        )
     }
 
     private var innerRing: DockRingDescriptor? {
-        guard
-            let snapshot = state.snapshot,
-            snapshot.fiveHour != nil,
-            let weekly = snapshot.weekly
-        else {
-            return state.snapshot == nil ? placeholderInnerRing : nil
+        guard let metric = metrics.dropFirst().first else {
+            return usesWindowPlaceholders && state.snapshot == nil ? DockRingDescriptor(
+                progress: nil, color: appearance.innerColor.color, width: appearance.innerWidth
+            ) : nil
         }
-
         return DockRingDescriptor(
-            progress: weekly.remainingFraction,
-            color: appearance.innerColor.color,
-            width: appearance.innerWidth
-        )
-    }
-
-    private var placeholderOuterRing: DockRingDescriptor {
-        DockRingDescriptor(
-            progress: nil,
-            color: appearance.outerColor.color,
-            width: appearance.outerWidth
-        )
-    }
-
-    private var placeholderInnerRing: DockRingDescriptor {
-        DockRingDescriptor(
-            progress: nil,
+            progress: metric.remainingFraction,
             color: appearance.innerColor.color,
             width: appearance.innerWidth
         )
@@ -396,8 +363,10 @@ private struct DockUsageLimitView: View {
 
     private var stateSymbol: String? {
         switch state {
-        case .idle, .loading, .live:
+        case .idle, .loading:
             nil
+        case .live:
+            metrics.isEmpty ? "questionmark" : nil
         case .stale:
             "clock.badge.exclamationmark"
         case .unavailable:
@@ -426,10 +395,10 @@ private struct DockUsageLimitView: View {
             "Loading"
         case let .unavailable(message):
             "Unavailable, \(message)"
-        case let .live(snapshot):
-            quotaDescription(snapshot)
-        case let .stale(snapshot, message):
-            "Last known values, \(quotaDescription(snapshot)), \(message)"
+        case .live:
+            quotaDescription
+        case let .stale(_, message):
+            "Last known values, \(quotaDescription), \(message)"
         }
         guard let incident = serviceStatus.incidentSnapshot else {
             return usageValue
@@ -437,13 +406,11 @@ private struct DockUsageLimitView: View {
         return "\(usageValue), \(incident.provider.displayName) service \(incident.severity.accessibilityLabel)"
     }
 
-    private func quotaDescription(_ snapshot: CodexRateLimitSnapshot) -> String {
-        var values: [String] = []
-        if let fiveHour = snapshot.fiveHour {
-            values.append("5-hour \(percentage(fiveHour.remainingFraction))")
-        }
-        if let weekly = snapshot.weekly {
-            values.append("weekly \(percentage(weekly.remainingFraction))")
+    private var quotaDescription: String {
+        let values = metrics.compactMap { metric in
+            metric.remainingFraction.map {
+                "\(metric.title) \(percentage($0))"
+            }
         }
         return values.isEmpty
             ? "Usage limits unavailable"
@@ -528,6 +495,11 @@ struct DockRingDescriptor {
 struct DockTileSurface<Content: View>: View {
     @Environment(\.designTheme) private var theme
     @Environment(\.colorSchemeContrast) private var contrast
+    @Environment(\.dsAccessibilityOverrides) private var accessibilityOverrides
+
+    private var increasedContrast: Bool {
+        accessibilityOverrides.increaseContrast ?? (contrast == .increased)
+    }
 
     private let content: (CGFloat) -> Content
 
@@ -559,16 +531,16 @@ struct DockTileSurface<Content: View>: View {
                     LinearGradient(
                         colors: [
                             theme.dockOutline.opacity(
-                                contrast == .increased ? 1 : 0.88
+                                increasedContrast ? 1 : 0.88
                             ),
                             theme.dockOutline.opacity(
-                                contrast == .increased ? 0.82 : 0.58
+                                increasedContrast ? 0.82 : 0.58
                             )
                         ],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     ),
-                    lineWidth: contrast == .increased
+                    lineWidth: increasedContrast
                         ? max(1.5, side * 0.018)
                         : max(1.25, side * 0.014)
                 )
@@ -714,6 +686,11 @@ struct DockRingTileView: View {
     @Environment(\.designTheme) private var theme
     @Environment(\.colorSchemeContrast) private var contrast
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dsAccessibilityOverrides) private var accessibilityOverrides
+
+    private var increasedContrast: Bool {
+        accessibilityOverrides.increaseContrast ?? (contrast == .increased)
+    }
 
     private enum Layout {
         static let outerDiameter: CGFloat = 0.86
@@ -767,7 +744,7 @@ struct DockRingTileView: View {
         return ZStack {
             Circle()
                 .stroke(
-                    contrast == .increased
+                    increasedContrast
                         ? theme.dockOutline
                         : theme.dockTrack,
                     lineWidth: lineWidth

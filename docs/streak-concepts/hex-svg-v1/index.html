@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="vi">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DockMagic · Hex SVG review</title>
+<style>
+  :root{color-scheme:light;--bg:#f5f5f5;--panel:#fff;--text:#202020;--muted:#646464;--line:#d5d5d5;--control:#fff}
+  *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+  body[data-theme=dark]{color-scheme:dark;--bg:#151515;--panel:#202020;--text:#f4f4f4;--muted:#b3b3b3;--line:#494949;--control:#282828}
+  body.contrast{--line:var(--text)}body.reduced .toolbar{background:var(--panel)}
+  main{max-width:1600px;margin:auto;padding:40px 28px 72px}header{margin-bottom:28px}
+  .eyebrow{font-size:12px;letter-spacing:.11em;text-transform:uppercase;font-weight:650;color:var(--muted)}
+  h1{font-size:clamp(30px,4vw,46px);letter-spacing:-.04em;line-height:1.1;margin:10px 0 14px}
+  h2{font-size:18px;line-height:1.3;margin:0}p{margin:8px 0;color:var(--muted)}
+  a{color:inherit;text-underline-offset:3px}a:hover{text-decoration-thickness:2px}
+  .toolbar{position:sticky;top:0;z-index:1;display:flex;flex-wrap:wrap;align-items:center;gap:16px 24px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 20px;margin-bottom:26px}
+  .toolbar label{display:flex;gap:8px;align-items:center;font-size:13px}input,select{accent-color:var(--text)}
+  select{color:var(--text);background:var(--control);border:1px solid var(--line);border-radius:6px;padding:5px}input[type=range]{width:150px}
+  :focus-visible{outline:2px solid var(--text);outline-offset:4px}output{min-width:44px;font-variant-numeric:tabular-nums}
+  .gallery{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,390px),1fr));gap:20px}
+  article{border:1px solid var(--line);border-radius:16px;background:var(--panel);padding:22px;min-width:0}
+  .head{display:flex;align-items:baseline;justify-content:space-between;gap:12px}.day{color:var(--muted);font-size:13px;white-space:nowrap}
+  .pair{display:flex;align-items:center;justify-content:space-evenly;gap:20px;min-height:260px;padding:18px 0;overflow:auto}
+  figure{display:flex;flex:none;flex-direction:column;align-items:center;gap:10px;margin:0}
+  .art{width:var(--size,185px);height:var(--size,185px);position:relative;flex:none;display:grid;place-items:center}
+  .art img{width:100%;height:100%;object-fit:contain;display:block}.gray .art img,.locked .art img{filter:grayscale(1)}.locked .art img{opacity:.34}
+  .lock{display:none;position:absolute;right:6%;bottom:6%;border:1px solid var(--text);background:var(--panel);border-radius:50%;padding:clamp(1px,calc(var(--size,185px) * .018),5px);width:22%;height:22%;min-width:12px;min-height:12px}
+  .locked .lock{display:block}.lock path,.lock rect{stroke:var(--text);stroke-width:2;fill:none}
+  figcaption,.variant-label{font-size:11px;font-weight:600;color:var(--muted);letter-spacing:.04em}
+  .details{display:flex;justify-content:space-between;gap:14px;font-size:12px;border-top:1px solid var(--line);padding-top:14px}.details span{color:var(--muted)}
+  .sizes{display:flex;gap:14px;align-items:flex-end;justify-content:center;min-height:148px;margin-top:16px;padding-top:10px;border-top:1px solid var(--line)}
+  .sizes figure{gap:4px}.sizes figcaption{font-size:10px}.locked-note{display:none;font-size:12px;font-weight:600}.locked .locked-note{display:block}
+  footer{margin-top:32px;color:var(--muted);font-size:13px}#status:empty{display:none}.single .reference{display:none}.single .pair{justify-content:center}
+  @media(max-width:600px){main{padding:24px 14px}.toolbar{position:static;gap:12px;padding:14px}.pair{gap:12px}.art{max-width:72vw}article{padding:18px}.head{align-items:flex-start}.sizes{gap:8px}}
+</style>
+<body data-theme="light">
+<main>
+  <header>
+    <div class="eyebrow">DockMagic / Production SVG source</div>
+    <h1>Hex Collectibles, now vector.</h1>
+    <p>10 badge mới · 20 SVG thuần vector · Nền trong suốt · 10 bản Master đã được áp dụng vào app.</p>
+    <p>Đặt PNG concept cạnh SVG để so sánh. Các mặt tô bóng được dựng lại bằng mảng màu phẳng; không phải bản sao pixel của PNG.</p>
+  </header>
+  <div class="toolbar" aria-label="Điều khiển xem thử">
+    <label>Kích thước <input id="size" type="range" min="24" max="512" value="185"><output id="size-value" for="size">185 px</output></label>
+    <label>Biến thể <select id="variant"><option value="master">Master</option><option value="compact">Compact</option><option value="auto">Auto (≤60 px: compact)</option></select></label>
+    <label>Giao diện <select id="theme"><option value="light">Light</option><option value="dark">Dark</option></select></label>
+    <label><input id="compare" type="checkbox" checked> So sánh PNG</label>
+    <label><input id="gray" type="checkbox"> Grayscale</label>
+    <label><input id="contrast" type="checkbox"> Tăng tương phản</label>
+    <label><input id="reduced" type="checkbox"> Giảm trong suốt</label>
+    <label><input id="locked" type="checkbox"> Đã khóa</label>
+  </div>
+  <p id="status" role="status">Đang tải các badge…</p>
+  <section id="gallery" class="gallery" aria-label="Bộ sưu tập SVG"></section>
+  <footer>
+    <p>Master: nét và các mặt sáng đầy đủ. Compact: bớt chi tiết phụ, tăng độ dày viền, giữ nguyên biểu tượng và số sao. Auto chỉ là đề xuất trong trang review này.</p>
+    <p>Chrome dùng màu trung tính. Màu collectible chỉ nằm trong badge. Giảm trong suốt dùng nền đục; trạng thái khóa có biểu tượng và nhãn, không phụ thuộc màu.</p>
+    <p><a href="hex-badges-svg.zip" download>Tải bộ 20 SVG ↓</a> · <a href="README.md">Ghi chú triển khai</a> · <a href="manifest.json">Manifest 10 cấp</a> · <a href="validation.json">Kết quả kiểm tra vector</a> · <a href="native-collection-light-1x.png">Render native</a></p>
+  </footer>
+</main>
+<script type="module">
+  const $=id=>document.getElementById(id);
+  const lock='<svg class="lock" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10V7a5 5 0 0 1 10 0v3"/><rect x="4" y="10" width="16" height="12" rx="3"/></svg>';
+  let records=[];
+  const actualVariant=size=>$('variant').value==='auto'?(size<=60?'compact':'master'):$('variant').value;
+  function art(file,title,size,kind='vector') {
+    return `<div class="art" style="--size:${size}px"><img data-kind="${kind}" src="${file}" alt="${title}" width="1024" height="1024">${lock}</div>`;
+  }
+  function render() {
+    const size=Number($('size').value),variant=actualVariant(size);
+    $('size-value').textContent=`${size} px`;
+    $('gallery').innerHTML=records.map(b=>`<article>
+      <div class="head"><h2>${b.title}</h2><span class="day">${b.day} ${b.day===1?'day':'days'}</span></div>
+      <div class="pair">
+        <figure class="reference">${art(b.source,b.title+' concept PNG',size,'png')}<figcaption>CONCEPT PNG</figcaption></figure>
+        <figure>${art(b.variants[variant].file,b.title+' SVG '+variant,size)}<figcaption>SVG ${variant.toUpperCase()}</figcaption></figure>
+      </div>
+      <div class="details"><span>${b.stars} sao · ${(b.variants[variant].bytes/1024).toFixed(1)} KB</span><a href="${b.variants.master.file}" download>Master ↓</a><a href="${b.variants.compact.file}" download>Compact ↓</a></div>
+      <div class="sizes">${[32,48,58,112].map(s=>`<figure>${art(b.variants[actualVariant(s)].file,b.title+' '+s+' px',s)}<figcaption>${s} px</figcaption></figure>`).join('')}</div>
+      <p class="locked-note">Đã khóa · ${b.day} ngày</p>
+    </article>`).join('');
+  }
+  for(const id of ['size','variant'])$(id).addEventListener('input',render);
+  $('theme').addEventListener('change',()=>document.body.dataset.theme=$('theme').value);
+  for(const id of ['gray','contrast','locked','reduced'])$(id).addEventListener('change',()=>document.body.classList.toggle(id,$(id).checked));
+  $('compare').addEventListener('change',()=>document.body.classList.toggle('single',!$('compare').checked));
+  try {
+    const response=await fetch('./manifest.json');
+    if(!response.ok)throw new Error('manifest');
+    records=(await response.json()).badges;render();$('status').textContent='';
+  } catch { $('status').textContent='Không tải được manifest. Hãy mở trang bằng HTTP server local thay vì file://.'; }
+</script>
+</body>
+</html>

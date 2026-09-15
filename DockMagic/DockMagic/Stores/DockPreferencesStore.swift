@@ -12,9 +12,8 @@ final class DockPreferencesStore {
     static let githubRepositoryURLKey = "DockMagicGitHubRepositoryURL"
     static let codexAppearanceKey = "DockMagicCodexAppearance"
     static let codexExecutablePathKey = "DockMagicCodexExecutablePath"
-    static let antigravityAppearanceKey = "DockMagicAntigravityAppearance"
-    static let antigravityGroupKey = "DockMagicAntigravityQuotaGroup"
     static let claudeCodeAppearanceKey = "DockMagicClaudeCodeAppearance"
+    static let antigravityAppearanceKey = "DockMagicAntigravityAppearance"
     static let automaticallyConfigureClaudeCodeKey =
         "DockMagicAutomaticallyConfigureClaudeCode"
     static let dockHoverDashboardEnabledKey =
@@ -36,9 +35,8 @@ final class DockPreferencesStore {
     private(set) var storageAppearance: DockSingleRingAppearance
     private(set) var githubAppearance: DockGitHubAppearance
     private(set) var codexAppearance: DockRingAppearance
-    let antigravityGroupID = "auto"
-    private(set) var antigravityAppearance: DockRingAppearance
     private(set) var claudeCodeAppearance: DockRingAppearance
+    private(set) var antigravityAppearance: DockRingAppearance
 
     var githubRepositoryURL: String {
         didSet {
@@ -102,8 +100,8 @@ final class DockPreferencesStore {
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
-        activeFeature = defaults.string(forKey: DockFeature.storageKey)
-            .flatMap(DockFeature.init(rawValue:))
+        let storedFeature = defaults.string(forKey: DockFeature.storageKey)
+        activeFeature = storedFeature.flatMap(DockFeature.init(rawValue:))
             ?? .systemMetrics
         clockConfiguration = Self.decodeValue(
             DockClockConfiguration.self,
@@ -142,16 +140,15 @@ final class DockPreferencesStore {
             key: Self.codexAppearanceKey,
             fallback: DockFeatureDefaults.codexAppearance
         )
-        // Model selection is no longer exposed. A saved Gemini selection must
-        // not hide exhausted Claude/GPT quota behind an unrelated 100% pool.
-        defaults.removeObject(forKey: Self.antigravityGroupKey)
-        antigravityAppearance = Self.decodeAppearance(
-            from: defaults, key: Self.antigravityAppearanceKey, fallback: DockFeatureDefaults.antigravityAppearance
-        )
         claudeCodeAppearance = Self.decodeAppearance(
             from: defaults,
             key: Self.claudeCodeAppearanceKey,
             fallback: DockFeatureDefaults.claudeCodeAppearance
+        )
+        antigravityAppearance = Self.decodeAppearance(
+            from: defaults,
+            key: Self.antigravityAppearanceKey,
+            fallback: DockFeatureDefaults.antigravityAppearance
         )
         codexExecutablePath = Self.normalizedPath(
             defaults.string(forKey: Self.codexExecutablePathKey)

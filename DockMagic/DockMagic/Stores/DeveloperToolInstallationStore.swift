@@ -6,6 +6,7 @@ import Observation
 final class DeveloperToolInstallationStore {
     private(set) var codexState: DeveloperToolInstallationState = .checking
     private(set) var claudeCodeState: DeveloperToolInstallationState = .checking
+    private(set) var antigravityState: DeveloperToolInstallationState = .checking
 
     @ObservationIgnored
     private let installer: any DeveloperToolInstalling
@@ -29,6 +30,8 @@ final class DeveloperToolInstallationStore {
             codexState
         case .claudeCode:
             claudeCodeState
+        case .antigravity:
+            antigravityState
         }
     }
 
@@ -107,6 +110,8 @@ final class DeveloperToolInstallationStore {
             codexState = state
         case .claudeCode:
             claudeCodeState = state
+        case .antigravity:
+            antigravityState = state
         }
     }
 }

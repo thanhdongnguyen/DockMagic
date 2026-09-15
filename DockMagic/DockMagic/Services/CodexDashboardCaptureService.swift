@@ -42,6 +42,8 @@ enum CodexDashboardCaptureError: LocalizedError {
 @MainActor
 enum CodexDashboardCaptureService {
     static let rasterScale: CGFloat = 4
+    static let activityCardSize = CGSize(width: 300, height: 300)
+    static let activityCardChartDayCount = 14
 
     static func pixelDimensions(
         for configuration: CodexDashboardCaptureConfiguration
@@ -57,6 +59,18 @@ enum CodexDashboardCaptureService {
         for configuration: CodexDashboardCaptureConfiguration
     ) -> String {
         let dimensions = pixelDimensions(for: configuration)
+        return "\(dimensions.width) × \(dimensions.height) px"
+    }
+
+    static var activityCardPixelDimensions: (width: Int, height: Int) {
+        (
+            Int((activityCardSize.width * rasterScale).rounded()),
+            Int((activityCardSize.height * rasterScale).rounded())
+        )
+    }
+
+    static var activityCardPixelSizeLabel: String {
+        let dimensions = activityCardPixelDimensions
         return "\(dimensions.width) × \(dimensions.height) px"
     }
 
@@ -104,24 +118,142 @@ enum CodexDashboardCaptureService {
         )
     }
 
-    static func renderAntigravity(
-        state: ClaudeCodeUsageState,
-        configuration: CodexDashboardCaptureConfiguration,
+    static func renderActivityCard(
+        state: CodexUsageState,
+        brand: StreakServiceBrand,
+        appearanceMode: DSAppearanceMode,
         now: Date = .now,
-        initialMetric: String = "Tokens",
         accessibilityOverrides: DSAccessibilityOverrides = .init()
     ) throws -> CodexDashboardCaptureArtifact {
-        try renderDashboard(
-            content: ClaudeCodeHoverDashboardView(
-                state: state,
-                brand: .antigravity,
-                now: now,
-                initialMetric: initialMetric
+        let snapshot = state.snapshot
+        return try renderActivityCard(
+            tokenUsage: snapshot?.tokenUsage,
+            streakSummary: snapshot?.streakSummary,
+            momentum: CodexHoverDashboardPresentation.shipMomentum(
+                in: snapshot,
+                now: now
             ),
-            configuration: configuration,
-            fileName: "DockMagic-Antigravity-\(Int(now.timeIntervalSince1970)).png",
+            brand: brand,
+            appearanceMode: appearanceMode,
+            now: now,
+            dataTimestamp: snapshot?.fetchedAt ?? now,
+            isStale: state.isStale,
+            isHistoryPartial: false,
             accessibilityOverrides: accessibilityOverrides
         )
+    }
+
+    static func renderActivityCard(
+        state: AntigravityUsageState,
+        appearanceMode: DSAppearanceMode,
+        now: Date = .now,
+        accessibilityOverrides: DSAccessibilityOverrides = .init()
+    ) throws -> CodexDashboardCaptureArtifact {
+        let snapshot = state.snapshot
+        let observations = AntigravityHoverDashboardPresentation
+            .dayObservations(from: snapshot?.tokenUsage, now: now)
+        return try renderActivityCard(
+            tokenUsage: snapshot?.tokenUsage,
+            streakSummary: snapshot?.streakSummary,
+            momentum: AntigravityHoverDashboardPresentation.shipMomentum(
+                from: observations,
+                now: now
+            ),
+            brand: .antigravity,
+            appearanceMode: appearanceMode,
+            now: now,
+            dataTimestamp: snapshot?.fetchedAt ?? now,
+            isStale: state.isStale,
+            isHistoryPartial: snapshot?.historyIsPartial ?? true,
+            accessibilityOverrides: accessibilityOverrides
+        )
+    }
+
+    private static func renderActivityCard(
+        tokenUsage: CodexAccountTokenUsage?,
+        streakSummary: TokenUsageStreakSummary?,
+        momentum: CodexShipMomentum?,
+        brand: StreakServiceBrand,
+        appearanceMode: DSAppearanceMode,
+        now: Date,
+        dataTimestamp: Date,
+        isStale: Bool,
+        isHistoryPartial: Bool,
+        accessibilityOverrides: DSAccessibilityOverrides
+    ) throws -> CodexDashboardCaptureArtifact {
+        let resolvedAccessibility = resolvedAccessibilityOverrides(
+            accessibilityOverrides
+        )
+        let root = DockMagicThemeRoot(
+            content: DockMagicUsageActivityCard(
+                tokenUsage: tokenUsage,
+                streakSummary: streakSummary,
+                momentum: momentum,
+                brand: brand,
+                now: now,
+                dataTimestamp: dataTimestamp,
+                isStale: isStale,
+                isHistoryPartial: isHistoryPartial
+            ),
+            appearanceMode: appearanceMode
+        )
+        .environment(\.dsAccessibilityOverrides, resolvedAccessibility)
+        let pngData = try rasterize(
+            content: root,
+            size: activityCardSize,
+            appearanceMode: appearanceMode
+        )
+        let dimensions = activityCardPixelDimensions
+        return CodexDashboardCaptureArtifact(
+            pngData: pngData,
+            fileName: activityCardFileName(for: brand, at: now),
+            pixelWidth: dimensions.width,
+            pixelHeight: dimensions.height
+        )
+    }
+
+    static func activityCardChartSamples(
+        from tokenUsage: CodexAccountTokenUsage?,
+        now: Date = .now,
+        calendar inputCalendar: Calendar = .current
+    ) -> [Int64?] {
+        var calendar = inputCalendar
+        calendar.timeZone = inputCalendar.timeZone
+        let today = calendar.startOfDay(for: now)
+        guard let firstDay = calendar.date(
+            byAdding: .day,
+            value: -(activityCardChartDayCount - 1),
+            to: today
+        ), let dayAfterToday = calendar.date(
+            byAdding: .day,
+            value: 1,
+            to: today
+        ) else { return [] }
+
+        var totalsByDay: [Date: Int64] = [:]
+        for bucket in tokenUsage?.dailyUsageBuckets ?? [] {
+            let day = calendar.startOfDay(for: bucket.startDate)
+            guard day >= firstDay, day < dayAfterToday else { continue }
+            let current = totalsByDay[day] ?? 0
+            let addition = max(0, bucket.tokens)
+            let total = current.addingReportingOverflow(addition)
+            totalsByDay[day] = total.overflow ? Int64.max : total.partialValue
+        }
+
+        return (0..<activityCardChartDayCount).compactMap { offset in
+            calendar.date(byAdding: .day, value: offset, to: firstDay).map {
+                totalsByDay[$0]
+            }
+        }
+    }
+
+    static func activityCardChartHasRenderableTrend(
+        _ samples: [Int64?]
+    ) -> Bool {
+        guard samples.contains(where: { ($0 ?? 0) > 0 }) else { return false }
+        return zip(samples, samples.dropFirst()).contains { current, next in
+            current != nil && next != nil
+        }
     }
 
     private static func renderDashboard<Content: View>(
@@ -132,14 +264,8 @@ enum CodexDashboardCaptureService {
     ) throws -> CodexDashboardCaptureArtifact {
         // ImageRenderer has no window to inherit macOS accessibility settings
         // from. Resolve them explicitly while retaining deterministic overrides.
-        let workspace = NSWorkspace.shared
-        let resolvedAccessibility = DSAccessibilityOverrides(
-            reduceTransparency: accessibilityOverrides.reduceTransparency
-                ?? workspace.accessibilityDisplayShouldReduceTransparency,
-            increaseContrast: accessibilityOverrides.increaseContrast
-                ?? workspace.accessibilityDisplayShouldIncreaseContrast,
-            reduceMotion: accessibilityOverrides.reduceMotion
-                ?? workspace.accessibilityDisplayShouldReduceMotion
+        let resolvedAccessibility = resolvedAccessibilityOverrides(
+            accessibilityOverrides
         )
         let root = DockMagicThemeRoot(
             content: DockHoverDashboardCard(size: configuration.dashboardSize) {
@@ -159,6 +285,20 @@ enum CodexDashboardCaptureService {
             fileName: fileName,
             pixelWidth: dimensions.width,
             pixelHeight: dimensions.height
+        )
+    }
+
+    private static func resolvedAccessibilityOverrides(
+        _ overrides: DSAccessibilityOverrides
+    ) -> DSAccessibilityOverrides {
+        let workspace = NSWorkspace.shared
+        return DSAccessibilityOverrides(
+            reduceTransparency: overrides.reduceTransparency
+                ?? workspace.accessibilityDisplayShouldReduceTransparency,
+            increaseContrast: overrides.increaseContrast
+                ?? workspace.accessibilityDisplayShouldIncreaseContrast,
+            reduceMotion: overrides.reduceMotion
+                ?? workspace.accessibilityDisplayShouldReduceMotion
         )
     }
 
@@ -216,11 +356,13 @@ enum CodexDashboardCaptureService {
         panel.canCreateDirectories = true
         panel.isExtensionHidden = false
         panel.nameFieldStringValue = artifact.fileName
-        panel.title = artifact.fileName.contains("-Antigravity-")
-            ? "Save Antigravity Dashboard"
-            : artifact.fileName.contains("-Claude-Code-")
-            ? "Save Claude Code Dashboard"
-            : "Save Codex Dashboard"
+        panel.title = if artifact.fileName.contains("-Antigravity-") {
+            "Save Antigravity Activity Card"
+        } else if artifact.fileName.contains("-Claude-Code-") {
+            "Save Claude Code Activity Card"
+        } else {
+            "Save Codex Activity Card"
+        }
         panel.prompt = "Save"
 
         NSApplication.shared.activate(ignoringOtherApps: true)
@@ -289,5 +431,460 @@ enum CodexDashboardCaptureService {
         formatter.timeZone = timeZone
         formatter.dateFormat = "yyyy-MM-dd-HHmmss"
         return "DockMagic-Claude-Code-\(formatter.string(from: date)).png"
+    }
+
+    static func activityCardFileName(
+        for brand: StreakServiceBrand,
+        at date: Date,
+        timeZone: TimeZone = .current
+    ) -> String {
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = timeZone
+        formatter.dateFormat = "yyyy-MM-dd-HHmmss"
+        let provider = switch brand {
+        case .codex: "Codex"
+        case .claudeCode: "Claude-Code"
+        case .antigravity: "Antigravity"
+        }
+        return "DockMagic-\(provider)-Activity-\(formatter.string(from: date)).png"
+    }
+}
+
+/// A purpose-built activity image shared by Save, Copy, and Share so every
+/// export tells the same focused badge, token, and momentum story.
+@MainActor
+private struct DockMagicUsageActivityCard: View {
+    let tokenUsage: CodexAccountTokenUsage?
+    let streakSummary: TokenUsageStreakSummary?
+    let momentum: CodexShipMomentum?
+    let brand: StreakServiceBrand
+    let now: Date
+    let dataTimestamp: Date
+    let isStale: Bool
+    let isHistoryPartial: Bool
+
+    @Environment(\.designTheme) private var theme
+    @Environment(\.dsAccessibilityOverrides) private var accessibilityOverrides
+
+    private var milestone: TokenUsageStreakMilestone? {
+        streakSummary?.earnedBadge
+    }
+    private var displayedMilestone: TokenUsageStreakMilestone {
+        milestone ?? .firstPrompt
+    }
+    private var accent: Color {
+        brand == .claudeCode ? ProjectTheme.claudeCodeUsage : theme.action
+    }
+    private var strongOutlineWidth: CGFloat {
+        accessibilityOverrides.increaseContrast == true ? 1.5 : 0.75
+    }
+    private var chartSamples: [Int64?] {
+        CodexDashboardCaptureService.activityCardChartSamples(
+            from: tokenUsage,
+            now: now
+        )
+    }
+    private var showsChart: Bool {
+        CodexDashboardCaptureService.activityCardChartHasRenderableTrend(
+            chartSamples
+        )
+    }
+
+    var body: some View {
+        ZStack(alignment: .top) {
+            theme.opaqueSurface
+
+            header
+                .padding(.horizontal, 14)
+                .padding(.top, 11)
+                .zIndex(1)
+
+            VStack(spacing: 0) {
+                StreakBadgeView(
+                    milestone: displayedMilestone,
+                    size: 144,
+                    isUnlocked: milestone != nil
+                )
+                .accessibilityHidden(true)
+
+                Text("CURRENT BADGE")
+                    .font(.system(size: 7, weight: .bold))
+                    .tracking(1.5)
+                    .foregroundStyle(theme.textSecondary)
+                    .padding(.top, 1)
+
+                Text(milestone?.title.localizedUppercase ?? "READY TO BEGIN")
+                    .font(.system(size: 20, weight: .black))
+                    .foregroundStyle(theme.textPrimary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.66)
+                    .padding(.horizontal, 8)
+
+                Text(badgeSubtitle)
+                    .font(.system(size: 7.5, weight: .bold))
+                    .tracking(1.2)
+                    .foregroundStyle(theme.textSecondary)
+                    .padding(.top, 1)
+
+                divider
+                    .padding(.top, 5)
+
+                tokenMetric
+                    .padding(.top, 3)
+
+                shipMomentum
+                    .padding(.top, 5)
+
+                Text("DockMagic")
+                    .font(.system(size: 7, weight: .semibold))
+                    .foregroundStyle(theme.textTertiary)
+                    .padding(.top, 4)
+            }
+            .padding(.horizontal, 14)
+            .padding(.top, 18)
+            .padding(.bottom, 8)
+        }
+        .frame(
+            width: CodexDashboardCaptureService.activityCardSize.width,
+            height: CodexDashboardCaptureService.activityCardSize.height
+        )
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(brand.displayName) daily activity card")
+        .accessibilityValue(accessibilityValue)
+    }
+
+    private var header: some View {
+        HStack(spacing: 8) {
+            brandLogo
+
+            Text(brand.displayName)
+                .font(.system(size: 15, weight: .bold))
+                .foregroundStyle(theme.textPrimary)
+
+            Spacer(minLength: 8)
+
+            Text(Self.dateLabel(dataTimestamp, isStale: isStale))
+                .font(.system(size: 7.5, weight: .bold))
+                .tracking(0.8)
+                .foregroundStyle(theme.textSecondary)
+                .monospacedDigit()
+        }
+        .frame(height: 22)
+    }
+
+    @ViewBuilder
+    private var brandLogo: some View {
+        if brand == .codex {
+            PreservedVectorAssetImage(assetName: brand.logoAssetName)
+                .scaledToFill()
+                .frame(width: 34, height: 34)
+                .frame(width: 22, height: 22)
+                .clipShape(
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                )
+                .accessibilityHidden(true)
+        } else {
+            PreservedVectorAssetImage(assetName: brand.logoAssetName)
+                .scaledToFit()
+                .frame(width: 22, height: 22)
+                .clipShape(
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                )
+                .accessibilityHidden(true)
+        }
+    }
+
+    private var divider: some View {
+        Rectangle()
+            .fill(theme.outline)
+            .frame(height: 0.5)
+            .accessibilityHidden(true)
+    }
+
+    private var tokenMetric: some View {
+        Group {
+            if showsChart {
+                HStack(alignment: .center, spacing: 12) {
+                    tokenMetricText(alignment: .leading)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+
+                    UsageActivityMiniAreaChart(
+                        samples: chartSamples,
+                        accent: accent
+                    )
+                    .frame(width: 82, height: 29)
+                    .frame(width: 88, alignment: .trailing)
+                }
+            } else {
+                tokenMetricText(alignment: .center)
+                    .frame(maxWidth: .infinity, alignment: .center)
+            }
+        }
+    }
+
+    private func tokenMetricText(
+        alignment: HorizontalAlignment
+    ) -> some View {
+        VStack(alignment: alignment, spacing: 0) {
+            Text(Self.tokenLabel(momentum?.todayTokens))
+                .font(.system(size: 33, weight: .black, design: .rounded))
+                .foregroundStyle(theme.textPrimary)
+                .monospacedDigit()
+                .lineLimit(1)
+                .minimumScaleFactor(0.72)
+
+            Text(isHistoryPartial ? "TOKENS OBSERVED TODAY" : "TOKENS TODAY")
+                .font(.system(size: isHistoryPartial ? 6.5 : 7.5, weight: .bold))
+                .tracking(isHistoryPartial ? 0.72 : 1.4)
+                .foregroundStyle(theme.textSecondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.82)
+        }
+    }
+
+    private var shipMomentum: some View {
+        HStack(alignment: .bottom, spacing: 10) {
+            VStack(alignment: .leading, spacing: 5) {
+                Text("SHIP MOMENTUM")
+                    .font(.system(size: 7.5, weight: .bold))
+                    .tracking(1.1)
+                    .foregroundStyle(theme.textSecondary)
+
+                GeometryReader { geometry in
+                    ZStack(alignment: .leading) {
+                        Capsule()
+                            .fill(theme.outlineStrong)
+                        Capsule()
+                            .fill(accent)
+                            .frame(
+                                width: geometry.size.width
+                                    * CGFloat(momentum?.score ?? 0) / 100
+                            )
+                    }
+                }
+                .frame(height: 7)
+                .overlay {
+                    Capsule()
+                        .strokeBorder(
+                            theme.outlineStrong,
+                            lineWidth: strongOutlineWidth
+                        )
+                }
+                .accessibilityHidden(true)
+            }
+
+            VStack(alignment: .trailing, spacing: 0) {
+                Text(momentum.map { "\($0.score) / 100" } ?? "— / 100")
+                    .font(.system(size: 12.5, weight: .black, design: .rounded))
+                    .foregroundStyle(theme.textPrimary)
+                    .monospacedDigit()
+
+                Text(momentum?.rank.title.localizedUppercase ?? "UNAVAILABLE")
+                    .font(.system(size: 7.5, weight: .bold))
+                    .tracking(0.9)
+                    .foregroundStyle(theme.textSecondary)
+            }
+            .frame(minWidth: 64, alignment: .trailing)
+        }
+    }
+
+    private var badgeSubtitle: String {
+        guard let milestone else { return "NO BADGE YET" }
+        return "\(milestone.requiredDays)-DAY BADGE"
+    }
+
+    private var accessibilityValue: String {
+        let badge = milestone?.title ?? "No badge earned"
+        let tokens = momentum?.todayTokens.formatted() ?? "unavailable"
+        let ship = momentum.map {
+            "\($0.score) out of 100, rank \($0.rank.title)"
+        } ?? "unavailable"
+        let history = showsChart
+            ? isHistoryPartial
+                ? "Partial locally observed 14-day token history."
+                : "14-day token history."
+            : "Token history unavailable."
+        return "Badge: \(badge). Tokens today: \(tokens). \(history) Ship momentum: \(ship)."
+    }
+
+    private static func dateLabel(_ date: Date, isStale: Bool) -> String {
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = .current
+        formatter.dateFormat = "MMM d, yyyy"
+        let prefix = isStale ? "LAST KNOWN" : "TODAY"
+        return "\(prefix) · \(formatter.string(from: date).localizedUppercase)"
+    }
+
+    private static func tokenLabel(_ tokens: Int64?) -> String {
+        guard let tokens else { return "—" }
+        let amount = max(0, tokens)
+        let units: [(threshold: Int64, suffix: String)] = [
+            (1_000_000_000, "B"),
+            (1_000_000, "M"),
+            (1_000, "K")
+        ]
+        guard let unit = units.first(where: { amount >= $0.threshold }) else {
+            return amount.formatted(
+                .number.locale(Locale(identifier: "en_US_POSIX"))
+            )
+        }
+        let value = Double(amount) / Double(unit.threshold)
+        let precision = value >= 100 ? 0 : value >= 10 ? 1 : 2
+        return String(format: "%.*f", precision, value) + unit.suffix
+    }
+}
+
+private struct UsageActivityMiniAreaChart: View {
+    let samples: [Int64?]
+    let accent: Color
+
+    @Environment(\.designTheme) private var theme
+    @Environment(\.dsAccessibilityOverrides) private var accessibilityOverrides
+
+    var body: some View {
+        ZStack {
+            UsageActivityAreaShape(samples: samples)
+                .fill(
+                    accent.opacity(
+                        accessibilityOverrides.increaseContrast == true
+                            ? 0.28
+                            : 0.18
+                    )
+                )
+
+            UsageActivityLineShape(samples: samples)
+                .stroke(
+                    accent,
+                    style: StrokeStyle(
+                        lineWidth: accessibilityOverrides.increaseContrast == true
+                            ? 1.25
+                            : 1,
+                        lineCap: .round,
+                        lineJoin: .round
+                    )
+                )
+
+            UsageActivityMissingSamplesShape(samples: samples)
+                .stroke(
+                    theme.outlineStrong,
+                    style: StrokeStyle(
+                        lineWidth: accessibilityOverrides.increaseContrast == true
+                            ? 1
+                            : 0.75,
+                        lineCap: .round,
+                        dash: [1.5, 1.25]
+                    )
+                )
+        }
+        .clipped()
+        .accessibilityHidden(true)
+    }
+}
+
+private struct UsageActivityAreaShape: Shape {
+    let samples: [Int64?]
+
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        for segment in UsageActivityChartGeometry.segments(
+            samples: samples,
+            rect: rect
+        ) where segment.count >= 2 {
+            guard let first = segment.first, let last = segment.last else {
+                continue
+            }
+            path.move(to: CGPoint(x: first.x, y: rect.maxY))
+            path.addLine(to: first)
+            for point in segment.dropFirst() {
+                path.addLine(to: point)
+            }
+            path.addLine(to: CGPoint(x: last.x, y: rect.maxY))
+            path.closeSubpath()
+        }
+        return path
+    }
+}
+
+private struct UsageActivityLineShape: Shape {
+    let samples: [Int64?]
+
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        for segment in UsageActivityChartGeometry.segments(
+            samples: samples,
+            rect: rect
+        ) where segment.count >= 2 {
+            guard let first = segment.first else { continue }
+            path.move(to: first)
+            for point in segment.dropFirst() {
+                path.addLine(to: point)
+            }
+        }
+        return path
+    }
+}
+
+private struct UsageActivityMissingSamplesShape: Shape {
+    let samples: [Int64?]
+
+    func path(in rect: CGRect) -> Path {
+        guard samples.count > 1 else { return Path() }
+        let step = rect.width / CGFloat(samples.count - 1)
+        var path = Path()
+        for index in samples.indices where samples[index] == nil {
+            let x = rect.minX + CGFloat(index) * step
+            path.move(to: CGPoint(x: max(rect.minX, x - 1.5), y: rect.maxY - 0.5))
+            path.addLine(to: CGPoint(x: min(rect.maxX, x + 1.5), y: rect.maxY - 0.5))
+        }
+        return path
+    }
+}
+
+private enum UsageActivityChartGeometry {
+    static func segments(
+        samples: [Int64?],
+        rect: CGRect
+    ) -> [[CGPoint]] {
+        guard samples.count > 1 else { return [] }
+        let maximum = max(1, samples.compactMap { $0 }.max() ?? 1)
+        let step = rect.width / CGFloat(samples.count - 1)
+        let drawableHeight = max(1, rect.height - 1.5)
+        var result: [[CGPoint]] = []
+        var current: [CGPoint] = []
+
+        for (index, sample) in samples.enumerated() {
+            guard let sample else {
+                if !current.isEmpty { result.append(current) }
+                current = []
+                continue
+            }
+            let fraction = CGFloat(max(0, sample)) / CGFloat(maximum)
+            current.append(
+                CGPoint(
+                    x: rect.minX + CGFloat(index) * step,
+                    y: rect.maxY - 0.5 - drawableHeight * fraction
+                )
+            )
+        }
+        if !current.isEmpty { result.append(current) }
+        return result
+    }
+}
+
+private extension CodexUsageState {
+    var isStale: Bool {
+        if case .stale = self { return true }
+        return false
+    }
+}
+
+private extension AntigravityUsageState {
+    var isStale: Bool {
+        if case .stale = self { return true }
+        return false
     }
 }

@@ -16,16 +16,16 @@ enum BadgeQAGenerationError: Error {
 }
 
 let badges = [
-    BadgeSpec(day: 1, title: "First Prompt", assetDirectory: "StreakBadgeFirstPrompt.imageset", filename: "StreakBadgeFirstPrompt.png"),
-    BadgeSpec(day: 3, title: "Spark", assetDirectory: "StreakBadgeSpark.imageset", filename: "StreakBadgeSpark.png"),
-    BadgeSpec(day: 7, title: "Loop", assetDirectory: "StreakBadgeLoop.imageset", filename: "StreakBadgeLoop.png"),
-    BadgeSpec(day: 14, title: "Builder", assetDirectory: "StreakBadgeBuilder.imageset", filename: "StreakBadgeBuilder.png"),
-    BadgeSpec(day: 30, title: "Flow", assetDirectory: "StreakBadgeFlow.imageset", filename: "StreakBadgeFlow.png"),
-    BadgeSpec(day: 60, title: "Navigator", assetDirectory: "StreakBadgeNavigator.imageset", filename: "StreakBadgeNavigator.png"),
-    BadgeSpec(day: 100, title: "Century", assetDirectory: "StreakBadgeCentury.imageset", filename: "StreakBadgeCentury.png"),
-    BadgeSpec(day: 180, title: "Architect", assetDirectory: "StreakBadgeArchitect.imageset", filename: "StreakBadgeArchitect.png"),
-    BadgeSpec(day: 365, title: "Keystone", assetDirectory: "StreakBadgeCodexCore.imageset", filename: "StreakBadgeCodexCore.png"),
-    BadgeSpec(day: 730, title: "Continuum", assetDirectory: "StreakBadgeContinuum.imageset", filename: "StreakBadgeContinuum.png")
+    BadgeSpec(day: 1, title: "First Prompt", assetDirectory: "StreakBadgeFirstPrompt.imageset", filename: "StreakBadgeFirstPrompt.svg"),
+    BadgeSpec(day: 3, title: "Spark", assetDirectory: "StreakBadgeSpark.imageset", filename: "StreakBadgeSpark.svg"),
+    BadgeSpec(day: 7, title: "Loop", assetDirectory: "StreakBadgeLoop.imageset", filename: "StreakBadgeLoop.svg"),
+    BadgeSpec(day: 14, title: "Builder", assetDirectory: "StreakBadgeBuilder.imageset", filename: "StreakBadgeBuilder.svg"),
+    BadgeSpec(day: 30, title: "Flow", assetDirectory: "StreakBadgeFlow.imageset", filename: "StreakBadgeFlow.svg"),
+    BadgeSpec(day: 60, title: "Navigator", assetDirectory: "StreakBadgeNavigator.imageset", filename: "StreakBadgeNavigator.svg"),
+    BadgeSpec(day: 100, title: "Century", assetDirectory: "StreakBadgeCentury.imageset", filename: "StreakBadgeCentury.svg"),
+    BadgeSpec(day: 180, title: "Architect", assetDirectory: "StreakBadgeArchitect.imageset", filename: "StreakBadgeArchitect.svg"),
+    BadgeSpec(day: 365, title: "Keystone", assetDirectory: "StreakBadgeCodexCore.imageset", filename: "StreakBadgeCodexCore.svg"),
+    BadgeSpec(day: 730, title: "Continuum", assetDirectory: "StreakBadgeContinuum.imageset", filename: "StreakBadgeContinuum.svg")
 ]
 
 let rootURL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
@@ -51,10 +51,10 @@ let frames = try badges.map { spec in
     )
 }
 let claudeLogo = try loadImage(
-    assetRoot.appendingPathComponent("ClaudeCodeLogo.imageset/ClaudeCodeLogo@2x.png")
+    assetRoot.appendingPathComponent("ClaudeCodeLogo.imageset/ClaudeCodeLogo.svg")
 )
 let codexLogo = try loadImage(
-    assetRoot.appendingPathComponent("CodexBadgeLogo.imageset/CodexBadgeLogo@2x.png")
+    assetRoot.appendingPathComponent("CodexLogo.imageset/CodexLogo.svg")
 )
 let selectedTarget = try loadImage(
     rootURL.appendingPathComponent(

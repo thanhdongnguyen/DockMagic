@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" role="img" aria-labelledby="title desc">
+<title id="title">DockMagic Continuum — compact</title>
+<desc id="desc">730-day streak collectible. 3 rank stars. Solid vector reconstruction of the approved hexagonal concept; transparent canvas.</desc>
+<path d="M491 80 Q512 68 533 80 L873 276 Q895 289 895 314 L895 710 Q895 736 873 748 L533 944 Q512 956 491 944 L151 748 Q129 736 129 710 L129 314 Q129 289 151 276 Z" fill="#e4eeff" />
+<path d="M512 74 Q523 74 533 80 L873 276 Q884 283 889 296 L824 330 L512 150 Z" fill="#b9cbff" />
+<path d="M889 296 Q895 304 895 314 L895 710 Q895 724 889 735 L824 694 L824 330 Z" fill="#819aef" />
+<path d="M889 735 Q884 743 873 748 L533 944 Q523 950 512 950 L512 874 L824 694 Z" fill="#5065b5" />
+<path d="M512 950 Q501 950 491 944 L151 748 Q140 742 135 734 L200 694 L512 874 Z" fill="#a1b8ef" />
+<path d="M135 734 Q129 724 129 710 L129 314 Q129 304 135 296 L200 330 L200 694 Z" fill="#cadbff" />
+<polygon points="512,150 824,330 824,694 512,874 200,694 200,330" fill="#fff083" />
+<polygon points="512,150 824,330 799,344 512,178" fill="#fff083" />
+<polygon points="824,330 824,694 799,680 799,344" fill="#edac00" />
+<polygon points="824,694 512,874 512,846 799,680" fill="#ffeb69" />
+<polygon points="512,874 200,694 225,680 512,846" fill="#e4eeff" />
+<polygon points="512,178 799,344 799,680 512,846 225,680 225,344" fill="#13245b" stroke="#0d163e" stroke-width="14" stroke-linejoin="round" stroke-linecap="round"/>
+<polygon points="512,185 792,348 792,676 512,837" fill="#18255e" />
+<path d="M191 276 L321 201" fill="none" stroke="#ffffff" stroke-width="20" stroke-linecap="round" stroke-linejoin="round"/>
+
+<path d="M491 80 Q512 68 533 80 L873 276 Q895 289 895 314 L895 710 Q895 736 873 748 L533 944 Q512 956 491 944 L151 748 Q129 736 129 710 L129 314 Q129 289 151 276 Z" fill="none" stroke="#0d163e" stroke-width="16" stroke-linejoin="round"/>
+<g transform="translate(512 300) scale(0.65)"><path d="M0 -100 L29 -30 L100 0 L30 28 L0 100 L-29 29 L-100 0 L-30 -29 Z" fill="#dce4ff" stroke="#0d163e" stroke-width="14" stroke-linejoin="round"/></g><path d="M512 500 C445 418 419 378 366 378 C251 378 251 622 366 622 C419 622 459 561 512 500 C565 439 605 378 658 378 C773 378 773 622 658 622 C605 622 579 582 512 500 Z" fill="none" stroke="#0d163e" stroke-width="110" stroke-linecap="round" stroke-linejoin="round"/><path d="M512 500 C445 418 419 378 366 378 C251 378 251 622 366 622 C419 622 459 561 512 500 C565 439 605 378 658 378 C773 378 773 622 658 622 C605 622 579 582 512 500 Z" fill="none" stroke="#ffcb09" stroke-width="84" stroke-linecap="round" stroke-linejoin="round"/><path d="M366 378 C419 378 445 418 512 500 C579 582 605 622 658 622" fill="none" stroke="#ffeb69" stroke-width="74" stroke-linecap="round" stroke-linejoin="round"/>
+<polygon points="398,697 416.79,739.14 462.67,743.99 428.4,774.88 437.97,820.01 398,796.96 358.03,820.01 367.6,774.88 333.33,743.99 379.21,739.14" fill="#ffcb09" stroke="#0d163e" stroke-width="12" stroke-linejoin="round"/><polygon points="512,695 531.34,738.38 578.57,743.37 543.29,775.17 553.14,821.63 512,797.9 470.86,821.63 480.71,775.17 445.43,743.37 492.66,738.38" fill="#ffcb09" stroke="#0d163e" stroke-width="12" stroke-linejoin="round"/><polygon points="626,697 644.79,739.14 690.67,743.99 656.4,774.88 665.97,820.01 626,796.96 586.03,820.01 595.6,774.88 561.33,743.99 607.21,739.14" fill="#ffcb09" stroke="#0d163e" stroke-width="12" stroke-linejoin="round"/>
+</svg>

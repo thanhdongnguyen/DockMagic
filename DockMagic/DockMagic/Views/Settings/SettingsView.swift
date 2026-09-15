@@ -15,6 +15,35 @@ enum SettingsDestination: String, CaseIterable, Identifiable {
     case antigravity
     case searchConsole
 
+    init(activeFeature: DockFeature) {
+        switch activeFeature {
+        case .dockMagic:
+            self = .general
+        case .systemMetrics:
+            self = .systemMetrics
+        case .network:
+            self = .network
+        case .storage:
+            self = .storage
+        case .weather:
+            self = .weather
+        case .clock:
+            self = .clock
+        case .batteries:
+            self = .batteries
+        case .github:
+            self = .github
+        case .codex:
+            self = .codex
+        case .claudeCode:
+            self = .claudeCode
+        case .antigravity:
+            self = .antigravity
+        case .searchConsole:
+            self = .searchConsole
+        }
+    }
+
     var id: Self { self }
 
     var title: String {
@@ -37,10 +66,10 @@ enum SettingsDestination: String, CaseIterable, Identifiable {
             "GitHub"
         case .codex:
             "Codex"
-        case .antigravity:
-            "Antigravity"
         case .claudeCode:
             "Claude Code"
+        case .antigravity:
+            "Antigravity"
         case .searchConsole:
             "Search Console"
         }
@@ -66,10 +95,10 @@ enum SettingsDestination: String, CaseIterable, Identifiable {
             "Track repository stars and forks in the Dock."
         case .codex:
             "Show Codex rate limits and aggregate token usage."
-        case .antigravity:
-            "Show model quota, token history and local agent activity."
         case .claudeCode:
             "Show remaining 5-hour and weekly Claude Code limits."
+        case .antigravity:
+            "Show official model-pool quota and optional local session activity."
         case .searchConsole:
             "A focused view of your Google Search performance."
         }
@@ -95,10 +124,10 @@ enum SettingsDestination: String, CaseIterable, Identifiable {
             "point.3.connected.trianglepath.dotted"
         case .codex:
             "sparkles"
-        case .antigravity:
-            "sparkle"
         case .claudeCode:
             "chevron.left.forwardslash.chevron.right"
+        case .antigravity:
+            "sparkle"
         case .searchConsole:
             "magnifyingglass"
         }
@@ -124,10 +153,10 @@ enum SettingsDestination: String, CaseIterable, Identifiable {
             .github
         case .codex:
             .codex
-        case .antigravity:
-            .antigravity
         case .claudeCode:
             .claudeCode
+        case .antigravity:
+            .antigravity
         case .searchConsole:
             .searchConsole
         }
@@ -193,7 +222,14 @@ struct SettingsView: View {
         }
         .onChange(of: destination, initial: true) { _, newDestination in
             if let feature = newDestination.feature {
-                appModel.requestDeveloperToolPreparation(for: feature)
+                if feature == .claudeCode {
+                    appModel.prepareExistingClaudeCodeIntegration()
+                    appModel.claudeCodeStore.start()
+                } else if feature == .antigravity {
+                    appModel.antigravityStore.start()
+                } else {
+                    appModel.requestDeveloperToolPreparation(for: feature)
+                }
             }
 
             switch newDestination {
@@ -235,6 +271,11 @@ struct SettingsView: View {
                appModel.preferences.activeFeature != .searchConsole {
                 appModel.searchConsoleStore.stop()
             }
+            if newDestination != .antigravity,
+               appModel.preferences.activeFeature != .antigravity,
+               !appModel.antigravityStore.isBridgeInstalled {
+                appModel.antigravityStore.stop()
+            }
         }
         .onDisappear {
             if appModel.preferences.activeFeature != .batteries {
@@ -245,6 +286,10 @@ struct SettingsView: View {
             }
             if appModel.preferences.activeFeature != .clock {
                 appModel.clockStore.stop()
+            }
+            if appModel.preferences.activeFeature != .antigravity,
+               !appModel.antigravityStore.isBridgeInstalled {
+                appModel.antigravityStore.stop()
             }
         }
         .onReceive(
@@ -275,28 +320,29 @@ struct SettingsView: View {
                 .padding(.top, DSSpacing.small)
 
             ScrollView {
-                LazyVStack(alignment: .leading, spacing: DSSpacing.xSmall) {
+                LazyVStack(alignment: .leading, spacing: DSSpacing.small) {
                     sidebarRow(.general)
 
-                    Text("Features")
-                        .font(DSTypography.caption.weight(.semibold))
-                        .foregroundStyle(theme.textSecondary)
-                        .textCase(.uppercase)
-                        .padding(.top, DSSpacing.medium)
-                        .padding(.horizontal, DSSpacing.small)
-                        .accessibilityAddTraits(.isHeader)
+                    sidebarSection(
+                        title: "AI Features",
+                        identifier: "aiFeatures",
+                        items: [.codex, .claudeCode, .antigravity]
+                    )
 
-                    sidebarRow(.systemMetrics)
-                    sidebarRow(.network)
-                    sidebarRow(.storage)
-                    sidebarRow(.weather)
-                    sidebarRow(.clock)
-                    sidebarRow(.batteries)
-                    sidebarRow(.github)
-                    sidebarRow(.codex)
-                    sidebarRow(.claudeCode)
-                    sidebarRow(.antigravity)
-                    sidebarRow(.searchConsole)
+                    sidebarSection(
+                        title: "Features",
+                        identifier: "features",
+                        items: [
+                            .systemMetrics,
+                            .network,
+                            .storage,
+                            .weather,
+                            .clock,
+                            .batteries,
+                            .github,
+                            .searchConsole
+                        ]
+                    )
                 }
                 .padding(.horizontal, DSSpacing.medium)
                 .padding(.vertical, DSSpacing.small)
@@ -333,6 +379,35 @@ struct SettingsView: View {
             .padding(.bottom, DSSpacing.medium)
         }
         .background(theme.opaqueSurfaceChrome)
+    }
+
+    private func sidebarSection(
+        title: String,
+        identifier: String,
+        items: [SettingsDestination]
+    ) -> some View {
+        VStack(alignment: .leading, spacing: DSSpacing.xSmall) {
+            Text(title)
+                .font(DSTypography.caption.weight(.semibold))
+                .foregroundStyle(theme.textSecondary)
+                .textCase(.uppercase)
+                .padding(.horizontal, DSSpacing.small)
+                .accessibilityAddTraits(.isHeader)
+                .accessibilityIdentifier("settings.nav.section.\(identifier)")
+
+            ForEach(items) { item in
+                sidebarRow(item)
+            }
+        }
+        .padding(.horizontal, DSSpacing.small)
+        .padding(.vertical, DSSpacing.xSmall)
+        .dsSurface(
+            RoundedRectangle(
+                cornerRadius: DSRadius.row,
+                style: .continuous
+            ),
+            kind: .raised
+        )
     }
 
     private func sidebarRow(_ item: SettingsDestination) -> some View {
@@ -492,10 +567,10 @@ struct SettingsView: View {
             githubContent
         case .codex:
             codexContent
-        case .antigravity:
-            AntigravitySettingsView(appModel: appModel)
         case .claudeCode:
             claudeCodeContent
+        case .antigravity:
+            antigravityContent
         case .searchConsole:
             searchConsoleContent
         }
@@ -1150,16 +1225,15 @@ struct SettingsView: View {
                     animatesChanges: true
                 )
             } values: {
-                PreviewMetric(
-                    title: "5-hour left",
-                    value: codexSnapshot?.fiveHour?.remainingFraction,
-                    color: appModel.preferences.codexAppearance.outerColor.color
-                )
-                PreviewMetric(
-                    title: "Weekly left",
-                    value: codexSnapshot?.weekly?.remainingFraction,
-                    color: appModel.preferences.codexAppearance.innerColor.color
-                )
+                ForEach(UsageQuotaPresentation.codex(codexSnapshot)) { metric in
+                    PreviewMetric(
+                        title: "\(metric.title) left",
+                        value: metric.remainingFraction,
+                        color: metric.usesSecondaryAppearance
+                            ? appModel.preferences.codexAppearance.innerColor.color
+                            : appModel.preferences.codexAppearance.outerColor.color
+                    )
+                }
             }
 
             DockDisplayStyleEditor(
@@ -1203,8 +1277,16 @@ struct SettingsView: View {
 
     private var claudeCodeContent: some View {
         VStack(spacing: DSSpacing.section) {
-            developerToolPreviewSection(
-                tool: .claudeCode,
+            ClaudeCodeConnectionSettingsView(
+                store: appModel.claudeCodeStore,
+                installationState: appModel.developerToolInstallationStore
+                    .state(for: .claudeCode),
+                installCLI: {
+                    installDeveloperTool(.claudeCode)
+                }
+            )
+
+            featurePreviewSection(
                 title: "Claude Code Dock preview",
                 detail: claudeCodePreviewDetail
             ) {
@@ -1241,6 +1323,99 @@ struct SettingsView: View {
                 innerWidth: claudeCodeInnerWidthBinding,
                 reset: appModel.preferences.resetClaudeCodeAppearance
             )
+        }
+    }
+
+    private var antigravityContent: some View {
+        VStack(spacing: DSSpacing.section) {
+            AntigravityConnectionSettingsView(
+                store: appModel.antigravityStore,
+                installationState: appModel.developerToolInstallationStore
+                    .state(for: .antigravity),
+                installCLI: {
+                    installDeveloperTool(.antigravity)
+                }
+            )
+
+            featurePreviewSection(
+                title: "Antigravity Dock preview",
+                detail: antigravityPreviewDetail
+            ) {
+                DockAntigravityView(
+                    state: appModel.antigravityStore.state,
+                    appearance: appModel.preferences.antigravityAppearance,
+                    animatesChanges: true
+                )
+            } values: {
+                if antigravityBuckets.isEmpty {
+                    PreviewMetric(
+                        title: "Model quota",
+                        value: nil,
+                        color: appModel.preferences.antigravityAppearance
+                            .outerColor.color
+                    )
+                } else {
+                    ForEach(Array(antigravityBuckets.prefix(2))) { bucket in
+                        PreviewMetric(
+                            title: "\(bucket.groupName) left",
+                            value: bucket.remainingFraction,
+                            color: appModel.preferences.antigravityAppearance
+                                .outerColor.color
+                        )
+                    }
+                }
+            }
+
+            DockDisplayStyleEditor(
+                featureTitle: "Antigravity",
+                selection: antigravityDisplayStyleBinding
+            )
+
+            RingAppearanceEditor(
+                outerTitle: "Primary pool",
+                innerTitle: "Secondary pool",
+                appearance: appModel.preferences.antigravityAppearance,
+                outerColor: antigravityOuterColorBinding,
+                innerColor: antigravityInnerColorBinding,
+                outerWidth: antigravityOuterWidthBinding,
+                innerWidth: antigravityInnerWidthBinding,
+                reset: appModel.preferences.resetAntigravityAppearance
+            )
+
+            DSSettingsSection(
+                title: "Local session metrics",
+                detail: "Optional. Uses Antigravity's documented statusLine JSON, stores an allowlisted snapshot on this Mac, and discards paths, email, transcript content, and raw session identifiers."
+            ) {
+                HStack(spacing: DSSpacing.standard) {
+                    VStack(alignment: .leading, spacing: DSSpacing.xSmall) {
+                        Text(appModel.antigravityStore.isBridgeInstalled
+                            ? "Session metrics connected"
+                            : "Session metrics not connected")
+                            .font(DSTypography.body.weight(.semibold))
+                            .foregroundStyle(theme.textPrimary)
+                        if let error = appModel.antigravityStore.bridgeErrorText {
+                            Text(error)
+                                .font(DSTypography.metadata)
+                                .foregroundStyle(theme.dangerForeground)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                    Spacer(minLength: DSSpacing.standard)
+                    Button(appModel.antigravityStore.isBridgeInstalled
+                        ? "Disconnect"
+                        : "Connect") {
+                        if appModel.antigravityStore.isBridgeInstalled {
+                            appModel.antigravityStore.disconnectStatusLine()
+                        } else {
+                            Task {
+                                await appModel.antigravityStore.connectStatusLine()
+                            }
+                        }
+                    }
+                    .disabled(appModel.antigravityStore.isInstallingBridge)
+                    .accessibilityIdentifier("settings.antigravity.statusLine")
+                }
+            }
         }
     }
 
@@ -1306,10 +1481,10 @@ struct SettingsView: View {
                     appModel.searchConsoleStore.start()
                 case .codex:
                     navigate(to: .codex)
-                case .antigravity:
-                    navigate(to: .antigravity)
                 case .claudeCode:
                     navigate(to: .claudeCode)
+                case .antigravity:
+                    navigate(to: .antigravity)
                 case .dockMagic, .systemMetrics, .network, .storage, .clock:
                     break
                 }
@@ -1701,6 +1876,41 @@ struct SettingsView: View {
         )
     }
 
+    private var antigravityDisplayStyleBinding: Binding<DockDisplayStyle> {
+        Binding(
+            get: { appModel.preferences.antigravityAppearance.displayStyle },
+            set: appModel.preferences.setAntigravityDisplayStyle
+        )
+    }
+
+    private var antigravityOuterColorBinding: Binding<Color> {
+        Binding(
+            get: { appModel.preferences.antigravityAppearance.outerColor.color },
+            set: { appModel.preferences.setAntigravityOuterColor(DockColor($0)) }
+        )
+    }
+
+    private var antigravityInnerColorBinding: Binding<Color> {
+        Binding(
+            get: { appModel.preferences.antigravityAppearance.innerColor.color },
+            set: { appModel.preferences.setAntigravityInnerColor(DockColor($0)) }
+        )
+    }
+
+    private var antigravityOuterWidthBinding: Binding<Double> {
+        Binding(
+            get: { appModel.preferences.antigravityAppearance.outerWidth },
+            set: appModel.preferences.setAntigravityOuterWidth
+        )
+    }
+
+    private var antigravityInnerWidthBinding: Binding<Double> {
+        Binding(
+            get: { appModel.preferences.antigravityAppearance.innerWidth },
+            set: appModel.preferences.setAntigravityInnerWidth
+        )
+    }
+
     private var codexSnapshot: CodexRateLimitSnapshot? {
         appModel.codexStore.state.snapshot
     }
@@ -1766,6 +1976,10 @@ struct SettingsView: View {
         appModel.claudeCodeStore.state.snapshot
     }
 
+    private var antigravityBuckets: [AntigravityQuotaBucket] {
+        appModel.antigravityStore.state.snapshot?.quota?.buckets ?? []
+    }
+
     private var codexPreviewDetail: String {
         if appModel.preferences.activeFeature == .codex {
             return "Codex is active. Fresh values are applied to the Dock."
@@ -1778,6 +1992,13 @@ struct SettingsView: View {
             return "Claude Code is active. Fresh values are applied to the Dock."
         }
         return "Claude Code is not active, so changes update this preview only."
+    }
+
+    private var antigravityPreviewDetail: String {
+        if appModel.preferences.activeFeature == .antigravity {
+            return "Antigravity is active. Each model pool stays separate in the Dock."
+        }
+        return "Antigravity is not active, so changes update this preview only."
     }
 
     private static let weatherAttributionURL = URL(
@@ -2118,16 +2339,13 @@ private struct DockFeatureIcon: View {
                         )
                     )
             case .codex:
-                Image("CodexLogo")
-                    .resizable()
-                    .scaledToFit()
-            case .antigravity:
-                Image("AntigravityLogo")
-                    .resizable()
+                PreservedVectorAssetImage(assetName: "CodexLogo")
                     .scaledToFit()
             case .claudeCode:
-                Image("ClaudeCodeLogo")
-                    .resizable()
+                PreservedVectorAssetImage(assetName: "ClaudeCodeLogo")
+                    .scaledToFit()
+            case .antigravity:
+                PreservedVectorAssetImage(assetName: "AntigravityLogo")
                     .scaledToFit()
             case .github:
                 ZStack {
@@ -2219,10 +2437,10 @@ private struct DockFeatureIcon: View {
             "point.3.connected.trianglepath.dotted"
         case .codex:
             "sparkles"
-        case .antigravity:
-            "sparkle"
         case .claudeCode:
             "chevron.left.forwardslash.chevron.right"
+        case .antigravity:
+            "sparkle"
         case .searchConsole:
             "magnifyingglass"
         }

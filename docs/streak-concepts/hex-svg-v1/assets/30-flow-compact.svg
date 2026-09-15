@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" role="img" aria-labelledby="title desc">
+<title id="title">DockMagic Flow — compact</title>
+<desc id="desc">30-day streak collectible. 1 rank stars. Solid vector reconstruction of the approved hexagonal concept; transparent canvas.</desc>
+<path d="M491 80 Q512 68 533 80 L873 276 Q895 289 895 314 L895 710 Q895 736 873 748 L533 944 Q512 956 491 944 L151 748 Q129 736 129 710 L129 314 Q129 289 151 276 Z" fill="#a49bff" />
+<path d="M512 74 Q523 74 533 80 L873 276 Q884 283 889 296 L824 330 L512 150 Z" fill="#6e60ff" />
+<path d="M889 296 Q895 304 895 314 L895 710 Q895 724 889 735 L824 694 L824 330 Z" fill="#403ce0" />
+<path d="M889 735 Q884 743 873 748 L533 944 Q523 950 512 950 L512 874 L824 694 Z" fill="#3432b1" />
+<path d="M512 950 Q501 950 491 944 L151 748 Q140 742 135 734 L200 694 L512 874 Z" fill="#4e3aff" />
+<path d="M135 734 Q129 724 129 710 L129 314 Q129 304 135 296 L200 330 L200 694 Z" fill="#786cff" />
+<polygon points="512,150 824,330 824,694 512,874 200,694 200,330" fill="#4542ff" />
+<polygon points="512,150 824,330 799,344 512,178" fill="#4542ff" />
+<polygon points="824,330 824,694 799,680 799,344" fill="#9890ff" />
+<polygon points="824,694 512,874 512,846 799,680" fill="#9890ff" />
+<polygon points="512,874 200,694 225,680 512,846" fill="#a49bff" />
+<polygon points="512,178 799,344 799,680 512,846 225,680 225,344" fill="#13245b" stroke="#0d163e" stroke-width="14" stroke-linejoin="round" stroke-linecap="round"/>
+<polygon points="512,185 792,348 792,676 512,837" fill="#18255e" />
+<path d="M191 276 L321 201" fill="none" stroke="#e4e0ff" stroke-width="20" stroke-linecap="round" stroke-linejoin="round"/>
+
+<path d="M491 80 Q512 68 533 80 L873 276 Q895 289 895 314 L895 710 Q895 736 873 748 L533 944 Q512 956 491 944 L151 748 Q129 736 129 710 L129 314 Q129 289 151 276 Z" fill="none" stroke="#0d163e" stroke-width="16" stroke-linejoin="round"/>
+<g transform="translate(0 -25)"><path d="M278 468 C290 374 344 416 389 415 C491 422 551 269 650 301 C710 320 742 367 745 410 C686 344 638 365 578 418 C478 508 433 543 345 490 C314 471 298 468 278 468 Z" fill="#fffbea" stroke="#0d163e" stroke-width="18" stroke-linejoin="round" stroke-linecap="round"/><path d="M278 468 C290 374 344 416 389 415 C491 422 551 269 650 301 C710 320 742 367 745 410 C686 344 638 365 578 418 C478 508 433 543 345 490 C314 471 298 468 278 468 Z" fill="none" stroke="#0d163e" stroke-width="18" stroke-linejoin="round" stroke-linecap="round"/><path d="M282 491 C359 521 387 571 465 536 C557 496 622 395 683 412 C725 420 754 460 750 516 C700 468 657 484 601 535 C488 638 401 674 319 591 C286 558 275 528 282 491 Z" fill="#64cfff" stroke="#0d163e" stroke-width="18" stroke-linejoin="round" stroke-linecap="round"/><path d="M296 554 C384 641 458 605 541 542 C642 465 690 450 748 503 L750 516 C700 468 657 484 601 535 C488 638 401 674 319 591 Z" fill="#159eff" /><path d="M282 491 C359 521 387 571 465 536 C557 496 622 395 683 412 C725 420 754 460 750 516 C700 468 657 484 601 535 C488 638 401 674 319 591 C286 558 275 528 282 491 Z" fill="none" stroke="#0d163e" stroke-width="18" stroke-linejoin="round" stroke-linecap="round"/><path d="M291 597 C401 694 475 661 574 587 C657 525 716 511 741 551 C758 578 751 625 728 654 C725 598 680 596 632 631 C531 706 435 754 348 686 C321 665 304 634 291 597 Z" fill="#8cf4c6" stroke="#0d163e" stroke-width="18" stroke-linejoin="round" stroke-linecap="round"/><path d="M340 674 C430 730 521 669 612 607 C668 569 708 557 741 588 Q742 625 728 654 C725 598 680 596 632 631 C531 706 435 754 348 686 Z" fill="#1bbca9" /><path d="M291 597 C401 694 475 661 574 587 C657 525 716 511 741 551 C758 578 751 625 728 654 C725 598 680 596 632 631 C531 706 435 754 348 686 C321 665 304 634 291 597 Z" fill="none" stroke="#0d163e" stroke-width="18" stroke-linejoin="round" stroke-linecap="round"/></g>
+<polygon points="512,683 534.65,733.82 589.99,739.66 548.65,776.91 560.2,831.34 512,803.54 463.8,831.34 475.35,776.91 434.01,739.66 489.35,733.82" fill="#ffcb09" stroke="#0d163e" stroke-width="12" stroke-linejoin="round"/>
+</svg>

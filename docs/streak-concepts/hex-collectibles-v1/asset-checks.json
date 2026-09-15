@@ -1,0 +1,162 @@
+[
+  {
+    "alphaInfo" : 3,
+    "cornerAlpha" : [
+      0,
+      0,
+      0,
+      0
+    ],
+    "day" : 1,
+    "file" : "assets\/01-first-prompt.png",
+    "height" : 1254,
+    "opaquePixels" : 1502,
+    "title" : "First Prompt",
+    "transparentPixels" : 724316,
+    "width" : 1254
+  },
+  {
+    "alphaInfo" : 3,
+    "cornerAlpha" : [
+      0,
+      0,
+      0,
+      0
+    ],
+    "day" : 3,
+    "file" : "assets\/03-spark.png",
+    "height" : 1254,
+    "opaquePixels" : 1889,
+    "title" : "Spark",
+    "transparentPixels" : 580420,
+    "width" : 1254
+  },
+  {
+    "alphaInfo" : 3,
+    "cornerAlpha" : [
+      0,
+      0,
+      0,
+      0
+    ],
+    "day" : 7,
+    "file" : "assets\/07-loop.png",
+    "height" : 1254,
+    "opaquePixels" : 864288,
+    "title" : "Loop",
+    "transparentPixels" : 708228,
+    "width" : 1254
+  },
+  {
+    "alphaInfo" : 3,
+    "cornerAlpha" : [
+      0,
+      0,
+      0,
+      0
+    ],
+    "day" : 14,
+    "file" : "assets\/14-builder.png",
+    "height" : 1254,
+    "opaquePixels" : 1845,
+    "title" : "Builder",
+    "transparentPixels" : 733509,
+    "width" : 1254
+  },
+  {
+    "alphaInfo" : 3,
+    "cornerAlpha" : [
+      0,
+      0,
+      0,
+      0
+    ],
+    "day" : 30,
+    "file" : "assets\/30-flow.png",
+    "height" : 1254,
+    "opaquePixels" : 1794,
+    "title" : "Flow",
+    "transparentPixels" : 577381,
+    "width" : 1254
+  },
+  {
+    "alphaInfo" : 3,
+    "cornerAlpha" : [
+      0,
+      0,
+      0,
+      0
+    ],
+    "day" : 60,
+    "file" : "assets\/60-navigator.png",
+    "height" : 1254,
+    "opaquePixels" : 856061,
+    "title" : "Navigator",
+    "transparentPixels" : 716455,
+    "width" : 1254
+  },
+  {
+    "alphaInfo" : 3,
+    "cornerAlpha" : [
+      0,
+      0,
+      0,
+      0
+    ],
+    "day" : 100,
+    "file" : "assets\/100-century.png",
+    "height" : 1254,
+    "opaquePixels" : 2111,
+    "title" : "Century",
+    "transparentPixels" : 660069,
+    "width" : 1254
+  },
+  {
+    "alphaInfo" : 3,
+    "cornerAlpha" : [
+      0,
+      0,
+      0,
+      0
+    ],
+    "day" : 180,
+    "file" : "assets\/180-architect.png",
+    "height" : 1254,
+    "opaquePixels" : 2006,
+    "title" : "Architect",
+    "transparentPixels" : 664379,
+    "width" : 1254
+  },
+  {
+    "alphaInfo" : 3,
+    "cornerAlpha" : [
+      0,
+      0,
+      0,
+      0
+    ],
+    "day" : 365,
+    "file" : "assets\/365-keystone.png",
+    "height" : 1254,
+    "opaquePixels" : 900303,
+    "title" : "Keystone",
+    "transparentPixels" : 672213,
+    "width" : 1254
+  },
+  {
+    "alphaInfo" : 3,
+    "cornerAlpha" : [
+      0,
+      0,
+      0,
+      0
+    ],
+    "day" : 730,
+    "file" : "assets\/730-continuum.png",
+    "height" : 1254,
+    "opaquePixels" : 914644,
+    "title" : "Continuum",
+    "transparentPixels" : 657872,
+    "width" : 1254
+  }
+]

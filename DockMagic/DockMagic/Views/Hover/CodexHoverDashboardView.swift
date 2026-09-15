@@ -162,9 +162,11 @@ struct DockHoverDashboardRoot: View {
                                 }
                             )
                         case .antigravity:
-                            ClaudeCodeHoverDashboardView(
+                            AntigravityHoverDashboardView(
                                 state: appModel.antigravityStore.state,
-                                brand: .antigravity,
+                                initialHoveredBucketID: initialHoveredBucketID,
+                                initialIntensityHoveredBucketID:
+                                    initialIntensityHoveredBucketID,
                                 initialStreakDetailPresented:
                                     initialStreakDetailPresented,
                                 initialStreakCelebration:
@@ -181,22 +183,7 @@ struct DockHoverDashboardRoot: View {
                                     )
                                     : nil,
                                 initialCaptureMenuPresented:
-                                    initialCaptureMenuPresented,
-                                isActivityHookInstalled: appModel
-                                    .antigravityStore
-                                    .isBridgeInstalled,
-                                isInstallingActivityHook: appModel
-                                    .antigravityStore
-                                    .isInstallingBridge,
-                                activityHookErrorText: appModel
-                                    .antigravityStore
-                                    .bridgeError,
-                                onInstallActivityHook: {
-                                    Task { @MainActor in
-                                        await appModel.antigravityStore
-                                            .connect()
-                                    }
-                                }
+                                    initialCaptureMenuPresented
                             )
                         case .dockMagic, .network, .storage, .clock,
                              .batteries, .github, .searchConsole:
@@ -224,7 +211,8 @@ struct CodexHoverDashboardView: View {
     }
 
     let state: CodexUsageState
-    let serviceStatus: ServiceStatusState
+    let serviceStatus: ServiceStatusState?
+    let brand: StreakServiceBrand
     let now: Date
     let dailyDetailLoader: (
         @MainActor @Sendable (Date) async throws -> CodexDailyTokenDetail?
@@ -249,7 +237,8 @@ struct CodexHoverDashboardView: View {
 
     init(
         state: CodexUsageState,
-        serviceStatus: ServiceStatusState = .operational(provider: .codex),
+        serviceStatus: ServiceStatusState? = .operational(provider: .codex),
+        brand: StreakServiceBrand = .codex,
         now: Date = .now,
         dailyDetailLoader: (
             @MainActor @Sendable (Date) async throws -> CodexDailyTokenDetail?
@@ -266,6 +255,7 @@ struct CodexHoverDashboardView: View {
     ) {
         self.state = state
         self.serviceStatus = serviceStatus
+        self.brand = brand
         self.now = now
         self.dailyDetailLoader = dailyDetailLoader
         self.initialIntensityHoveredBucketID = initialIntensityHoveredBucketID
@@ -292,7 +282,7 @@ struct CodexHoverDashboardView: View {
             if let streakCelebration {
                 StreakCelebrationView(
                     celebration: streakCelebration,
-                    brand: .codex,
+                    brand: brand,
                     accent: theme.action,
                     planLabel: snapshot?.planType,
                     trailingMetricValue: tokenUsage?.lifetimeTokens.map(
@@ -308,8 +298,7 @@ struct CodexHoverDashboardView: View {
             } else if isStreakDetailPresented {
                 StreakDetailView(
                     summary: streakSummary,
-                    brand: .codex,
-                    accent: theme.action,
+                    brand: brand,
                     onBack: { setStreakDetailPresented(false) }
                 )
                 .transition(.opacity)
@@ -318,6 +307,7 @@ struct CodexHoverDashboardView: View {
                     accountBucket: selectedDailyBucket,
                     detail: selectedDailyDetail,
                     loadState: effectiveDailyDetailLoadState,
+                    providerName: brand.displayName,
                     onBack: { setSelectedDailyBucketID(nil) }
                 )
                 .id(selectedDailyBucket.id)
@@ -380,12 +370,12 @@ struct CodexHoverDashboardView: View {
         .accessibilityElement(children: .contain)
         .accessibilityLabel(
             streakCelebration != nil
-                ? "Codex streak celebration"
+                ? "\(brand.displayName) streak celebration"
                 : isStreakDetailPresented
-                ? "Codex streak details"
+                ? "\(brand.displayName) streak details"
                 : selectedDailyBucket == nil
-                    ? "Codex usage dashboard"
-                    : "Codex daily token detail"
+                    ? "\(brand.displayName) usage dashboard"
+                    : "\(brand.displayName) daily token detail"
         )
     }
 
@@ -397,7 +387,7 @@ struct CodexHoverDashboardView: View {
             tokenChart
             StreakContinuityStrip(
                 summary: streakSummary,
-                brand: .codex,
+                brand: brand,
                 accent: theme.action,
                 onOpen: { setStreakDetailPresented(true) }
             )
@@ -410,13 +400,10 @@ struct CodexHoverDashboardView: View {
     private var header: some View {
         VStack(spacing: 2) {
             HStack(spacing: 8) {
-                Image("CodexLogo")
-                    .resizable()
-                    .interpolation(.high)
+                PreservedVectorAssetImage(assetName: brand.logoAssetName)
                     .scaledToFill()
-                    // The supplied logo includes faint edge pixels outside the
-                    // brand mark. Crop that transparent fringe at presentation
-                    // time so it stays clean on an opaque dark surface.
+                    // Preserve the established optical size of the compact
+                    // Codex cloud while the source remains a clean SVG.
                     .frame(width: 42, height: 42)
                     .frame(width: 26, height: 26)
                     .clipShape(
@@ -424,12 +411,15 @@ struct CodexHoverDashboardView: View {
                     )
                     .accessibilityHidden(true)
 
-                Text("Codex")
+                Text(brand.displayName)
                     .font(.system(size: 17, weight: .bold))
                     .foregroundStyle(theme.textPrimary)
 
                 if let plan = snapshot?.planType, !plan.isEmpty {
-                    CodexPlanBadge(plan: plan)
+                    CodexPlanBadge(
+                        plan: plan,
+                        providerName: brand.displayName
+                    )
                 }
 
                 if let statusTitle, let statusSystemImage {
@@ -469,7 +459,9 @@ struct CodexHoverDashboardView: View {
             }
             .frame(height: 30)
 
-            ServiceStatusHeaderView(state: serviceStatus)
+            if let serviceStatus {
+                ServiceStatusHeaderView(state: serviceStatus)
+            }
         }
     }
 
@@ -512,9 +504,9 @@ struct CodexHoverDashboardView: View {
         .onHover { isHovering in
             isCaptureButtonHovered = isHovering
         }
-        .help("Capture dashboard")
-        .accessibilityLabel("Capture dashboard")
-        .accessibilityHint("Opens high-resolution PNG export options")
+        .help("Export activity card")
+        .accessibilityLabel("Export activity card")
+        .accessibilityHint("Opens 1200 by 1200 PNG export options")
         .accessibilityIdentifier("codex.capture.button")
     }
 
@@ -571,7 +563,7 @@ struct CodexHoverDashboardView: View {
             )
         }
         .accessibilityElement(children: .contain)
-        .accessibilityLabel("Dashboard capture options")
+        .accessibilityLabel("Activity card export options")
         .accessibilityIdentifier("codex.capture.menu")
     }
 
@@ -580,10 +572,8 @@ struct CodexHoverDashboardView: View {
     }
 
     private var capturePixelSizeLabel: String {
-        guard let captureConfiguration else { return "" }
-        return CodexDashboardCaptureService.pixelSizeLabel(
-            for: captureConfiguration
-        )
+        guard captureConfiguration != nil else { return "" }
+        return CodexDashboardCaptureService.activityCardPixelSizeLabel
     }
 
     private func captureMenuRow(
@@ -684,10 +674,11 @@ struct CodexHoverDashboardView: View {
         guard let captureConfiguration else { return nil }
         do {
             captureErrorText = nil
-            return try CodexDashboardCaptureService.render(
+            return try CodexDashboardCaptureService.renderActivityCard(
                 state: state,
-                serviceStatus: serviceStatus,
-                configuration: captureConfiguration
+                brand: brand,
+                appearanceMode: captureConfiguration.appearanceMode,
+                now: now
             )
         } catch {
             captureErrorText = error.localizedDescription
@@ -731,13 +722,13 @@ struct CodexHoverDashboardView: View {
 
     private var quotaRows: some View {
         VStack(spacing: 6) {
-            ForEach(visibleQuotaWindows, id: \.windowDurationMinutes) { window in
+            ForEach(quotaMetrics) { metric in
                 UsageLimitHoverRow(
-                    title: window.kind == .fiveHour ? "5-hour" : "Weekly",
-                    systemImage: window.kind == .fiveHour ? "clock" : "calendar",
-                    window: window,
+                    title: metric.title,
+                    systemImage: metric.systemImage,
+                    remainingFraction: metric.remainingFraction,
                     resetLabel: CodexHoverDashboardPresentation.resetLabel(
-                        for: window
+                        for: metric
                     )
                 )
             }
@@ -824,8 +815,11 @@ struct CodexHoverDashboardView: View {
         CodexHoverDashboardPresentation.shipMomentum(in: snapshot, now: now)
     }
 
-    private var visibleQuotaWindows: [CodexRateLimitWindow] {
-        CodexHoverDashboardPresentation.visibleQuotaWindows(in: snapshot)
+    private var quotaMetrics: [UsageQuotaMetric] {
+        UsageQuotaPresentation.codex(
+            snapshot,
+            includesMissing: false
+        )
     }
 
     private var chartBuckets: [CodexTokenUsageDailyBucket] {
@@ -836,7 +830,7 @@ struct CodexHoverDashboardView: View {
     }
 
     private var hasTokenHistory: Bool {
-        tokenUsage?.dailyUsageBuckets.isEmpty == false
+        chartBuckets.contains { $0.tokens > 0 }
     }
 
     private var todayTokens: Int64? {
@@ -857,12 +851,19 @@ struct CodexHoverDashboardView: View {
 
     private var selectedDailyBucket: CodexTokenUsageDailyBucket? {
         guard let selectedDailyBucketID else { return nil }
-        return chartBuckets.first { $0.id == selectedDailyBucketID }
+        return chartBuckets.first {
+            $0.id == selectedDailyBucketID && $0.tokens > 0
+        }
     }
 
     private var embeddedSelectedDailyDetail: CodexDailyTokenDetail? {
         guard let selectedDailyBucket else { return nil }
-        return tokenUsage?.localDetail(for: selectedDailyBucket.startDate)
+        guard let detail = tokenUsage?.localDetail(
+            for: selectedDailyBucket.startDate
+        ), detail.usage.totalTokens == selectedDailyBucket.tokens else {
+            return nil
+        }
+        return detail
     }
 
     private var selectedDailyDetail: CodexDailyTokenDetail? {
@@ -891,7 +892,7 @@ struct CodexHoverDashboardView: View {
     }
 
     private var tokenChartPlotHeight: CGFloat {
-        visibleQuotaWindows.count < 2 ? 84 : 46
+        quotaMetrics.count < 2 ? 84 : 46
     }
 
     private var streakCelebrationTransition: AnyTransition {
@@ -937,6 +938,10 @@ struct CodexHoverDashboardView: View {
     }
 
     private func setSelectedDailyBucketID(_ bucketID: Date?) {
+        if let bucketID,
+           (chartBuckets.first(where: { $0.id == bucketID })?.tokens ?? 0) <= 0 {
+            return
+        }
         hoveredBucketID = nil
         dailyDetailLoadState = bucketID == nil || dailyDetailLoader == nil
             ? .idle
@@ -994,7 +999,8 @@ struct CodexHoverDashboardView: View {
                 models: CodexHoverDashboardPresentation.topModels(
                     from: tokenUsage
                 ),
-                isPartial: tokenUsage?.isModelUsagePartial == true
+                isPartial: tokenUsage?.isModelUsagePartial == true,
+                providerName: brand.displayName
             )
         }
         .frame(height: 90)
@@ -1046,11 +1052,11 @@ struct CodexHoverDashboardView: View {
     private var tokenEmptyMessage: String {
         switch state {
         case .loading:
-            "Loading token usage from Codex…"
+            "Loading token usage from \(brand.displayName)…"
         case let .unavailable(message), let .stale(_, message):
             message
         case .idle, .live:
-            "Token history is not available from this Codex version."
+            "Token history is not available from \(brand.displayName)."
         }
     }
 
@@ -1231,38 +1237,35 @@ enum CodexHoverDashboardPresentation {
         now: Date = .now,
         calendar inputCalendar: Calendar = .current
     ) -> [CodexTokenUsageDailyBucket] {
-        var calendar = inputCalendar
-        calendar.timeZone = .current
+        let calendar = inputCalendar
         let today = calendar.startOfDay(for: now)
-        var buckets = (tokenUsage?.dailyUsageBuckets ?? []).filter {
-            calendar.startOfDay(for: $0.startDate) <= today
+        guard let firstDay = calendar.date(
+            byAdding: .day,
+            value: -(maximumChartDays - 1),
+            to: today
+        ), let dayAfterToday = calendar.date(
+            byAdding: .day,
+            value: 1,
+            to: today
+        ) else { return [] }
+
+        var totalsByDay: [Date: Int64] = [:]
+        for bucket in tokenUsage?.dailyUsageBuckets ?? [] {
+            let day = calendar.startOfDay(for: bucket.startDate)
+            guard day >= firstDay, day < dayAfterToday else { continue }
+            let result = totalsByDay[day, default: 0]
+                .addingReportingOverflow(max(0, bucket.tokens))
+            totalsByDay[day] = result.overflow ? Int64.max : result.partialValue
         }
 
-        if buckets.isEmpty {
-            buckets = (0..<maximumChartDays).compactMap { offset in
-                guard let date = calendar.date(
-                    byAdding: .day,
-                    value: offset - (maximumChartDays - 1),
-                    to: today
-                ) else { return nil }
-                return CodexTokenUsageDailyBucket(
-                    startDate: date,
-                    tokens: 0
+        return (0..<maximumChartDays).compactMap { offset in
+            calendar.date(byAdding: .day, value: offset, to: firstDay).map {
+                CodexTokenUsageDailyBucket(
+                    startDate: $0,
+                    tokens: totalsByDay[$0, default: 0]
                 )
             }
-        } else if !buckets.contains(where: {
-            calendar.isDate($0.startDate, inSameDayAs: today)
-        }) {
-            buckets.append(
-                CodexTokenUsageDailyBucket(startDate: today, tokens: 0)
-            )
         }
-
-        return Array(
-            buckets
-                .sorted { $0.startDate < $1.startDate }
-                .suffix(maximumChartDays)
-        )
     }
 
     static func topModels(
@@ -1317,6 +1320,16 @@ enum CodexHoverDashboardPresentation {
 
     static func resetLabel(for window: CodexRateLimitWindow) -> String {
         guard let reset = window.resetsAt else { return "Reset —" }
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = .current
+        formatter.dateFormat = "MMM d, h:mm a"
+        return "Resets \(formatter.string(from: reset))"
+    }
+
+    static func resetLabel(for metric: UsageQuotaMetric) -> String {
+        guard let reset = metric.resetsAt else { return "Reset —" }
         let formatter = DateFormatter()
         formatter.calendar = Calendar(identifier: .gregorian)
         formatter.locale = Locale(identifier: "en_US_POSIX")
@@ -1447,6 +1460,8 @@ struct CodexTokenHistoryChart: View {
     let buckets: [CodexTokenUsageDailyBucket]
     @Binding var hoveredBucketID: Date?
     let plotHeight: CGFloat
+    var unavailableBucketIDs: Set<Date> = []
+    var isSelectionEnabled = true
     let onSelectBucket: @MainActor (Date) -> Void
 
     @Environment(\.designTheme) private var theme
@@ -1505,11 +1520,15 @@ struct CodexTokenHistoryChart: View {
     private func tokenColumn(
         for bucket: CodexTokenUsageDailyBucket
     ) -> some View {
+        let isAvailable = !unavailableBucketIDs.contains(bucket.id)
         let isLatest = bucket.id == buckets.last?.id
         let isHovered = bucket.id == hoveredBucketID
         let height = barHeight(for: bucket.tokens)
 
         return Button {
+            guard isSelectionEnabled, isAvailable, bucket.tokens > 0 else {
+                return
+            }
             Task { @MainActor in
                 onSelectBucket(bucket.id)
             }
@@ -1557,6 +1576,7 @@ struct CodexTokenHistoryChart: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .disabled(isSelectionEnabled && (!isAvailable || bucket.tokens <= 0))
         .onHover { isInside in
             if isInside {
                 hoveredBucketID = bucket.id
@@ -1565,13 +1585,26 @@ struct CodexTokenHistoryChart: View {
             }
         }
         .help(
-            "\(Self.fullDateLabel(bucket.startDate)): "
-                + "\(bucket.tokens.formatted()) tokens"
+            "\(Self.fullDateLabel(bucket.startDate)): " + (
+                isAvailable
+                    ? "\(bucket.tokens.formatted()) tokens"
+                    : "Not observed"
+            )
         )
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(Self.fullDateLabel(bucket.startDate))
-        .accessibilityValue("\(bucket.tokens.formatted()) tokens")
-        .accessibilityHint("Opens hourly and model token details")
+        .accessibilityValue(
+            isAvailable
+                ? "\(bucket.tokens.formatted()) tokens"
+                : "Not observed"
+        )
+        .accessibilityHint(
+            isSelectionEnabled && isAvailable && bucket.tokens > 0
+                ? "Opens hourly and model token details"
+                : isAvailable
+                    ? "No token usage recorded"
+                    : "No locally observed token data"
+        )
     }
 
     private var axisMaximum: Int64 {
@@ -1620,6 +1653,8 @@ struct CodexTokenHistoryChart: View {
 struct CodexShipMomentumCard: View {
     let momentum: CodexShipMomentum?
     var accent: Color? = nil
+    var isPartial = false
+    var showsPartialIndicator = true
 
     @Environment(\.designTheme) private var theme
 
@@ -1627,7 +1662,11 @@ struct CodexShipMomentumCard: View {
         VStack(spacing: 6) {
             HStack(spacing: 10) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Ship momentum")
+                    Text(
+                        isPartial && showsPartialIndicator
+                            ? "Ship momentum*"
+                            : "Ship momentum"
+                    )
                         .font(.system(size: 10.5, weight: .bold))
                         .foregroundStyle(theme.textPrimary)
 
@@ -1704,18 +1743,24 @@ struct CodexShipMomentumCard: View {
     }
 
     private var helpText: String {
-        "Ship momentum uses only today's token activity and resets each local "
+        let coverage = isPartial
+            ? " For this provider, it includes only token activity observed locally by DockMagic."
+            : ""
+        return "Ship momentum uses only today's token activity and resets each local "
             + "calendar day. The ladder progresses from Starter to Legend. "
             + "It is an activity indicator, not a productivity rating."
+            + coverage
     }
 
     private var accessibilityValue: String {
         guard let momentum else {
             return "Today's token usage is unavailable."
         }
+        let coverage = isPartial ? " Locally observed activity only." : ""
         return "\(momentum.score) out of 100, rank \(momentum.rank.title), "
             + "\(momentum.rank.rawValue + 1) of \(CodexShipRank.allCases.count). "
             + "Today: \(momentum.todayTokens.formatted()) tokens."
+            + coverage
     }
 
     private static func tokenLabel(_ tokens: Int64) -> String {
@@ -1730,6 +1775,9 @@ struct CodexShipMomentumCard: View {
 struct CodexDailyIntensityCard: View {
     let buckets: [CodexTokenUsageDailyBucket]
     let accent: Color?
+    let unavailableBucketIDs: Set<Date>
+    let isPartial: Bool
+    let showsPartialIndicator: Bool
     @State private var hoveredBucketID: Date?
 
     @Environment(\.designTheme) private var theme
@@ -1737,10 +1785,16 @@ struct CodexDailyIntensityCard: View {
     init(
         buckets: [CodexTokenUsageDailyBucket],
         accent: Color? = nil,
+        unavailableBucketIDs: Set<Date> = [],
+        isPartial: Bool = false,
+        showsPartialIndicator: Bool = true,
         initialHoveredBucketID: Date? = nil
     ) {
         self.buckets = buckets
         self.accent = accent
+        self.unavailableBucketIDs = unavailableBucketIDs
+        self.isPartial = isPartial
+        self.showsPartialIndicator = showsPartialIndicator
         _hoveredBucketID = State(initialValue: initialHoveredBucketID)
     }
 
@@ -1776,7 +1830,11 @@ struct CodexDailyIntensityCard: View {
     private var cardContent: some View {
         VStack(alignment: .leading, spacing: 5) {
             HStack(alignment: .firstTextBaseline, spacing: 4) {
-                Text("Daily intensity")
+                Text(
+                    isPartial && showsPartialIndicator
+                        ? "Daily intensity*"
+                        : "Daily intensity"
+                )
                     .font(.system(size: 10.5, weight: .bold))
                     .foregroundStyle(theme.textPrimary)
 
@@ -1851,7 +1909,9 @@ struct CodexDailyIntensityCard: View {
     }
 
     private var bestDay: CodexTokenUsageDailyBucket? {
-        buckets.max { $0.tokens < $1.tokens }
+        buckets
+            .filter { !unavailableBucketIDs.contains($0.id) }
+            .max { $0.tokens < $1.tokens }
     }
 
     private var hoveredBucket: CodexTokenUsageDailyBucket? {
@@ -1860,12 +1920,19 @@ struct CodexDailyIntensityCard: View {
     }
 
     private var maximumTokens: Int64 {
-        max(1, buckets.map(\.tokens).max() ?? 1)
+        max(
+            1,
+            buckets
+                .filter { !unavailableBucketIDs.contains($0.id) }
+                .map(\.tokens)
+                .max() ?? 1
+        )
     }
 
     private func intensityCell(
         for bucket: CodexTokenUsageDailyBucket
     ) -> some View {
+        let isAvailable = !unavailableBucketIDs.contains(bucket.id)
         let level = intensityLevel(for: bucket.tokens)
         let isHovered = bucket.id == hoveredBucketID
         return RoundedRectangle(cornerRadius: 2, style: .continuous)
@@ -1878,7 +1945,8 @@ struct CodexDailyIntensityCard: View {
                             : bucket.id == buckets.last?.id
                             ? theme.textPrimary
                             : theme.outline,
-                        lineWidth: isHovered || bucket.id == buckets.last?.id
+                        lineWidth: isHovered
+                            || bucket.id == buckets.last?.id
                             ? 1
                             : 0.5
                     )
@@ -1893,14 +1961,18 @@ struct CodexDailyIntensityCard: View {
                 }
             }
             .accessibilityLabel(Self.fullDateLabel(bucket.startDate))
-            .accessibilityValue("\(bucket.tokens.formatted()) tokens")
+            .accessibilityValue(
+                isAvailable
+                    ? "\(bucket.tokens.formatted()) tokens"
+                    : "Not observed"
+            )
     }
 
     private func hoverTooltip(
         for bucket: CodexTokenUsageDailyBucket,
         in size: CGSize
     ) -> some View {
-        Text(Self.fullDateLabel(bucket.startDate))
+        Text(tooltipLabel(for: bucket))
             .font(.system(size: 7.5, weight: .semibold))
             .foregroundStyle(theme.textPrimary)
             .monospacedDigit()
@@ -1959,11 +2031,27 @@ struct CodexDailyIntensityCard: View {
 
     private var helpText: String {
         guard let bestDay else {
-            return "Daily token intensity is unavailable."
+            return isPartial
+                ? "No locally observed daily token intensity is available."
+                : "Daily token intensity is unavailable."
         }
+        let coverage = isPartial
+            ? " Unobserved days remain unavailable and are excluded from Best calculations."
+            : ""
         return "Daily token intensity for up to 30 days. Best day: "
             + "\(Self.fullDateLabel(bestDay.startDate)), "
             + "\(bestDay.tokens.formatted()) tokens."
+            + coverage
+    }
+
+    private func tooltipLabel(
+        for bucket: CodexTokenUsageDailyBucket
+    ) -> String {
+        let date = Self.fullDateLabel(bucket.startDate)
+        guard !unavailableBucketIDs.contains(bucket.id) else {
+            return "\(date) · Not observed"
+        }
+        return "\(date) · \(bucket.tokens.formatted()) tokens"
     }
 
     private static func shortDateLabel(_ date: Date) -> String {
@@ -1989,6 +2077,7 @@ struct CodexTopModelsCard: View {
     let isPartial: Bool
     var accent: Color? = nil
     var providerName: String = "Codex"
+    var showsPartialIndicator = true
 
     @Environment(\.designTheme) private var theme
 
@@ -2001,7 +2090,11 @@ struct CodexTopModelsCard: View {
 
                 Spacer(minLength: 2)
 
-                Text(isPartial ? "30d*" : "30d")
+                Text(
+                    isPartial && showsPartialIndicator
+                        ? "30d*"
+                        : "30d"
+                )
                     .font(.system(size: 8, weight: .semibold))
                     .foregroundStyle(theme.textSecondary)
                     .monospacedDigit()
@@ -2075,14 +2168,11 @@ struct CodexTopModelsCard: View {
     }
 
     private var helpText: String {
-        if providerName == "Antigravity" {
-            return "Models ranked by locally observed tokens in the last 30 days. History is partial; unavailable model names remain unknown. Prompt and response content is not used."
-        }
         let coverage = isPartial
-            ? " Coverage is partial because some recent session metadata could not be read or the scan limit was reached."
+            ? " Coverage is partial; only token activity available to DockMagic is included."
             : ""
-        return "Models ranked by tokens in Codex tasks created during the "
-            + "last 30 days. Prompt and response content is not used."
+        return "Models ranked by tokens observed for \(providerName) during "
+            + "the last 30 days. Prompt and response content is not used."
             + coverage
     }
 
@@ -2149,7 +2239,11 @@ private struct CodexShipRankLadder: View {
                             )
                             .lineLimit(1)
                             .minimumScaleFactor(0.8)
-                            .frame(width: columnWidth)
+                            .frame(
+                                width: columnWidth,
+                                height: 9,
+                                alignment: .top
+                            )
                     }
                     .frame(width: columnWidth)
                 }
@@ -2196,7 +2290,7 @@ private struct CodexRankStepShape: Shape {
 struct UsageLimitHoverRow: View {
     let title: String
     let systemImage: String
-    let window: CodexRateLimitWindow
+    let remainingFraction: Double?
     let resetLabel: String
     var usageAccent: Color? = nil
 
@@ -2227,7 +2321,7 @@ struct UsageLimitHoverRow: View {
                 .foregroundStyle(theme.textSecondary)
 
             GeometryReader { proxy in
-                let fraction = window.remainingFraction
+                let fraction = remainingFraction ?? 0
                 ZStack(alignment: .leading) {
                     Capsule().fill(theme.dockTrack)
                     Capsule()
@@ -2258,11 +2352,13 @@ struct UsageLimitHoverRow: View {
     }
 
     private var remainingLabel: String {
-        return "\(Int((window.remainingFraction * 100).rounded()))%"
+        guard let remainingFraction else { return "—" }
+        return "\(Int((remainingFraction * 100).rounded()))%"
     }
 
     private var progressFill: Color {
-        switch window.remainingFraction {
+        guard let remainingFraction else { return theme.action }
+        switch remainingFraction {
         case ...0.05:
             return theme.danger
         case ...0.2:
@@ -2273,7 +2369,8 @@ struct UsageLimitHoverRow: View {
     }
 
     private var valueForeground: Color {
-        switch window.remainingFraction {
+        guard let remainingFraction else { return theme.textSecondary }
+        switch remainingFraction {
         case ...0.05:
             return theme.dangerForeground
         case ...0.2:

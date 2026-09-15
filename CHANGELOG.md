@@ -5,16 +5,28 @@ All notable changes to DockMagic will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- Added a Claude Code-style Antigravity authentication card with an embedded
+  interactive `agy` session for typing or pasting a sign-in code and running
+  `/logout`, and removed the installation checkmark button from the
+  Antigravity Dock preview.
+
 ## [1.0.3] - 2026-09-09
 
 ### Added
 
-- Added an Antigravity Dock integration with automatic quota selection,
-  Chart and Numbers tiles, a dedicated Settings page, and a hover dashboard.
-- Added privacy-bounded local Antigravity activity history, active-work state,
-  streaks, Ship momentum, and high-resolution dashboard image export.
-- Added save, copy, and share support for complete Codex, Claude Code, and
-  Antigravity dashboard cards rendered at 4× density.
+- Added an Antigravity Dock integration backed by the official `agy /usage`
+  command, with separate provider-reported model pools, Chart and Numbers
+  tiles, a dedicated Settings page, and a hover dashboard.
+- Added an opt-in Antigravity `statusLine` bridge for allowlisted local model,
+  plan, context, agent, task, and partial daily-token observations, including
+  provider-specific streaks.
+- Added dedicated 1200×1200 activity cards for Save, Copy, and Share across
+  Codex, Claude Code, and capability-gated Antigravity, featuring today's badge,
+  token usage, a compact unlabeled 14-day area chart, and Ship momentum.
 
 ### Changed
 
@@ -29,17 +41,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Fixed Dock-hover timing so repeated Dock notifications cannot shorten the
   one-second delay and leaving, opening a menu, or disabling hover cancels it.
-- Fixed Antigravity usage attribution for missing timestamps, resumed
-  conversations, local-day boundaries, and stale parser caches.
+- Fixed Antigravity usage attribution so only positive, same-session,
+  same-local-day counter deltas are retained and stale sessions are not shown
+  as current.
 - Fixed Codex and Claude Code recovery when DockMagic starts offline or their
   local usage snapshot becomes readable later.
 
 ### Security
 
-- Restricted Antigravity quota access to the current user's loopback service,
-  kept CSRF credentials in memory, and bounded sanitized metadata retention.
-- Preserved unrelated status-line and hook configuration while preventing
-  malformed or externally changed configuration from being overwritten.
+- Removed the Antigravity dependency on private Desktop loopback/RPC and CSRF
+  material; DockMagic now invokes only the fixed official `/usage` command and
+  never reads credentials, prompts, answers, or transcripts.
+- Preserved unrelated status-line and legacy hook configuration while hashing
+  session identifiers, allowlisting persisted fields, and refusing to
+  overwrite externally changed configuration.
 
 ## [1.0.2] - 2026-09-04
 
@@ -143,6 +158,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Removed generated Xcode build products from version control and ignored
   repository-local Derived Data directories.
 
+[Unreleased]: https://github.com/thanhdongnguyen/DockMagic/compare/v1.0.3...HEAD
 [1.0.3]: https://github.com/thanhdongnguyen/DockMagic/compare/v1.0.2...v1.0.3
 [1.0.2]: https://github.com/thanhdongnguyen/DockMagic/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/thanhdongnguyen/DockMagic/compare/v1.0.0...v1.0.1

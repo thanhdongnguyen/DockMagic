@@ -52,7 +52,15 @@ enum ProjectTheme {
         selectionOutline: Color("DSSelectionOutline"),
         sidebarSelectionFill: Color("DSSidebarSelectionFill"),
         sidebarIconFill: Color("DSSidebarIconFill"),
-        onSidebarIcon: Color("DSOnSidebarIcon")
+        onSidebarIcon: Color("DSOnSidebarIcon"),
+        terminalBackground: Color("DSTerminalBackground"),
+        terminalChrome: Color("DSTerminalChrome"),
+        terminalForeground: Color("DSTerminalForeground"),
+        terminalSecondary: Color("DSTerminalSecondary"),
+        terminalOutline: Color("DSTerminalOutline"),
+        terminalClose: Color("DSTerminalClose"),
+        terminalMinimize: Color("DSTerminalMinimize"),
+        terminalZoom: Color("DSTerminalZoom")
     )
 
     /// Product-owned renderer colors offered by the inline Settings palette.

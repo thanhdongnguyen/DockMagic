@@ -122,19 +122,20 @@ Click any screenshot to view it at full resolution.
   shows quota, a Tokens/Cost chart, top models, Ship momentum, and active work.
   Missing or partial observations remain visibly unavailable instead of being
   estimated from fabricated prices or activity.
+- **Antigravity** displays every structured model-pool quota reported by the
+  official `agy /usage` command, keeping the Gemini and Claude/GPT pools
+  separate. Its Settings page hosts the official interactive CLI so users can
+  type or paste an Antigravity sign-in code, or run the documented `/logout`
+  flow, without DockMagic storing credentials or clipboard content.
+  An optional connection to Antigravity's documented `statusLine` extension
+  adds the latest model, plan, context pressure, agent state, background-task
+  count, and explicitly partial local token history. It does not use private
+  Desktop endpoints or parse prompts, answers, or transcripts.
 - **General settings** select exactly one feature to run and display in the
-  Dock. CPU & RAM, Storage, GitHub, Codex, Claude Code, and Antigravity support `Chart` and
-  `Numbers` display styles; Clock offers `Analog`, `Digital`, and `Split-flap`
-  in both General and Clock Settings. Colors and display choices are persisted
-  and applied to the active tile immediately.
-- **Antigravity** displays quota for the selected Gemini or Claude/GPT group,
-  with independent Dock colors, Chart/Numbers, and a hover dashboard. Local
-  usage metadata supplies token history, top models, activity, streaks, and Ship
-  momentum. Open Antigravity and sign in to read desktop quota; Settings →
-  Antigravity → Connect activity adds the optional CLI status line and event
-  hooks while preserving existing customizations. Older versions that omit
-  quota window duration show `Quota`; unreported costs remain unavailable.
-  See [Antigravity integration](docs/ANTIGRAVITY_IMPLEMENTATION.md).
+  Dock. CPU & RAM, Storage, GitHub, Codex, Claude Code, and Antigravity support
+  `Chart` and `Numbers` display styles; Clock offers `Analog`, `Digital`, and
+  `Split-flap` in both General and Clock Settings. Colors and display choices
+  are persisted and applied to the active tile immediately.
 - **Appearance** supports System, Light, and Dark. Navigation chrome uses Liquid
   Glass where available and a material fallback on the current toolchain, while
   primary content remains opaque.
@@ -171,13 +172,13 @@ DockMagic is designed for direct distribution, not the Mac App Store.
   and answer text except explicit task descriptions and goal objectives. It
   never reads Claude Code OAuth tokens. The only Keychain secret managed by the GitHub feature is the
   optional token entered by the user.
-- Antigravity connects only to the current user's local language server. Its
-  CSRF token stays in memory; DockMagic does not read Google OAuth credentials.
-  Sanitized usage metadata is kept privately under
-  `~/.gemini/dockmagic-antigravity/`. Prompts, answers, tool arguments, and
-  conversation titles are excluded. Recent metadata is bounded to 32 days and
-  the dashboard reports a partial 30-day history.
-
+- Antigravity quota comes from a fixed, local `agy /usage` JSON invocation
+  using the CLI's existing sign-in. Optional session metrics
+  use an allowlist before writing private local snapshots: email, paths,
+  transcript content, VCS/sandbox state, and raw session identifiers are
+  discarded. The resulting 30-day history is labelled partial because it can
+  observe only positive same-session deltas while the connection is enabled.
+  See the [Antigravity source and metric contract](docs/ANTIGRAVITY_USAGE.md).
 The core Dock renderer does not require Accessibility, Screen Recording, Full
 Disk Access, or administrator privileges. The optional Dock-hover dashboard
 requires Accessibility only to detect DockMagic's own hovered Dock icon and its
@@ -203,6 +204,8 @@ for the Sparkle signing, feed, and release verification workflow.
 - An installed Claude Code CLI only when using Claude Code; `rate_limits`
   requires a supported subscription and at least one response after automatic
   bridge setup
+- An installed Antigravity CLI (`agy`) only when using Antigravity; sign-in can
+  be completed from its Settings page, and local session metrics are optional
 
 DockMagic is an Xcode project, not a Swift Package. It currently has no external
 package dependencies.

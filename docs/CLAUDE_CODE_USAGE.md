@@ -1,166 +1,124 @@
-# Claude Code Local Telemetry Dashboard
+# Claude Code usage and local telemetry
 
-**Verified:** August 28, 2026
+**Verified:** September 12, 2026
 
 ## Architecture
 
-DockMagic uses Claude Code's documented local surfaces rather than private
-OAuth endpoints or terminal scraping:
+DockMagic intentionally separates subscription quota from local activity:
 
 ```text
-Claude native statusLine ─────── quota, model, cost, context, session
-Claude lifecycle hooks ────────── realtime session, tool, subagent, task state
-~/.claude/projects/**/*.jsonl ─── timestamps, model token usage, tasks, goals
-                    │
-                    ▼
-        ClaudeCodeLocalTelemetryReader
-                    │
-                    ▼
-        ClaudeCodeUsageStore → Dock tile + 440×740 hover dashboard
+claude auth status --json ─── login state, auth method, provider
+interactive Claude PTY ────── /usage → 5-hour + weekly all-models quota
+Claude lifecycle hooks ────── realtime session, tool, subagent, task state
+~/.claude/projects/**/*.jsonl ─ token history, models, tasks, goals
+                         │
+                         ▼
+             ClaudeCodeUsageStore
+                         │
+                         ▼
+          Settings + Dock tile + hover dashboard
 ```
 
-`claude-agent-acp` is not a passive attachment API for unrelated Claude CLI
-sessions. It starts and owns Agent SDK sessions. DockMagic therefore uses the
-same underlying Claude native data sources directly. This keeps existing CLI
-sessions observable without launching duplicate paid model turns.
+The quota worker runs the user's resolved, unmodified Claude executable as:
 
-## Real fields used
+```text
+claude --safe-mode --ax-screen-reader --no-chrome
+```
 
-From `statusLine` JSON:
+It uses a local Unix PTY, sends `/usage` after the prompt is ready, parses
+`Current session` and `Current week (all models)`, then sends Escape. The PTY
+stays alive between captures and refreshes every 60 seconds while the user is
+authenticated. `claude -p "/usage"` is not used because print mode reports the
+headless session rather than the user's subscription limits.
 
-- `rate_limits.five_hour` and `rate_limits.seven_day`: consumed percentage and
-  reset epoch;
-- `model.id` and `model.display_name`;
-- `cost.total_cost_usd`, duration, API duration, and changed-line totals;
-- `context_window`: total input/output, window size, percentages, and current
-  input/output/cache-read/cache-creation token counts;
-- `session_id`, optional `session_name`, `agent.name`, and Claude Code version.
+## Authentication and connection state
 
-From Claude Code lifecycle hook JSON:
+DockMagic executes the absolute resolved Claude binary directly, without a
+shell, using `claude auth status --json`. `loggedIn: true` means the CLI has a
+credential; it does not by itself mean quota is available. Settings reports:
 
-- session start/end, prompt submission, stop, permission, and notification
-  events;
-- tool start/success/failure and the documented tool name;
-- subagent start/stop and teammate idle events;
-- native task creation/completion, task ID, and task subject.
+- **Signed out** when `loggedIn` is false;
+- **Signed in / loading quota** after auth succeeds but before `/usage` parses;
+- **Connected** only after both 5-hour and weekly all-models quota parse;
+- **Quota unavailable** for API/cloud-provider billing or a fresh `/usage`
+  failure without a previous snapshot;
+- **Last known** when a previous quota snapshot exists and the next capture
+  fails.
 
-From local Claude transcripts:
+The visible Settings terminal runs only the fixed command
+`claude auth login --claudeai`. It is independent from the hidden quota PTY and
+does not expose a general-purpose shell. The fallback `.command` file contains
+only the absolute Claude path and those fixed arguments.
 
-- assistant record timestamp, UUID, session ID, model ID, and the four usage
-  counters (`input_tokens`, `output_tokens`, cache read, cache creation);
-- native task lifecycle system events;
-- native `active_goal` condition, iterations, reason, timing, budget, and state
-  when the installed runtime emits them.
+Settings keeps the normal connected state to one compact row: title, connection
+state, last-update time, Refresh, and a More menu. **Sign Out** lives in that
+menu and runs the resolved binary directly as `claude auth logout`, without a
+shell. Signing out stops the quota PTY and removes the in-memory 5-hour/weekly
+snapshot; local JSONL history, activity hooks, tasks, goals, and streak data are
+not deleted.
 
-DockMagic ignores synthetic model records and deduplicates assistant UUIDs.
-The 30-day chart and model ranking include input, output, cache-read, and
-cache-creation tokens because all four are actual counters reported by Claude.
+## Quota capture lifecycle
 
-## Cost semantics
+- Claude Code 2.1.181 or later is required for `--ax-screen-reader`.
+- The worker fixes `TERM=xterm-256color`, `LANG=en_US.UTF-8`,
+  `LC_ALL=en_US.UTF-8`, and `CLAUDE_CODE_SKIP_PROMPT_HISTORY=1`.
+- Its working directory is a neutral DockMagic directory under the system
+  temporary directory, never the user's current repository. If Claude asks
+  for workspace trust, DockMagic accepts it only when the prompt names this
+  private app-owned directory.
+- Only one `/usage` capture can run at a time; manual refreshes coalesce.
+- Claude can first paint cached quota and then redraw only the changed rows.
+  DockMagic waits for the completed redraw and prefers its final all-model
+  weekly value instead of publishing the cached percentage.
+- A capture times out after 15 seconds. DockMagic restarts the PTY once, then
+  keeps the last snapshot as stale and waits for the next 60-second cycle.
+- Sign-out, a changed executable, app shutdown, sleep recovery, or cancellation
+  stops the child process with interrupt followed by terminate after a grace
+  period.
+- Model-specific weekly sections are ignored. Percentages are clamped to
+  0–100. Unrecognized reset text produces `resetsAt = nil`, not zero quota.
+- Unrecognized section structure is reported as “Claude output format
+  changed”; it never becomes 0% usage.
 
-DockMagic never applies a hard-coded model price. Cost is shown only when
-Claude's native `cost.total_cost_usd` field is present. The status-line bridge
-keeps the latest cumulative snapshot per observed session, so the dashboard can
-sum observed session totals by the day each session was last observed. A cost
-is attributed to a model only when local transcript evidence shows that the
-whole session used exactly one model; mixed-model sessions remain unattributed
-instead of being assigned to the last model. The dashboard labels these values
-`observed est.` and `partial`: sessions that ran before installation, sessions
-outside the observed snapshot set, mixed-model sessions, or environments where
-Claude omits cost are not silently reconstructed.
+The worker retains a bounded in-memory raw PTY buffer below 256 KB and never
+writes raw terminal output to logs, analytics, or files. Persisted quota data
+contains only used percentage, reset time, CLI version, and capture time.
 
-## Ship momentum
+## Local activity remains separate
 
-Ship momentum uses the same DockMagic formula as the Codex dashboard. It
-uses only token activity from the current local calendar day and resets on the
-next day:
+Lifecycle hooks and local JSONL history continue to provide token history,
+observed cost, active tasks, goals, models, and streak data. Activity filesystem
+events trigger only a telemetry refresh; they never issue an additional
+`/usage` command. No 5-hour or weekly value is accepted from the retired
+statusLine snapshot.
 
-1. `0..<10M` tokens maps linearly to score `0...9` and Starter;
-2. `10M..<50M` maps to `10...29` and Builder;
-3. `50M..<200M` maps to `30...49` and Creator;
-4. `200M..<500M` maps to `50...69` and Shipper;
-5. `500M...1B` maps to `70...89` and Shipmaster;
-6. more than `1B` maps to score `100` and Legend.
+DockMagic no longer installs its statusLine bridge. On migration it removes
+only a bridge carrying DockMagic's ownership marker and restores the previous
+user command through the existing conservative uninstall path. Activity hooks
+are left untouched. A cleanup failure is visible in Settings but does not block
+the PTY collector.
 
-Claude's daily total includes input, output, cache-read, and cache-creation
-tokens from non-synthetic assistant usage records in local transcripts. Root
-session and task counts do not contribute. It is an activity indicator, not a
-productivity or quality rating.
+## Privacy and distribution
 
-## Bridge lifecycle
+Everything remains local to the Mac. DockMagic does not read, store, proxy, or
+mediate Claude credentials. The user signs in through Anthropic's unmodified
+Claude Code binary. The app reads only authentication metadata and the quota
+text rendered by `/usage`.
 
-When Claude Code is selected, DockMagic:
+DockMagic is distributed with Developer ID signing, Hardened Runtime,
+notarization, and stapling. App Sandbox remains disabled because SwiftTerm's
+local PTY must launch the installed Claude child process. SwiftTerm 1.19.0 is
+linked under the MIT License; see `THIRD_PARTY_NOTICES.md`.
 
-1. backs up both existing `statusLine` and `subagentStatusLine` settings;
-2. installs two executable wrappers under `~/.claude/`;
-3. chains the user's original commands with the original JSON stdin unchanged;
-4. atomically writes global and per-session snapshots with `0600` file
-   permissions inside `0700` directories;
-5. restores both original settings and removes only DockMagic-owned files on
-   uninstall.
-
-The wrappers do not call a model and do not use the network. `disableAllHooks`
-and workspace trust also gate status-line execution, so a missing first
-snapshot is reported as unavailable rather than guessed.
-
-## Realtime Active work hooks
-
-Active work is opt-in. Until its event integration is present, the dashboard
-shows **Enable realtime tracking**. Clicking it merges one DockMagic-owned,
-asynchronous command handler into every supported Claude lifecycle event. It
-does not replace, reorder, or rewrite handlers owned by other tools. Repeated
-installation is idempotent, and uninstall removes only DockMagic's handler.
-
-The handler stores a bounded set of at most 500 small event records under
-`~/.claude/dockmagic-activity-events`. A filesystem event monitor refreshes the
-store after a 75 ms debounce; the normal 15-second poll remains as a fallback.
-Session end, task completion, and subagent stop events remove the corresponding
-work from the active set.
-
-## Privacy boundary
-
-Everything described here remains on the Mac. The raw documented status-line
-payload can contain local paths such as `cwd` and `transcript_path`; snapshots
-are therefore private files. The transcript reader parses JSON records but does
-not consume user prompt text, assistant answer text, thinking, or tool output.
-It reads only telemetry fields and explicit task descriptions / active-goal
-objectives needed for the Active work section. DockMagic never reads Claude
-OAuth credentials.
-
-Activity-hook payloads are reduced before persistence. DockMagic keeps only the
-event name, generated observation time, sanitized session/agent/task IDs, task
-subject, agent type, tool name, notification type, and teammate name. Prompt
-text, transcript paths, working directories, tool inputs/results, assistant
-responses, and hook error payloads are never written to the activity-event
-directory. Files use `0600`; the containing directory uses `0700`.
-
-## Freshness and limitations
-
-- Status snapshots and Active work events update only when Claude Code invokes
-  the configured commands. A project-level override can prevent the global
-  integration from running.
-- Hook-backed active rows expire after 30 minutes without a lifecycle event;
-  terminal task, subagent, and session events remove completed work sooner.
-- The local history window is 30 days for tokens/models. Ship momentum uses
-  only today's bucket. Files older than 120 days or larger than 64 MiB are
-  skipped.
-- Claude Desktop does not emit Claude Code status-line input.
-- Subscription quota and native session cost are different measurements; the
-  dashboard labels each independently.
-- Native `statusLine` does not publish the final SDK `stop_reason`, structured
-  authentication/quota/context errors, recovery actions, or a subagent
-  transcript. DockMagic therefore does not invent these fields. It shows local
-  bridge/stale/unavailable state and active task metadata only.
-- `claude-agent-acp` can observe richer result and task events for Agent SDK
-  sessions that it starts and owns, but it cannot passively attach to unrelated
-  native Claude CLI sessions. DockMagic intentionally does not launch duplicate
-  paid turns merely to obtain those events.
+Before broad release, confirm the local-login flow with Anthropic/legal.
+Anthropic's documented exception covers an end user signing in to an
+unmodified Claude Code binary; DockMagic must not turn this into hosted login
+or credential intermediation.
 
 ## Primary sources
 
-- [Claude Code status lines and subagent status lines](https://code.claude.com/docs/en/statusline)
+- [Claude Code slash commands](https://code.claude.com/docs/en/commands)
+- [Claude Code CLI reference](https://code.claude.com/docs/en/cli-reference)
+- [Claude Code legal and compliance](https://code.claude.com/docs/en/legal-and-compliance)
 - [Claude Code hooks](https://code.claude.com/docs/en/hooks)
-- [Claude Code commands](https://code.claude.com/docs/en/commands)
-- [Claude Code cost and usage](https://code.claude.com/docs/en/costs)
-- [`claude-agent-acp` source](https://github.com/agentclientprotocol/claude-agent-acp)
-- [`claude-agent-acp` native goal mapping](https://github.com/agentclientprotocol/claude-agent-acp/blob/main/src/goal-extension.ts)
+- [SwiftTerm](https://github.com/migueldeicaza/SwiftTerm)

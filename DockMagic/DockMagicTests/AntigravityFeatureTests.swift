@@ -1,605 +1,658 @@
-import AppKit
-import CoreImage
-import SwiftUI
+import Foundation
 import XCTest
 @testable import DockMagic
 
 final class AntigravityFeatureTests: XCTestCase {
-    private let now = Date(timeIntervalSince1970: 1_788_886_000)
+    func testUsageParserKeepsModelPoolsSeparateAndPreservesZero() throws {
+        let fetchedAt = Date(timeIntervalSince1970: 1_800_000_000)
+        let snapshot = try AntigravityUsageResponseParser.parse(
+            output: Self.usageJSON,
+            fetchedAt: fetchedAt
+        )
 
-    func testSummaryKeepsFourWindowsAndSelectsConstrainedFamily() throws {
-        let value = try XCTUnwrap(AntigravityQuotaParser.parse(summary(), source: "fixture", now: now))
-        XCTAssertEqual(value.groups.count, 2)
-        XCTAssertEqual(value.groups.flatMap(\.buckets).count, 4)
-        XCTAssertEqual(value.selectedGroup("auto")?.id, "gemini")
-        XCTAssertEqual(value.selectedGroup("claude-gpt")?.title, "Claude and GPT models")
-        XCTAssertNil(value.selectedGroup("missing"))
-        let windows = try XCTUnwrap(value.selectedGroup("gemini")?.buckets)
-        XCTAssertEqual(windows.map(\.kind), [.fiveHour, .weekly])
-        XCTAssertEqual(windows[0].remainingFraction, 0.25)
-        XCTAssertEqual(windows[1].normalizedWindow?.windowDurationMinutes, 10_080)
+        XCTAssertEqual(snapshot.fetchedAt, fetchedAt)
+        XCTAssertEqual(snapshot.buckets.map(\.id), ["gemini-weekly", "3p-weekly"])
+        XCTAssertEqual(snapshot.buckets[0].groupName, "Gemini Models")
+        XCTAssertEqual(snapshot.buckets[0].remainingFraction, 1)
+        XCTAssertEqual(snapshot.buckets[0].windowDurationMinutes, 10_080)
+        XCTAssertEqual(snapshot.buckets[1].groupName, "Claude and GPT models")
+        XCTAssertEqual(snapshot.buckets[1].remainingFraction, 0)
+        XCTAssertNotNil(snapshot.buckets[1].resetsAt)
     }
 
-    @MainActor
-    func testHiddenGeminiPreferenceCannotMaskConsumedWeeklyQuota() throws {
-        let suite = "Antigravity-quota-migration-\(UUID())"
-        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
-        defer { defaults.removePersistentDomain(forName: suite) }
-        defaults.set("gemini", forKey: DockPreferencesStore.antigravityGroupKey)
-        let preferences = DockPreferencesStore(defaults: defaults)
-        let quota = try XCTUnwrap(AntigravityQuotaParser.parse(["groups": [
-            ["displayName": "Gemini Models", "buckets": [
-                ["bucketId": "gemini-weekly", "remainingFraction": 1.0]]],
-            ["displayName": "Claude and GPT models", "buckets": [
-                ["bucketId": "3p-weekly", "remainingFraction": 0.310612]]]
-        ]], source: "fixture", now: now))
-        let selected = try XCTUnwrap(quota.selectedGroup(preferences.antigravityGroupID))
-        XCTAssertEqual(selected.id, "claude-gpt")
-        XCTAssertEqual(try XCTUnwrap(selected.buckets.first?.remainingFraction), 0.310612, accuracy: 0.000001)
-        XCTAssertNil(defaults.string(forKey: DockPreferencesStore.antigravityGroupKey))
-    }
-
-    func testLegacyPoolsDoNotInventWindowDurationOrExhaustion() throws {
-        let root: [String: Any] = ["userStatus": ["cascadeModelConfigData": ["clientModelConfigs": [
-            ["label": "Gemini Pro", "quotaInfo": ["remainingFraction": 0.7, "resetTime": "2026-09-15T10:00:00Z"]],
-            ["label": "Gemini Flash", "quotaInfo": ["remainingFraction": 0.4]],
-            ["label": "Claude Sonnet", "quotaInfo": ["resetTime": "2026-09-15T10:00:00Z"]],
-            ["label": "Gemini Image", "quotaInfo": ["remainingFraction": 0.0]]
-        ]]]]
-        let quota = try XCTUnwrap(AntigravityQuotaParser.parse(root, source: "IDE", now: now))
-        XCTAssertEqual(quota.groups.count, 2)
-        let gemini = try XCTUnwrap(quota.selectedGroup("gemini")?.buckets.first)
-        XCTAssertEqual(gemini.remainingFraction, 0.4)
-        XCTAssertNil(gemini.kind)
-        XCTAssertNil(gemini.normalizedWindow)
-        XCTAssertNil(quota.selectedGroup("claude-gpt")?.buckets.first?.remainingFraction)
-        XCTAssertEqual(quota.selectedGroup("auto")?.id, "gemini")
-    }
-
-    func testMalformedFractionsRemainUnknownAndStatusLineParses() throws {
-        for value: Any in [true, -0.1, 1.1, "0.5", NSNull()] {
-            let result = try XCTUnwrap(AntigravityQuotaParser.parse(["quota": ["gemini-weekly": ["remaining_fraction": value]]], source: "CLI", now: now))
-            XCTAssertNil(result.groups.first?.buckets.first?.remainingFraction)
+    func testUsageParserDoesNotFallBackToHumanReadableResponse() {
+        let output = #"{"status":"SUCCESS","response":"Gemini Models Weekly Limit Remaining 100%"}"#
+        XCTAssertThrowsError(try AntigravityUsageResponseParser.parse(
+            output: output,
+            fetchedAt: .now
+        )) { error in
+            XCTAssertEqual(error as? AntigravityUsageError, .unsupportedResponse)
         }
-        let valid = try XCTUnwrap(AntigravityQuotaParser.parse(["plan_tier": "Pro", "quota": ["gemini-5h": ["remaining_fraction": 0.5, "reset_time": "2026-09-09T01:02:03.123456Z"]]], source: "CLI", now: now))
-        XCTAssertEqual(valid.plan, "Pro")
-        XCTAssertNotNil(valid.groups.first?.buckets.first?.resetsAt)
-        XCTAssertNil(AntigravityQuotaParser.parse([:], source: "CLI", now: now))
     }
 
-    func testProcessDiscoveryIsSameUserAndRejectsUnrelatedPrograms() {
-        let list = """
-        10 501 /Applications/Antigravity.app/bin/language_server --csrf_token secret
-        11 502 /Applications/Antigravity.app/bin/language_server --csrf_token other
-        12 501 /usr/bin/echo antigravity
-        13 501 /Users/test/.local/bin/agy
-        14 501 /Applications/Antigravity.app/bin/language_server
-        """
-        XCTAssertEqual(AntigravityLocalProbe.servers(from: list, userID: 501).map(\.pid), ["10", "13"])
-        XCTAssertEqual(AntigravityLocalProbe.ports(from: "p10\nn127.0.0.1:4000\nn*:5000\nn127.0.0.1:4000\n"), [4000, 5000])
-    }
-
-    func testGeneratorMetadataDeduplicatesAndStripsContent() throws {
-        let row: [String: Any] = ["chatModel": [
-            "chatStartMetadata": ["createdAt": "2026-09-08T10:00:00Z", "prompt": "DO_NOT_KEEP"],
-            "usage": ["responseId": "response-1", "model": "gemini-flash", "inputTokens": "100", "outputTokens": "30",
-                      "responseOutputTokens": "20", "thinkingOutputTokens": "10", "cacheReadTokens": "50", "responseHeader": ["secret": "DO_NOT_KEEP"]]
-        ]]
-        let records = AntigravityHistoryParser.records(["generatorMetadata": [row, row]], sessionID: "session-1")
-        XCTAssertEqual(records.count, 1)
-        let usage = try XCTUnwrap(records.first?["usage"] as? [String: Int64])
-        XCTAssertEqual(usage["output_tokens"], 30, "Thinking is already in outputTokens.")
-        XCTAssertEqual(usage["cache_read_input_tokens"], 50)
-        let bytes = try JSONSerialization.data(withJSONObject: records)
-        XCTAssertFalse(String(decoding: bytes, as: UTF8.self).contains("DO_NOT_KEEP"))
-        XCTAssertTrue(AntigravityHistoryParser.records(["generatorMetadata": [["chatModel": ["usage": ["inputTokens": "1"]]]]], sessionID: "s").isEmpty,
-                      "Missing timestamps must not be replaced with today's date.")
-    }
-
-    func testDesktopUndatedMetadataCountsRealTokensOnReportedLocalDay() throws {
-        var calendar = Calendar(identifier: .gregorian)
-        calendar.timeZone = try XCTUnwrap(TimeZone(secondsFromGMT: 7 * 3600))
-        let readAt = try XCTUnwrap(AntigravityJSON.date("2026-09-08T17:35:00Z"))
-        let root = try temporaryDirectory()
-        defer { try? FileManager.default.removeItem(at: root) }
-        let directory = root.appendingPathComponent("telemetry")
-        let latestSummary: [String: Any] = [
-            "createdTime": "2026-09-08T17:11:56.177822Z",
-            "lastModifiedTime": "2026-09-08T17:20:58.070539Z",
-            "lastUserInputTime": "2026-09-08T17:12:27.823031Z", "lastUserInputStepIndex": 2
-        ]
-        let usage: [(String, String, String, [Int])] = [
-            ("18539", "272", "0", [1]), ("845", "734", "18059", [3, 4]),
-            ("916", "16003", "18808", [5, 6]), ("16208", "223", "19638", [7, 8]),
-            ("36213", "435", "0", [9])
-        ]
-        let rows: [[String: Any]] = usage.enumerated().map { index, value in
-            ["stepIndices": value.3, "chatModel": [
-                "model": "MODEL_PLACEHOLDER_M26", "responseModel": "claude-opus-4-6-thinking",
-                "messagePrompts": ["DO_NOT_KEEP"], "chatStartMetadata": ["checkpointIndex": -1],
-                "usage": ["responseId": "reply-\(index)", "inputTokens": value.0, "outputTokens": value.1,
-                          "responseOutputTokens": value.1, "cacheReadTokens": value.2,
-                          "responseHeader": ["secret": "DO_NOT_KEEP"]]
-            ]]
+    func testUsageParserKeepsMissingQuotaUnavailableAndMapsSignedOut() {
+        let missingFraction = #"{"status":"SUCCESS","command":{"name":"usage","data":{"groups":[{"name":"Gemini Models","buckets":[{"id":"gemini-weekly","name":"Weekly","window":"weekly"}]}]}}}"#
+        XCTAssertThrowsError(try AntigravityUsageResponseParser.parse(
+            output: missingFraction,
+            fetchedAt: .now
+        )) { error in
+            XCTAssertEqual(error as? AntigravityUsageError, .unsupportedResponse)
         }
-        let records = AntigravityHistoryParser.records(["generatorMetadata": rows], sessionID: "new-session",
-                                                       summary: latestSummary, calendar: calendar)
-        XCTAssertEqual(records.count, 5)
-        XCTAssertTrue(records.allSatisfy { $0["date_precision"] as? String == "day" })
-        XCTAssertTrue(records.allSatisfy { AntigravityJSON.date($0["timestamp"]) == calendar.startOfDay(for: readAt) })
-        XCTAssertFalse(String(decoding: try JSONSerialization.data(withJSONObject: records), as: UTF8.self).contains("DO_NOT_KEEP"))
-        try write(["records": records], directory.appendingPathComponent("rpc/new-session.json"))
 
-        // A months-old conversation was resumed today. Only the generation after
-        // the reported latest input may use today's bounded turn, not old usage.
-        let resumedSummary: [String: Any] = ["createdTime": "2026-01-15T16:09:51Z",
-            "lastModifiedTime": "2026-09-08T17:11:36Z", "lastUserInputTime": "2026-09-08T17:11:29Z",
-            "lastUserInputStepIndex": 131]
-        let resumed: [String: Any] = ["stepIndices": [133], "chatModel": [
-            "responseModel": "claude-opus-4-6-thinking", "usage": ["inputTokens": "72617", "outputTokens": "73"]]]
-        let resumedRecords = AntigravityHistoryParser.records(["generatorMetadata": [resumed]],
-            sessionID: "resumed-session", summary: resumedSummary, calendar: calendar)
-        XCTAssertEqual(resumedRecords.count, 1)
-        try write(["records": resumedRecords], directory.appendingPathComponent("rpc/resumed-session.json"))
-        let result = AntigravityTelemetryReader(directoryURL: directory, home: root, now: readAt, calendar: calendar).read()
-        XCTAssertEqual(result.tokens?.dailyUsageBuckets.count, 1)
-        XCTAssertEqual(result.tokens?.dailyUsageBuckets.first?.tokens, 219_583)
-        XCTAssertEqual(result.tokens?.modelUsage?.first?.model, "claude-opus-4-6-thinking")
-        XCTAssertEqual(result.tokens?.modelUsage?.first?.tokens, 219_583)
-    }
-
-    func testUndatedHistoryKeepsPreviouslyKnownDaysAndRejectsAmbiguousDates() throws {
-        var calendar = Calendar(identifier: .gregorian)
-        calendar.timeZone = try XCTUnwrap(TimeZone(secondsFromGMT: 7 * 3600))
-        let rows: [[String: Any]] = [
-            ["stepIndices": [1], "chatModel": ["usage": ["responseId": "old", "inputTokens": "100"]]],
-            ["stepIndices": [3], "chatModel": ["usage": ["responseId": "new", "inputTokens": "200"]]]
-        ]
-        let yesterday: [String: Any] = ["createdTime": "2026-09-07T17:10:00Z", "lastModifiedTime": "2026-09-07T17:15:00Z"]
-        let old = AntigravityHistoryParser.records(["generatorMetadata": [rows[0]]], sessionID: "s", summary: yesterday, calendar: calendar)
-        let today: [String: Any] = ["createdTime": "2026-09-07T17:10:00Z", "lastModifiedTime": "2026-09-08T17:15:00Z",
-            "lastUserInputTime": "2026-09-08T17:10:00Z", "lastUserInputStepIndex": 2]
-        let result = AntigravityHistoryParser.records(["generatorMetadata": rows], sessionID: "s", summary: today,
-            previousRecords: old, calendar: calendar)
-        XCTAssertEqual(result.count, 2)
-        XCTAssertEqual(result.first?["timestamp"] as? Double, old.first?["timestamp"] as? Double)
-        XCTAssertNotEqual(result.first?["timestamp"] as? Double, result.last?["timestamp"] as? Double)
-        let withoutCache = AntigravityHistoryParser.records(["generatorMetadata": rows], sessionID: "s", summary: today, calendar: calendar)
-        XCTAssertEqual(withoutCache.count, 1, "An old undated turn must not be assigned to today.")
-        let acrossMidnight: [String: Any] = ["createdTime": "2026-09-08T16:59:00Z", "lastModifiedTime": "2026-09-08T17:01:00Z"]
-        XCTAssertTrue(AntigravityHistoryParser.records(["generatorMetadata": rows], sessionID: "s", summary: acrossMidnight, calendar: calendar).isEmpty)
-    }
-
-    func testHistoryCacheRequiresCurrentParserVersion() {
-        let old: [String: Any] = ["modified_at": now.timeIntervalSince1970, "records": []]
-        XCTAssertFalse(AntigravityHistoryParser.canReuseCache(old, modifiedAt: now))
-        var updated = old
-        updated["schema_version"] = AntigravityHistoryParser.cacheVersion
-        XCTAssertTrue(AntigravityHistoryParser.canReuseCache(updated, modifiedAt: now))
-        XCTAssertFalse(AntigravityHistoryParser.canReuseCache(updated, modifiedAt: now.addingTimeInterval(1)))
-    }
-
-    @MainActor
-    func testBridgeRoundTripPreservesCustomizationsAndSanitizesPayload() throws {
-        let root = try temporaryDirectory()
-        defer { try? FileManager.default.removeItem(at: root) }
-        let settings = root.appendingPathComponent(".gemini/antigravity-cli/settings.json")
-        let hooks = root.appendingPathComponent(".gemini/config/hooks.json")
-        let original: [String: Any] = ["theme": "custom", "statusLine": ["type": "command", "command": "printf original-status", "padding": 2]]
-        try write(original, settings)
-        try write(["my-hook": ["enabled": false]], hooks)
-        let bridge = AntigravityTelemetryBridge(home: root)
-        try bridge.install()
-        try bridge.install()
-        XCTAssertTrue(bridge.isInstalled())
-        let payload: [String: Any] = [
-            "session_id": "session-1", "model": ["id": "gemini", "display_name": "Gemini"],
-            "context_window": ["total_input_tokens": 100, "total_output_tokens": 20],
-            "quota": ["gemini-weekly": ["remaining_fraction": 0.7]],
-            "email": "DO_NOT_KEEP", "cwd": "DO_NOT_KEEP", "prompt": "DO_NOT_KEEP",
-            "tool_input": ["secret": "DO_NOT_KEEP"], "agent_state": "working"
-        ]
-        let output = try runBridge(bridge, event: "status", payload: payload)
-        XCTAssertEqual(output, "original-status")
-        let files = try FileManager.default.contentsOfDirectory(at: bridge.directoryURL.appendingPathComponent("sessions"), includingPropertiesForKeys: nil)
-        let data = try Data(contentsOf: XCTUnwrap(files.first))
-        XCTAssertFalse(String(decoding: data, as: UTF8.self).contains("DO_NOT_KEEP"))
-        let permissions = try FileManager.default.attributesOfItem(atPath: files[0].path)[.posixPermissions] as? NSNumber
-        XCTAssertEqual(permissions?.intValue, 0o600)
-        let eventOutput = try runBridge(bridge, event: "PostToolUse", payload: ["conversationId": "session-1", "toolCall": ["name": "run_command", "args": ["secret": "DO_NOT_KEEP"]], "error": "DO_NOT_KEEP"])
-        XCTAssertEqual(eventOutput.trimmingCharacters(in: .whitespacesAndNewlines), "{}")
-        let hookConfig = try read(hooks)
-        XCTAssertNotNil(hookConfig["my-hook"])
-        XCTAssertNil((hookConfig["dockmagic-antigravity"] as? [String: Any])?["PreToolUse"])
-        try bridge.uninstall()
-        XCTAssertFalse(bridge.isInstalled())
-        XCTAssertTrue((try read(settings) as NSDictionary).isEqual(to: original))
-        XCTAssertEqual(try read(hooks).count, 1)
-        try write(["statusLine": ["enabled": false, "command": "printf disabled-command"]], settings)
-        try bridge.install()
-        XCTAssertEqual(try runBridge(bridge, event: "status", payload: payload), "",
-                       "Connecting must not execute a previously disabled customization")
-        try bridge.uninstall()
-    }
-
-    @MainActor
-    func testInvalidSettingsAreNeverOverwritten() throws {
-        let root = try temporaryDirectory()
-        defer { try? FileManager.default.removeItem(at: root) }
-        let url = root.appendingPathComponent(".gemini/antigravity-cli/settings.json")
-        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
-        let original = Data("{ broken".utf8)
-        try original.write(to: url)
-        XCTAssertThrowsError(try AntigravityTelemetryBridge(home: root).install())
-        XCTAssertEqual(try Data(contentsOf: url), original)
-        try write([:], url)
-        let hooksURL = root.appendingPathComponent(".gemini/config/hooks.json")
-        try write(["dockmagic-antigravity": false], hooksURL)
-        XCTAssertThrowsError(try AntigravityTelemetryBridge(home: root).install())
-        XCTAssertEqual(try read(hooksURL)["dockmagic-antigravity"] as? Bool, false)
-    }
-
-    @MainActor
-    func testDisconnectPreservesExternallyChangedStatusLineAndHooks() throws {
-        let root = try temporaryDirectory()
-        defer { try? FileManager.default.removeItem(at: root) }
-        let bridge = AntigravityTelemetryBridge(home: root)
-        try bridge.install()
-        let settingsURL = root.appendingPathComponent(".gemini/antigravity-cli/settings.json")
-        let hooksURL = root.appendingPathComponent(".gemini/config/hooks.json")
-        try write(["statusLine": ["command": "printf replacement"]], settingsURL)
-        var hooks = try read(hooksURL)
-        hooks["another-integration"] = ["enabled": true]
-        try write(hooks, hooksURL)
-        XCTAssertThrowsError(try bridge.install())
-        try bridge.uninstall()
-        XCTAssertEqual((try read(settingsURL)["statusLine"] as? [String: String])?["command"], "printf replacement")
-        XCTAssertNotNil(try read(hooksURL)["another-integration"])
-    }
-
-    @MainActor
-    func testCachedHistorySurvivesSelectionAndOfflineRefresh() async throws {
-        let root = try temporaryDirectory()
-        defer { try? FileManager.default.removeItem(at: root) }
-        let quota = try XCTUnwrap(AntigravityQuotaParser.parse(summary(), source: "fixture", now: now))
-        let cacheURL = root.appendingPathComponent("cache.json")
-        let usage = CodexAccountTokenUsage(lifetimeTokens: nil, peakDailyTokens: 123, longestRunningTurnSeconds: nil,
-                                          dailyUsageBuckets: [.init(startDate: now, tokens: 123)])
-        let snapshot = CodexRateLimitSnapshot(planType: nil, limitID: "antigravity-local", fiveHour: nil, weekly: nil,
-            tokenUsage: usage, antigravityTelemetry: .init(quota: quota, selectedGroupID: "auto", local: nil, diagnostic: nil), fetchedAt: now)
-        try JSONEncoder().encode(snapshot).write(to: cacheURL)
-        let provider = AntigravityTestProvider(quota: quota)
-        await provider.fail()
-        let store = AntigravityUsageStore(provider: provider, bridge: AntigravityTelemetryBridge(home: root),
-            streakTracker: AntigravityTestStreakTracker(), cacheURL: cacheURL,
-            readTelemetry: { .init(quota: nil, tokens: nil, telemetry: nil, observedAt: nil) }, now: { self.now })
-        store.selectedGroupID = "claude-gpt"
-        XCTAssertEqual(store.state.snapshot?.tokenUsage, usage)
-        await store.refresh(force: true)
-        XCTAssertEqual(store.state.snapshot?.tokenUsage, usage)
-        guard case .stale = store.state else { return XCTFail("Offline cached data must remain stale") }
-    }
-
-    @MainActor
-    func testCoalescingAndStopIgnoreLateProbeResults() async throws {
-        let root = try temporaryDirectory()
-        defer { try? FileManager.default.removeItem(at: root) }
-        let quota = try XCTUnwrap(AntigravityQuotaParser.parse(summary(), source: "fixture", now: now))
-        let provider = AntigravityDelayedProvider(quota: quota)
-        let store = AntigravityUsageStore(provider: provider, bridge: AntigravityTelemetryBridge(home: root),
-            streakTracker: AntigravityTestStreakTracker(), cacheURL: root.appendingPathComponent("cache.json"),
-            readTelemetry: { .init(quota: nil, tokens: nil, telemetry: nil, observedAt: nil) })
-        let first = Task { await store.refresh(force: true) }
-        for _ in 0..<200 {
-            if await provider.calls > 0 { break }
-            try await Task.sleep(for: .milliseconds(5))
+        let signedOut = #"{"status":"ERROR","error":"Authentication required. Sign in first."}"#
+        XCTAssertThrowsError(try AntigravityUsageResponseParser.parse(
+            output: signedOut,
+            fetchedAt: .now
+        )) { error in
+            XCTAssertEqual(error as? AntigravityUsageError, .signedOut)
         }
-        let second = Task { await store.refresh(force: true) }
-        try await Task.sleep(for: .milliseconds(20))
-        let calls = await provider.calls
-        XCTAssertEqual(calls, 1)
+    }
+
+    func testUsageParserClampsFractionsButDoesNotInventUnknownWindows() throws {
+        let output = #"{"status":"SUCCESS","command":{"name":"usage","data":{"groups":[{"name":"Future pool","buckets":[{"id":"high","name":"Rolling","window":"rolling","remaining_fraction":1.4},{"id":"low","name":"Rolling","window":"rolling","remaining_fraction":-0.2}]}]}}}"#
+        let snapshot = try AntigravityUsageResponseParser.parse(
+            output: output,
+            fetchedAt: .now
+        )
+
+        XCTAssertEqual(snapshot.buckets.map(\.remainingFraction), [1, 0])
+        XCTAssertTrue(snapshot.buckets.allSatisfy {
+            $0.windowDurationMinutes == nil
+        })
+    }
+
+    func testUsageProviderUsesFixedDocumentedCommand() async throws {
+        let runner = RecordingAntigravityRunner(output: Self.usageJSON)
+        let provider = AntigravityCLIUsageProvider(
+            processRunner: runner,
+            environment: ["PATH": "/usr/bin"],
+            now: { Date(timeIntervalSince1970: 1_800_000_000) }
+        )
+        _ = try await provider.fetchQuota(
+            executableURL: URL(fileURLWithPath: "/tmp/agy")
+        )
+        let calls = await runner.calls
+        let call = try XCTUnwrap(calls.first)
+        XCTAssertEqual(call.arguments, [
+            "-p", "/usage", "--output-format", "json",
+            "--print-timeout", "30s"
+        ])
+        XCTAssertEqual(call.environment["AGY_CLI_DISABLE_AUTO_UPDATE"], "true")
+        XCTAssertEqual(call.environment["NO_COLOR"], "1")
+        XCTAssertEqual(call.timeout, 45)
+    }
+
+    @MainActor
+    func testStoreExposesSignedOutAuthenticationState() async {
+        let cacheDirectory = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: cacheDirectory) }
+        let provider = CountingAntigravityProvider(
+            result: .failure(.signedOut)
+        )
+        let store = AntigravityUsageStore(
+            provider: provider,
+            locator: FixedAntigravityLocator(),
+            bridge: FakeAntigravityBridge(
+                sessionsDirectoryURL: cacheDirectory.appendingPathComponent(
+                    "sessions",
+                    isDirectory: true
+                )
+            ),
+            streakTracker: FakeAntigravityStreakTracker(),
+            cacheURL: cacheDirectory.appendingPathComponent("cache.json"),
+            readSessions: { [] },
+            pollingInterval: .seconds(60)
+        )
+
+        await store.refresh()
+
+        XCTAssertEqual(store.connectionState, .signedOut)
+        XCTAssertEqual(store.resolvedExecutablePath, "/usr/bin/true")
+        guard case let .unavailable(message) = store.state else {
+            return XCTFail("Signed-out quota should be unavailable without a cache.")
+        }
+        XCTAssertEqual(
+            message,
+            "Sign in to agy, then refresh Antigravity usage."
+        )
+
+        store.beginSignIn()
+        XCTAssertEqual(store.connectionState, .signingIn)
+        await store.cancelAuthentication()
+        XCTAssertEqual(store.connectionState, .signedOut)
+        let callCount = await provider.callCount
+        XCTAssertEqual(callCount, 1, "Cancel must not start another auth probe.")
+    }
+
+    @MainActor
+    func testStoreStartDoesNotProbeQuotaBeforeExplicitSignIn() async throws {
+        let cacheDirectory = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: cacheDirectory) }
+        let provider = CountingAntigravityProvider(
+            result: .failure(.signedOut)
+        )
+        let store = AntigravityUsageStore(
+            provider: provider,
+            locator: FixedAntigravityLocator(),
+            bridge: FakeAntigravityBridge(
+                sessionsDirectoryURL: cacheDirectory.appendingPathComponent(
+                    "sessions",
+                    isDirectory: true
+                )
+            ),
+            streakTracker: FakeAntigravityStreakTracker(),
+            cacheURL: cacheDirectory.appendingPathComponent("cache.json"),
+            readSessions: { [] },
+            pollingInterval: .seconds(60)
+        )
+
+        XCTAssertEqual(store.connectionState, .signedOut)
+        store.start()
+        try await Task.sleep(for: .milliseconds(50))
         store.stop()
-        await provider.complete()
-        await first.value
-        await second.value
-        XCTAssertFalse(store.isRefreshing)
-        XCTAssertNil(store.state.snapshot, "A cancelled refresh must not resurrect the stopped store")
-    }
 
-    func testCumulativeObservationsCountOnlyDeltasAndDoNotMisattributeModelSwitch() throws {
-        let root = try temporaryDirectory()
-        defer { try? FileManager.default.removeItem(at: root) }
-        let directory = root.appendingPathComponent("telemetry")
-        for (index, values) in [(100, 20, "Gemini"), (150, 40, "Gemini"), (150, 40, "Gemini"), (180, 50, "Claude"), (10, 5, "Claude")].enumerated() {
-            try write(["session_id": "s", "observed_at": now.timeIntervalSince1970 - Double(10 - index),
-                       "model": ["id": values.2], "context_window": ["total_input_tokens": values.0, "total_output_tokens": values.1]],
-                      directory.appendingPathComponent("observations/\(index).json"))
-        }
-        let value = AntigravityTelemetryReader(directoryURL: directory, home: root, now: now).read()
-        XCTAssertEqual(value.tokens?.dailyUsageBuckets.first?.tokens, 110)
-        XCTAssertEqual(value.tokens?.modelUsage?.first?.tokens, 70)
-        XCTAssertEqual(value.tokens?.modelUsage?.first?.model, "Gemini")
-        XCTAssertNil(value.tokens?.lifetimeTokens)
-    }
-
-    func testTranscriptAndRPCDeduplicateAndEmptyHistoryIsNotMissingData() throws {
-        let root = try temporaryDirectory()
-        defer { try? FileManager.default.removeItem(at: root) }
-        let directory = root.appendingPathComponent("telemetry")
-        try write(["known_sessions": 1, "has_usage_history": true, "observed_at": now.timeIntervalSince1970, "tasks": []], directory.appendingPathComponent("rpc/index.json"))
-        let empty = AntigravityTelemetryReader(directoryURL: directory, home: root, now: now).read()
-        XCTAssertNotNil(empty.tokens)
-        XCTAssertEqual(empty.tokens?.dailyUsageBuckets, [])
-        let record: [String: Any] = ["session_id": "s", "timestamp": now.timeIntervalSince1970 - 1, "model": "Gemini", "usage": ["input_tokens": 100, "output_tokens": 20]]
-        try write(["records": [record]], directory.appendingPathComponent("rpc/s.json"))
-        let transcript = root.appendingPathComponent(".gemini/antigravity/brain/s/.system_generated/logs/transcript.jsonl")
-        try write(["type": "assistant", "session_id": "s", "timestamp": now.timeIntervalSince1970 - 1, "message": ["model": "Gemini", "usage": ["input_tokens": 100, "output_tokens": 20]]], transcript)
-        let value = AntigravityTelemetryReader(directoryURL: directory, home: root, now: now).read()
-        XCTAssertEqual(value.tokens?.dailyUsageBuckets.first?.tokens, 120)
-    }
-
-    func testCompletedAndExpiredWorkDisappears() throws {
-        let root = try temporaryDirectory()
-        defer { try? FileManager.default.removeItem(at: root) }
-        try write(["session_id": "s", "observed_at": now.timeIntervalSince1970 - 10, "event": "status", "agent_state": "working"], root.appendingPathComponent("sessions/s.json"))
-        var reader = AntigravityTelemetryReader(directoryURL: root, home: root, now: now)
-        XCTAssertEqual(reader.read().telemetry?.activeTasks.count, 1)
-        try write(["session_id": "s", "observed_at": now.timeIntervalSince1970 - 1, "event": "Stop", "fully_idle": true], root.appendingPathComponent("events/s.json"))
-        XCTAssertEqual(reader.read().telemetry?.activeTasks.count, 0)
-        reader.now = now.addingTimeInterval(3600)
-        XCTAssertEqual(reader.read().telemetry?.activeTasks.count, 0)
+        let callCount = await provider.callCount
+        XCTAssertEqual(
+            callCount,
+            0,
+            "Opening Settings must not run agy or start its OAuth flow."
+        )
     }
 
     @MainActor
-    func testPreferencesMigrateHiddenGroupAndStoreRecoveryPreservesStreakProvider() async throws {
-        let root = try temporaryDirectory()
-        defer { try? FileManager.default.removeItem(at: root) }
-        let suite = "Antigravity-tests-\(UUID())"
-        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
-        defer { defaults.removePersistentDomain(forName: suite) }
-        defaults.set("claude-gpt", forKey: DockPreferencesStore.antigravityGroupKey)
-        let preferences = DockPreferencesStore(defaults: defaults)
-        preferences.activeFeature = .antigravity
-        preferences.setAntigravityDisplayStyle(.numeric)
-        let reread = DockPreferencesStore(defaults: defaults)
-        XCTAssertEqual(reread.activeFeature, .antigravity)
-        XCTAssertEqual(reread.antigravityGroupID, "auto")
-        XCTAssertNil(defaults.string(forKey: DockPreferencesStore.antigravityGroupKey))
-        XCTAssertEqual(reread.antigravityAppearance.displayStyle, .numeric)
-        XCTAssertEqual(reread.claudeCodeAppearance.displayStyle, .chart)
-        let quota = try XCTUnwrap(AntigravityQuotaParser.parse(summary(), source: "fixture", now: now))
-        let provider = AntigravityTestProvider(quota: quota)
-        let tracker = AntigravityTestStreakTracker()
-        let store = AntigravityUsageStore(provider: provider, bridge: AntigravityTelemetryBridge(home: root), streakTracker: tracker,
-                                         cacheURL: root.appendingPathComponent("cache.json"),
-                                         readTelemetry: { .init(quota: nil, tokens: nil, telemetry: nil, observedAt: nil) }, now: { self.now })
-        store.selectedGroupID = "claude-gpt"
-        await store.refresh(force: true)
-        XCTAssertEqual(store.state.snapshot?.antigravityTelemetry?.selectedGroup?.id, "claude-gpt")
-        XCTAssertEqual(tracker.provider, .antigravity)
-        await provider.fail()
-        await store.refresh(force: true)
-        guard case .stale = store.state else { return XCTFail("Keep last quota on failure") }
-        await provider.succeed()
-        await store.refresh(force: true)
-        guard case .live = store.state else { return XCTFail("Recover without restart") }
-        XCTAssertTrue(DockFeature.antigravity.hasHoverDashboard)
-        XCTAssertEqual(SettingsDestination.antigravity.feature, .antigravity)
+    func testSignedOutResponseClearsCachedQuota() async throws {
+        let cacheDirectory = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: cacheDirectory) }
+        let cacheURL = cacheDirectory.appendingPathComponent("cache.json")
+        let quota = try AntigravityUsageResponseParser.parse(
+            output: Self.usageJSON,
+            fetchedAt: Date(timeIntervalSince1970: 1_800_000_000)
+        )
+        let bridge = FakeAntigravityBridge(
+            sessionsDirectoryURL: cacheDirectory.appendingPathComponent(
+                "sessions",
+                isDirectory: true
+            )
+        )
+        let connectedStore = AntigravityUsageStore(
+            provider: FixedAntigravityProvider(snapshot: quota),
+            locator: FixedAntigravityLocator(),
+            bridge: bridge,
+            streakTracker: FakeAntigravityStreakTracker(),
+            cacheURL: cacheURL,
+            readSessions: { [] },
+            pollingInterval: .seconds(60)
+        )
+        await connectedStore.refresh()
+        XCTAssertNotNil(connectedStore.state.snapshot?.quota)
+
+        let signedOutStore = AntigravityUsageStore(
+            provider: FailingAntigravityProvider(error: .signedOut),
+            locator: FixedAntigravityLocator(),
+            bridge: bridge,
+            streakTracker: FakeAntigravityStreakTracker(),
+            cacheURL: cacheURL,
+            readSessions: { [] },
+            pollingInterval: .seconds(60)
+        )
+        await signedOutStore.refresh()
+
+        XCTAssertEqual(signedOutStore.connectionState, .signedOut)
+        XCTAssertNil(signedOutStore.state.snapshot?.quota)
+
+        let reloadedStore = AntigravityUsageStore(
+            provider: FailingAntigravityProvider(error: .commandFailed),
+            locator: FixedAntigravityLocator(),
+            bridge: bridge,
+            streakTracker: FakeAntigravityStreakTracker(),
+            cacheURL: cacheURL,
+            readSessions: { [] },
+            pollingInterval: .seconds(60)
+        )
+        XCTAssertEqual(reloadedStore.connectionState, .signedOut)
+        XCTAssertNil(reloadedStore.state.snapshot?.quota)
     }
 
     @MainActor
-    func testSettingsConnectionPreservesActiveFeatureAndRetriesWithoutReinstalling() async throws {
-        let root = try temporaryDirectory()
-        defer { try? FileManager.default.removeItem(at: root) }
-        let suite = "Antigravity-settings-\(UUID())"
-        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
-        defer { defaults.removePersistentDomain(forName: suite) }
-        let preferences = DockPreferencesStore(defaults: defaults)
-        preferences.activeFeature = .claudeCode
-        let settingsURL = root.appendingPathComponent(".gemini/antigravity-cli/settings.json")
-        try write(["theme": "custom"], settingsURL)
-        let quota = try XCTUnwrap(AntigravityQuotaParser.parse(summary(), source: "fixture", now: now))
-        let provider = AntigravityTestProvider(quota: quota)
-        let bridge = AntigravityTelemetryBridge(home: root)
-        let store = AntigravityUsageStore(provider: provider, bridge: bridge,
-            streakTracker: AntigravityTestStreakTracker(), cacheURL: root.appendingPathComponent("cache.json"),
-            readTelemetry: { .init(quota: nil, tokens: nil, telemetry: nil, observedAt: nil) }, now: { self.now })
-        let appModel = DockAppModel(preferences: preferences, antigravityStore: store)
-        defer { appModel.stop() }
+    func testStoreExposesMissingCLIAuthenticationState() async {
+        let cacheDirectory = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: cacheDirectory) }
+        let store = AntigravityUsageStore(
+            provider: FailingAntigravityProvider(error: .commandFailed),
+            locator: MissingAntigravityLocator(),
+            bridge: FakeAntigravityBridge(
+                sessionsDirectoryURL: cacheDirectory.appendingPathComponent(
+                    "sessions",
+                    isDirectory: true
+                )
+            ),
+            streakTracker: FakeAntigravityStreakTracker(),
+            cacheURL: cacheDirectory.appendingPathComponent("cache.json"),
+            readSessions: { [] },
+            pollingInterval: .seconds(60)
+        )
 
-        appModel.requestDeveloperToolPreparation(for: .antigravity)
-        for _ in 0..<100 {
-            if store.isBridgeInstalled && store.state.snapshot != nil { break }
-            try await Task.sleep(for: .milliseconds(10))
-        }
+        await store.refresh()
+
+        XCTAssertEqual(store.connectionState, .cliMissing)
+        XCTAssertNil(store.executableURL)
+    }
+
+    @MainActor
+    func testStatusLineBridgeStoresOnlyAllowlistedFieldsAndHashesSessionID()
+        throws {
+        let home = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: home) }
+        let bridge = AntigravityStatusLineBridge(home: home)
+        try bridge.install()
         XCTAssertTrue(bridge.isInstalled())
-        XCTAssertEqual(preferences.activeFeature, .claudeCode)
-        XCTAssertEqual(store.state.snapshot?.antigravityTelemetry?.selectedGroup?.id, "gemini")
-        XCTAssertEqual(try read(settingsURL)["theme"] as? String, "custom")
-        let connectedSettings = try Data(contentsOf: settingsURL)
 
-        await provider.fail()
-        await appModel.prepareDeveloperToolIntegration(for: .antigravity)
-        guard case .stale = store.state else { return XCTFail("Keep quota when a connection check fails") }
-        await provider.succeed()
-        await appModel.prepareDeveloperToolIntegration(for: .antigravity)
-        guard case .live = store.state else { return XCTFail("Retry must restore the live connection") }
-        XCTAssertEqual(try Data(contentsOf: settingsURL), connectedSettings)
-        XCTAssertEqual(preferences.activeFeature, .claudeCode)
-
-        // ImageRenderer covers the SwiftUI preview and connection icon. Native
-        // segmented controls and sliders are checked in the running Settings UI.
-        let destination = URL(fileURLWithPath: "/private/tmp/dockmagic-antigravity-qa")
-        try FileManager.default.createDirectory(at: destination, withIntermediateDirectories: true)
-        for (name, mode, overrides) in [("light", DSAppearanceMode.light, DSAccessibilityOverrides()),
-                                       ("dark", .dark, .init()), ("contrast", .dark, .init(increaseContrast: true)),
-                                       ("opaque", .dark, .init(reduceTransparency: true))] {
-            let view = DockMagicThemeRoot(content: AntigravitySettingsView(appModel: appModel)
-                .padding(24).frame(width: 820), appearanceMode: mode)
-                .environment(\.colorScheme, mode == .light ? .light : .dark)
-                .environment(\.dsAccessibilityOverrides, overrides)
-            let renderer = ImageRenderer(content: view)
-            renderer.scale = 2
-            let cg = try XCTUnwrap(renderer.cgImage)
-            let data = try XCTUnwrap(NSBitmapImageRep(cgImage: cg).representation(using: .png, properties: [:]))
-            try data.write(to: destination.appendingPathComponent("settings-\(name).png"))
-            if name == "light" {
-                let gray = CIImage(cgImage: cg).applyingFilter("CIColorControls", parameters: [kCIInputSaturationKey: 0])
-                let grayImage = try XCTUnwrap(CIContext().createCGImage(gray, from: gray.extent))
-                try XCTUnwrap(NSBitmapImageRep(cgImage: grayImage).representation(using: .png, properties: [:]))
-                    .write(to: destination.appendingPathComponent("settings-grayscale.png"))
-            }
-        }
-    }
-
-    @MainActor
-    func testRenderDashboardAndDockAppearanceMatrix() throws {
-        let quota = try XCTUnwrap(AntigravityQuotaParser.parse(summary(), source: "fixture", now: now))
-        let calendar = Calendar.current
-        let usage = CodexAccountTokenUsage(lifetimeTokens: nil, peakDailyTokens: 250_000_000, longestRunningTurnSeconds: nil,
-            dailyUsageBuckets: (0..<30).map { .init(startDate: calendar.date(byAdding: .day, value: -$0, to: calendar.startOfDay(for: now))!, tokens: Int64(($0 % 7 + 1) * 12_000_000)) },
-            modelUsage: [.init(model: "Gemini Flash", tokens: 250_000_000), .init(model: "Claude Sonnet", tokens: 140_000_000)], isModelUsagePartial: true)
-        let state = CodexUsageState.live(.init(planType: "Pro", limitID: "antigravity-local", fiveHour: nil, weekly: nil,
-            tokenUsage: usage, streakSummary: .fixture(currentDays: 8, bestDays: 12, endingAt: now, calendar: calendar),
-            antigravityTelemetry: .init(quota: quota, selectedGroupID: "auto", local: nil, diagnostic: nil), fetchedAt: now))
-        let destination = URL(fileURLWithPath: "/private/tmp/dockmagic-antigravity-qa")
-        try FileManager.default.createDirectory(at: destination, withIntermediateDirectories: true)
-        for (name, mode, overrides) in [("light", DSAppearanceMode.light, DSAccessibilityOverrides()),
-                                       ("dark", .dark, .init()), ("contrast", .dark, .init(increaseContrast: true)),
-                                       ("opaque", .dark, .init(reduceTransparency: true))] {
-            let image = try CodexDashboardCaptureService.renderAntigravity(state: state,
-                configuration: .init(pointerEdge: .bottom, panelSize: CGSize(width: 440, height: 740), appearanceMode: mode),
-                now: now, accessibilityOverrides: overrides)
-            XCTAssertGreaterThan(image.pngData.count, 10_000)
-            try image.pngData.write(to: destination.appendingPathComponent("dashboard-\(name).png"))
-            let bitmap = try XCTUnwrap(NSBitmapImageRep(data: image.pngData))
-            var shades = Set<Int>()
-            for x in stride(from: 40, to: bitmap.pixelsWide - 40, by: 11) {
-                for y in stride(from: 40, to: bitmap.pixelsHigh - 40, by: 11) {
-                    if let color = bitmap.colorAt(x: x, y: y)?.usingColorSpace(.deviceRGB) {
-                        shades.insert(Int(color.redComponent * 255))
-                    }
-                }
-            }
-            XCTAssertGreaterThan(shades.count, 30, "The exported card must contain content, not a blank surface")
-            if name == "light" {
-                let source = try XCTUnwrap(CIImage(data: image.pngData))
-                let gray = source.applyingFilter("CIColorControls", parameters: [kCIInputSaturationKey: 0])
-                let cg = try XCTUnwrap(CIContext().createCGImage(gray, from: gray.extent))
-                try XCTUnwrap(NSBitmapImageRep(cgImage: cg).representation(using: .png, properties: [:]))
-                    .write(to: destination.appendingPathComponent("dashboard-grayscale.png"))
-            }
-        }
-        for (name, renderState, metric) in [("cost", state, "Cost"),
-                                          ("unavailable", .unavailable(message: "Open Antigravity"), "Tokens"),
-                                          ("stale", .stale(try XCTUnwrap(state.snapshot), message: "Last observed usage"), "Tokens")] {
-            let artifact = try CodexDashboardCaptureService.renderAntigravity(state: renderState,
-                configuration: .init(pointerEdge: .bottom, panelSize: CGSize(width: 440, height: 740), appearanceMode: .dark),
-                now: now, initialMetric: metric)
-            try artifact.pngData.write(to: destination.appendingPathComponent("dashboard-\(name).png"))
-        }
-        for style in DockDisplayStyle.allCases {
-            for size in [32, 48, 64, 128] {
-                var appearance = DockFeatureDefaults.antigravityAppearance
-                appearance.setDisplayStyle(style)
-                let view = DockMagicThemeRoot(content: DockAntigravityView(state: state, appearance: appearance, animatesChanges: false), appearanceMode: .dark)
-                    .frame(width: CGFloat(size), height: CGFloat(size))
-                let renderer = ImageRenderer(content: view)
-                renderer.scale = 2
-                let cg = try XCTUnwrap(renderer.cgImage)
-                let data = try XCTUnwrap(NSBitmapImageRep(cgImage: cg).representation(using: .png, properties: [:]))
-                try data.write(to: destination.appendingPathComponent("dock-\(style.rawValue)-\(size).png"))
-                XCTAssertEqual(cg.width, size * 2)
-            }
-        }
-        let legacyQuota = AntigravityQuotaSnapshot(groups: [.init(id: "gemini", title: "Gemini", buckets: [
-            .init(id: "gemini", title: "Model quota", kind: nil, remainingFraction: 1, resetsAt: now, resetDescription: nil)
-        ])], plan: "Antigravity Starter Quota", source: "Legacy fixture", observedAt: now)
-        let legacy = CodexRateLimitSnapshot(planType: legacyQuota.plan, limitID: "antigravity-local", fiveHour: nil, weekly: nil,
-            antigravityTelemetry: .init(quota: legacyQuota, selectedGroupID: "auto", local: nil, diagnostic: nil), fetchedAt: now)
-        var numeric = DockFeatureDefaults.antigravityAppearance
-        numeric.setDisplayStyle(.numeric)
-        for (name, dockState) in [("legacy", CodexUsageState.live(legacy)),
-                                  ("legacy-stale", .stale(legacy, message: "Last known")),
-                                  ("unavailable", .unavailable(message: "Open Antigravity"))] {
-            for size in [32, 48, 64, 128] {
-                let view = DockMagicThemeRoot(content: DockAntigravityView(state: dockState, appearance: numeric, animatesChanges: false), appearanceMode: .dark)
-                    .frame(width: CGFloat(size), height: CGFloat(size))
-                let renderer = ImageRenderer(content: view)
-                renderer.scale = 2
-                let cg = try XCTUnwrap(renderer.cgImage)
-                try XCTUnwrap(NSBitmapImageRep(cgImage: cg).representation(using: .png, properties: [:]))
-                    .write(to: destination.appendingPathComponent("dock-\(name)-\(size).png"))
-            }
-        }
-    }
-
-    private func summary() -> [String: Any] {
-        ["response": ["groups": [
-            ["displayName": "Gemini Models", "buckets": [
-                ["bucketId": "gemini-weekly", "remaining": ["remainingFraction": 0.6]],
-                ["bucketId": "gemini-5h", "remaining": ["remainingFraction": 0.25]]]],
-            ["displayName": "Claude and GPT models", "buckets": [
-                ["bucketId": "3p-weekly", "remainingFraction": 0.9],
-                ["bucketId": "3p-5h", "remainingFraction": 0.8]]]
-        ]]]
-    }
-
-    private func temporaryDirectory() throws -> URL {
-        let url = FileManager.default.temporaryDirectory.appendingPathComponent("antigravity-test-\(UUID())")
-        try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
-        return url
-    }
-    private func write(_ object: [String: Any], _ url: URL) throws {
-        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
-        try JSONSerialization.data(withJSONObject: object).write(to: url)
-    }
-    private func read(_ url: URL) throws -> [String: Any] {
-        try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [String: Any])
-    }
-    @MainActor private func runBridge(_ bridge: AntigravityTelemetryBridge, event: String, payload: [String: Any]) throws -> String {
-        let process = Process(); let input = Pipe(); let output = Pipe()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/python3")
-        process.arguments = [bridge.directoryURL.appendingPathComponent("bridge.py").path, event]
-        process.standardInput = input; process.standardOutput = output
+        let payload = #"{"conversation_id":"session-123","email":"private@example.com","cwd":"/secret/project","transcript_path":"/secret/transcript.jsonl","model":{"id":"gemini-pro","display_name":"Gemini Pro"},"version":"1.2.2","plan_tier":"pro","agent_state":"working","task_count":2,"context_window":{"total_input_tokens":120,"total_output_tokens":30,"context_window_size":200000,"remaining_percentage":42}}"#
+        let process = Process()
+        let input = Pipe()
+        process.executableURL = URL(fileURLWithPath: "/bin/sh")
+        process.arguments = [
+            home.appendingPathComponent(
+                ".gemini/dockmagic-antigravity/dockmagic-statusline.sh"
+            ).path
+        ]
+        process.standardInput = input
         try process.run()
-        try input.fileHandleForWriting.write(contentsOf: JSONSerialization.data(withJSONObject: payload))
+        input.fileHandleForWriting.write(Data(payload.utf8))
         try input.fileHandleForWriting.close()
-        let data = output.fileHandleForReading.readDataToEndOfFile()
         process.waitUntilExit()
         XCTAssertEqual(process.terminationStatus, 0)
-        return String(decoding: data, as: UTF8.self)
+
+        let files = try FileManager.default.contentsOfDirectory(
+            at: bridge.sessionsDirectoryURL,
+            includingPropertiesForKeys: nil
+        )
+        let file = try XCTUnwrap(files.first)
+        XCTAssertEqual(file.deletingPathExtension().lastPathComponent.count, 64)
+        XCTAssertNotEqual(file.deletingPathExtension().lastPathComponent, "session-123")
+        let stored = try String(contentsOf: file, encoding: .utf8)
+        XCTAssertFalse(stored.contains("private@example.com"))
+        XCTAssertFalse(stored.contains("/secret/project"))
+        XCTAssertFalse(stored.contains("transcript"))
+        XCTAssertFalse(stored.contains("session-123"))
+
+        let sessions = AntigravityStatusLineReader(
+            sessionsDirectoryURL: bridge.sessionsDirectoryURL,
+            now: .now
+        ).readSessions()
+        XCTAssertEqual(sessions.count, 1)
+        XCTAssertEqual(sessions[0].modelID, "gemini-pro")
+        XCTAssertEqual(sessions[0].context?.observedTotalTokens, 150)
+        XCTAssertEqual(sessions[0].context?.remainingPercent, 42)
+    }
+
+    @MainActor
+    func testStoreAccumulatesOnlyPositiveSameSessionDeltas() async throws {
+        let observedAt = Date(timeIntervalSince1970: 1_800_000_000)
+        let sessions = LockedSessionBox([
+            Self.session(input: 100, output: 25, at: observedAt)
+        ])
+        let bridge = FakeAntigravityBridge(
+            sessionsDirectoryURL: temporaryDirectory()
+        )
+        let cacheURL = temporaryDirectory().appendingPathComponent("cache.json")
+        defer {
+            try? FileManager.default.removeItem(
+                at: cacheURL.deletingLastPathComponent()
+            )
+            try? FileManager.default.removeItem(at: bridge.sessionsDirectoryURL)
+        }
+        let quota = try AntigravityUsageResponseParser.parse(
+            output: Self.usageJSON,
+            fetchedAt: observedAt
+        )
+        let store = AntigravityUsageStore(
+            provider: FixedAntigravityProvider(snapshot: quota),
+            locator: FixedAntigravityLocator(),
+            bridge: bridge,
+            streakTracker: FakeAntigravityStreakTracker(),
+            cacheURL: cacheURL,
+            readSessions: { sessions.value },
+            pollingInterval: .seconds(60),
+            now: { observedAt.addingTimeInterval(60) }
+        )
+        sessions.value = [
+            Self.session(
+                input: 160,
+                output: 45,
+                at: observedAt.addingTimeInterval(60)
+            )
+        ]
+
+        await store.refresh()
+
+        XCTAssertEqual(
+            store.connectionState,
+            .connected(lastUpdated: observedAt)
+        )
+        XCTAssertEqual(
+            store.state.snapshot?.tokenUsage?.dailyUsageBuckets.last?.tokens,
+            80
+        )
+        XCTAssertEqual(
+            store.state.snapshot?.tokenUsage?.modelUsage?.first?.tokens,
+            80
+        )
+        XCTAssertEqual(store.state.snapshot?.historyIsPartial, true)
+    }
+
+    @MainActor
+    func testStoreDoesNotExposeExpiredSessionAsCurrent() async throws {
+        let observedAt = Date(timeIntervalSince1970: 1_800_000_000)
+        let now = observedAt.addingTimeInterval(16 * 60)
+        let quota = try AntigravityUsageResponseParser.parse(
+            output: Self.usageJSON,
+            fetchedAt: now
+        )
+        let bridge = FakeAntigravityBridge(
+            sessionsDirectoryURL: temporaryDirectory()
+        )
+        let cacheDirectory = temporaryDirectory()
+        defer {
+            try? FileManager.default.removeItem(at: cacheDirectory)
+            try? FileManager.default.removeItem(at: bridge.sessionsDirectoryURL)
+        }
+
+        let store = AntigravityUsageStore(
+            provider: FixedAntigravityProvider(snapshot: quota),
+            locator: FixedAntigravityLocator(),
+            bridge: bridge,
+            streakTracker: FakeAntigravityStreakTracker(),
+            cacheURL: cacheDirectory.appendingPathComponent("cache.json"),
+            readSessions: {
+                [Self.session(input: 100, output: 25, at: observedAt)]
+            },
+            pollingInterval: .seconds(60),
+            staleAfter: 15 * 60,
+            now: { now }
+        )
+        await store.refresh()
+
+        XCTAssertNil(store.state.snapshot?.currentSession)
+        XCTAssertEqual(store.state.snapshot?.activeSessionCount, 1)
+    }
+
+    func testDashboardPresentationKeepsUnobservedDaysUnavailable() throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = try XCTUnwrap(TimeZone(secondsFromGMT: 0))
+        let now = try XCTUnwrap(calendar.date(from: DateComponents(
+            year: 2026,
+            month: 9,
+            day: 14,
+            hour: 12
+        )))
+        let yesterday = try XCTUnwrap(
+            calendar.date(byAdding: .day, value: -1, to: now)
+        )
+        let laterYesterday = try XCTUnwrap(
+            calendar.date(byAdding: .hour, value: 2, to: yesterday)
+        )
+        let usage = CodexAccountTokenUsage(
+            lifetimeTokens: nil,
+            peakDailyTokens: 200,
+            longestRunningTurnSeconds: nil,
+            dailyUsageBuckets: [
+                CodexTokenUsageDailyBucket(
+                    startDate: yesterday,
+                    tokens: 100
+                ),
+                CodexTokenUsageDailyBucket(
+                    startDate: laterYesterday,
+                    tokens: 50
+                ),
+                CodexTokenUsageDailyBucket(startDate: now, tokens: 200)
+            ],
+            modelUsage: nil,
+            isModelUsagePartial: true
+        )
+
+        let observations = AntigravityHoverDashboardPresentation
+            .dayObservations(from: usage, now: now, calendar: calendar)
+
+        XCTAssertEqual(observations.count, 30)
+        XCTAssertEqual(observations.suffix(2).first?.tokens, 150)
+        XCTAssertEqual(observations.last?.tokens, 200)
+        XCTAssertNil(observations.first?.tokens)
+        XCTAssertEqual(
+            AntigravityHoverDashboardPresentation.todayTokens(
+                in: observations,
+                now: now,
+                calendar: calendar
+            ),
+            200
+        )
+    }
+
+    func testDashboardShipMomentumRequiresObservedToday() throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = try XCTUnwrap(TimeZone(secondsFromGMT: 0))
+        let now = try XCTUnwrap(calendar.date(from: DateComponents(
+            year: 2026,
+            month: 9,
+            day: 14,
+            hour: 12
+        )))
+        let yesterday = try XCTUnwrap(
+            calendar.date(byAdding: .day, value: -1, to: now)
+        )
+        let yesterdayOnly = CodexAccountTokenUsage(
+            lifetimeTokens: nil,
+            peakDailyTokens: 500,
+            longestRunningTurnSeconds: nil,
+            dailyUsageBuckets: [
+                CodexTokenUsageDailyBucket(
+                    startDate: yesterday,
+                    tokens: 500
+                )
+            ],
+            modelUsage: nil,
+            isModelUsagePartial: true
+        )
+        let missingToday = AntigravityHoverDashboardPresentation
+            .dayObservations(
+                from: yesterdayOnly,
+                now: now,
+                calendar: calendar
+            )
+        XCTAssertNil(
+            AntigravityHoverDashboardPresentation.shipMomentum(
+                from: missingToday,
+                now: now,
+                calendar: calendar
+            )
+        )
+
+        let explicitToday = AntigravityHoverDashboardPresentation
+            .dayObservations(
+                from: CodexAccountTokenUsage(
+                    lifetimeTokens: nil,
+                    peakDailyTokens: 12_000_000,
+                    longestRunningTurnSeconds: nil,
+                    dailyUsageBuckets: [
+                        CodexTokenUsageDailyBucket(
+                            startDate: now,
+                            tokens: 12_000_000
+                        )
+                    ],
+                    modelUsage: nil,
+                    isModelUsagePartial: true
+                ),
+                now: now,
+                calendar: calendar
+            )
+        let momentum = try XCTUnwrap(
+            AntigravityHoverDashboardPresentation.shipMomentum(
+                from: explicitToday,
+                now: now,
+                calendar: calendar
+            )
+        )
+        XCTAssertEqual(momentum.todayTokens, 12_000_000)
+        XCTAssertGreaterThan(momentum.score, 10)
+    }
+
+    private static func session(
+        input: Int64,
+        output: Int64,
+        at date: Date
+    ) -> AntigravitySessionSnapshot {
+        AntigravitySessionSnapshot(
+            id: String(repeating: "a", count: 64),
+            modelID: "gemini-pro",
+            modelDisplayName: "Gemini Pro",
+            cliVersion: "1.2.2",
+            planTier: "pro",
+            agentState: "working",
+            executionMode: "headless",
+            taskCount: 1,
+            artifactCount: 0,
+            pendingInputCount: 0,
+            toolConfirmationPending: false,
+            context: AntigravityContextUsage(
+                totalInputTokens: input,
+                totalOutputTokens: output,
+                contextWindowSize: 200_000,
+                usedPercent: nil,
+                remainingPercent: nil,
+                currentInputTokens: nil,
+                currentOutputTokens: nil,
+                cacheCreationInputTokens: nil,
+                cacheReadInputTokens: nil
+            ),
+            observedAt: date
+        )
+    }
+
+    private func temporaryDirectory() -> URL {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent(
+            "DockMagic-AntigravityTests-\(UUID().uuidString)",
+            isDirectory: true
+        )
+        try? FileManager.default.createDirectory(
+            at: url,
+            withIntermediateDirectories: true
+        )
+        return url
+    }
+
+    private static let usageJSON = #"{"conversation_id":"","status":"SUCCESS","response":"ignored","duration_seconds":0,"num_turns":0,"usage":{"input_tokens":0,"output_tokens":0},"command":{"name":"usage","data":{"description":"Quota is shared within each group.","groups":[{"name":"Gemini Models","buckets":[{"id":"gemini-weekly","name":"Weekly Limit Remaining","window":"weekly","remaining_fraction":1,"reset_time":"2026-09-21T14:29:56.590Z"}]},{"name":"Claude and GPT models","buckets":[{"id":"3p-weekly","name":"Weekly Limit Remaining","window":"weekly","remaining_fraction":0,"reset_time":"2026-09-15T08:08:56.761Z"}]}]}}}"#
+}
+
+private actor RecordingAntigravityRunner: InstallerProcessRunning {
+    struct Call: Sendable {
+        let arguments: [String]
+        let environment: [String: String]
+        let timeout: TimeInterval
+    }
+
+    private(set) var calls: [Call] = []
+    let output: String
+
+    init(output: String) { self.output = output }
+
+    func run(
+        executableURL: URL,
+        arguments: [String],
+        environment: [String: String],
+        timeout: TimeInterval
+    ) async throws -> InstallerProcessResult {
+        calls.append(Call(
+            arguments: arguments,
+            environment: environment,
+            timeout: timeout
+        ))
+        return InstallerProcessResult(terminationStatus: 0, output: output)
     }
 }
 
-private actor AntigravityTestProvider: AntigravityQuotaProviding {
-    let quota: AntigravityQuotaSnapshot
-    var failing = false
-    init(quota: AntigravityQuotaSnapshot) { self.quota = quota }
-    func fail() { failing = true }
-    func succeed() { failing = false }
-    func fetchQuota() throws -> AntigravityQuotaSnapshot {
-        if failing { throw AntigravityDataError.unavailable }
-        return quota
+private struct FixedAntigravityLocator: AntigravityExecutableLocating {
+    func locate() throws -> URL { URL(fileURLWithPath: "/usr/bin/true") }
+}
+
+private struct MissingAntigravityLocator: AntigravityExecutableLocating {
+    func locate() throws -> URL {
+        throw AntigravityUsageError.executableNotFound
     }
 }
 
-private actor AntigravityDelayedProvider: AntigravityQuotaProviding {
-    let quota: AntigravityQuotaSnapshot
-    var calls = 0
-    private var continuation: CheckedContinuation<AntigravityQuotaSnapshot, Never>?
-    init(quota: AntigravityQuotaSnapshot) { self.quota = quota }
-    func fetchQuota() async throws -> AntigravityQuotaSnapshot {
-        calls += 1
-        return await withCheckedContinuation { continuation = $0 }
+private struct FixedAntigravityProvider: AntigravityQuotaProviding {
+    let snapshot: AntigravityQuotaSnapshot
+    func fetchQuota(executableURL: URL) async throws -> AntigravityQuotaSnapshot {
+        snapshot
     }
-    func complete() { continuation?.resume(returning: quota); continuation = nil }
 }
 
-@MainActor private final class AntigravityTestStreakTracker: TokenUsageStreakTracking {
-    var provider: TokenUsageProvider?
-    func observeToday(provider: TokenUsageProvider, tokenUsage: CodexAccountTokenUsage?, at observedAt: Date, calendar: Calendar) -> TokenUsageStreakSummary {
-        self.provider = provider
-        return TokenUsageStreakCalculator.summary(from: [], now: observedAt, calendar: calendar)
+private struct FailingAntigravityProvider: AntigravityQuotaProviding {
+    let error: AntigravityUsageError
+
+    func fetchQuota(executableURL: URL) async throws
+        -> AntigravityQuotaSnapshot {
+        throw error
+    }
+}
+
+private actor CountingAntigravityProvider: AntigravityQuotaProviding {
+    private(set) var callCount = 0
+    let result: Result<AntigravityQuotaSnapshot, AntigravityUsageError>
+
+    init(
+        result: Result<AntigravityQuotaSnapshot, AntigravityUsageError>
+    ) {
+        self.result = result
+    }
+
+    func fetchQuota(executableURL: URL) async throws
+        -> AntigravityQuotaSnapshot {
+        callCount += 1
+        return try result.get()
+    }
+}
+
+@MainActor
+private final class FakeAntigravityBridge: AntigravityStatusLineBridging {
+    let sessionsDirectoryURL: URL
+    init(sessionsDirectoryURL: URL) {
+        self.sessionsDirectoryURL = sessionsDirectoryURL
+    }
+    func isInstalled() -> Bool { false }
+    func install() throws {}
+    func uninstall() throws {}
+}
+
+@MainActor
+private final class FakeAntigravityStreakTracker: TokenUsageStreakTracking {
+    func observeToday(
+        provider: TokenUsageProvider,
+        tokenUsage: CodexAccountTokenUsage?,
+        at observedAt: Date,
+        calendar: Calendar
+    ) -> TokenUsageStreakSummary {
+        .fixture(currentDays: 1, bestDays: 1, endingAt: observedAt)
+    }
+
+    func observeHistory(
+        provider: TokenUsageProvider,
+        tokenUsage: CodexAccountTokenUsage?,
+        at observedAt: Date,
+        calendar: Calendar
+    ) -> TokenUsageStreakSummary {
+        .fixture(currentDays: 1, bestDays: 1, endingAt: observedAt)
+    }
+}
+
+private final class LockedSessionBox: @unchecked Sendable {
+    private let lock = NSLock()
+    private var storage: [AntigravitySessionSnapshot]
+
+    init(_ value: [AntigravitySessionSnapshot]) { storage = value }
+
+    var value: [AntigravitySessionSnapshot] {
+        get { lock.withLock { storage } }
+        set { lock.withLock { storage = newValue } }
     }
 }

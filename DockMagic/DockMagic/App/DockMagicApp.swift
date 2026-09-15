@@ -59,6 +59,40 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         environment: [String: String] = ProcessInfo.processInfo.environment
     ) -> DockAppModel {
         guard environment["DockMagicUITesting"] != "1" else {
+            let claudeConnected = environment[
+                "DockMagicUITestClaudeConnected"
+            ] == "1"
+            let claudeExecutableURL = environment[
+                "DockMagicUITestClaudeExecutablePath"
+            ].map { URL(fileURLWithPath: $0) }
+            let claudeLoginMarkerURL = environment[
+                "DockMagicUITestClaudeLoginMarkerPath"
+            ].map { URL(fileURLWithPath: $0) }
+            let antigravitySignedOut = environment[
+                "DockMagicUITestAntigravitySignedOut"
+            ] == "1"
+            let antigravityExecutableURL = environment[
+                "DockMagicUITestAntigravityExecutablePath"
+            ].map { URL(fileURLWithPath: $0) }
+            let antigravityCacheSuffix = environment[
+                "DockMagicUITestDefaultsSuite"
+            ]?.replacingOccurrences(of: "/", with: "-") ?? "default"
+            var installedTools = Set<DeveloperTool>()
+            var executableOverrides = [DeveloperTool: URL]()
+            if claudeConnected || claudeExecutableURL != nil {
+                installedTools.insert(.claudeCode)
+            }
+            if let claudeExecutableURL {
+                executableOverrides[.claudeCode] = claudeExecutableURL
+            }
+            if let antigravityExecutableURL {
+                installedTools.insert(.antigravity)
+                executableOverrides[.antigravity] = antigravityExecutableURL
+            }
+            let developerToolInstaller = DockMagicUITestDeveloperToolInstaller(
+                installedTools: installedTools,
+                executableOverrides: executableOverrides
+            )
             return DockAppModel(
                 preferences: DockPreferencesStore(
                     defaults: DockMagicRuntimeDefaults.current
@@ -83,11 +117,34 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     bridge: DockMagicUITestClaudeCodeBridge(),
                     activityHookBridge:
                         DockMagicUITestClaudeCodeActivityHookBridge(),
+                    authProvider: DockMagicUITestClaudeAuthProvider(
+                        loggedIn: claudeConnected,
+                        loginMarkerURL: claudeLoginMarkerURL
+                    ),
+                    usageCollector: DockMagicUITestClaudeUsageCollector(
+                        providesQuota: claudeConnected,
+                        loginMarkerURL: claudeLoginMarkerURL
+                    ),
+                    pollingInterval: .seconds(60)
+                ),
+                antigravityStore: AntigravityUsageStore(
+                    provider: DockMagicUITestAntigravityProvider(
+                        signedOut: antigravitySignedOut
+                    ),
+                    locator: DockMagicUITestAntigravityLocator(
+                        executableURL: antigravityExecutableURL
+                    ),
+                    bridge: DockMagicUITestAntigravityBridge(),
+                    cacheURL: FileManager.default.temporaryDirectory
+                        .appendingPathComponent(
+                            "dockmagic-ui-test-antigravity-\(antigravityCacheSuffix).json"
+                        ),
+                    readSessions: { [] },
                     pollingInterval: .seconds(60)
                 ),
                 developerToolInstallationStore:
                     DeveloperToolInstallationStore(
-                        installer: DockMagicUITestDeveloperToolInstaller()
+                        installer: developerToolInstaller
                     ),
                 serviceStatusStore: ServiceStatusStore(
                     provider: DockMagicUITestServiceStatusProvider(),
@@ -126,10 +183,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         self.workspaceNotificationCenter = workspaceNotificationCenter
         self.networkAvailabilityMonitor = networkAvailabilityMonitor
             ?? NetworkAvailabilityMonitor()
-        dockFeatureMenuController = DockFeatureMenuController(
-            appModel: appModel,
-            settingsWindowRouter: settingsWindowRouter
-        )
+        dockFeatureMenuController = DockFeatureMenuController(appModel: appModel)
         super.init()
         installSettingsWindowFactory()
     }
@@ -179,8 +233,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         _ sender: NSApplication,
         hasVisibleWindows flag: Bool
     ) -> Bool {
+        let destination = SettingsDestination(
+            activeFeature: appModel.preferences.activeFeature
+        )
         // Allow AppKit/SwiftUI to handle the request if our route cannot open it.
-        return !settingsWindowRouter.showSettings()
+        return !settingsWindowRouter.showSettings(destination: destination)
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -341,14 +398,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 @MainActor
 private final class DockFeatureMenuController: NSObject {
     private let appModel: DockAppModel
-    private let settingsWindowRouter: SettingsWindowRouter
 
-    init(
-        appModel: DockAppModel,
-        settingsWindowRouter: SettingsWindowRouter
-    ) {
+    init(appModel: DockAppModel) {
         self.appModel = appModel
-        self.settingsWindowRouter = settingsWindowRouter
         super.init()
     }
 
@@ -412,10 +464,10 @@ private final class DockFeatureMenuController: NSObject {
             #selector(selectGitHub(_:))
         case .codex:
             #selector(selectCodex(_:))
-        case .antigravity:
-            #selector(selectAntigravity(_:))
         case .claudeCode:
             #selector(selectClaudeCode(_:))
+        case .antigravity:
+            #selector(selectAntigravity(_:))
         case .searchConsole:
             #selector(selectSearchConsole(_:))
         }
@@ -423,17 +475,6 @@ private final class DockFeatureMenuController: NSObject {
 
     private func select(_ feature: DockFeature) {
         appModel.activateFeature(feature)
-        switch feature {
-        case .codex:
-            _ = settingsWindowRouter.showSettings(destination: .codex)
-        case .antigravity:
-            _ = settingsWindowRouter.showSettings(destination: .antigravity)
-        case .claudeCode:
-            _ = settingsWindowRouter.showSettings(destination: .claudeCode)
-        case .dockMagic, .systemMetrics, .network, .storage, .weather, .clock,
-             .batteries, .github, .searchConsole:
-            break
-        }
     }
 
     @objc private func selectDockMagic(_ sender: Any?) {
@@ -472,10 +513,12 @@ private final class DockFeatureMenuController: NSObject {
         select(.codex)
     }
 
-    @objc private func selectAntigravity(_ sender: Any?) { select(.antigravity) }
-
     @objc private func selectClaudeCode(_ sender: Any?) {
         select(.claudeCode)
+    }
+
+    @objc private func selectAntigravity(_ sender: Any?) {
+        select(.antigravity)
     }
 
     @objc private func selectSearchConsole(_ sender: Any?) {
@@ -624,11 +667,77 @@ private struct DockMagicUITestServiceStatusProvider:
     }
 }
 
+private struct DockMagicUITestAntigravityProvider:
+    AntigravityQuotaProviding
+{
+    let signedOut: Bool
+
+    func fetchQuota(executableURL: URL) async throws
+        -> AntigravityQuotaSnapshot {
+        if signedOut { throw AntigravityUsageError.signedOut }
+        return AntigravityQuotaSnapshot(
+            buckets: [
+                AntigravityQuotaBucket(
+                    id: "gemini-weekly",
+                    groupName: "Gemini Models",
+                    title: "Weekly Limit Remaining",
+                    description: nil,
+                    windowDurationMinutes: 10_080,
+                    remainingFraction: 0.64,
+                    resetsAt: Date().addingTimeInterval(86_400)
+                ),
+                AntigravityQuotaBucket(
+                    id: "3p-weekly",
+                    groupName: "Claude and GPT models",
+                    title: "Weekly Limit Remaining",
+                    description: nil,
+                    windowDurationMinutes: 10_080,
+                    remainingFraction: 0.31,
+                    resetsAt: Date().addingTimeInterval(43_200)
+                )
+            ],
+            fetchedAt: Date(),
+            cliVersion: "UI Test"
+        )
+    }
+}
+
+private struct DockMagicUITestAntigravityLocator:
+    AntigravityExecutableLocating
+{
+    let executableURL: URL?
+
+    func locate() throws -> URL {
+        executableURL ?? URL(fileURLWithPath: "/usr/bin/true")
+    }
+}
+
+@MainActor
+private final class DockMagicUITestAntigravityBridge:
+    AntigravityStatusLineBridging
+{
+    let sessionsDirectoryURL = FileManager.default.temporaryDirectory
+        .appendingPathComponent("dockmagic-ui-test-antigravity-sessions")
+
+    func isInstalled() -> Bool { false }
+    func install() throws {}
+    func uninstall() throws {}
+}
+
 @MainActor
 private final class DockMagicUITestDeveloperToolInstaller:
     DeveloperToolInstalling
 {
-    private var installedTools = Set<DeveloperTool>()
+    private var installedTools: Set<DeveloperTool>
+    private let executableOverrides: [DeveloperTool: URL]
+
+    init(
+        installedTools: Set<DeveloperTool> = [],
+        executableOverrides: [DeveloperTool: URL] = [:]
+    ) {
+        self.installedTools = installedTools
+        self.executableOverrides = executableOverrides
+    }
 
     func locate(
         _ tool: DeveloperTool,
@@ -637,12 +746,14 @@ private final class DockMagicUITestDeveloperToolInstaller:
         guard installedTools.contains(tool) else {
             throw DeveloperToolInstallerError.installedExecutableMissing(tool)
         }
-        return URL(fileURLWithPath: "/usr/bin/true")
+        return executableOverrides[tool]
+            ?? URL(fileURLWithPath: "/usr/bin/true")
     }
 
     func install(_ tool: DeveloperTool) async throws -> URL {
         installedTools.insert(tool)
-        return URL(fileURLWithPath: "/usr/bin/true")
+        return executableOverrides[tool]
+            ?? URL(fileURLWithPath: "/usr/bin/true")
     }
 }
 
@@ -652,6 +763,67 @@ private struct DockMagicUITestClaudeCodeProvider:
     func fetchRateLimits() async throws -> ClaudeCodeRateLimitSnapshot {
         throw ClaudeCodeRateLimitProviderError.snapshotMissing
     }
+}
+
+private struct DockMagicUITestClaudeAuthProvider:
+    ClaudeCodeAuthStatusProviding
+{
+    let loggedIn: Bool
+    let loginMarkerURL: URL?
+
+    func status(executableURL: URL) async throws -> ClaudeCodeCLIStatus {
+        let isLoggedIn = loggedIn || loginMarkerURL.map {
+            FileManager.default.fileExists(atPath: $0.path)
+        } == true
+        return ClaudeCodeCLIStatus(
+            loggedIn: isLoggedIn,
+            authInfo: ClaudeCodeAuthInfo(
+                authMethod: isLoggedIn ? "claude.ai" : nil,
+                apiProvider: nil
+            ),
+            version: "2.1.268"
+        )
+    }
+}
+
+@MainActor
+private final class DockMagicUITestClaudeUsageCollector:
+    ClaudeCodeUsageCollecting
+{
+    private let providesQuota: Bool
+    private let loginMarkerURL: URL?
+
+    init(providesQuota: Bool, loginMarkerURL: URL?) {
+        self.providesQuota = providesQuota
+        self.loginMarkerURL = loginMarkerURL
+    }
+
+    func configure(executableURL: URL, cliVersion: String) {}
+    func capture() async throws -> ClaudeCodeQuotaCapture {
+        let canProvideQuota = providesQuota || loginMarkerURL.map {
+            FileManager.default.fileExists(atPath: $0.path)
+        } == true
+        guard canProvideQuota else {
+            throw ClaudeCodeUsageCaptureError.signedOut
+        }
+        return ClaudeCodeQuotaCapture(
+            fiveHour: .init(
+                kind: .fiveHour,
+                usedPercent: 18,
+                windowDurationMinutes: 300,
+                resetsAt: nil
+            ),
+            weekly: .init(
+                kind: .weekly,
+                usedPercent: 59,
+                windowDurationMinutes: 10_080,
+                resetsAt: nil
+            ),
+            capturedAt: Date(),
+            cliVersion: "2.1.268"
+        )
+    }
+    func stop() {}
 }
 
 @MainActor

@@ -55,6 +55,7 @@ final class DockMagicUITests: XCTestCase {
             "GitHub",
             "Codex",
             "Claude Code",
+            "Antigravity",
             "Search Console"
         ] {
             XCTAssertTrue(
@@ -430,7 +431,16 @@ final class DockMagicUITests: XCTestCase {
             app.descendants(matching: .any)["settings.claudeCode"]
                 .waitForExistence(timeout: 3)
         )
-        XCTAssertFalse(app.staticTexts["Claude Code connection"].exists)
+        XCTAssertTrue(app.staticTexts["Claude Code connection"].exists)
+        XCTAssertTrue(
+            app.descendants(matching: .any)[
+                "settings.claudeCode.connectionStatus"
+            ].exists
+        )
+        XCTAssertTrue(
+            app.buttons["settings.claudeCode.install"].exists,
+            "A missing Claude CLI should require an explicit install action."
+        )
         XCTAssertFalse(
             app.descendants(matching: .any)["settings.claudeCode.enable"]
                 .exists
@@ -456,6 +466,45 @@ final class DockMagicUITests: XCTestCase {
         )
         attachScreenshot(
             named: "Settings — Claude Code — Numeric",
+            in: app
+        )
+
+        openSidebarDestination(named: "Antigravity", in: app)
+        XCTAssertTrue(
+            app.descendants(matching: .any)["settings.antigravity"]
+                .waitForExistence(timeout: 3)
+        )
+        XCTAssertTrue(app.staticTexts["Antigravity connection"].exists)
+        XCTAssertTrue(
+            app.descendants(matching: .any)[
+                "settings.antigravity.connectionStatus"
+            ].exists
+        )
+        XCTAssertTrue(
+            app.buttons["settings.antigravity.refresh"].exists
+        )
+        XCTAssertFalse(
+            app.buttons["settings.antigravity.installationIndicator"].exists,
+            "Authentication state should not overlay the Dock preview."
+        )
+        XCTAssertTrue(
+            app.buttons["settings.antigravity.statusLine"].exists
+        )
+        selectDisplayStyle(.chart, in: app, feature: "Antigravity")
+        selectNumericDisplay(in: app, feature: "Antigravity")
+        XCTAssertTrue(app.staticTexts["Number appearance"].exists)
+        XCTAssertTrue(
+            app.descendants(matching: .any)[
+                "settings.ringColor.primary.pool.value"
+            ].exists
+        )
+        XCTAssertTrue(
+            app.descendants(matching: .any)[
+                "settings.ringColor.secondary.pool.value"
+            ].exists
+        )
+        attachScreenshot(
+            named: "Settings — Antigravity — Numeric",
             in: app
         )
 
@@ -661,6 +710,7 @@ final class DockMagicUITests: XCTestCase {
             "GitHub",
             "Codex",
             "Claude Code",
+            "Antigravity",
             "Search Console",
             "CPU & RAM"
         ].enumerated() {
@@ -690,15 +740,197 @@ final class DockMagicUITests: XCTestCase {
         )
 
         openSidebarDestination(named: "Claude Code", in: app)
+        XCTAssertTrue(
+            app.buttons["settings.claudeCode.install"]
+                .waitForExistence(timeout: 3)
+        )
+        app.buttons["settings.claudeCode.install"].click()
         assertDeveloperToolInstalledIndicator(
             rawValue: "claudeCode",
             title: "Claude Code installed",
             in: app
         )
+        XCTAssertTrue(
+            app.buttons["settings.claudeCode.signIn"]
+                .waitForExistence(timeout: 3)
+        )
         XCTAssertEqual(
             sidebarRow(named: "CPU & RAM", in: app).value as? String,
             "Active"
         )
+    }
+
+    func testClaudeConnectedRowIsCompactAndOffersSignOut() {
+        let app = launchApp(
+            appearance: "light",
+            activeFeature: "claudeCode",
+            claudeConnected: true
+        )
+        XCTAssertTrue(
+            app.windows["DockMagic Settings"].waitForExistence(timeout: 5),
+            app.debugDescription
+        )
+
+        openSidebarDestination(named: "Claude Code", in: app)
+
+        let connectionStatus = app.descendants(matching: .any)[
+            "settings.claudeCode.connectionStatus"
+        ]
+        XCTAssertTrue(connectionStatus.waitForExistence(timeout: 3))
+        XCTAssertTrue(connectionStatus.label.contains("Connected"))
+        XCTAssertTrue(
+            app.buttons["settings.claudeCode.refresh"]
+                .waitForExistence(timeout: 3)
+        )
+        XCTAssertFalse(
+            app.staticTexts[
+                "Sign in with the official Claude CLI. DockMagic reads plan quota from /usage once per minute."
+            ].exists
+        )
+        XCTAssertFalse(
+            app.staticTexts[
+                "DockMagic never reads or stores your Claude token. It runs the unmodified official Claude CLI and keeps only quota percentages, reset times, CLI version, and capture time."
+            ].exists
+        )
+
+        let moreActions = app.buttons["settings.claudeCode.moreActions"]
+        XCTAssertTrue(moreActions.waitForExistence(timeout: 3))
+        moreActions.click()
+
+        let signOut = app.descendants(matching: .any)[
+            "settings.claudeCode.signOut"
+        ]
+        XCTAssertTrue(signOut.waitForExistence(timeout: 3))
+        XCTAssertEqual(signOut.label, "Sign Out")
+        app.typeKey(.escape, modifierFlags: [])
+
+        attachScreenshot(
+            named: "Settings — Claude Code — Compact Connected Row",
+            in: app
+        )
+    }
+
+    func testClaudeSignInTerminalUsesDarkNativeChrome() throws {
+        let executableURL = try makeClaudeLoginFixtureExecutable()
+        let app = launchApp(
+            appearance: "light",
+            activeFeature: "claudeCode",
+            claudeExecutablePath: executableURL.path
+        )
+        XCTAssertTrue(
+            app.windows["DockMagic Settings"].waitForExistence(timeout: 5),
+            app.debugDescription
+        )
+
+        openSidebarDestination(named: "Claude Code", in: app)
+        let signIn = app.buttons["settings.claudeCode.signIn"]
+        XCTAssertTrue(signIn.waitForExistence(timeout: 3))
+        signIn.click()
+
+        let terminal = app.descendants(matching: .any)[
+            "settings.claudeCode.loginTerminal"
+        ]
+        XCTAssertTrue(terminal.waitForExistence(timeout: 3))
+        XCTAssertTrue(
+            app.descendants(matching: .any)[
+                "settings.claudeCode.terminal.title"
+            ].exists
+        )
+        XCTAssertTrue(
+            app.descendants(matching: .any)[
+                "settings.claudeCode.terminal.profile"
+            ].exists
+        )
+
+        attachScreenshot(
+            named: "Settings — Claude Code — Native Terminal Sign In",
+            in: app
+        )
+
+        let cancel = app.buttons["settings.claudeCode.cancelSignIn"]
+        XCTAssertTrue(cancel.exists)
+        cancel.click()
+        XCTAssertTrue(signIn.waitForExistence(timeout: 3))
+    }
+
+    func testClaudeConnectedActionsRemainHittableAfterLoginCompletes() throws {
+        let fixture = try makeClaudeSuccessfulLoginFixture()
+        let app = launchApp(
+            appearance: "light",
+            activeFeature: "claudeCode",
+            claudeExecutablePath: "/bin/zsh",
+            claudeLoginMarkerPath: fixture.markerURL.path,
+            claudeLoginWorkingDirectoryPath: fixture.directoryURL.path
+        )
+        XCTAssertTrue(
+            app.windows["DockMagic Settings"].waitForExistence(timeout: 5),
+            app.debugDescription
+        )
+
+        openSidebarDestination(named: "Claude Code", in: app)
+        let signIn = app.buttons["settings.claudeCode.signIn"]
+        XCTAssertTrue(signIn.waitForExistence(timeout: 3))
+        signIn.click()
+
+        let refresh = app.buttons["settings.claudeCode.refresh"]
+        XCTAssertTrue(refresh.waitForExistence(timeout: 5))
+        XCTAssertTrue(refresh.isHittable)
+
+        let moreActions = app.buttons["settings.claudeCode.moreActions"]
+        XCTAssertTrue(moreActions.waitForExistence(timeout: 3))
+        XCTAssertTrue(moreActions.isHittable)
+        moreActions.click()
+
+        XCTAssertTrue(
+            app.descendants(matching: .any)[
+                "settings.claudeCode.signOut"
+            ].waitForExistence(timeout: 3)
+        )
+    }
+
+    func testAntigravityLoginOpensInteractiveCLIInsideSettings() throws {
+        let executableURL = try makeAntigravityLoginFixtureExecutable()
+        let app = launchApp(
+            appearance: "light",
+            activeFeature: "antigravity",
+            antigravitySignedOut: true,
+            antigravityExecutablePath: executableURL.path
+        )
+        XCTAssertTrue(
+            app.windows["DockMagic Settings"].waitForExistence(timeout: 5),
+            app.debugDescription
+        )
+
+        openSidebarDestination(named: "Antigravity", in: app)
+        let terminal = app.descendants(matching: .any)[
+            "settings.antigravity.authTerminal"
+        ]
+        XCTAssertFalse(
+            terminal.exists,
+            "Opening Antigravity Settings must not start the login CLI."
+        )
+        let signIn = app.buttons["settings.antigravity.signIn"]
+        XCTAssertTrue(signIn.waitForExistence(timeout: 3))
+        XCTAssertEqual(signIn.label, "Sign in with Antigravity")
+        signIn.click()
+
+        XCTAssertTrue(terminal.waitForExistence(timeout: 3))
+        XCTAssertTrue(
+            app.buttons["settings.antigravity.pasteCode"].exists
+        )
+        XCTAssertFalse(
+            app.buttons["settings.antigravity.openInTerminal"].exists
+        )
+
+        attachScreenshot(
+            named: "Settings — Antigravity — Interactive CLI Sign In",
+            in: app
+        )
+
+        let cancel = app.buttons["settings.antigravity.cancelAuth"]
+        XCTAssertTrue(cancel.exists)
+        cancel.click()
+        XCTAssertTrue(signIn.waitForExistence(timeout: 3))
     }
 
     func testSearchConsoleEveryMetricTimeRangeAndDisplayMode() {
@@ -1128,7 +1360,13 @@ final class DockMagicUITests: XCTestCase {
         defaultsSuite: String? = nil,
         activeFeature: String = "systemMetrics",
         githubRepositoryURL: String? = nil,
-        updateAvailableVersion: String? = nil
+        updateAvailableVersion: String? = nil,
+        claudeConnected: Bool = false,
+        claudeExecutablePath: String? = nil,
+        claudeLoginMarkerPath: String? = nil,
+        claudeLoginWorkingDirectoryPath: String? = nil,
+        antigravitySignedOut: Bool = false,
+        antigravityExecutablePath: String? = nil
     ) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchEnvironment["DockMagicUITesting"] = "1"
@@ -1159,6 +1397,34 @@ final class DockMagicUITests: XCTestCase {
                 "DockMagicUITestUpdateAvailableVersion"
             ] = updateAvailableVersion
         }
+        if claudeConnected {
+            app.launchEnvironment["DockMagicUITestClaudeConnected"] = "1"
+        }
+        if let claudeExecutablePath {
+            app.launchEnvironment[
+                "DockMagicUITestClaudeExecutablePath"
+            ] = claudeExecutablePath
+        }
+        if let claudeLoginMarkerPath {
+            app.launchEnvironment[
+                "DockMagicUITestClaudeLoginMarkerPath"
+            ] = claudeLoginMarkerPath
+        }
+        if let claudeLoginWorkingDirectoryPath {
+            app.launchEnvironment[
+                "DockMagicUITestClaudeLoginWorkingDirectoryPath"
+            ] = claudeLoginWorkingDirectoryPath
+        }
+        if antigravitySignedOut {
+            app.launchEnvironment[
+                "DockMagicUITestAntigravitySignedOut"
+            ] = "1"
+        }
+        if let antigravityExecutablePath {
+            app.launchEnvironment[
+                "DockMagicUITestAntigravityExecutablePath"
+            ] = antigravityExecutablePath
+        }
         if let githubRepositoryURL {
             app.launchArguments += [
                 "-DockMagicGitHubRepositoryURL",
@@ -1167,6 +1433,100 @@ final class DockMagicUITests: XCTestCase {
         }
         app.launch()
         return app
+    }
+
+    private func makeClaudeLoginFixtureExecutable() throws -> URL {
+        let directoryURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent(
+                "DockMagic-Claude-Terminal-\(UUID().uuidString)",
+                isDirectory: true
+            )
+        try FileManager.default.createDirectory(
+            at: directoryURL,
+            withIntermediateDirectories: true
+        )
+        let executableURL = directoryURL.appendingPathComponent("claude")
+        let script = """
+        #!/bin/zsh
+        trap 'exit 0' INT TERM
+        printf '\\033[1;35mClaude Code\\033[0m\\r\\n'
+        printf 'Opening browser to sign in…\\r\\n'
+        printf 'Paste code here if prompted > '
+        IFS= read -r code
+        while true; do
+          /bin/sleep 1
+        done
+        """
+        try Data(script.utf8).write(to: executableURL, options: .atomic)
+        try FileManager.default.setAttributes(
+            [.posixPermissions: 0o700],
+            ofItemAtPath: executableURL.path
+        )
+        addTeardownBlock {
+            try? FileManager.default.removeItem(at: directoryURL)
+        }
+        return executableURL
+    }
+
+    private func makeAntigravityLoginFixtureExecutable() throws -> URL {
+        let directoryURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent(
+                "DockMagic-Antigravity-Terminal-\(UUID().uuidString)",
+                isDirectory: true
+            )
+        try FileManager.default.createDirectory(
+            at: directoryURL,
+            withIntermediateDirectories: true
+        )
+        let executableURL = directoryURL.appendingPathComponent("agy")
+        let script = """
+        #!/bin/zsh
+        trap 'exit 0' INT TERM
+        printf '\\033[1;36mAntigravity CLI\\033[0m\\r\\n'
+        printf 'Paste your Antigravity code and press Return > '
+        IFS= read -r code
+        """
+        try Data(script.utf8).write(to: executableURL, options: .atomic)
+        try FileManager.default.setAttributes(
+            [.posixPermissions: 0o700],
+            ofItemAtPath: executableURL.path
+        )
+        addTeardownBlock {
+            try? FileManager.default.removeItem(at: directoryURL)
+        }
+        return executableURL
+    }
+
+    private func makeClaudeSuccessfulLoginFixture() throws -> (
+        directoryURL: URL,
+        markerURL: URL
+    ) {
+        let directoryURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent(
+                "DockMagic-Claude-Successful-Login-\(UUID().uuidString)",
+                isDirectory: true
+            )
+        try FileManager.default.createDirectory(
+            at: directoryURL,
+            withIntermediateDirectories: true
+        )
+        let markerURL = directoryURL.appendingPathComponent("authenticated")
+        let quotedMarkerPath = markerURL.path.replacingOccurrences(
+            of: "'",
+            with: "'\\''"
+        )
+        let authScriptURL = directoryURL.appendingPathComponent("auth")
+        let script = """
+        printf 'Claude login complete\\r\\n'
+        : > '\(quotedMarkerPath)'
+        /bin/sleep 0.2
+        exit 0
+        """
+        try Data(script.utf8).write(to: authScriptURL, options: .atomic)
+        addTeardownBlock {
+            try? FileManager.default.removeItem(at: directoryURL)
+        }
+        return (directoryURL, markerURL)
     }
 
     private func appearancePicker(in app: XCUIApplication) -> XCUIElement {
@@ -1210,11 +1570,17 @@ final class DockMagicUITests: XCTestCase {
             "CPU & RAM": "settings.systemMetrics",
             "Storage": "settings.storage",
             "Codex": "settings.codex",
-            "Claude Code": "settings.claudeCode"
+            "Claude Code": "settings.claudeCode",
+            "Antigravity": "settings.antigravity"
         ]
-        let detailScrollView = scrollIdentifiers[feature].map {
+        let identifiedScrollView = scrollIdentifiers[feature].map {
             app.scrollViews[$0].firstMatch
         }
+        let detailScrollView = identifiedScrollView?.exists == true
+            ? identifiedScrollView
+            : app.scrollViews.allElementsBoundByIndex
+                .filter { $0.exists }
+                .max(by: { $0.frame.width < $1.frame.width })
         if let detailScrollView, detailScrollView.exists {
             detailScrollView.scroll(byDeltaX: 0, deltaY: 1_000)
         }
@@ -1226,11 +1592,12 @@ final class DockMagicUITests: XCTestCase {
         )
 
         let optionIdentifier = "settings.displayStyleOption.\(style.rawValue)"
-        guard let option = waitForHittableRadioButton(
+        let option = waitForHittableRadioButton(
             identifiedBy: optionIdentifier,
             in: app,
-            timeout: 3
-        ) else {
+            timeout: 1
+        )
+        guard let option else {
             XCTFail(
                 "Missing clickable \(style.title) Dock display option for \(feature)."
             )
@@ -1240,9 +1607,11 @@ final class DockMagicUITests: XCTestCase {
 
         // Selecting an option rebuilds the section, so verify the resulting
         // controls rather than retaining a transient accessibility handle.
-        let resultingSectionTitle = style == .chart
-            ? "Ring appearance"
-            : "Number appearance"
+        let resultingSectionTitle = if style == .numeric {
+            "Number appearance"
+        } else {
+            "Ring appearance"
+        }
         XCTAssertTrue(
             app.staticTexts[resultingSectionTitle].waitForExistence(timeout: 3),
             "Selecting \(style.title) did not update \(feature)."
@@ -1290,6 +1659,7 @@ final class DockMagicUITests: XCTestCase {
             "GitHub": "github",
             "Codex": "codex",
             "Claude Code": "claudeCode",
+            "Antigravity": "antigravity",
             "Search Console": "searchConsole"
         ]
         guard let rawValue = rawValues[title] else {
@@ -1317,6 +1687,7 @@ final class DockMagicUITests: XCTestCase {
                 "GitHub",
                 "Codex",
                 "Claude Code",
+                "Antigravity",
                 "Search Console"
             ]
             guard let rowIndex = orderedTitles.firstIndex(of: title) else {
@@ -1342,12 +1713,14 @@ final class DockMagicUITests: XCTestCase {
 
         if title == "Weather" || title == "Batteries" || title == "GitHub"
             || title == "Codex" || title == "Claude Code"
+            || title == "Antigravity"
             || title == "Search Console" {
             let destination = switch title {
             case "Weather": "weather"
             case "Batteries": "batteries"
             case "Codex": "codex"
             case "Claude Code": "claudeCode"
+            case "Antigravity": "antigravity"
             case "Search Console": "searchConsole"
             default: "github"
             }
@@ -1459,6 +1832,7 @@ final class DockMagicUITests: XCTestCase {
             "GitHub": "settings.nav.github",
             "Codex": "settings.nav.codex",
             "Claude Code": "settings.nav.claudeCode",
+            "Antigravity": "settings.nav.antigravity",
             "Search Console": "settings.nav.searchConsole"
         ]
 

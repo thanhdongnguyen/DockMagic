@@ -1,0 +1,88 @@
+{
+  "date": "2026-09-09",
+  "status": "design-review-only",
+  "generator": "built-in ImageGen",
+  "styleReference": "references/user-style.png",
+  "badges": [
+    {
+      "day": 1,
+      "title": "First Prompt",
+      "slug": "01-first-prompt",
+      "asset": "StreakBadgeFirstPrompt",
+      "directive": "Entry achievement. Periwinkle and cobalt blue rim, navy inner field. Central icon: one friendly warm ivory rounded speech bubble with a short tail; inside it, a bold dark navy terminal prompt chevron and short underscore (>_) drawn as a simple pictogram, no other text. A tiny golden four-point spark touches the upper-right of the bubble and stays inside the frame. No rank star at the bottom. Bright, welcoming, very simple.",
+      "file": "assets/01-first-prompt.png"
+    },
+    {
+      "day": 3,
+      "title": "Spark",
+      "slug": "03-spark",
+      "asset": "StreakBadgeSpark",
+      "directive": "Entry achievement. Same periwinkle and cobalt blue rim, navy inner field. Central icon: one large warm golden four-point spark with a bold lightning-shaped ivory inner facet; one small secondary gold sparkle at its upper right, fully inside the frame. It should read as a spark of creative energy, not a compass, flame or star rating. No rank star at bottom.",
+      "file": "assets/03-spark.png"
+    },
+    {
+      "day": 7,
+      "title": "Loop",
+      "slug": "07-loop",
+      "asset": "StreakBadgeLoop",
+      "directive": "Entry achievement. Same periwinkle and cobalt blue rim, navy inner field. Central icon: two chunky mint and ivory curved arrows forming a clear circular cycle, generously open center, arrow heads large and readable. No infinity symbol or text. No rank star at bottom.",
+      "file": "assets/07-loop.png"
+    },
+    {
+      "day": 14,
+      "title": "Builder",
+      "slug": "14-builder",
+      "asset": "StreakBadgeBuilder",
+      "directive": "Intermediate achievement and style anchor. Violet/periwinkle beveled hex rim, dark navy inner field. Central icon: three chunky toy-like isometric building cubes forming a stable small pyramid: two base cubes and one upper cube, warm golden yellow top cube, ivory lower-left cube, pale periwinkle lower-right cube. Broad solid face colors with confident navy outlines, no tiny seams. Exactly one small gold five-point rank star centered in the bottom inside the hex beneath the cubes. Playful accomplishment, polished but very clean.",
+      "file": "assets/14-builder.png"
+    },
+    {
+      "day": 30,
+      "title": "Flow",
+      "slug": "30-flow",
+      "asset": "StreakBadgeFlow",
+      "directive": "Intermediate achievement. Match Builder's violet/periwinkle rim and navy inner field. Central icon: three bold interleaving flowing wave bands, ivory, sky blue and mint, sweeping together upward from left to right in one compact fluid shape. Use clean solid-color planes and big negative spaces, no gradient or water texture. Exactly one small gold five-point rank star at bottom, same size and position as Builder.",
+      "file": "assets/30-flow.png"
+    },
+    {
+      "day": 60,
+      "title": "Navigator",
+      "slug": "60-navigator",
+      "asset": "StreakBadgeNavigator",
+      "directive": "Intermediate achievement. Match Builder's violet/periwinkle rim and navy inner field. Central icon: a friendly stylized compass, thick warm ivory circular casing enclosing a clear two-ended diagonal gold-and-periwinkle compass needle on deep blue. No letters, tick marks, numerals or map background. Exactly one small gold five-point rank star at bottom, same as Builder.",
+      "file": "assets/60-navigator.png"
+    },
+    {
+      "day": 100,
+      "title": "Century",
+      "slug": "100-century",
+      "asset": "StreakBadgeCentury",
+      "directive": "Advanced achievement. Warm golden yellow and amber solid-facet beveled hex rim, navy inner field. Central icon: a large celebratory gold trophy cup with two broad handles, ivory glint plane, sturdy pale ivory pedestal and a simple small navy diamond inset; no numeral or text. Exactly two small gold five-point rank stars centered at bottom with generous spacing.",
+      "file": "assets/100-century.png"
+    },
+    {
+      "day": 180,
+      "title": "Architect",
+      "slug": "180-architect",
+      "asset": "StreakBadgeArchitect",
+      "directive": "Advanced achievement. Match Century's warm golden yellow/amber beveled hex rim and navy field. Central icon: one refined compact architectural tower assembled from broad ivory and pale blue geometric blocks, stepped shoulders, two bold navy window openings and a golden roof/keystone. More deliberate and taller than the Builder cubes; no cityscape or blueprint grid. Exactly two small gold five-point rank stars at bottom, same as Century.",
+      "file": "assets/180-architect.png"
+    },
+    {
+      "day": 365,
+      "title": "Keystone",
+      "slug": "365-keystone",
+      "asset": "StreakBadgeCodexCore",
+      "directive": "Advanced achievement marking one year. Match Century's golden yellow/amber beveled hex rim and navy field. Central icon: a sturdy ivory stone arch with broad pale periwinkle side blocks, a dominant golden trapezoid keystone locking its apex, and a generous dark navy arch opening. A simple emblem of durable structure; not a crown, not a logo. Exactly two small gold five-point rank stars at bottom, same as Century.",
+      "file": "assets/365-keystone.png"
+    },
+    {
+      "day": 730,
+      "title": "Continuum",
+      "slug": "730-continuum",
+      "asset": "StreakBadgeContinuum",
+      "directive": "Ultimate achievement marking two years. Same base hex shape but platinum silver and icy periwinkle outer rim with one thin gold inner rim, navy inner field. Central icon: a bold continuous horizontal infinity ribbon woven from warm gold and ivory planes, clear large negative-space loops, a small pale blue four-point star above it inside the hex. Exactly three small gold five-point rank stars at bottom. Highest prestige through balanced silhouette, not micro-detail; no crown outside the frame or outer decorations.",
+      "file": "assets/730-continuum.png"
+    }
+  ]
+}

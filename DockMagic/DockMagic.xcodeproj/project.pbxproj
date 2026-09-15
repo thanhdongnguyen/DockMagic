@@ -7,9 +7,18 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		C9A000000000000000000001 /* AntigravityUsage.swift in Sources */ = {isa = PBXBuildFile; fileRef = C9B000000000000000000001 /* AntigravityUsage.swift */; };
+		C9A000000000000000000002 /* AntigravityCLIUsageProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = C9B000000000000000000002 /* AntigravityCLIUsageProvider.swift */; };
+		C9A000000000000000000003 /* AntigravityStatusLineBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = C9B000000000000000000003 /* AntigravityStatusLineBridge.swift */; };
+		C9A000000000000000000004 /* AntigravityStatusLineReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = C9B000000000000000000004 /* AntigravityStatusLineReader.swift */; };
+		C9A000000000000000000005 /* AntigravityUsageStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C9B000000000000000000005 /* AntigravityUsageStore.swift */; };
+		C9A000000000000000000006 /* DockAntigravityView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C9B000000000000000000006 /* DockAntigravityView.swift */; };
+		C9A000000000000000000007 /* AntigravityHoverDashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C9B000000000000000000007 /* AntigravityHoverDashboardView.swift */; };
+		C9A000000000000000000008 /* AntigravityFeatureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C9B000000000000000000008 /* AntigravityFeatureTests.swift */; };
 		B83100000000000000000001 /* DashboardNativeHistoryViewport.swift in Sources */ = {isa = PBXBuildFile; fileRef = B83100000000000000000002 /* DashboardNativeHistoryViewport.swift */; };
 		A90200000000000000000005 /* DockHoverDelayTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A90200000000000000000006 /* DockHoverDelayTests.swift */; };
 		A90200000000000000000003 /* StartupRecoveryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A90200000000000000000004 /* StartupRecoveryTests.swift */; };
+		B91100000000000000000003 /* ProcessResourceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B91100000000000000000004 /* ProcessResourceTests.swift */; };
 		A90200000000000000000001 /* NetworkAvailabilityMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A90200000000000000000002 /* NetworkAvailabilityMonitor.swift */; };
 		03AB4D71301BB7F7006D74C0 /* DockMagicApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03AB4D70301BB7F7006D74C0 /* DockMagicApp.swift */; };
 		03AB4D77301BB7FA006D74C0 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 03AB4D76301BB7FA006D74C0 /* Assets.xcassets */; };
@@ -36,6 +45,7 @@
 		D7A000000000000000000001 /* DockConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7B000000000000000000001 /* DockConfiguration.swift */; };
 		D7A000000000000000000002 /* CodexRateLimitSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7B000000000000000000002 /* CodexRateLimitSnapshot.swift */; };
 		D7A000000000000000000003 /* CodexRateLimitProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7B000000000000000000003 /* CodexRateLimitProvider.swift */; };
+		B91100000000000000000001 /* ProcessPipe.swift in Sources */ = {isa = PBXBuildFile; fileRef = B91100000000000000000002 /* ProcessPipe.swift */; };
 		D7A000000000000000000004 /* DockPreferencesStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7B000000000000000000004 /* DockPreferencesStore.swift */; };
 		D7A000000000000000000005 /* CodexUsageStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7B000000000000000000005 /* CodexUsageStore.swift */; };
 		D7A000000000000000000006 /* DockAppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7B000000000000000000006 /* DockAppModel.swift */; };
@@ -103,17 +113,12 @@
 		C7A000000000000000000001 /* SoftwareUpdateController.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7B000000000000000000001 /* SoftwareUpdateController.swift */; };
 		C7A000000000000000000002 /* SoftwareUpdateControllerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7B000000000000000000002 /* SoftwareUpdateControllerTests.swift */; };
 		C7A000000000000000000003 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = C7E000000000000000000001 /* Sparkle */; };
-		C24B590DDABFDAC2F7F6E153 /* AntigravityUsage.swift in Sources */ = {isa = PBXBuildFile; fileRef = C729CFBB3D06E22150EB3349 /* AntigravityUsage.swift */; };
-		758817C1476CF0F0D2322793 /* AntigravityLocalProbe.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9C4E7A9D71FC9CEE424266B /* AntigravityLocalProbe.swift */; };
-		41C0530113537EB0F1265FD9 /* AntigravityQuotaParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3EEFF771BAE959D8D6D1F16 /* AntigravityQuotaParser.swift */; };
-		7DC8BBA02DC175D6DE645AA2 /* AntigravityTelemetryBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D459F35D75CB7CF89E914A3 /* AntigravityTelemetryBridge.swift */; };
-		F244C73D62E673F582F2D6E3 /* AntigravityTelemetryReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37E9A8040CB77BA117D8363B /* AntigravityTelemetryReader.swift */; };
-		A95BCAD2A1940642AC6E0FBA /* AntigravityUsageStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3D3DD0CE0FEDD7CAC940042C /* AntigravityUsageStore.swift */; };
-		0A0B54CCF0853F00542676C6 /* DockAntigravityView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A6C6D44CAA456453DF77D0F /* DockAntigravityView.swift */; };
-		D6C0F76A498E03D218F78191 /* AntigravityQuotaRows.swift in Sources */ = {isa = PBXBuildFile; fileRef = 038506A0F3B5B5D5AFFFCE45 /* AntigravityQuotaRows.swift */; };
+		C8A000000000000000000001 /* ClaudeCodeUsageConnection.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8B000000000000000000001 /* ClaudeCodeUsageConnection.swift */; };
+		C8A000000000000000000002 /* ClaudeCodeSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8B000000000000000000002 /* ClaudeCodeSettingsView.swift */; };
 		D5AA4A60DD41FF46DFB966EB /* AntigravitySettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 25B6738E8A8D32551895BEDE /* AntigravitySettingsView.swift */; };
-		83F47CA8A52CA7A502B18A5C /* AntigravityHistoryParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD08C45CC6FD5D1013952F80 /* AntigravityHistoryParser.swift */; };
-		9488740E5FCC9955565768BB /* AntigravityFeatureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CD3080CF89F20D277487858 /* AntigravityFeatureTests.swift */; };
+		C8A000000000000000000003 /* SwiftTerm in Frameworks */ = {isa = PBXBuildFile; productRef = C8E000000000000000000001 /* SwiftTerm */; };
+		C8A000000000000000000004 /* ClaudeCodeUsageConnectionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8B000000000000000000003 /* ClaudeCodeUsageConnectionTests.swift */; };
+		C8A000000000000000000005 /* THIRD_PARTY_NOTICES.md in Resources */ = {isa = PBXBuildFile; fileRef = C8B000000000000000000004 /* THIRD_PARTY_NOTICES.md */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -134,9 +139,18 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		C9B000000000000000000001 /* AntigravityUsage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AntigravityUsage.swift; sourceTree = "<group>"; };
+		C9B000000000000000000002 /* AntigravityCLIUsageProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AntigravityCLIUsageProvider.swift; sourceTree = "<group>"; };
+		C9B000000000000000000003 /* AntigravityStatusLineBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AntigravityStatusLineBridge.swift; sourceTree = "<group>"; };
+		C9B000000000000000000004 /* AntigravityStatusLineReader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AntigravityStatusLineReader.swift; sourceTree = "<group>"; };
+		C9B000000000000000000005 /* AntigravityUsageStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AntigravityUsageStore.swift; sourceTree = "<group>"; };
+		C9B000000000000000000006 /* DockAntigravityView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DockAntigravityView.swift; sourceTree = "<group>"; };
+		C9B000000000000000000007 /* AntigravityHoverDashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AntigravityHoverDashboardView.swift; sourceTree = "<group>"; };
+		C9B000000000000000000008 /* AntigravityFeatureTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AntigravityFeatureTests.swift; sourceTree = "<group>"; };
 		B83100000000000000000002 /* DashboardNativeHistoryViewport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardNativeHistoryViewport.swift; sourceTree = "<group>"; };
 		A90200000000000000000006 /* DockHoverDelayTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DockHoverDelayTests.swift; sourceTree = "<group>"; };
 		A90200000000000000000004 /* StartupRecoveryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StartupRecoveryTests.swift; sourceTree = "<group>"; };
+		B91100000000000000000004 /* ProcessResourceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProcessResourceTests.swift; sourceTree = "<group>"; };
 		A90200000000000000000002 /* NetworkAvailabilityMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkAvailabilityMonitor.swift; sourceTree = "<group>"; };
 		03AB4D6D301BB7F7006D74C0 /* DockMagic.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DockMagic.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		03AB4D70301BB7F7006D74C0 /* DockMagicApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DockMagicApp.swift; sourceTree = "<group>"; };
@@ -168,6 +182,7 @@
 		D7B000000000000000000001 /* DockConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DockConfiguration.swift; sourceTree = "<group>"; };
 		D7B000000000000000000002 /* CodexRateLimitSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexRateLimitSnapshot.swift; sourceTree = "<group>"; };
 		D7B000000000000000000003 /* CodexRateLimitProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexRateLimitProvider.swift; sourceTree = "<group>"; };
+		B91100000000000000000002 /* ProcessPipe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProcessPipe.swift; sourceTree = "<group>"; };
 		D7B000000000000000000004 /* DockPreferencesStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DockPreferencesStore.swift; sourceTree = "<group>"; };
 		D7B000000000000000000005 /* CodexUsageStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexUsageStore.swift; sourceTree = "<group>"; };
 		D7B000000000000000000006 /* DockAppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DockAppModel.swift; sourceTree = "<group>"; };
@@ -234,17 +249,11 @@
 		C6B000000000000000000003 /* DeveloperToolInstallationStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeveloperToolInstallationStore.swift; sourceTree = "<group>"; };
 		C7B000000000000000000001 /* SoftwareUpdateController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoftwareUpdateController.swift; sourceTree = "<group>"; };
 		C7B000000000000000000002 /* SoftwareUpdateControllerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoftwareUpdateControllerTests.swift; sourceTree = "<group>"; };
-		C729CFBB3D06E22150EB3349 /* AntigravityUsage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AntigravityUsage.swift; sourceTree = "<group>"; };
-		B9C4E7A9D71FC9CEE424266B /* AntigravityLocalProbe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AntigravityLocalProbe.swift; sourceTree = "<group>"; };
-		E3EEFF771BAE959D8D6D1F16 /* AntigravityQuotaParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AntigravityQuotaParser.swift; sourceTree = "<group>"; };
-		5D459F35D75CB7CF89E914A3 /* AntigravityTelemetryBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AntigravityTelemetryBridge.swift; sourceTree = "<group>"; };
-		37E9A8040CB77BA117D8363B /* AntigravityTelemetryReader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AntigravityTelemetryReader.swift; sourceTree = "<group>"; };
-		3D3DD0CE0FEDD7CAC940042C /* AntigravityUsageStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AntigravityUsageStore.swift; sourceTree = "<group>"; };
-		9A6C6D44CAA456453DF77D0F /* DockAntigravityView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DockAntigravityView.swift; sourceTree = "<group>"; };
-		038506A0F3B5B5D5AFFFCE45 /* AntigravityQuotaRows.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AntigravityQuotaRows.swift; sourceTree = "<group>"; };
+		C8B000000000000000000001 /* ClaudeCodeUsageConnection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeCodeUsageConnection.swift; sourceTree = "<group>"; };
+		C8B000000000000000000002 /* ClaudeCodeSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeCodeSettingsView.swift; sourceTree = "<group>"; };
 		25B6738E8A8D32551895BEDE /* AntigravitySettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AntigravitySettingsView.swift; sourceTree = "<group>"; };
-		AD08C45CC6FD5D1013952F80 /* AntigravityHistoryParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AntigravityHistoryParser.swift; sourceTree = "<group>"; };
-		4CD3080CF89F20D277487858 /* AntigravityFeatureTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AntigravityFeatureTests.swift; sourceTree = "<group>"; };
+		C8B000000000000000000003 /* ClaudeCodeUsageConnectionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeCodeUsageConnectionTests.swift; sourceTree = "<group>"; };
+		C8B000000000000000000004 /* THIRD_PARTY_NOTICES.md */ = {isa = PBXFileReference; lastKnownFileType = text; path = ../THIRD_PARTY_NOTICES.md; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -252,6 +261,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C8A000000000000000000003 /* SwiftTerm in Frameworks */,
 				C7A000000000000000000003 /* Sparkle in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -276,6 +286,7 @@
 		03AB4D64301BB7F7006D74C0 = {
 			isa = PBXGroup;
 			children = (
+				C8B000000000000000000004 /* THIRD_PARTY_NOTICES.md */,
 				03AB4D6F301BB7F7006D74C0 /* DockMagic */,
 				03AB4D83301BB7FA006D74C0 /* DockMagicTests */,
 				03AB4D8D301BB7FA006D74C0 /* DockMagicUITests */,
@@ -322,11 +333,13 @@
 		03AB4D83301BB7FA006D74C0 /* DockMagicTests */ = {
 			isa = PBXGroup;
 			children = (
-				4CD3080CF89F20D277487858 /* AntigravityFeatureTests.swift */,
+				C9B000000000000000000008 /* AntigravityFeatureTests.swift */,
+				C8B000000000000000000003 /* ClaudeCodeUsageConnectionTests.swift */,
 				C7B000000000000000000002 /* SoftwareUpdateControllerTests.swift */,
 				C4B000000000000000000003 /* TokenUsageStreakStoreTests.swift */,
 				03AB4D84301BB7FA006D74C0 /* DockMagicTests.swift */,
 				A90200000000000000000004 /* StartupRecoveryTests.swift */,
+				B91100000000000000000004 /* ProcessResourceTests.swift */,
 				A90200000000000000000006 /* DockHoverDelayTests.swift */,
 				D0C100000000000000000011 /* SystemMetricsFeatureTests.swift */,
 				E0B000000000000000000005 /* BatteryFeatureTests.swift */,
@@ -357,7 +370,7 @@
 		D0C200000000000000000002 /* Models */ = {
 			isa = PBXGroup;
 			children = (
-				C729CFBB3D06E22150EB3349 /* AntigravityUsage.swift */,
+				C9B000000000000000000001 /* AntigravityUsage.swift */,
 				C6B000000000000000000001 /* DeveloperToolInstallation.swift */,
 				C5B000000000000000000001 /* ServiceStatusSnapshot.swift */,
 				C4B000000000000000000001 /* TokenUsageStreakRecord.swift */,
@@ -379,11 +392,10 @@
 		D0C200000000000000000003 /* Services */ = {
 			isa = PBXGroup;
 			children = (
-				AD08C45CC6FD5D1013952F80 /* AntigravityHistoryParser.swift */,
-				37E9A8040CB77BA117D8363B /* AntigravityTelemetryReader.swift */,
-				5D459F35D75CB7CF89E914A3 /* AntigravityTelemetryBridge.swift */,
-				E3EEFF771BAE959D8D6D1F16 /* AntigravityQuotaParser.swift */,
-				B9C4E7A9D71FC9CEE424266B /* AntigravityLocalProbe.swift */,
+				C9B000000000000000000002 /* AntigravityCLIUsageProvider.swift */,
+				C9B000000000000000000003 /* AntigravityStatusLineBridge.swift */,
+				C9B000000000000000000004 /* AntigravityStatusLineReader.swift */,
+				C8B000000000000000000001 /* ClaudeCodeUsageConnection.swift */,
 				C7B000000000000000000001 /* SoftwareUpdateController.swift */,
 				C6B000000000000000000002 /* DeveloperToolInstaller.swift */,
 				C5B000000000000000000002 /* ServiceStatusAPIClient.swift */,
@@ -396,6 +408,7 @@
 				D8B000000000000000000003 /* ClaudeCodeLocalTelemetryReader.swift */,
 				D8B000000000000000000001 /* ClaudeCodeRateLimitProvider.swift */,
 				D7B000000000000000000003 /* CodexRateLimitProvider.swift */,
+				B91100000000000000000002 /* ProcessPipe.swift */,
 				A90200000000000000000002 /* NetworkAvailabilityMonitor.swift */,
 				D0C100000000000000000004 /* DockTileController.swift */,
 				F0B000000000000000000005 /* GitHubCredentialVault.swift */,
@@ -413,7 +426,7 @@
 		D0C200000000000000000004 /* Stores */ = {
 			isa = PBXGroup;
 			children = (
-				3D3DD0CE0FEDD7CAC940042C /* AntigravityUsageStore.swift */,
+				C9B000000000000000000005 /* AntigravityUsageStore.swift */,
 				C6B000000000000000000003 /* DeveloperToolInstallationStore.swift */,
 				C5B000000000000000000003 /* ServiceStatusStore.swift */,
 				C4B000000000000000000002 /* TokenUsageStreakStore.swift */,
@@ -446,7 +459,7 @@
 		D0C200000000000000000006 /* Dock */ = {
 			isa = PBXGroup;
 			children = (
-				9A6C6D44CAA456453DF77D0F /* DockAntigravityView.swift */,
+				C9B000000000000000000006 /* DockAntigravityView.swift */,
 				B4B000000000000000000002 /* DockClockView.swift */,
 				A1B000000000000000000006 /* DockSearchConsoleView.swift */,
 				E0B000000000000000000004 /* DockBatteryView.swift */,
@@ -462,6 +475,7 @@
 		D0C200000000000000000008 /* Settings */ = {
 			isa = PBXGroup;
 			children = (
+				C8B000000000000000000002 /* ClaudeCodeSettingsView.swift */,
 				25B6738E8A8D32551895BEDE /* AntigravitySettingsView.swift */,
 				B4B000000000000000000003 /* ClockSettingsView.swift */,
 				A1B000000000000000000007 /* SearchConsoleSettingsView.swift */,
@@ -475,7 +489,7 @@
 		C3C000000000000000000001 /* Hover */ = {
 			isa = PBXGroup;
 			children = (
-				038506A0F3B5B5D5AFFFCE45 /* AntigravityQuotaRows.swift */,
+				C9B000000000000000000007 /* AntigravityHoverDashboardView.swift */,
 				C5B000000000000000000004 /* ServiceStatusHeaderView.swift */,
 				E1B000000000000000000001 /* WeatherHoverDashboardView.swift */,
 				B83100000000000000000002 /* DashboardNativeHistoryViewport.swift */,
@@ -543,6 +557,7 @@
 			);
 			name = DockMagic;
 			packageProductDependencies = (
+				C8E000000000000000000001 /* SwiftTerm */,
 				C7E000000000000000000001 /* Sparkle */,
 			);
 			productName = DockMagic;
@@ -618,6 +633,7 @@
 			);
 			mainGroup = 03AB4D64301BB7F7006D74C0;
 			packageReferences = (
+				C8D000000000000000000001 /* XCRemoteSwiftPackageReference "SwiftTerm" */,
 				C7D000000000000000000001 /* XCRemoteSwiftPackageReference "Sparkle" */,
 			);
 			productRefGroup = 03AB4D6E301BB7F7006D74C0 /* Products */;
@@ -636,6 +652,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C8A000000000000000000005 /* THIRD_PARTY_NOTICES.md in Resources */,
 				03AB4D7A301BB7FA006D74C0 /* Preview Assets.xcassets in Resources */,
 				03AB4D77301BB7FA006D74C0 /* Assets.xcassets in Resources */,
 			);
@@ -662,16 +679,16 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				83F47CA8A52CA7A502B18A5C /* AntigravityHistoryParser.swift in Sources */,
+				C9A000000000000000000001 /* AntigravityUsage.swift in Sources */,
+				C9A000000000000000000002 /* AntigravityCLIUsageProvider.swift in Sources */,
+				C9A000000000000000000003 /* AntigravityStatusLineBridge.swift in Sources */,
+				C9A000000000000000000004 /* AntigravityStatusLineReader.swift in Sources */,
+				C9A000000000000000000005 /* AntigravityUsageStore.swift in Sources */,
+				C9A000000000000000000006 /* DockAntigravityView.swift in Sources */,
+				C9A000000000000000000007 /* AntigravityHoverDashboardView.swift in Sources */,
 				D5AA4A60DD41FF46DFB966EB /* AntigravitySettingsView.swift in Sources */,
-				D6C0F76A498E03D218F78191 /* AntigravityQuotaRows.swift in Sources */,
-				0A0B54CCF0853F00542676C6 /* DockAntigravityView.swift in Sources */,
-				A95BCAD2A1940642AC6E0FBA /* AntigravityUsageStore.swift in Sources */,
-				F244C73D62E673F582F2D6E3 /* AntigravityTelemetryReader.swift in Sources */,
-				7DC8BBA02DC175D6DE645AA2 /* AntigravityTelemetryBridge.swift in Sources */,
-				41C0530113537EB0F1265FD9 /* AntigravityQuotaParser.swift in Sources */,
-				758817C1476CF0F0D2322793 /* AntigravityLocalProbe.swift in Sources */,
-				C24B590DDABFDAC2F7F6E153 /* AntigravityUsage.swift in Sources */,
+				C8A000000000000000000002 /* ClaudeCodeSettingsView.swift in Sources */,
+				C8A000000000000000000001 /* ClaudeCodeUsageConnection.swift in Sources */,
 				C7A000000000000000000001 /* SoftwareUpdateController.swift in Sources */,
 				C6A000000000000000000001 /* DeveloperToolInstallation.swift in Sources */,
 				C6A000000000000000000002 /* DeveloperToolInstaller.swift in Sources */,
@@ -720,6 +737,7 @@
 				D7A000000000000000000001 /* DockConfiguration.swift in Sources */,
 				D7A000000000000000000002 /* CodexRateLimitSnapshot.swift in Sources */,
 				D7A000000000000000000003 /* CodexRateLimitProvider.swift in Sources */,
+				B91100000000000000000001 /* ProcessPipe.swift in Sources */,
 				A90200000000000000000001 /* NetworkAvailabilityMonitor.swift in Sources */,
 				D7A000000000000000000008 /* CodexDailyTokenDetailLoader.swift in Sources */,
 				D7A000000000000000000004 /* DockPreferencesStore.swift in Sources */,
@@ -760,11 +778,13 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				9488740E5FCC9955565768BB /* AntigravityFeatureTests.swift in Sources */,
+				C9A000000000000000000008 /* AntigravityFeatureTests.swift in Sources */,
+				C8A000000000000000000004 /* ClaudeCodeUsageConnectionTests.swift in Sources */,
 				C7A000000000000000000002 /* SoftwareUpdateControllerTests.swift in Sources */,
 				C4A000000000000000000003 /* TokenUsageStreakStoreTests.swift in Sources */,
 				03AB4D85301BB7FA006D74C0 /* DockMagicTests.swift in Sources */,
 				A90200000000000000000003 /* StartupRecoveryTests.swift in Sources */,
+				B91100000000000000000003 /* ProcessResourceTests.swift in Sources */,
 				A90200000000000000000005 /* DockHoverDelayTests.swift in Sources */,
 				D0C000000000000000000011 /* SystemMetricsFeatureTests.swift in Sources */,
 				E0A000000000000000000005 /* BatteryFeatureTests.swift in Sources */,
@@ -1050,6 +1070,14 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCRemoteSwiftPackageReference section */
+		C8D000000000000000000001 /* XCRemoteSwiftPackageReference "SwiftTerm" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/migueldeicaza/SwiftTerm";
+			requirement = {
+				kind = exactVersion;
+				version = 1.19.0;
+			};
+		};
 		C7D000000000000000000001 /* XCRemoteSwiftPackageReference "Sparkle" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/sparkle-project/Sparkle";
@@ -1061,6 +1089,11 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		C8E000000000000000000001 /* SwiftTerm */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = C8D000000000000000000001 /* XCRemoteSwiftPackageReference "SwiftTerm" */;
+			productName = SwiftTerm;
+		};
 		C7E000000000000000000001 /* Sparkle */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = C7D000000000000000000001 /* XCRemoteSwiftPackageReference "Sparkle" */;

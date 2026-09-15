@@ -5,6 +5,15 @@ enum TokenUsageProvider: String, Codable, CaseIterable, Sendable {
     case codex
     case claudeCode
     case antigravity
+
+    init?(rawValue: String) {
+        switch rawValue {
+        case "codex": self = .codex
+        case "claudeCode": self = .claudeCode
+        case "antigravity": self = .antigravity
+        default: return nil
+        }
+    }
 }
 
 @Model

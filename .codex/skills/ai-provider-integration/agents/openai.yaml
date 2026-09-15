@@ -1,0 +1,4 @@
+interface:
+  display_name: "AI Provider Integration"
+  short_description: "Research and integrate AI usage providers into DockMagic"
+  default_prompt: "Research or implement an AI provider using DockMagic’s provider feature contract."

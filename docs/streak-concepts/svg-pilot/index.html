@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="vi">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DockMagic · Badge SVG thử nghiệm</title>
+<link rel="icon" href="data:,">
+<style>
+  :root { color-scheme: dark; --bg:#171717; --panel:#222; --text:#f4f3f1; --muted:#aaa9a5; --line:#414141; --badge-size:185px; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:14px/1.5 -apple-system,BlinkMacSystemFont,sans-serif; }
+  body.light { color-scheme:light; --bg:#f5f4f2; --panel:#fff; --text:#242424; --muted:#64635f; --line:#d6d4d0; }
+  body.contrast { --line:var(--text); }
+  main { max-width:1200px; margin:0 auto; padding:32px; }
+  h1 { font-size:28px; letter-spacing:-.7px; margin:4px 0 8px; }
+  h2 { font-size:18px; margin:0; }
+  p { margin:4px 0; color:var(--muted); }
+  .eyebrow { font-size:11px; letter-spacing:1.8px; font-weight:700; }
+  .controls { display:flex; align-items:center; flex-wrap:wrap; gap:16px; padding:16px 0 22px; }
+  label { display:flex; align-items:center; gap:7px; }
+  input[type=range] { width:200px; accent-color:var(--text); }
+  input[type=checkbox] { accent-color:var(--text); }
+  select { border:1px solid var(--line); color:var(--text); background:var(--panel); border-radius:6px; padding:7px; }
+  output { min-width:52px; font-variant-numeric:tabular-nums; }
+  section { margin-bottom:24px; padding:20px; background:var(--panel); border:1px solid var(--line); border-radius:14px; }
+  .section-head { display:flex; justify-content:space-between; align-items:baseline; gap:12px; }
+  .columns { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px; margin-top:12px; }
+  .cell { min-width:0; text-align:center; }
+  .caption { font-size:11px; font-weight:650; letter-spacing:.45px; color:var(--muted); }
+  .stage { min-height:215px; height:calc(var(--badge-size) + 22px); display:flex; align-items:center; justify-content:flex-start; overflow:auto; }
+  .stage img { width:var(--badge-size); height:var(--badge-size); flex:none; margin:auto; }
+  .sizes { display:flex; flex-wrap:wrap; justify-content:center; align-items:flex-end; gap:14px; margin-top:8px; padding-top:14px; border-top:1px solid var(--line); }
+  figure { margin:0; }
+  figcaption { font-size:10px; color:var(--muted); }
+  .sizes img { display:block; }
+  .footnote { font-size:12px; margin-top:20px; }
+  .grayscale img { filter:grayscale(1); }
+  .locked img { filter:grayscale(1); opacity:.34; }
+  .locked .caption::after { content:' · ĐÃ KHÓA'; }
+  .native { color:var(--text); text-decoration:underline; text-underline-offset:3px; }
+  @media(max-width:700px) { main { padding:20px 12px; } section { padding:14px; } .columns { gap:7px; } .stage { min-height:150px; } .sizes { gap:8px; } .section-head { display:block; } }
+</style>
+<main>
+  <div class="eyebrow">DOCKMAGIC / VECTOR STUDY 01</div>
+  <h1>Hai badge đầu tiên, dựng lại bằng SVG.</h1>
+  <p>Giữ hình học và màu của bản gốc. Bề mặt kim loại được diễn tả bằng các mảng màu đặc.</p>
+  <div class="controls">
+    <label for="size">Kích thước <input id="size" type="range" min="24" max="512" value="185"><output id="readout">185 px</output></label>
+    <label for="theme">Nền <select id="theme"><option value="dark">Tối</option><option value="light">Sáng</option></select></label>
+    <label><input id="gray" type="checkbox">Grayscale</label>
+    <label><input id="contrast" type="checkbox">Tăng tương phản</label>
+    <label><input id="locked" type="checkbox">Đã khóa</label>
+  </div>
+  <div id="badges"></div>
+  <p class="footnote">SVG master: đầy đủ các cạnh vát. SVG compact: tăng độ dày viền để thử ở 48–58 px. Hàng nhỏ giữ nguyên size; thanh trượt chỉ thay đổi hình lớn. PNG trong trang này do trình duyệt thu nhỏ; xem bản render SwiftUI để đối chiếu đúng interpolation đang dùng trong app.</p>
+  <p class="footnote"><a class="native" href="native-dark-2x.png">Bảng so sánh SwiftUI · Retina 2×</a> · <a class="native" href="native-light-1x.png">SwiftUI · Light 1×</a></p>
+</main>
+<script>
+  const originalRoot = '../../../DockMagic/DockMagic/Assets.xcassets/';
+  const variants = [['PNG hiện tại', 'png'], ['SVG master', 'svg'], ['SVG compact', 'compact']];
+  for (const badge of [{slug:'first-prompt', title:'First Prompt', day:1, asset:'StreakBadgeFirstPrompt'}, {slug:'builder', title:'Builder', day:14, asset:'StreakBadgeBuilder'}]) {
+    const section = document.createElement('section');
+    section.innerHTML = `<div class="section-head"><h2>${badge.title}</h2><p>${badge.day} ngày · cùng khung 1024 × 1024</p></div><div class="columns"></div>`;
+    for (const [title, type] of variants) {
+      const src = type === 'png' ? `${originalRoot}${badge.asset}.imageset/${badge.asset}.png` : `${badge.slug}${type === 'compact' ? '-compact' : ''}.svg`;
+      const cell = document.createElement('div'); cell.className = 'cell';
+      cell.innerHTML = `<div class="caption">${title}</div><div class="stage"><img alt="${badge.title} ${title}" src="${src}"></div><div class="sizes">${[32,48,58,112].map(size => `<figure><img src="${src}" width="${size}" height="${size}" alt="${badge.title} ${size} px"><figcaption>${size} px</figcaption></figure>`).join('')}</div>`;
+      section.querySelector('.columns').append(cell);
+    }
+    document.querySelector('#badges').append(section);
+  }
+  document.querySelector('#size').addEventListener('input', event => {
+    document.documentElement.style.setProperty('--badge-size', `${event.target.value}px`);
+    document.querySelector('#readout').value = `${event.target.value} px`;
+  });
+  document.querySelector('#theme').addEventListener('change', event => document.body.classList.toggle('light', event.target.value === 'light'));
+  for (const [id, name] of [['gray','grayscale'], ['contrast','contrast'], ['locked','locked']]) {
+    document.querySelector(`#${id}`).addEventListener('change', event => document.body.classList.toggle(name, event.target.checked));
+  }
+</script>
+</html>

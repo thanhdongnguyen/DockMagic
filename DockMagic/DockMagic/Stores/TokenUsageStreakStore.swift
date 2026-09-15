@@ -10,6 +10,13 @@ protocol TokenUsageStreakTracking: AnyObject {
         at observedAt: Date,
         calendar: Calendar
     ) -> TokenUsageStreakSummary
+
+    func observeHistory(
+        provider: TokenUsageProvider,
+        tokenUsage: CodexAccountTokenUsage?,
+        at observedAt: Date,
+        calendar: Calendar
+    ) -> TokenUsageStreakSummary
 }
 
 extension TokenUsageStreakTracking {
@@ -23,6 +30,33 @@ extension TokenUsageStreakTracking {
             tokenUsage: tokenUsage,
             at: observedAt,
             calendar: .current
+        )
+    }
+
+    func observeHistory(
+        provider: TokenUsageProvider,
+        tokenUsage: CodexAccountTokenUsage?,
+        at observedAt: Date
+    ) -> TokenUsageStreakSummary {
+        observeHistory(
+            provider: provider,
+            tokenUsage: tokenUsage,
+            at: observedAt,
+            calendar: .current
+        )
+    }
+
+    func observeHistory(
+        provider: TokenUsageProvider,
+        tokenUsage: CodexAccountTokenUsage?,
+        at observedAt: Date,
+        calendar: Calendar
+    ) -> TokenUsageStreakSummary {
+        observeToday(
+            provider: provider,
+            tokenUsage: tokenUsage,
+            at: observedAt,
+            calendar: calendar
         )
     }
 }
@@ -79,6 +113,29 @@ final class TokenUsageStreakStore: TokenUsageStreakTracking {
             )
         }
 
+        return summary(for: provider, at: observedAt, calendar: calendar)
+    }
+
+    func observeHistory(
+        provider: TokenUsageProvider,
+        tokenUsage: CodexAccountTokenUsage?,
+        at observedAt: Date,
+        calendar: Calendar = .current
+    ) -> TokenUsageStreakSummary {
+        for bucket in tokenUsage?.dailyUsageBuckets ?? [] where
+            bucket.tokens > 0 && bucket.startDate <= observedAt
+        {
+            let sampleDate = calendar.isDate(
+                bucket.startDate,
+                inSameDayAs: observedAt
+            ) ? observedAt : bucket.startDate
+            persistActiveDay(
+                provider: provider,
+                tokens: bucket.tokens,
+                observedAt: sampleDate,
+                calendar: calendar
+            )
+        }
         return summary(for: provider, at: observedAt, calendar: calendar)
     }
 

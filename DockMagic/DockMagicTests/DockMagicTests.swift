@@ -205,8 +205,11 @@ final class DockMagicTests: XCTestCase {
         )
         router.install { didOpen = true }
 
+        let appModel = makeAppModel()
+        appModel.preferences.activeFeature = .network
+
         let delegate = AppDelegate(
-            appModel: makeAppModel(),
+            appModel: appModel,
             settingsWindowRouter: router
         )
 
@@ -218,10 +221,36 @@ final class DockMagicTests: XCTestCase {
         )
         XCTAssertTrue(didActivate)
         XCTAssertTrue(didOpen)
+        XCTAssertEqual(router.destination, .network)
+    }
+
+    func testEveryDockFeatureMapsToItsSettingsDestination() {
+        let expectedDestinations: [DockFeature: SettingsDestination] = [
+            .dockMagic: .general,
+            .systemMetrics: .systemMetrics,
+            .network: .network,
+            .storage: .storage,
+            .weather: .weather,
+            .clock: .clock,
+            .batteries: .batteries,
+            .github: .github,
+            .codex: .codex,
+            .claudeCode: .claudeCode,
+            .antigravity: .antigravity,
+            .searchConsole: .searchConsole
+        ]
+
+        XCTAssertEqual(Set(expectedDestinations.keys), Set(DockFeature.allCases))
+        for feature in DockFeature.allCases {
+            XCTAssertEqual(
+                SettingsDestination(activeFeature: feature),
+                expectedDestinations[feature]
+            )
+        }
     }
 
     @MainActor
-    func testDockMenuNestsEveryFeatureAndSwitchesThePersistedSelection() throws {
+    func testDockMenuSwitchesPersistedFeatureWithoutOpeningSettings() throws {
         let suiteName = "DockMagicTests.DockFeatureMenu.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
         defaults.removePersistentDomain(forName: suiteName)
@@ -286,8 +315,8 @@ final class DockMagicTests: XCTestCase {
             )
         )
         XCTAssertEqual(preferences.activeFeature, .codex)
-        XCTAssertEqual(settingsRouter.destination, .codex)
-        XCTAssertTrue(didOpenSettings)
+        XCTAssertEqual(settingsRouter.destination, .general)
+        XCTAssertFalse(didOpenSettings)
         XCTAssertEqual(
             defaults.string(forKey: DockFeature.storageKey),
             DockFeature.codex.rawValue
@@ -362,6 +391,7 @@ final class DockMagicTests: XCTestCase {
         XCTAssertEqual(DockFeature.github.title, "GitHub")
         XCTAssertEqual(DockFeature.codex.title, "Codex")
         XCTAssertEqual(DockFeature.claudeCode.title, "Claude Code")
+        XCTAssertEqual(DockFeature.antigravity.title, "Antigravity")
         XCTAssertEqual(DockFeature.searchConsole.title, "Search Console")
     }
 
@@ -403,6 +433,10 @@ final class DockMagicTests: XCTestCase {
             store.clockConfiguration,
             DockFeatureDefaults.clockConfiguration
         )
+        XCTAssertEqual(
+            store.antigravityAppearance,
+            DockFeatureDefaults.antigravityAppearance
+        )
         XCTAssertTrue(store.clockConfiguration.followsSystemTimeZone)
         XCTAssertEqual(store.clockConfiguration.displayStyle, .digital)
         XCTAssertEqual(store.githubRepositoryURL, "")
@@ -441,6 +475,11 @@ final class DockMagicTests: XCTestCase {
             DockColor(red: 0.2, green: 0.3, blue: 0.4)
         )
         store.setClaudeCodeDisplayStyle(.numeric)
+        store.setAntigravityInnerColor(
+            DockColor(red: 0.4, green: 0.6, blue: 0.8)
+        )
+        store.setAntigravityOuterWidth(0.14)
+        store.setAntigravityDisplayStyle(.numeric)
         store.codexExecutablePath = " /opt/homebrew/bin/codex "
         store.automaticallyConfigureClaudeCode = false
         store.isDockHoverDashboardEnabled = true
@@ -472,6 +511,9 @@ final class DockMagicTests: XCTestCase {
         XCTAssertEqual(restored.codexAppearance.displayStyle, .numeric)
         XCTAssertEqual(restored.claudeCodeAppearance.outerColor.hex, "#334D66")
         XCTAssertEqual(restored.claudeCodeAppearance.displayStyle, .numeric)
+        XCTAssertEqual(restored.antigravityAppearance.innerColor.hex, "#6699CC")
+        XCTAssertEqual(restored.antigravityAppearance.outerWidth, 0.14)
+        XCTAssertEqual(restored.antigravityAppearance.displayStyle, .numeric)
         XCTAssertEqual(restored.codexExecutablePath, "/opt/homebrew/bin/codex")
         XCTAssertFalse(restored.automaticallyConfigureClaudeCode)
         XCTAssertTrue(restored.isDockHoverDashboardEnabled)
@@ -2876,6 +2918,11 @@ final class DockMagicTests: XCTestCase {
                     homeDirectory: homeDirectory,
                     standardExecutableDirectories: []
                 ),
+                antigravityLocator: AntigravityExecutableLocator(
+                    environment: [:],
+                    homeDirectory: homeDirectory,
+                    standardExecutableDirectories: []
+                ),
                 downloader: downloader,
                 processRunner: runner,
                 homeDirectory: homeDirectory,
@@ -2886,9 +2933,9 @@ final class DockMagicTests: XCTestCase {
             XCTAssertEqual(installedExecutable, executable)
 
             let requests = await downloader.requests
-            XCTAssertEqual(requests.count, 1)
             switch tool {
             case .codex:
+                XCTAssertEqual(requests.count, 1)
                 XCTAssertEqual(
                     requests[0].url,
                     URL(string: "https://chatgpt.com/codex/install.sh")
@@ -2898,6 +2945,7 @@ final class DockMagicTests: XCTestCase {
                     ["chatgpt.com", "releases.openai.com"]
                 )
             case .claudeCode:
+                XCTAssertEqual(requests.count, 1)
                 XCTAssertEqual(
                     requests[0].url,
                     URL(string: "https://claude.ai/install.sh")
@@ -2906,13 +2954,20 @@ final class DockMagicTests: XCTestCase {
                     requests[0].allowedHosts,
                     ["claude.ai", "downloads.claude.ai"]
                 )
+            case .antigravity:
+                XCTAssertEqual(requests.count, 1)
+                XCTAssertEqual(
+                    requests[0].url,
+                    URL(string: "https://antigravity.google/cli/install.sh")
+                )
+                XCTAssertEqual(requests[0].allowedHosts, ["antigravity.google"])
             }
 
             let calls = await runner.calls
             XCTAssertEqual(calls.count, 2)
             XCTAssertEqual(
                 calls[0].executableURL.path,
-                tool == .codex ? "/bin/sh" : "/bin/bash"
+                tool == .claudeCode ? "/bin/bash" : "/bin/sh"
             )
             XCTAssertEqual(calls[0].environment["HOME"], homeDirectory.path)
             XCTAssertEqual(
@@ -3148,70 +3203,86 @@ final class DockMagicTests: XCTestCase {
     }
 
     @MainActor
-    func testClaudeCodeUsageStoreReportsLiveStaleAndBridgeMissing() async {
+    func testClaudeCodeUsageStoreReportsLiveAndKeepsLastPTYQuota() async {
         let now = Date(timeIntervalSince1970: 2_000)
         let freshSnapshot = sampleClaudeCodeSnapshot(
             fetchedAt: Date(timeIntervalSince1970: 1_950)
         )
-        let staleSnapshot = sampleClaudeCodeSnapshot(
-            fetchedAt: Date(timeIntervalSince1970: 500)
-        )
-        let bridge = StubClaudeCodeBridge(installed: true)
+        let bridge = StubClaudeCodeBridge(installed: false)
         let streakStore = TokenUsageStreakStore(
             modelContainer: TokenUsageStreakStore.inMemoryContainer()
         )
+        let collector = StubUsageCollector(results: [
+            .success(testClaudeQuotaCapture(
+                fiveHour: 25,
+                weekly: 40,
+                capturedAt: now
+            )),
+            .failure(ClaudeCodeUsageCaptureError.timedOut)
+        ])
         let store = ClaudeCodeUsageStore(
-            provider: ScriptedClaudeCodeProvider([
-                .success(freshSnapshot),
-                .success(staleSnapshot)
-            ]),
+            provider: ScriptedClaudeCodeProvider([.success(freshSnapshot)]),
             bridge: bridge,
             activityHookBridge: StubClaudeCodeActivityHookBridge(
                 installed: true
             ),
             streakTracker: streakStore,
+            authProvider: FixedClaudeAuthProvider(loggedIn: true),
+            usageCollector: collector,
             pollingInterval: .seconds(60),
             staleAfter: 900,
             now: { now }
         )
+        store.configure(executableURL: URL(fileURLWithPath: "/tmp/claude"))
 
         await store.refresh()
-        XCTAssertEqual(
-            store.state,
-            .live(freshSnapshot.withStreakSummary(
-                streakStore.summary(for: .claudeCode, at: now)
-            ))
-        )
+        XCTAssertEqual(store.state.snapshot?.fiveHour?.usedPercent, 25)
+        XCTAssertEqual(store.state.snapshot?.weekly?.usedPercent, 40)
+        guard case .live = store.state else {
+            return XCTFail("Expected live PTY quota.")
+        }
 
         await store.refresh()
         guard case let .stale(snapshot, message) = store.state else {
-            return XCTFail("Expected an old Claude Code cache to become stale.")
+            return XCTFail("Expected the last PTY quota to become stale.")
         }
-        XCTAssertEqual(
-            snapshot,
-            staleSnapshot.withStreakSummary(
-                streakStore.summary(for: .claudeCode, at: now)
-            )
-        )
-        XCTAssertTrue(message.contains("older than 15 minutes"))
-
-        bridge.installed = false
-        await store.refresh()
-        guard case let .unavailable(message) = store.state else {
-            return XCTFail("Expected the disabled bridge to be unavailable.")
-        }
-        XCTAssertTrue(message.contains("Activate Claude Code in General"))
+        XCTAssertEqual(snapshot.fiveHour?.usedPercent, 25)
+        XCTAssertTrue(message.contains("15 seconds"))
+        XCTAssertFalse(bridge.installed)
     }
 
     @MainActor
-    func testClaudeCodeAutomaticSetupInstallsAndRefreshesOnFirstUse() async {
+    func testClaudeCodeFreshHistoryWithoutQuotaExplainsMissingNumbers() async {
+        let observedAt = Date()
+        let snapshot = CodexRateLimitSnapshot(planType: nil, limitID: "claude-code-local",
+            fiveHour: nil, weekly: nil, fetchedAt: observedAt)
+        let store = ClaudeCodeUsageStore(
+            provider: ScriptedClaudeCodeProvider([.success(snapshot)]),
+            bridge: StubClaudeCodeBridge(installed: false),
+            activityHookBridge: StubClaudeCodeActivityHookBridge(installed: true),
+            streakTracker: TokenUsageStreakStore(modelContainer: TokenUsageStreakStore.inMemoryContainer()),
+            authProvider: FixedClaudeAuthProvider(loggedIn: false),
+            usageCollector: StubUsageCollector(results: []),
+            now: { observedAt }
+        )
+        store.configure(executableURL: URL(fileURLWithPath: "/tmp/claude"))
+        await store.refresh()
+        guard case let .stale(_, message) = store.state else {
+            return XCTFail("Fresh local history does not establish current account quota")
+        }
+        XCTAssertTrue(message.contains("Sign in"))
+        XCTAssertTrue(UsageQuotaPresentation.codex(store.state.snapshot).isEmpty)
+    }
+
+    @MainActor
+    func testClaudeCodeSetupMigratesBridgeAndRefreshesPTYOnFirstUse() async {
         let suiteName = "DockMagicTests.ClaudeAutoSetup.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
         defaults.removePersistentDomain(forName: suiteName)
         defer { defaults.removePersistentDomain(forName: suiteName) }
         let preferences = DockPreferencesStore(defaults: defaults)
         let snapshot = sampleClaudeCodeSnapshot()
-        let bridge = StubClaudeCodeBridge(installed: false)
+        let bridge = StubClaudeCodeBridge(installed: true)
         let observedAt = snapshot.fetchedAt
         let streakStore = TokenUsageStreakStore(
             modelContainer: TokenUsageStreakStore.inMemoryContainer()
@@ -3223,6 +3294,14 @@ final class DockMagicTests: XCTestCase {
                 installed: true
             ),
             streakTracker: streakStore,
+            authProvider: FixedClaudeAuthProvider(loggedIn: true),
+            usageCollector: StubUsageCollector(results: [
+                .success(testClaudeQuotaCapture(
+                    fiveHour: 25,
+                    weekly: 40,
+                    capturedAt: observedAt
+                ))
+            ]),
             pollingInterval: .seconds(60),
             now: { observedAt }
         )
@@ -3231,25 +3310,14 @@ final class DockMagicTests: XCTestCase {
             claudeCodeStore: store
         )
 
-        await appModel.prepareClaudeCodeIntegration()
-
-        XCTAssertTrue(bridge.installed)
-        XCTAssertEqual(bridge.installCallCount, 1)
-        XCTAssertEqual(
-            store.state,
-            .live(snapshot.withStreakSummary(
-                streakStore.summary(for: .claudeCode, at: observedAt)
-            ))
+        await appModel.prepareClaudeCodeIntegration(
+            executableURL: URL(fileURLWithPath: "/tmp/claude")
         )
 
-        preferences.automaticallyConfigureClaudeCode = false
-        bridge.installed = false
-        await appModel.prepareClaudeCodeIntegration()
-        XCTAssertEqual(
-            bridge.installCallCount,
-            1,
-            "An explicit opt-out must survive future automatic preparation."
-        )
+        XCTAssertFalse(bridge.installed)
+        XCTAssertEqual(bridge.installCallCount, 0)
+        XCTAssertEqual(bridge.uninstallCallCount, 1)
+        XCTAssertEqual(store.state.snapshot?.fiveHour?.usedPercent, 25)
     }
 
     @MainActor
@@ -4122,7 +4190,7 @@ final class DockMagicTests: XCTestCase {
         XCTAssertFalse(weather.isMonitoring)
         XCTAssertFalse(clock.isMonitoring)
         XCTAssertTrue(codex.isMonitoring)
-        XCTAssertFalse(claudeCode.isMonitoring)
+        XCTAssertTrue(claudeCode.isMonitoring)
 
         preferences.activeFeature = .dockMagic
         try await waitUntil {
@@ -4132,7 +4200,7 @@ final class DockMagicTests: XCTestCase {
                 && !weather.isMonitoring
                 && !clock.isMonitoring
                 && codex.isMonitoring
-                && !claudeCode.isMonitoring
+                && claudeCode.isMonitoring
         }
 
         preferences.activeFeature = .network
@@ -4143,7 +4211,7 @@ final class DockMagicTests: XCTestCase {
                 && !weather.isMonitoring
                 && !clock.isMonitoring
                 && codex.isMonitoring
-                && !claudeCode.isMonitoring
+                && claudeCode.isMonitoring
         }
 
         preferences.activeFeature = .storage
@@ -4154,7 +4222,7 @@ final class DockMagicTests: XCTestCase {
                 && !weather.isMonitoring
                 && !clock.isMonitoring
                 && codex.isMonitoring
-                && !claudeCode.isMonitoring
+                && claudeCode.isMonitoring
         }
 
         preferences.activeFeature = .weather
@@ -4171,7 +4239,7 @@ final class DockMagicTests: XCTestCase {
         XCTAssertFalse(storage.isMonitoring)
         XCTAssertFalse(clock.isMonitoring)
         XCTAssertTrue(codex.isMonitoring)
-        XCTAssertFalse(claudeCode.isMonitoring)
+        XCTAssertTrue(claudeCode.isMonitoring)
 
         preferences.activeFeature = .clock
         try await waitUntil {
@@ -4181,7 +4249,7 @@ final class DockMagicTests: XCTestCase {
                 && !storage.isMonitoring
                 && !weather.isMonitoring
                 && codex.isMonitoring
-                && !claudeCode.isMonitoring
+                && claudeCode.isMonitoring
         }
 
         XCTAssertTrue(clock.isMonitoring)
@@ -4203,7 +4271,7 @@ final class DockMagicTests: XCTestCase {
         XCTAssertFalse(storage.isMonitoring)
         XCTAssertFalse(weather.isMonitoring)
         XCTAssertFalse(clock.isMonitoring)
-        XCTAssertFalse(claudeCode.isMonitoring)
+        XCTAssertTrue(claudeCode.isMonitoring)
         try await waitUntil {
             codex.resolvedExecutablePath == "/usr/bin/true"
                 && codex.state.snapshot != nil
@@ -4220,12 +4288,12 @@ final class DockMagicTests: XCTestCase {
                 && codex.isMonitoring
         }
         try await waitUntil {
-            claudeCodeBridge.installed
-                && claudeCode.state.snapshot != nil
+            claudeCode.state.snapshot != nil
         }
 
         XCTAssertTrue(claudeCode.isMonitoring)
-        XCTAssertEqual(claudeCodeBridge.installCallCount, 1)
+        XCTAssertFalse(claudeCodeBridge.installed)
+        XCTAssertEqual(claudeCodeBridge.installCallCount, 0)
         XCTAssertFalse(metrics.isMonitoring)
         XCTAssertFalse(network.isMonitoring)
         XCTAssertFalse(storage.isMonitoring)
@@ -5838,6 +5906,8 @@ final class DockMagicTests: XCTestCase {
         numericCodexAppearance.setDisplayStyle(.numeric)
         var numericClaudeAppearance = DockFeatureDefaults.claudeCodeAppearance
         numericClaudeAppearance.setDisplayStyle(.numeric)
+        var numericAntigravityAppearance = DockFeatureDefaults.antigravityAppearance
+        numericAntigravityAppearance.setDisplayStyle(.numeric)
 
         let snapshot = SystemMetricsSnapshot(
             cpuUsage: 0.72,
@@ -5910,6 +5980,17 @@ final class DockMagicTests: XCTestCase {
                 .claudeCode(
                     state: .live(sampleClaudeCodeSnapshot()),
                     appearance: numericClaudeAppearance
+                )
+            ),
+            (
+                "Antigravity",
+                .antigravity(
+                    state: .live(sampleAntigravitySnapshot()),
+                    appearance: DockFeatureDefaults.antigravityAppearance
+                ),
+                .antigravity(
+                    state: .live(sampleAntigravitySnapshot()),
+                    appearance: numericAntigravityAppearance
                 )
             )
         ]
@@ -6688,6 +6769,421 @@ final class DockMagicTests: XCTestCase {
     }
 
     @MainActor
+    func testUsageActivityCardsRenderForEveryExportAction() throws {
+        let projectDirectory = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let captureSource = try String(
+            contentsOf: projectDirectory.appendingPathComponent(
+                "DockMagic/Services/CodexDashboardCaptureService.swift"
+            ),
+            encoding: .utf8
+        )
+        XCTAssertFalse(captureSource.contains("PARTIAL HISTORY"))
+        XCTAssertTrue(captureSource.contains("TOKENS OBSERVED TODAY"))
+
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = .current
+        let fixedNow = try XCTUnwrap(
+            calendar.date(
+                from: DateComponents(
+                    year: 2026,
+                    month: 9,
+                    day: 10,
+                    hour: 12
+                )
+            )
+        )
+        let sourceSnapshot = CodexRateLimitSnapshot.hoverDesignPreview
+        let activityHistoryValues: [Int64] = [
+            92_000_000, 138_000_000, 121_000_000, 176_000_000,
+            154_000_000, 210_000_000, 184_000_000, 248_000_000,
+            223_000_000, 286_000_000, 260_000_000, 331_000_000,
+            298_000_000, 410_000_000
+        ]
+        let activityPreviewUsage = CodexAccountTokenUsage(
+            lifetimeTokens: 18_400_000,
+            peakDailyTokens: 410_000_000,
+            longestRunningTurnSeconds: nil,
+            dailyUsageBuckets: activityHistoryValues.enumerated().compactMap {
+                index, tokens in
+                calendar.date(
+                    byAdding: .day,
+                    value: index - (activityHistoryValues.count - 1),
+                    to: calendar.startOfDay(for: fixedNow)
+                ).map {
+                    CodexTokenUsageDailyBucket(
+                        startDate: $0,
+                        tokens: tokens
+                    )
+                }
+            },
+            modelUsage: nil
+        )
+        let codexState = CodexUsageState.live(
+            CodexRateLimitSnapshot(
+                planType: sourceSnapshot.planType,
+                limitID: sourceSnapshot.limitID,
+                fiveHour: sourceSnapshot.fiveHour,
+                weekly: sourceSnapshot.weekly,
+                tokenUsage: activityPreviewUsage,
+                streakSummary: .fixture(
+                    currentDays: 14,
+                    bestDays: 28,
+                    endingAt: fixedNow,
+                    calendar: calendar
+                ),
+                fetchedAt: fixedNow
+            )
+        )
+        let claudeState = ClaudeCodeUsageState.live(
+            .claudeCodeHoverDesignPreview(now: fixedNow)
+        )
+        let destination = URL(
+            fileURLWithPath: "/private/tmp/dockmagic-share-card-qa",
+            isDirectory: true
+        )
+        try FileManager.default.createDirectory(
+            at: destination,
+            withIntermediateDirectories: true
+        )
+
+        let fixtures: [(
+            brand: StreakServiceBrand,
+            state: CodexUsageState,
+            expectedFileFragment: String
+        )] = [
+            (.codex, codexState, "Codex-Activity"),
+            (.claudeCode, claudeState, "Claude-Code-Activity")
+        ]
+
+        for fixture in fixtures {
+            let artifact = try CodexDashboardCaptureService.renderActivityCard(
+                state: fixture.state,
+                brand: fixture.brand,
+                appearanceMode: .dark,
+                now: fixedNow
+            )
+            let representation = try XCTUnwrap(
+                NSBitmapImageRep(data: artifact.pngData)
+            )
+
+            XCTAssertEqual(artifact.pixelWidth, 1_200)
+            XCTAssertEqual(artifact.pixelHeight, 1_200)
+            XCTAssertEqual(representation.pixelsWide, 1_200)
+            XCTAssertEqual(representation.pixelsHigh, 1_200)
+            XCTAssertGreaterThan(artifact.pngData.count, 60_000)
+            XCTAssertTrue(
+                artifact.fileName.contains(fixture.expectedFileFragment)
+            )
+
+            let pasteboard = NSPasteboard.withUniqueName()
+            try CodexDashboardCaptureService.copy(
+                artifact,
+                to: pasteboard
+            )
+            XCTAssertEqual(pasteboard.data(forType: .png), artifact.pngData)
+
+            let corner = try XCTUnwrap(
+                representation.colorAt(x: 1, y: 1)?.usingColorSpace(.sRGB)
+            )
+            XCTAssertEqual(corner.alphaComponent, 1, accuracy: 0.01)
+
+            let slug = fixture.brand.displayName
+                .lowercased()
+                .replacingOccurrences(of: " ", with: "-")
+            try artifact.pngData.write(
+                to: destination.appendingPathComponent("\(slug)-dark.png"),
+                options: .atomic
+            )
+            attachPNG(
+                artifact.pngData,
+                name: "\(fixture.brand.displayName) — Activity Card — Dark"
+            )
+        }
+
+        let antigravityState = AntigravityUsageState.live(
+            AntigravityUsageSnapshot(
+                quota: nil,
+                tokenUsage: activityPreviewUsage,
+                streakSummary: .fixture(
+                    currentDays: 14,
+                    bestDays: 28,
+                    endingAt: fixedNow,
+                    calendar: calendar
+                ),
+                currentSession: nil,
+                activeSessionCount: 0,
+                historyIsPartial: true,
+                fetchedAt: fixedNow
+            )
+        )
+        let antigravityArtifact = try CodexDashboardCaptureService
+            .renderActivityCard(
+                state: antigravityState,
+                appearanceMode: .dark,
+                now: fixedNow
+            )
+        let antigravityRepresentation = try XCTUnwrap(
+            NSBitmapImageRep(data: antigravityArtifact.pngData)
+        )
+        XCTAssertEqual(antigravityArtifact.pixelWidth, 1_200)
+        XCTAssertEqual(antigravityArtifact.pixelHeight, 1_200)
+        XCTAssertEqual(antigravityRepresentation.pixelsWide, 1_200)
+        XCTAssertEqual(antigravityRepresentation.pixelsHigh, 1_200)
+        XCTAssertGreaterThan(antigravityArtifact.pngData.count, 60_000)
+        XCTAssertTrue(
+            antigravityArtifact.fileName.contains("Antigravity-Activity")
+        )
+        let antigravityPasteboard = NSPasteboard.withUniqueName()
+        try CodexDashboardCaptureService.copy(
+            antigravityArtifact,
+            to: antigravityPasteboard
+        )
+        XCTAssertEqual(
+            antigravityPasteboard.data(forType: .png),
+            antigravityArtifact.pngData
+        )
+        try antigravityArtifact.pngData.write(
+            to: destination.appendingPathComponent("antigravity-dark.png"),
+            options: .atomic
+        )
+        attachPNG(
+            antigravityArtifact.pngData,
+            name: "Antigravity — Activity Card — Dark"
+        )
+
+        let captionlessNow = try XCTUnwrap(
+            calendar.date(
+                from: DateComponents(
+                    year: 2026,
+                    month: 9,
+                    day: 15,
+                    hour: 12
+                )
+            )
+        )
+        let captionlessUsage = CodexAccountTokenUsage(
+            lifetimeTokens: nil,
+            peakDailyTokens: 17_000,
+            longestRunningTurnSeconds: nil,
+            dailyUsageBuckets: [
+                CodexTokenUsageDailyBucket(
+                    startDate: try XCTUnwrap(
+                        calendar.date(
+                            byAdding: .day,
+                            value: -1,
+                            to: calendar.startOfDay(for: captionlessNow)
+                        )
+                    ),
+                    tokens: 17_000
+                ),
+                CodexTokenUsageDailyBucket(
+                    startDate: calendar.startOfDay(for: captionlessNow),
+                    tokens: 8_560
+                )
+            ]
+        )
+        let captionlessState = AntigravityUsageState.live(
+            AntigravityUsageSnapshot(
+                quota: nil,
+                tokenUsage: captionlessUsage,
+                streakSummary: .fixture(
+                    currentDays: 1,
+                    bestDays: 1,
+                    endingAt: captionlessNow,
+                    calendar: calendar
+                ),
+                currentSession: nil,
+                activeSessionCount: 0,
+                historyIsPartial: true,
+                fetchedAt: captionlessNow
+            )
+        )
+        let captionlessArtifact = try CodexDashboardCaptureService
+            .renderActivityCard(
+                state: captionlessState,
+                appearanceMode: .dark,
+                now: captionlessNow
+            )
+        try captionlessArtifact.pngData.write(
+            to: destination.appendingPathComponent(
+                "antigravity-captionless.png"
+            ),
+            options: .atomic
+        )
+        attachPNG(
+            captionlessArtifact.pngData,
+            name: "Antigravity — Activity Card — Captionless Chart"
+        )
+
+        for (name, mode, overrides) in [
+            ("light", DSAppearanceMode.light, DSAccessibilityOverrides()),
+            (
+                "contrast",
+                DSAppearanceMode.dark,
+                DSAccessibilityOverrides(increaseContrast: true)
+            ),
+            (
+                "opaque",
+                DSAppearanceMode.dark,
+                DSAccessibilityOverrides(reduceTransparency: true)
+            )
+        ] {
+            let artifact = try CodexDashboardCaptureService.renderActivityCard(
+                state: codexState,
+                brand: .codex,
+                appearanceMode: mode,
+                now: fixedNow,
+                accessibilityOverrides: overrides
+            )
+            try artifact.pngData.write(
+                to: destination.appendingPathComponent("codex-\(name).png"),
+                options: .atomic
+            )
+        }
+
+        let darkData = try Data(
+            contentsOf: destination.appendingPathComponent("codex-dark.png")
+        )
+        let grayscale = try grayscalePNG(
+            darkData,
+            name: "Codex activity card"
+        )
+        try grayscale.write(
+            to: destination.appendingPathComponent("codex-grayscale.png"),
+            options: .atomic
+        )
+    }
+
+    @MainActor
+    func testActivityCardAreaChartPreservesMissingDaysAndRealZero() throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = try XCTUnwrap(TimeZone(secondsFromGMT: 0))
+        let now = try XCTUnwrap(
+            calendar.date(
+                from: DateComponents(year: 2026, month: 9, day: 15, hour: 12)
+            )
+        )
+        let startOfToday = calendar.startOfDay(for: now)
+        func day(_ offset: Int) throws -> Date {
+            try XCTUnwrap(
+                calendar.date(byAdding: .day, value: offset, to: startOfToday)
+            )
+        }
+        let usage = CodexAccountTokenUsage(
+            lifetimeTokens: nil,
+            peakDailyTokens: nil,
+            longestRunningTurnSeconds: nil,
+            dailyUsageBuckets: [
+                CodexTokenUsageDailyBucket(
+                    startDate: try day(-3),
+                    tokens: 70
+                ),
+                CodexTokenUsageDailyBucket(
+                    startDate: try day(-3).addingTimeInterval(3_600),
+                    tokens: 50
+                ),
+                CodexTokenUsageDailyBucket(
+                    startDate: try day(-1),
+                    tokens: 0
+                ),
+                CodexTokenUsageDailyBucket(
+                    startDate: startOfToday,
+                    tokens: 100
+                )
+            ]
+        )
+
+        let samples = CodexDashboardCaptureService.activityCardChartSamples(
+            from: usage,
+            now: now,
+            calendar: calendar
+        )
+
+        XCTAssertEqual(samples.count, 14)
+        XCTAssertEqual(
+            Array(samples.suffix(4)),
+            [120, nil, 0, 100] as [Int64?]
+        )
+        XCTAssertTrue(
+            CodexDashboardCaptureService.activityCardChartHasRenderableTrend(
+                samples
+            ),
+            "A real zero followed by an observed day must remain a trend."
+        )
+        XCTAssertFalse(
+            CodexDashboardCaptureService.activityCardChartHasRenderableTrend(
+                [nil, 120, nil, 100]
+            ),
+            "Separated observations must not advertise an invisible trend."
+        )
+        XCTAssertTrue(
+            CodexDashboardCaptureService.activityCardChartHasRenderableTrend(
+                [nil, 120, 0, nil]
+            )
+        )
+
+        let sourceSnapshot = CodexRateLimitSnapshot.hoverDesignPreview
+        let sparseUsage = CodexAccountTokenUsage(
+            lifetimeTokens: nil,
+            peakDailyTokens: 120,
+            longestRunningTurnSeconds: nil,
+            dailyUsageBuckets: [
+                CodexTokenUsageDailyBucket(
+                    startDate: try day(-3),
+                    tokens: 120
+                ),
+                CodexTokenUsageDailyBucket(
+                    startDate: startOfToday,
+                    tokens: 100
+                )
+            ]
+        )
+        let sparseState = CodexUsageState.live(
+            CodexRateLimitSnapshot(
+                planType: sourceSnapshot.planType,
+                limitID: sourceSnapshot.limitID,
+                fiveHour: sourceSnapshot.fiveHour,
+                weekly: sourceSnapshot.weekly,
+                tokenUsage: sparseUsage,
+                streakSummary: .fixture(
+                    currentDays: 1,
+                    bestDays: 4,
+                    endingAt: now,
+                    calendar: calendar
+                ),
+                fetchedAt: now
+            )
+        )
+        let sparseArtifact = try CodexDashboardCaptureService
+            .renderActivityCard(
+                state: sparseState,
+                brand: .codex,
+                appearanceMode: .dark,
+                now: now
+            )
+        let destination = URL(
+            fileURLWithPath: "/private/tmp/dockmagic-share-card-qa",
+            isDirectory: true
+        )
+        try FileManager.default.createDirectory(
+            at: destination,
+            withIntermediateDirectories: true
+        )
+        try sparseArtifact.pngData.write(
+            to: destination.appendingPathComponent(
+                "codex-sparse-history.png"
+            ),
+            options: .atomic
+        )
+        attachPNG(
+            sparseArtifact.pngData,
+            name: "Codex Activity Card — Sparse Noncontiguous History"
+        )
+    }
+
+    @MainActor
     func testDashboardCaptureResolvesSinglePixelStrokesAtFourTimesScale() throws {
         // Alternating quarter-point strokes must remain separate pixels. This
         // fails if a screen-resolution backing image is merely enlarged to 4×.
@@ -7186,6 +7682,30 @@ final class DockMagicTests: XCTestCase {
         )
         attachPNG(codexDetail, name: codexDetailName)
 
+        let fullRoadmapSize = CGSize(width: 440, height: 1_460)
+        let fullRoadmapName = "Codex Hover — Full Badge Roadmap — Dark"
+        let fullRoadmap = try renderPNG(
+            of: DockMagicThemeRoot(
+                content: DockHoverChrome(
+                    pointerEdge: .bottom,
+                    panelSize: fullRoadmapSize
+                ) {
+                    StreakDetailView(
+                        summary: codexSnapshot.streakSummary,
+                        brand: .codex,
+                        onBack: {}
+                    )
+                },
+                appearanceMode: .dark
+            )
+            .frame(width: fullRoadmapSize.width, height: fullRoadmapSize.height),
+            size: fullRoadmapSize,
+            appearanceName: .darkAqua,
+            name: fullRoadmapName
+        )
+        XCTAssertGreaterThan(fullRoadmap.count, 60_000)
+        attachPNG(fullRoadmap, name: fullRoadmapName)
+
         let codexLightName = "Codex Hover — Streak Badges — Light"
         let codexLight = try renderPNG(
             of: DockMagicThemeRoot(
@@ -7307,7 +7827,6 @@ final class DockMagicTests: XCTestCase {
                     StreakDetailView(
                         summary: resetSummary,
                         brand: .codex,
-                        accent: ProjectTheme.current.action,
                         onBack: {}
                     )
                 },
@@ -7332,7 +7851,6 @@ final class DockMagicTests: XCTestCase {
                     StreakDetailView(
                         summary: nil,
                         brand: .codex,
-                        accent: ProjectTheme.current.action,
                         onBack: {}
                     )
                 },
@@ -7397,11 +7915,17 @@ final class DockMagicTests: XCTestCase {
 
         XCTAssertTrue(source.contains("TokenUsageStreakMilestone.allCases"))
         XCTAssertTrue(source.contains("StreakBadgeView("))
+        XCTAssertTrue(source.contains("Badge roadmap"))
+        XCTAssertTrue(source.contains("StreakRoadmapPath"))
+        XCTAssertTrue(source.contains("reachedMilestoneCount: unlockedCount"))
+        XCTAssertFalse(source.contains("completedPathFraction"))
+        XCTAssertFalse(source.contains("LazyVGrid(columns: columns"))
         XCTAssertFalse(source.contains("private var serviceMark"))
         XCTAssertFalse(source.contains("badgeLogoAssetName"))
         XCTAssertFalse(source.contains("CodexBadgeLogo"))
-        XCTAssertTrue(source.contains("guard size <= 60 else { return .high }"))
-        XCTAssertTrue(source.contains("displayScale >= 2 ? .none : .medium"))
+        XCTAssertTrue(source.contains(".interpolation(.high)"))
+        XCTAssertFalse(source.contains("displayScale >= 2 ? .none : .medium"))
+        XCTAssertTrue(source.contains("copy.cacheMode = .never"))
         XCTAssertTrue(source.contains("dockHover.streak.open"))
         XCTAssertTrue(source.contains("dockHover.streak.detail"))
         XCTAssertTrue(source.contains("dockHover.streak.back"))
@@ -7410,6 +7934,64 @@ final class DockMagicTests: XCTestCase {
         XCTAssertTrue(source.contains("earned badges stay unlocked"))
         XCTAssertTrue(source.contains("theme.opaqueSurfaceInset"))
         XCTAssertTrue(source.contains("theme.selectionOutline"))
+
+        let badgeSlotStart = try XCTUnwrap(
+            source.range(of: "private func badgeSlot")
+        )
+        let badgeSlotEnd = try XCTUnwrap(
+            source.range(
+                of: "private func milestoneLabel",
+                range: badgeSlotStart.upperBound..<source.endIndex
+            )
+        )
+        let badgeSlotSource = source[
+            badgeSlotStart.lowerBound..<badgeSlotEnd.lowerBound
+        ]
+        XCTAssertFalse(badgeSlotSource.contains("theme.selectionFill"))
+        XCTAssertFalse(badgeSlotSource.contains("theme.selectionOutline"))
+    }
+
+    func testStreakRoadmapProgressStopsAtLastUnlockedBadge() {
+        let rowHeight: CGFloat = 98
+        let milestoneCount = 10
+        let rect = CGRect(
+            x: 0,
+            y: 0,
+            width: 400,
+            height: rowHeight * CGFloat(milestoneCount)
+        )
+
+        let noBadges = StreakRoadmapPath(
+            milestoneCount: milestoneCount,
+            rowHeight: rowHeight,
+            horizontalInset: 39,
+            reachedMilestoneCount: 0
+        ).path(in: rect)
+        XCTAssertTrue(noBadges.isEmpty)
+
+        for reachedCount in 1...milestoneCount {
+            let completedPath = StreakRoadmapPath(
+                milestoneCount: milestoneCount,
+                rowHeight: rowHeight,
+                horizontalInset: 39,
+                reachedMilestoneCount: reachedCount
+            ).path(in: rect)
+            let reachedBadgeCenterY = rowHeight
+                * (CGFloat(reachedCount) - 0.5)
+
+            XCTAssertEqual(
+                completedPath.boundingRect.maxY,
+                reachedBadgeCenterY,
+                accuracy: 0.001
+            )
+        }
+
+        let fullRoadmap = StreakRoadmapPath(
+            milestoneCount: milestoneCount,
+            rowHeight: rowHeight,
+            horizontalInset: 39
+        ).path(in: rect)
+        XCTAssertEqual(fullRoadmap.boundingRect.maxY, rect.maxY, accuracy: 0.001)
     }
 
     @MainActor
@@ -7930,6 +8512,160 @@ final class DockMagicTests: XCTestCase {
         )
     }
 
+    @MainActor
+    func testAntigravityHoverDashboardRendersPartialHistoryAcrossAppearances()
+        throws {
+        let source = CodexRateLimitSnapshot.hoverDesignPreview
+        let sourceUsage = try XCTUnwrap(source.tokenUsage)
+        let now = try XCTUnwrap(sourceUsage.dailyUsageBuckets.last?.startDate)
+        let observedDays = sourceUsage.dailyUsageBuckets.enumerated()
+            .compactMap { index, bucket in
+                index.isMultiple(of: 4) && bucket.startDate != now
+                    ? nil
+                    : bucket
+            }
+        let tokenUsage = CodexAccountTokenUsage(
+            lifetimeTokens: nil,
+            peakDailyTokens: observedDays.map(\.tokens).max(),
+            longestRunningTurnSeconds: nil,
+            dailyUsageBuckets: observedDays,
+            modelUsage: [
+                CodexModelTokenUsage(
+                    model: "gemini-2.5-pro",
+                    tokens: 8_400_000
+                ),
+                CodexModelTokenUsage(
+                    model: "claude-sonnet-4-5",
+                    tokens: 5_700_000
+                ),
+                CodexModelTokenUsage(model: "gpt-5.6", tokens: 2_900_000)
+            ],
+            isModelUsagePartial: true
+        )
+        let snapshot = AntigravityUsageSnapshot(
+            quota: AntigravityQuotaSnapshot(
+                buckets: [
+                    AntigravityQuotaBucket(
+                        id: "gemini-weekly",
+                        groupName: "Gemini Models",
+                        title: "Weekly",
+                        description: nil,
+                        windowDurationMinutes: 10_080,
+                        remainingFraction: 0.64,
+                        resetsAt: now.addingTimeInterval(2 * 86_400)
+                    ),
+                    AntigravityQuotaBucket(
+                        id: "3p-weekly",
+                        groupName: "Claude and GPT models",
+                        title: "Weekly",
+                        description: nil,
+                        windowDurationMinutes: 10_080,
+                        remainingFraction: 0.31,
+                        resetsAt: now.addingTimeInterval(4 * 86_400)
+                    )
+                ],
+                fetchedAt: now,
+                cliVersion: "1.2.2"
+            ),
+            tokenUsage: tokenUsage,
+            streakSummary: TokenUsageStreakSummary.fixture(
+                currentDays: 7,
+                bestDays: 28,
+                endingAt: now
+            ),
+            currentSession: AntigravitySessionSnapshot(
+                id: "hashed-session",
+                modelID: "gemini-2.5-pro",
+                modelDisplayName: "Gemini 2.5 Pro",
+                cliVersion: "1.2.2",
+                planTier: "pro",
+                agentState: "working",
+                executionMode: "agent",
+                taskCount: 2,
+                artifactCount: 1,
+                pendingInputCount: 0,
+                toolConfirmationPending: false,
+                context: AntigravityContextUsage(
+                    totalInputTokens: 630_000,
+                    totalOutputTokens: 90_000,
+                    contextWindowSize: 1_000_000,
+                    usedPercent: 72,
+                    remainingPercent: 28,
+                    currentInputTokens: 42_000,
+                    currentOutputTokens: 8_000,
+                    cacheCreationInputTokens: 3_000,
+                    cacheReadInputTokens: 21_000
+                ),
+                observedAt: now
+            ),
+            activeSessionCount: 1,
+            historyIsPartial: true,
+            fetchedAt: now
+        )
+        let panelSize = DockHoverPanelPlacement.antigravityPanelSize
+        let variants: [(
+            String, DSAppearanceMode, NSAppearance.Name,
+            DSAccessibilityOverrides
+        )] = [
+            ("Dark", .dark, .darkAqua, .init()),
+            ("Light", .light, .aqua, .init()),
+            (
+                "Increased Contrast",
+                .dark,
+                .darkAqua,
+                .init(increaseContrast: true)
+            ),
+            (
+                "Reduced Transparency",
+                .light,
+                .aqua,
+                .init(reduceTransparency: true)
+            )
+        ]
+        var renderedVariants: [Data] = []
+        for (label, mode, appearanceName, overrides) in variants {
+            let name = "Antigravity Hover — Partial History — \(label)"
+            let data = try renderPNG(
+                of: DockMagicThemeRoot(
+                    content: DockHoverChrome(
+                        pointerEdge: .bottom,
+                        panelSize: panelSize
+                    ) {
+                        AntigravityHoverDashboardView(
+                            state: .live(snapshot),
+                            now: now,
+                            captureConfiguration:
+                                CodexDashboardCaptureConfiguration(
+                                    pointerEdge: .bottom,
+                                    panelSize: panelSize,
+                                    appearanceMode: mode
+                                )
+                        )
+                    },
+                    appearanceMode: mode
+                )
+                .environment(\.dsAccessibilityOverrides, overrides)
+                .frame(width: panelSize.width, height: panelSize.height),
+                size: panelSize,
+                appearanceName: appearanceName,
+                name: name
+            )
+            XCTAssertGreaterThan(data.count, 12_000)
+            attachPNG(data, name: name)
+            renderedVariants.append(data)
+        }
+        XCTAssertNotEqual(renderedVariants[0], renderedVariants[1])
+
+        let grayscaleName = "Antigravity Hover — Partial History — Grayscale"
+        let grayscale = try grayscalePNG(
+            renderedVariants[0],
+            name: grayscaleName
+        )
+        XCTAssertGreaterThan(grayscale.count, 12_000)
+        XCTAssertNotEqual(grayscale, renderedVariants[0])
+        attachPNG(grayscale, name: grayscaleName)
+    }
+
     func testClaudeCodeHoverDashboardFollowsColorAndPrivacyContracts() throws {
         let projectDirectory = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()
@@ -7968,7 +8704,11 @@ final class DockMagicTests: XCTestCase {
             )
         }
 
-        XCTAssertTrue(source.contains("Image(brand.logoAssetName)"))
+        XCTAssertTrue(
+            source.contains(
+                "PreservedVectorAssetImage(assetName: brand.logoAssetName)"
+            )
+        )
         XCTAssertTrue(source.contains("UsageLimitHoverRow("))
         XCTAssertTrue(source.contains("ProjectTheme.claudeCodeUsage"))
         XCTAssertTrue(source.contains("Daily usage"))
@@ -8063,8 +8803,18 @@ final class DockMagicTests: XCTestCase {
             calendar: calendar
         )
         XCTAssertEqual(visibleBuckets.count, 30)
-        XCTAssertEqual(visibleBuckets.first?.id, buckets[5].id)
-        XCTAssertEqual(visibleBuckets.last?.id, buckets[34].id)
+        XCTAssertTrue(
+            calendar.isDate(
+                visibleBuckets.first?.startDate ?? .distantPast,
+                inSameDayAs: buckets[5].startDate
+            )
+        )
+        XCTAssertTrue(
+            calendar.isDate(
+                visibleBuckets.last?.startDate ?? .distantPast,
+                inSameDayAs: buckets[34].startDate
+            )
+        )
         XCTAssertEqual(
             CodexHoverDashboardPresentation.topModels(from: usage),
             [
@@ -8121,11 +8871,12 @@ final class DockMagicTests: XCTestCase {
             now: now,
             calendar: calendar
         )
-        XCTAssertEqual(staleUsage.count, 2)
+        XCTAssertEqual(staleUsage.count, 30)
         XCTAssertTrue(
             calendar.isDate(staleUsage.last!.startDate, inSameDayAs: now)
         )
         XCTAssertEqual(staleUsage.last?.tokens, 0)
+        XCTAssertEqual(staleUsage.dropLast().last?.tokens, 120)
 
         let currentUsage = CodexAccountTokenUsage(
             lifetimeTokens: nil,
@@ -8140,8 +8891,8 @@ final class DockMagicTests: XCTestCase {
             now: now,
             calendar: calendar
         )
-        XCTAssertEqual(currentBuckets.count, 1)
-        XCTAssertEqual(currentBuckets[0].tokens, 240)
+        XCTAssertEqual(currentBuckets.count, 30)
+        XCTAssertEqual(currentBuckets.last?.tokens, 240)
     }
 
     func testTokenUsageStreakMilestonesUseTheTenResearchedBoundaries() {
@@ -8177,6 +8928,209 @@ final class DockMagicTests: XCTestCase {
         }
         XCTAssertNil(TokenUsageStreakMilestone.highestUnlocked(for: 0))
         XCTAssertNil(TokenUsageStreakMilestone.nextLocked(after: 730))
+    }
+
+    func testTokenUsageStreakBadgeAssetsUsePreservedSVGs() throws {
+        let projectDirectory = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let assetCatalog = projectDirectory.appendingPathComponent(
+            "DockMagic/Assets.xcassets"
+        )
+
+        for milestone in TokenUsageStreakMilestone.allCases {
+            let imageset = assetCatalog.appendingPathComponent(
+                "\(milestone.assetName).imageset"
+            )
+            let expectedFilename = "\(milestone.assetName).svg"
+            let contentsData = try Data(
+                contentsOf: imageset.appendingPathComponent("Contents.json")
+            )
+            let contents = try XCTUnwrap(
+                JSONSerialization.jsonObject(with: contentsData)
+                    as? [String: Any]
+            )
+            let images = try XCTUnwrap(
+                contents["images"] as? [[String: Any]]
+            )
+            let properties = try XCTUnwrap(
+                contents["properties"] as? [String: Any]
+            )
+
+            XCTAssertEqual(images.count, 1)
+            XCTAssertEqual(images[0]["filename"] as? String, expectedFilename)
+            XCTAssertEqual(images[0]["idiom"] as? String, "universal")
+            XCTAssertNil(images[0]["scale"])
+            XCTAssertEqual(
+                properties["preserves-vector-representation"] as? Bool,
+                true
+            )
+
+            let filenames = try FileManager.default.contentsOfDirectory(
+                atPath: imageset.path
+            )
+            XCTAssertTrue(filenames.contains(expectedFilename))
+            XCTAssertFalse(filenames.contains { $0.hasSuffix(".png") })
+
+            let svg = try String(
+                contentsOf: imageset.appendingPathComponent(expectedFilename),
+                encoding: .utf8
+            )
+            XCTAssertTrue(svg.contains("viewBox=\"0 0 1024 1024\""))
+            for forbidden in [
+                "<image", "<filter", "<linearGradient", "<radialGradient",
+                "<text", "href=", "url("
+            ] {
+                XCTAssertFalse(
+                    svg.contains(forbidden),
+                    "\(milestone.assetName) must not contain \(forbidden)"
+                )
+            }
+        }
+    }
+
+    func testServiceBrandLogoAssetsUsePreservedSVGs() throws {
+        let projectDirectory = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let assetCatalog = projectDirectory.appendingPathComponent(
+            "DockMagic/Assets.xcassets"
+        )
+        let assets = [
+            (name: "ClaudeCodeLogo", viewBox: "0 0 640 640"),
+            (name: "CodexLogo", viewBox: "0 0 64 64")
+        ]
+
+        for asset in assets {
+            let imageset = assetCatalog.appendingPathComponent(
+                "\(asset.name).imageset"
+            )
+            let expectedFilename = "\(asset.name).svg"
+            let contentsData = try Data(
+                contentsOf: imageset.appendingPathComponent("Contents.json")
+            )
+            let contents = try XCTUnwrap(
+                JSONSerialization.jsonObject(with: contentsData)
+                    as? [String: Any]
+            )
+            let images = try XCTUnwrap(
+                contents["images"] as? [[String: Any]]
+            )
+            let properties = try XCTUnwrap(
+                contents["properties"] as? [String: Any]
+            )
+
+            XCTAssertEqual(images.count, 1)
+            XCTAssertEqual(images[0]["filename"] as? String, expectedFilename)
+            XCTAssertEqual(images[0]["idiom"] as? String, "universal")
+            XCTAssertNil(images[0]["scale"])
+            XCTAssertEqual(
+                properties["preserves-vector-representation"] as? Bool,
+                true
+            )
+            XCTAssertEqual(
+                properties["template-rendering-intent"] as? String,
+                "original"
+            )
+
+            let filenames = try FileManager.default.contentsOfDirectory(
+                atPath: imageset.path
+            )
+            XCTAssertTrue(filenames.contains(expectedFilename))
+            XCTAssertFalse(filenames.contains { $0.hasSuffix(".png") })
+
+            let svg = try String(
+                contentsOf: imageset.appendingPathComponent(expectedFilename),
+                encoding: .utf8
+            )
+            XCTAssertTrue(svg.contains("viewBox=\"\(asset.viewBox)\""))
+            XCTAssertTrue(svg.contains("<path"))
+            for forbidden in [
+                "<image", "<filter", "<text", "<foreignObject", "href=",
+                "data:", ".png"
+            ] {
+                XCTAssertFalse(
+                    svg.contains(forbidden),
+                    "\(asset.name) must not contain \(forbidden)"
+                )
+            }
+        }
+    }
+
+    @MainActor
+    func testServiceBrandSVGsRenderCompletelyAfterChangingSize() throws {
+        for assetName in [
+            "ClaudeCodeLogo", "CodexLogo"
+        ] {
+            _ = try renderPNG(
+                of: PreservedVectorAssetImage(assetName: assetName)
+                    .scaledToFit()
+                    .frame(width: 22, height: 22),
+                size: NSSize(width: 22, height: 22),
+                appearanceName: .darkAqua,
+                name: "\(assetName) 22 pt warmup"
+            )
+            let firstLargeRender = try renderPNG(
+                of: PreservedVectorAssetImage(assetName: assetName)
+                    .scaledToFit()
+                    .frame(width: 160, height: 160),
+                size: NSSize(width: 160, height: 160),
+                appearanceName: .darkAqua,
+                name: "\(assetName) 160 pt first render"
+            )
+            let repeatedLargeRender = try renderPNG(
+                of: PreservedVectorAssetImage(assetName: assetName)
+                    .scaledToFit()
+                    .frame(width: 160, height: 160),
+                size: NSSize(width: 160, height: 160),
+                appearanceName: .darkAqua,
+                name: "\(assetName) 160 pt repeated render"
+            )
+
+            XCTAssertGreaterThan(firstLargeRender.count, 1_000)
+            XCTAssertEqual(
+                firstLargeRender,
+                repeatedLargeRender,
+                "\(assetName) must not reuse an incomplete 22 pt SVG cache."
+            )
+            attachPNG(
+                firstLargeRender,
+                name: "Service brand vector — \(assetName) — 160 pt"
+            )
+        }
+    }
+
+    @MainActor
+    func testTokenUsageStreakSVGsRenderCompletelyAfterChangingSize() throws {
+        for milestone in TokenUsageStreakMilestone.allCases {
+            _ = try renderPNG(
+                of: StreakBadgeView(milestone: milestone, size: 48)
+                    .frame(width: 48, height: 48),
+                size: NSSize(width: 48, height: 48),
+                appearanceName: .darkAqua,
+                name: "\(milestone.title) 48 pt warmup"
+            )
+            let firstLargeRender = try renderPNG(
+                of: StreakBadgeView(milestone: milestone, size: 112)
+                    .frame(width: 112, height: 112),
+                size: NSSize(width: 112, height: 112),
+                appearanceName: .darkAqua,
+                name: "\(milestone.title) 112 pt first render"
+            )
+            let repeatedLargeRender = try renderPNG(
+                of: StreakBadgeView(milestone: milestone, size: 112)
+                    .frame(width: 112, height: 112),
+                size: NSSize(width: 112, height: 112),
+                appearanceName: .darkAqua,
+                name: "\(milestone.title) 112 pt repeated render"
+            )
+
+            XCTAssertEqual(
+                firstLargeRender,
+                repeatedLargeRender,
+                "\(milestone.title) must not reuse an incomplete 48 pt SVG cache."
+            )
+        }
     }
 
     func testTokenUsageStreakCalculatorKeepsBestAfterCurrentRunResets() {
@@ -8968,7 +9922,11 @@ final class DockMagicTests: XCTestCase {
             )
         }
 
-        XCTAssertTrue(source.contains("Image(\"CodexLogo\")"))
+        XCTAssertTrue(
+            source.contains(
+                "PreservedVectorAssetImage(assetName: brand.logoAssetName)"
+            )
+        )
         XCTAssertTrue(source.contains(".fill(theme.action)"))
         XCTAssertTrue(source.contains(".dsSurface("))
         XCTAssertTrue(source.contains(".symbolRenderingMode(.monochrome)"))
@@ -8992,7 +9950,7 @@ final class DockMagicTests: XCTestCase {
         XCTAssertTrue(source.contains("Cached input"))
         XCTAssertTrue(source.contains("Hourly usage"))
         XCTAssertTrue(source.contains(".buttonStyle(.plain)"))
-        XCTAssertTrue(source.contains("codex.dailyDetail.back"))
+        XCTAssertTrue(source.contains("providerID).dailyDetail.back"))
         XCTAssertTrue(source.contains("hoverTooltip("))
         XCTAssertTrue(source.contains(".allowsHitTesting(false)"))
         XCTAssertTrue(source.contains("square.and.arrow.up"))
@@ -10242,6 +11200,114 @@ final class DockMagicTests: XCTestCase {
     }
 
     @MainActor
+    func testClaudeConnectionSettingsRenderAcrossAppearanceMatrix() async throws {
+        let appModels = (0..<5).map { _ in makeAppModel() }
+        defer { appModels.forEach { $0.stop() } }
+        for appModel in appModels {
+            await appModel.prepareClaudeCodeIntegration(
+                executableURL: URL(fileURLWithPath: "/usr/bin/true")
+            )
+            guard case .signedOut = appModel.claudeCodeStore.connectionState else {
+                return XCTFail("The render fixture should stay in the signed-out state.")
+            }
+        }
+
+        let standardSize = NSSize(width: 1_160, height: 620)
+        let renderVariant: (
+            DockAppModel,
+            String,
+            DSAppearanceMode,
+            NSAppearance.Name,
+            DSAccessibilityOverrides,
+            NSSize
+        ) throws -> Data = { appModel, name, mode, appearance, overrides, size in
+            let defaults = self.makeAppearanceDefaults(mode)
+            let root = DockMagicThemeRoot(
+                content: SettingsView(
+                    appModel: appModel,
+                    initialDestination: .claudeCode
+                )
+                .defaultAppStorage(defaults)
+                .environment(\.dsAccessibilityOverrides, overrides),
+                appearanceMode: mode
+            )
+            return try self.renderPNG(
+                of: root,
+                size: size,
+                appearanceName: appearance,
+                name: name
+            )
+        }
+
+        let light = try renderVariant(
+            appModels[0],
+            "Claude Connection — Light 1160x620",
+            .light, .aqua, .init(), standardSize
+        )
+        let variants: [(String, Data)] = [
+            (
+                "Claude Connection — Light 1160x620",
+                light
+            ),
+            (
+                "Claude Connection — Dark 1160x620",
+                try renderVariant(
+                    appModels[1],
+                    "Claude Connection — Dark 1160x620",
+                    .dark, .darkAqua, .init(), standardSize
+                )
+            ),
+            (
+                "Claude Connection — Increased Contrast",
+                try renderVariant(
+                    appModels[2],
+                    "Claude Connection — Increased Contrast",
+                    .light, .aqua,
+                    .init(increaseContrast: true), standardSize
+                )
+            ),
+            (
+                "Claude Connection — Reduced Transparency",
+                try renderVariant(
+                    appModels[3],
+                    "Claude Connection — Reduced Transparency",
+                    .light, .aqua,
+                    .init(reduceTransparency: true), standardSize
+                )
+            ),
+            (
+                "Claude Connection — Grayscale",
+                try grayscalePNG(
+                    light,
+                    name: "Claude Connection — Grayscale"
+                )
+            ),
+            (
+                "Claude Connection — Wide 1360x700",
+                try renderVariant(
+                    appModels[4],
+                    "Claude Connection — Wide 1360x700",
+                    .light, .aqua, .init(),
+                    NSSize(width: 1_360, height: 700)
+                )
+            )
+        ]
+
+        for (name, data) in variants {
+            XCTAssertGreaterThan(
+                data.count,
+                10_000,
+                "\(name) should render a non-empty settings image."
+            )
+            attachPNG(data, name: name)
+        }
+        XCTAssertNotEqual(variants[0].1, variants[1].1)
+        XCTAssertNotEqual(variants[0].1, variants[2].1)
+        XCTAssertNotEqual(variants[0].1, variants[3].1)
+        XCTAssertNotEqual(variants[0].1, variants[4].1)
+    }
+
+    @MainActor
     private func makeAppModel(
         weatherAuthorization: WeatherLocationAuthorization = .authorized
     ) -> DockAppModel {
@@ -10287,6 +11353,8 @@ final class DockMagicTests: XCTestCase {
             activityHookBridge: StubClaudeCodeActivityHookBridge(
                 installed: true
             ),
+            authProvider: FixedClaudeAuthProvider(loggedIn: false),
+            usageCollector: StubUsageCollector(results: []),
             pollingInterval: .seconds(60)
         )
         let developerTools = DeveloperToolInstallationStore(
@@ -10373,6 +11441,43 @@ final class DockMagicTests: XCTestCase {
                 windowDurationMinutes: 10_080,
                 resetsAt: Date(timeIntervalSince1970: 2_000_500_000)
             ),
+            fetchedAt: fetchedAt
+        )
+    }
+
+    private func sampleAntigravitySnapshot(
+        fetchedAt: Date = Date(timeIntervalSince1970: 1_900_000_000)
+    ) -> AntigravityUsageSnapshot {
+        AntigravityUsageSnapshot(
+            quota: AntigravityQuotaSnapshot(
+                buckets: [
+                    AntigravityQuotaBucket(
+                        id: "gemini-weekly",
+                        groupName: "Gemini Models",
+                        title: "Weekly",
+                        description: nil,
+                        windowDurationMinutes: 10_080,
+                        remainingFraction: 0.64,
+                        resetsAt: nil
+                    ),
+                    AntigravityQuotaBucket(
+                        id: "3p-weekly",
+                        groupName: "Claude and GPT models",
+                        title: "Weekly",
+                        description: nil,
+                        windowDurationMinutes: 10_080,
+                        remainingFraction: 0.31,
+                        resetsAt: nil
+                    )
+                ],
+                fetchedAt: fetchedAt,
+                cliVersion: "1.2.2"
+            ),
+            tokenUsage: nil,
+            streakSummary: nil,
+            currentSession: nil,
+            activeSessionCount: 0,
+            historyIsPartial: true,
             fetchedAt: fetchedAt
         )
     }

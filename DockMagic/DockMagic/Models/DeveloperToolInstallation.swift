@@ -3,6 +3,7 @@ import Foundation
 enum DeveloperTool: String, CaseIterable, Identifiable, Sendable {
     case codex
     case claudeCode
+    case antigravity
 
     var id: Self { self }
 
@@ -12,6 +13,8 @@ enum DeveloperTool: String, CaseIterable, Identifiable, Sendable {
             "Codex CLI"
         case .claudeCode:
             "Claude Code"
+        case .antigravity:
+            "Antigravity CLI"
         }
     }
 
@@ -21,6 +24,8 @@ enum DeveloperTool: String, CaseIterable, Identifiable, Sendable {
             "codex"
         case .claudeCode:
             "claude"
+        case .antigravity:
+            "agy"
         }
     }
 
@@ -30,6 +35,8 @@ enum DeveloperTool: String, CaseIterable, Identifiable, Sendable {
             .codex
         case .claudeCode:
             .claudeCode
+        case .antigravity:
+            .antigravity
         }
     }
 }
@@ -60,8 +67,10 @@ extension DockFeature {
             .codex
         case .claudeCode:
             .claudeCode
+        case .antigravity:
+            .antigravity
         case .dockMagic, .systemMetrics, .network, .storage, .weather, .clock,
-             .batteries, .github, .searchConsole, .antigravity:
+             .batteries, .github, .searchConsole:
             nil
         }
     }

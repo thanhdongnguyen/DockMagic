@@ -1,18 +1,16 @@
 {
   "images" : [
     {
-      "filename" : "CodexLogo.png",
-      "idiom" : "mac",
-      "scale" : "1x"
-    },
-    {
-      "filename" : "CodexLogo@2x.png",
-      "idiom" : "mac",
-      "scale" : "2x"
+      "filename" : "CodexLogo.svg",
+      "idiom" : "universal"
     }
   ],
   "info" : {
     "author" : "xcode",
     "version" : 1
+  },
+  "properties" : {
+    "preserves-vector-representation" : true,
+    "template-rendering-intent" : "original"
   }
 }

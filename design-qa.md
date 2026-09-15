@@ -98,6 +98,622 @@ adaptations, not fidelity defects.
 - No actionable P0, P1, P2, or P3 findings remain.
 
 final result: passed
+
+---
+
+# Activity Card Mini Area Chart — Design QA
+
+## Comparison target
+
+- Source visual truth:
+  `docs/share-card-concepts/share-card-area-chart-selected.png`
+  (selected Product Design Option 2, 1254 × 1254 px).
+- Dark implementation screenshots:
+  `docs/share-card-concepts/implementation/codex-dark.png`,
+  `docs/share-card-concepts/implementation/claude-code-dark.png`, and
+  `docs/share-card-concepts/implementation/antigravity-dark.png`
+  (1200 × 1200 px each).
+- Combined full-view comparison:
+  `docs/share-card-concepts/area-chart-option-2-qa-comparison.png`
+  (2400 × 2400 px).
+- Focused token/chart comparison:
+  `docs/share-card-concepts/area-chart-option-2-qa-focus.png`
+  (2400 × 800 px).
+- Appearance/accessibility comparison:
+  `docs/share-card-concepts/area-chart-option-2-accessibility-qa.png`
+  (2400 × 2400 px), plus
+  `docs/share-card-concepts/implementation/codex-opaque.png` for Reduce
+  Transparency.
+- Sparse-history post-fix evidence:
+  `docs/share-card-concepts/implementation/codex-sparse-history.png`
+  (1200 × 1200 px).
+- Antigravity caption-removal feedback source:
+  `/Users/dongnt/Downloads/DockMagic-Antigravity-Activity-2026-09-15-004034.png`
+  (1200 × 1200 px).
+- Caption-free Antigravity implementation:
+  `docs/share-card-concepts/implementation/antigravity-captionless.png`
+  (1200 × 1200 px).
+- Matched before/after comparison:
+  `docs/share-card-concepts/antigravity-captionless-qa-comparison.png`
+  (2400 × 1200 px). Both sides use Dark appearance, First Prompt, 8.56K
+  observed tokens, 0/100 Starter momentum, and September 15, 2026.
+- Native viewport: 300 × 300 pt, rasterized directly at 4× into 1200 × 1200
+  PNG. The 1254 px source was normalized to 1200 × 1200 before the source and
+  implementation were placed in the same comparison inputs.
+- State: Dark activity card with current badge, today's token usage, 14-day
+  history, and Ship momentum. Light, Increased Contrast, Reduce Transparency,
+  grayscale, provider-specific accent, Antigravity partial-history, and sparse
+  noncontiguous history are additional states.
+
+## Full-view comparison evidence
+
+The combined comparison preserves the selected Option 2 hierarchy: the badge
+remains dominant, the divider separates achievement from activity, and a small
+area chart sits to the right of the token metric without competing with Ship
+momentum. Codex, Claude Code, and Antigravity retain the same card geometry and
+use their existing provider identity/accent treatment. The changing line shape
+and values are data-driven and therefore intentionally differ from the static
+source fixture.
+
+Antigravity retains `TOKENS OBSERVED TODAY` because its locally retained usage
+is partial, while the chart now follows Codex's caption-free layout. Export
+remains hidden until the provider has an explicit current-day observation and
+at least one renderable contiguous trend segment.
+
+## Focused-region comparison evidence
+
+The focused board shows the token/chart/momentum region at readable scale. The
+chart is compact, right-aligned, and uses only a solid low-opacity area plus one
+thin provider-accent stroke. It has no axis, tick, legend, point marker,
+gradient, or chart number. The Antigravity chart qualifier has been removed,
+and the chart now uses the same 82 × 29 pt frame as Codex.
+The sparse-history screenshot confirms that isolated observations do not
+produce an empty chart shell; the token metric recenters instead.
+
+## Required fidelity surfaces
+
+- Fonts and typography: production keeps DockMagic's system typography,
+  rounded monospaced token numerals, established optical weights, and uppercase
+  micro-label hierarchy. No provider name, token label, qualifier, score, or
+  rank wraps or truncates in the inspected renders.
+- Spacing and layout rhythm: the 300 pt square, badge scale, divider, margins,
+  footer, and momentum row remain unchanged. The token row alone becomes a
+  balanced text/chart split matching Option 2.
+- Colors and visual tokens: neutral chrome is retained. Each chart uses the
+  existing semantic/provider accent, solid opacity, and no new palette,
+  gradient, glow, or decorative tinted container. Increased Contrast thickens
+  the chart stroke; grayscale preserves the trend through shape and luminance.
+- Image quality and asset fidelity: the chart is native SwiftUI vector geometry
+  rasterized at the final 4× density. Existing provider logos and authored
+  streak badges remain the original bounded assets; no emoji, placeholder,
+  handcrafted SVG, or CSS-style substitute was introduced.
+- Copy and content: `TOKENS TODAY` is unchanged for Codex and Claude Code.
+  Antigravity keeps `TOKENS OBSERVED TODAY` as its visible local-data qualifier
+  while removing the redundant chart caption requested in user feedback.
+- States and accessibility: Light, Dark, Increased Contrast, Reduce
+  Transparency, grayscale, missing days, real zero days, sparse history, and
+  partial history were inspected or covered by focused tests. The chart is
+  decorative in accessibility output; the card's combined accessibility value
+  describes whether 14-day history is available and whether it is partial.
+
+## Findings and comparison history
+
+### Pass 1 — superseded
+
+- [P2] Two positive but noncontiguous observations satisfied the original
+  availability count even though missing-day gaps left no two-point segment for
+  the area/line renderer. This could advertise an empty chart region.
+- Fix: availability now requires at least one adjacent pair of observed days
+  and at least one positive sample. A real zero remains an observed point and
+  can connect to the following day; a missing day cannot.
+- Post-fix evidence: `codex-sparse-history.png` shows the metric recentered with
+  no empty chart shell. The dedicated semantics test covers duplicate buckets,
+  missing days, real zero, adjacent zero/positive samples, and isolated points.
+
+### Pass 2 — passed
+
+- The full-view and focused comparison boards were regenerated from the final
+  renderer for all three providers.
+- `testUsageActivityCardsRenderForEveryExportAction`,
+  `testActivityCardAreaChartPreservesMissingDaysAndRealZero`, and
+  `testAntigravityHoverDashboardRendersPartialHistoryAcrossAppearances`
+  passed. `./script/build_and_run.sh --verify` also completed successfully with
+  a signed Debug build, and `git diff --check` passed.
+- No actionable P0, P1, or P2 findings remain.
+- P3 accepted variance: the source line's exact peaks are illustrative; the
+  implementation must reflect each provider's actual retained daily samples.
+
+### Pass 3 — user feedback passed
+
+- [P3] The Antigravity-only `PARTIAL HISTORY` caption made the chart row denser
+  than Codex and visually lowered the chart.
+- Fix: removed the caption and gave Antigravity the same 82 × 29 pt chart frame
+  as Codex. `TOKENS OBSERVED TODAY` remains the visible partial-data cue.
+- Post-fix evidence: the matched before/after board confirms that provider,
+  badge, token value, missing-day marks, momentum, and overall card geometry
+  remain unchanged while the chart caption is gone.
+- `testUsageActivityCardsRenderForEveryExportAction` passed and now asserts
+  that export source contains no `PARTIAL HISTORY` caption.
+- The signed Debug build and launch verification completed successfully after
+  the feedback change; `git diff --check` also passed.
+- No actionable P0, P1, or P2 findings remain.
+
+## Open questions
+
+- None blocking.
+
+## Implementation checklist
+
+- [x] Option 2 token/chart composition for Codex and Claude Code.
+- [x] Capability-gated Antigravity Save, Copy, and Share actions.
+- [x] Fourteen local calendar days with missing values preserved as gaps.
+- [x] No chart values, axes, ticks, legend, gradient, or color-only state.
+- [x] Caption-free Antigravity chart aligned with Codex.
+- [x] 1200 × 1200 direct 4× PNG rendering.
+- [x] Light, Dark, Increased Contrast, Reduce Transparency, and grayscale QA.
+- [x] Focused rendering, semantics, and Antigravity appearance tests.
+
+final result: passed
+
+---
+
+# Streak Badge Roadmap — Design QA
+
+## Comparison inputs
+
+- Source visual truth:
+  `/var/folders/ps/dndvmz2n3w53_cxkfwr4typh0000gn/T/TemporaryItems/NSIRD_screencaptureui_FaAo6Z/Screenshot 2026-09-14 at 23.21.28.png`
+  (508 × 1205 px). The source is inspiration for the roadmap structure, not a
+  pixel-identical production target.
+- Production Dark implementation:
+  `/Users/dongnt/.codex/visualizations/2026/09/14/01a0a0b9-4fea-7720-a1c3-20943b1a80ca/streak-roadmap/dark.png`
+  (880 × 1112 px).
+- Full-roadmap focused evidence:
+  `/Users/dongnt/.codex/visualizations/2026/09/14/01a0a0b9-4fea-7720-a1c3-20943b1a80ca/streak-roadmap/full-roadmap-dark.png`
+  (880 × 2920 px).
+- Normalized comparisons:
+  `/Users/dongnt/.codex/visualizations/2026/09/14/01a0a0b9-4fea-7720-a1c3-20943b1a80ca/streak-roadmap/source-dark-comparison.png`
+  and
+  `/Users/dongnt/.codex/visualizations/2026/09/14/01a0a0b9-4fea-7720-a1c3-20943b1a80ca/streak-roadmap/source-full-roadmap-comparison.png`.
+- Accessibility matrix:
+  `/Users/dongnt/.codex/visualizations/2026/09/14/01a0a0b9-4fea-7720-a1c3-20943b1a80ca/streak-roadmap/accessibility-matrix.png`.
+- Production viewport: 440 × 556 pt at 2× for Codex, producing 880 × 1112
+  px. Claude Code was also rendered at its real 440 × 740 pt viewport. The
+  440 × 1460 pt full-roadmap render is focused layout evidence only; the real
+  product remains a vertically scrolling 440-point popup.
+- Primary state: Dark appearance, current streak 7 days, best streak 28 days,
+  Builder current, 4 of 10 milestones unlocked. Additional evidence covers
+  Claude Code, Light, Increased Contrast, Reduce Transparency, grayscale,
+  all milestones earned, and unavailable data.
+
+## Full-view comparison evidence
+
+The implementation intentionally borrows the source's vertical journey,
+alternating milestone placement, connected route, prominent current position,
+and visibly locked future stages. It does not copy the source's green world,
+mobile chrome, alphabet cards, decorative scenery, or mascot. The production
+version keeps DockMagic's compact macOS popup, existing current-badge and recent
+activity hierarchy, authored streak badge assets, and semantic neutral-first
+surfaces.
+
+The real viewport shows the first roadmap stages beneath the current badge and
+activity summary, then continues naturally through the existing vertical
+scroll. The tall focused render confirms all ten milestones remain aligned to
+one continuous route with no overlapping labels, clipped badge art, or broken
+left/right rhythm.
+
+## Focused fidelity evidence
+
+- Fonts and typography: the existing macOS system face, weights, and compact
+  popup scale are preserved. Milestone title, day threshold, status, and detail
+  form a consistent four-level hierarchy without visible truncation in the
+  tested fixtures.
+- Spacing and layout: 98-point roadmap rows alternate around one continuous
+  route. Badge wells, 146-point information plates, route endpoints, card
+  radii, and section spacing remain stable across the complete ten-stage
+  journey.
+- Colors and visual tokens: surrounding UI uses neutral semantic surfaces plus
+  `DesignTheme.action` for completed progress and current selection. Claude's
+  quota-specific data hue no longer leaks into the streak detail screen. Badge
+  artwork retains authored colors only inside each badge silhouette. No
+  gradient, colored glow, direct RGB, system color, or feature-local palette
+  was added.
+- Image quality: every milestone uses the existing SVG asset through the
+  preserved vector image path. Current, earned, future, and grayscale renders
+  remain sharp at 2×; locked art adds lower emphasis and a lock symbol rather
+  than relying on color alone.
+- Copy and content: every stage states its exact day threshold and one of
+  `Earned`, `Current badge`, `Up next`, or `Locked`. Missing provider data is
+  explicitly reported as `Progress unavailable` with a question-mark symbol;
+  it is not converted into zero progress.
+- Interaction and accessibility: the existing Back control and vertical
+  scrolling behavior are preserved. Each milestone remains one accessibility
+  element with a stable identifier and a combined title, threshold, status,
+  and description. Increased Contrast strengthens route and current-node
+  outlines; grayscale and Reduce Transparency preserve the same state order.
+
+## Findings and comparison history
+
+1. Initial pass — P1 data accuracy: the first implementation converted a
+   missing streak summary into a zero-day locked roadmap. The reference did not
+   define this state, but DockMagic's provider contract prohibits turning
+   absence into zero.
+2. Initial pass — P2 color hierarchy: Claude Code recent activity retained its
+   orange quota data hue while the new route used action blue, creating two
+   competing accents on one normal surface.
+3. Fixes: made best-streak input optional, added the explicit unavailable
+   status and symbol, withheld locks when progress is unknown, and standardized
+   the entire streak detail screen on the shared action accent.
+4. Post-fix pass: Dark, Light, Increased Contrast, Reduce Transparency,
+   grayscale, Claude Code, unavailable, all-earned, and full-roadmap renders
+   were inspected. No actionable P0, P1, P2, or P3 finding remains.
+
+## Verification
+
+- The unsigned macOS Debug target builds successfully.
+- `testStreakDashboardRendersBadgeCollectionAcrossServicesAndAccessibility`
+  and `testStreakDashboardSourceUsesBoundedBadgeArtAndSemanticChrome` pass.
+- The render suite covers the real Codex and Claude Code viewport sizes plus a
+  focused full-roadmap layout.
+- Source checks reject new gradients, direct colors, colored shadows, and the
+  removed two-column grid. `git diff --check` passes.
+
+final result: passed
+
+---
+
+# Claude Code Native Sign-in Terminal — Design QA
+
+## Comparison inputs
+
+- Source visual truth:
+  `/var/folders/ps/dndvmz2n3w53_cxkfwr4typh0000gn/T/TemporaryItems/NSIRD_screencaptureui_vY2F6Q/Screenshot 2026-09-13 at 00.08.37.png`
+  (1532 × 860 px).
+- Pre-change implementation:
+  `/var/folders/ps/dndvmz2n3w53_cxkfwr4typh0000gn/T/TemporaryItems/NSIRD_screencaptureui_cBPtLB/Screenshot 2026-09-13 at 00.07.43.png`
+  (1596 × 866 px).
+- Final implementation: live Computer Use captures of
+  `/Users/dongnt/Desktop/github/dockmagic/.derivedData/Build/Products/Debug/DockMagic.app`
+  at a 1160 × 720 pt Settings viewport in Light and Dark appearances on
+  2026-09-13, plus the passing XCUITest attachment:
+  `/private/tmp/dockmagic-terminal-uitest-retry3-attachments/848B5CBC-03FD-41A1-B021-12D6FBDDDDFD.png`
+  (2320 × 1440 px at 2×).
+- State: Claude Code signed out, fixed-command sign-in PTY running a local fake
+  Claude executable. No browser login, credential, or real account was used.
+- Density normalization: the source is a larger standalone terminal reference,
+  while the implementation is the bounded terminal region inside DockMagic
+  Settings. Comparison focused on the terminal chrome and content region rather
+  than the surrounding canvas.
+
+## Full-view comparison evidence
+
+The final implementation preserves the reference terminal's dominant visual
+structure: a charcoal title bar, macOS red/yellow/green traffic lights, centered
+session title, compact right-side profile capsule, a one-pixel divider, and a
+true black console body. The right control intentionally reads `Claude CLI`
+instead of copying the reference's interactive `Default` profile picker because
+DockMagic exposes one fixed Claude login process and must not imply that the
+user can select another shell or profile.
+
+The terminal remains bounded inside the existing Claude connection section.
+The surrounding Settings card, status, Cancel, and Open in Terminal controls
+remain DockMagic-owned neutral chrome rather than being restyled as part of the
+terminal.
+
+## Focused region comparison evidence
+
+- Fonts and typography: terminal output uses the system monospace face at 13 pt
+  with ANSI foreground colors. The title and profile copy use compact system UI
+  weights and do not wrap or truncate at the tested width.
+- Spacing and layout rhythm: the title bar is 48 pt high, console content has
+  shared standard padding on all sides, and the three lights use a regular
+  eight-point rhythm. The console no longer touches the container edge.
+- Colors and visual tokens: terminal background, title bar, foreground,
+  secondary text, outline, and traffic lights come from named semantic assets.
+  Feature source scans found no gradient, glow, direct RGB, or direct system
+  status color in the terminal view.
+- Image and asset quality: all visible terminal marks are native vector SF
+  Symbols or SwiftTerm-rendered glyphs. There are no raster placeholders or
+  decorative image assets to blur at different display scales.
+- Copy and content: `Claude sign-in` and `Claude CLI` accurately describe the
+  fixed process. Fake output verified colored ANSI text, ordinary output, the
+  input prompt, and the caret without exposing an OAuth URL.
+- Interaction and accessibility: the surface is still a real SwiftTerm PTY;
+  keyboard focus enters it, Cancel sends interrupt and restores the signed-out
+  row, and the terminal/title/profile have stable accessibility identifiers.
+  Decorative traffic lights are hidden from assistive technology.
+
+## Findings and comparison history
+
+1. Initial pass — P2: using AppKit standard window buttons outside a real
+   window title bar rendered the embedded traffic lights as inactive dark dots.
+2. Fix: replaced those decorative controls with token-backed `circle.fill` SF
+   Symbols using the terminal close, minimize, and zoom semantic roles.
+3. Post-fix pass: Light and Dark live captures show the expected red, yellow,
+   and green lights, true-black terminal body, readable ANSI output, and stable
+   title/profile alignment. No actionable P0, P1, or P2 difference remains.
+
+## Verification
+
+- Unsigned macOS Debug build passed.
+- Swift syntax parse and `git diff --check` passed.
+- Live fake-CLI checks passed in Light and Dark appearances, including ANSI
+  rendering, prompt/caret visibility, terminal sizing, and Cancel teardown.
+- The focused `testClaudeSignInTerminalUsesDarkNativeChrome()` XCUITest passed
+  twice: once with a fresh signed runner and once with
+  `test-without-building`. It verifies Sign in, the native terminal, title and
+  profile accessibility identifiers, screenshot capture, Cancel, and the
+  return to the signed-out action. The signed-runner result bundle is
+  `/private/tmp/dockmagic-terminal-uitest-retry3.xcresult`.
+
+final result: passed
+
+---
+
+# Claude Code Compact Connection Row Design QA
+
+## Comparison inputs
+
+- Selected Option 3, revised with a More menu for Sign Out:
+  `/Users/dongnt/.codex/generated_images/01a0952e-6ab1-7cf3-82b2-aa6d37ec40f5/exec-a82a7c87-ed92-4a09-81e7-37b5401bf4f0.png`
+- Implementation: live Computer Use capture of
+  `/Users/dongnt/Desktop/github/dockmagic/.derivedData/Build/Products/Debug/DockMagic.app`
+  in the 1160 × 720 Settings window on September 13, 2026.
+- The source row and live implementation capture were reviewed together at
+  readable scale. The production row intentionally uses DockMagic's denser
+  Settings rhythm instead of retaining the concept image's presentation-only
+  vertical canvas.
+
+## Visual assessment
+
+- The connection surface is now one 46-point content row: title on the left;
+  status, last-update metadata, Refresh, and More on the right.
+- The duplicate shield plate, duplicate Connected badge, introductory sentence,
+  and persistent privacy paragraph from the previous implementation are gone.
+- Connected is neutral and legible without relying on color. Refresh and More
+  are compact icon controls on neutral shared surfaces; no new palette,
+  decorative gradient, glow, or tinted card was introduced.
+- Error guidance and the fixed-command sign-in terminal remain progressive
+  disclosure and appear only when their state requires them.
+- The live account remained connected and the Dock preview continued to receive
+  real 5-hour and weekly `/usage` values after the UI simplification.
+
+## Interaction and accessibility assessment
+
+- Refresh exposes `settings.claudeCode.refresh` and More exposes
+  `settings.claudeCode.moreActions`.
+- Opening More in the live app exposed a destructive `Sign Out` item with
+  `settings.claudeCode.signOut`; it was inspected but deliberately not invoked
+  against the user's real Claude account.
+- Connection state and timestamp remain a combined accessibility element, and
+  keyboard focus returns to Sign in after a successful sign-out.
+- The new regression test covers the compact connected fixture, removed copy,
+  Refresh, More, and the Sign Out menu item.
+
+## Findings
+
+- No actionable P0, P1, or P2 visual or interaction findings remain.
+- P3 verification gap: the new UI test parses successfully but its latest run
+  is blocked by an unrelated syntax error in the user's in-progress
+  `CodexHoverDashboardView.swift` changes. The production Claude row and menu
+  were already built and verified live before that unrelated file changed.
+
+final result: passed
+
+---
+
+# Claude Code `/usage` Connection Settings — Design QA
+
+## Comparison inputs
+
+- Selected Option 1 source:
+  `/Users/dongnt/.codex/generated_images/01a0952e-6ab1-7cf3-82b2-aa6d37ec40f5/exec-d85fbdc2-b9ff-4e13-9927-cc5beb17a3d7.png`
+  (1610 × 977 px).
+- Live implementation inspection: Debug `DockMagic.app`, Claude Code Settings,
+  1160 × 720 pt, Light appearance, signed-out state, captured and inspected
+  through the native accessibility/UI surface on 2026-09-12.
+- Deterministic render artifacts from the passing test result:
+  `/private/tmp/dockmagic-claude-render-final/`.
+- Render coverage: Light and Dark at 1160 × 620, Increased Contrast, Reduce
+  Transparency, grayscale, and a 1360 × 700 wide viewport.
+
+## Full-view and focused comparison
+
+The implementation preserves the selected connection-first hierarchy: Claude
+identity and description, the connection surface as the first content section,
+then the existing Dock preview, Display style, and appearance controls. The
+live signed-out state keeps the primary action immediately adjacent to the
+explicit authentication status. The selected source shows the subsequent
+signing-in state; production expands the same surface to a bounded 320 pt real
+PTY, followed by Cancel and Open in Terminal actions, without moving the Dock
+preview ahead of connection setup.
+
+The live accessibility tree exposed `settings.claudeCode.connectionStatus`,
+`settings.claudeCode.signIn`, the existing Dock preview, display style, and
+appearance controls in that order. Connected and stale details have a dedicated
+`settings.claudeCode.lastUpdated` identifier, while the terminal, Cancel,
+Retry, Refresh, and login-log controls have stable state-specific identifiers.
+
+## Required fidelity surfaces
+
+- Typography and spacing use the existing DockMagic system hierarchy,
+  `DSSettingsSection`, semantic status components, shared radii, and spacing.
+  No labels clipped or wrapped incorrectly at either tested width.
+- Chrome is neutral-first. Status has an icon and text label in addition to its
+  semantic role. Source scans found no feature-local color literal, gradient,
+  glow, or decorative tinted surface in the connection, collector, or store.
+- The terminal is the only bounded ANSI color surface. It launches the resolved
+  Claude binary directly with fixed login arguments and never exposes a shell.
+- Privacy copy remains visible in every state and says precisely what DockMagic
+  retains. Authentication method, stale timestamp, retry action, CLI-version
+  failure, and subscription-vs-API billing are represented in copy, not color.
+- The grayscale artifact keeps status, action, quota labels, and unavailable
+  values readable. Increased Contrast strengthens outlines, and Reduce
+  Transparency preserves every piece of information.
+- Keyboard focus enters the PTY after Sign in and returns to Sign in or Refresh
+  after cancellation or completion. The terminal and status are exposed to
+  accessibility with explicit identifiers and labels.
+
+## Findings and verification
+
+- No actionable P0, P1, or P2 visual finding remains.
+- The first conditional grayscale render exposed a SwiftUI test-renderer issue
+  with `NavigationSplitView`; it was replaced by the repository's established
+  Core Image grayscale QA path. The final six-artifact matrix passed and was
+  inspected.
+- The targeted auth/parser/store/PTY suite and migrated Claude regressions pass,
+  including readiness, one-minute cadence re-arming, request coalescing, Esc,
+  timeout, one restart, sign-out, stop/wake, stale retention, activity-hook
+  isolation, and statusLine migration.
+- Unsigned optimized Release build passes. The app bundle contains SwiftTerm's
+  resource bundle and `THIRD_PARTY_NOTICES.md`; Hardened Runtime remains enabled
+  and App Sandbox is not enabled.
+- The macOS XCUITest runner on this host remained blocked while waiting for a
+  worker to materialize and was interrupted after 87 seconds. This is a P3 test
+  infrastructure limitation, not a product failure; the same built app and
+  accessibility hierarchy were verified directly through the running native UI.
+
+final result: passed
+
+---
+
+# DockMagic Usage Share Card — Design QA
+
+## Comparison inputs
+
+- Selected Option 1 source: `docs/share-card-concepts/share-card-selected.png`
+  (1254 × 1254 px).
+- Final implementation: `docs/share-card-concepts/implementation/codex-dark.png`
+  (1200 × 1200 px).
+- Provider coverage:
+  - `docs/share-card-concepts/implementation/claude-code-dark.png`
+  - `docs/share-card-concepts/implementation/antigravity-dark.png`
+- Appearance and accessibility coverage:
+  - `docs/share-card-concepts/implementation/codex-light.png`
+  - `docs/share-card-concepts/implementation/codex-contrast.png`
+  - `docs/share-card-concepts/implementation/codex-opaque.png`
+  - `docs/share-card-concepts/implementation/codex-grayscale.png`
+- Combined full-view comparison:
+  `docs/share-card-concepts/qa-comparison.png` (4800 × 2400 px).
+- Production viewport: 300 × 300 pt rasterized directly at 4× for a
+  1200 × 1200 px PNG. Source and implementation are aspect-fit into equal
+  square panels on the comparison board.
+- State: September 10, 2026; Builder 14-day badge; 410M tokens today;
+  Ship score 64, rank Shipper. The source's 184.3K token value and score 64
+  are illustrative but incompatible with DockMagic's production scoring
+  thresholds, so the implementation uses real model-derived values while
+  preserving the selected visual hierarchy.
+
+## Full-view and focused evidence
+
+The combined board renders every critical region at readable scale: provider
+identity and date, badge artwork and tier, token metric, Ship progress and
+rank, and DockMagic signature. No separate crop is necessary because the
+entire product surface is a square social card and all fidelity surfaces are
+visible together.
+
+## Required fidelity surfaces
+
+- Typography: macOS system typography preserves the selected compact editorial
+  hierarchy, with black rounded numerals, uppercase labels, tracked metadata,
+  and no wrapping or truncation.
+- Spacing and layout: provider/date form a quiet top rail, the earned badge is
+  the central hero, and the token and Ship sections remain separated and
+  unclipped inside the exact square viewport.
+- Colors and tokens: the implementation uses semantic neutral surfaces and one
+  existing provider accent. It introduces no gradient, glow, tinted card, or
+  feature-local palette. Full-color provider and badge artwork stays inside
+  bounded identity/art regions.
+- Image quality: real provider logos and authored streak badge assets are
+  rasterized with the SwiftUI card at 4×. There are no placeholders or
+  generated substitutes in the shipped interface.
+- Copy and content: provider, current date, earned badge and required-day tier,
+  today's token total, Ship score/rank, and DockMagic identity all come from
+  production state. Missing data has explicit unavailable/locked copy.
+- Accessibility: score and rank remain legible without color, the rendered view
+  exposes one concise accessibility value, and Light, Dark, Increased Contrast,
+  Reduce Transparency, and grayscale captures remain readable.
+
+## Findings and comparison history
+
+1. Initial visual pass — [P2]: the 126 pt badge sat fully below the header and
+   did not carry the dominant hero weight of Option 1.
+2. Fix: moved the header into a stable top overlay and increased the real badge
+   asset to 144 pt, preserving all content and the 300 pt square viewport.
+3. Post-fix pass: `docs/share-card-concepts/qa-comparison.png` shows the restored
+   hero hierarchy with no overlap, clipping, or loss of metric legibility.
+4. The source's metallic badge style differs from the implementation because
+   production deliberately uses DockMagic's exact authored Builder asset. This
+   is accepted asset fidelity, not an actionable visual defect.
+
+## Verification
+
+- The macOS target builds successfully with code signing disabled.
+- `testUsageActivityCardsRenderForEveryExportAction` passes and verifies all
+  three providers, 1200 × 1200 output, opaque corners, provider filenames,
+  clipboard payloads, sufficient image payload, and the accessibility
+  appearance matrix.
+- `testAntigravityExportUsesDedicatedSquareActivityCard` passes against the
+  Antigravity-specific dashboard path and filename contract.
+- Save, Copy, and Share use the same activity-card artifact in each provider
+  dashboard; no capture action remains wired to the legacy full-dashboard PNG.
+- `./script/build_and_run.sh --verify` succeeds and the signed Debug build stays
+  running after launch.
+- Final source and implementation were inspected together in the combined
+  comparison after the P2 correction.
+
+No actionable P0, P1, P2, or P3 findings remain.
+
+final result: passed
+
+---
+
+# Settings Sidebar AI Sections — Design QA
+
+## Comparison target
+
+- Source visual truth path: `docs/screenshots/settings-sidebar-ai-sections-target.png`.
+- Implementation screenshot path: `docs/screenshots/settings-sidebar-ai-sections-implementation-light.png`.
+- Normalized side-by-side evidence: `docs/screenshots/settings-sidebar-ai-sections-comparison.png`.
+- Viewport and density:
+  - Selected target: 836 × 1881 px.
+  - Running DockMagic window: 1160 × 704 pt, captured at 2× as 2320 × 1408 px.
+  - Implementation sidebar crop: 276 × 704 pt, captured at 2× as 552 × 1408 px.
+  - For comparison, the target was aspect-fit to 1408 px high and the implementation was cropped to the complete 552 × 1408 px sidebar. No device frame or detail-pane pixels were used for the focused comparison.
+- State: Light appearance, Antigravity selected and active.
+
+## Full-view comparison evidence
+
+The normalized board places the complete selected sidebar target and the complete running sidebar together. The implementation preserves the chosen hierarchy: the standalone General row comes first, the AI Features section contains Codex, Claude Code, and Antigravity, and the Features section contains every remaining destination. Both section surfaces fit above the pinned appearance footer without clipping or requiring the selected row to scroll into view.
+
+## Focused region comparison evidence
+
+The sidebar itself is the focused component and remains fully readable at the comparison size, so an additional crop was not needed.
+
+- Fonts and typography: both use the native macOS system family with semibold uppercase section labels and readable single-line destination titles. No wrapping or truncation is visible.
+- Spacing and layout rhythm: General remains visually independent; the two rounded sections have consistent horizontal alignment, compact 30 pt rows, 8 pt inter-section spacing, and 16 pt radii. The implementation is intentionally compact enough for the production 704 pt window height.
+- Colors and visual tokens: the sidebar stays neutral-first. Selection uses the existing sidebar action fill, and the active dot uses the existing processing foreground. The new groups use shared raised-surface, outline, and accessibility-aware tokens. No direct color, decorative tint, product gradient, or colored glow was added.
+- Image quality and asset fidelity: existing `DockFeatureIcon` assets render the Codex, Claude Code, Antigravity, Weather, GitHub, and Search Console identities sharply in their bounded icon regions. No placeholder, emoji, custom SVG, or generated replacement was introduced.
+- Copy and content: `General`, `AI Features`, `Features`, and all destination names match the selected target. No destination was duplicated or removed.
+- Interaction and accessibility: selecting Antigravity updated both the selected sidebar row and the detail destination. The accessibility tree exposes two headings followed by the expected buttons, preserves each row's existing stable identifier, and reports Antigravity as selected and Active.
+
+## Findings
+
+- No actionable P0, P1, or P2 findings remain.
+- No P3 visual follow-up is required. The implementation's outline strength follows DockMagic's semantic surface contract rather than copying the generated mock's simulated translucency pixel-for-pixel.
+
+## Comparison history
+
+1. The first runtime capture showed General selected while the target showed Antigravity selected; this was a state-normalization mismatch, not a layout defect.
+2. Antigravity was selected through the production sidebar. The refreshed accessibility tree confirmed the selection and navigation, and the final same-state comparison found no actionable visual differences.
+
+## Verification
+
+- `./script/build_and_run.sh --verify` succeeded and launched the rebuilt app.
+- `testSigmaAppearanceAndAccessibilityVariantsRenderDistinctSettings` passed, covering Light, Dark, Increased Contrast, Reduce Transparency, and grayscale Settings renders.
+- `git diff --check` is included in the final source verification.
+
+final result: passed
 ---
 
 # Full-panel Streak Celebration Design QA
