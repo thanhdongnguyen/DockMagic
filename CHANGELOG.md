@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Retained allowlisted Antigravity `statusLine` token samples for 30 days so
+  DockMagic can rebuild partial daily usage after it was closed; existing
+  DockMagic-owned bridge scripts are refreshed without changing CLI settings.
+- Clarified that Antigravity Desktop activity can lower shared model-pool quota
+  without providing token samples for DockMagic's CLI-observed activity chart.
 - Added a Claude Code-style Antigravity authentication card with an embedded
   interactive `agy` session for typing or pasting a sign-in code and running
   `/logout`, and removed the installation checkmark button from the

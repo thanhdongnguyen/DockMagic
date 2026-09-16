@@ -6,6 +6,13 @@ protocol AntigravityStatusLineBridging {
     func isInstalled() -> Bool
     func install() throws
     func uninstall() throws
+    func refreshOwnedScriptIfNeeded() throws
+    func pruneArchivedHistory(asOf date: Date) throws
+}
+
+extension AntigravityStatusLineBridging {
+    func refreshOwnedScriptIfNeeded() throws {}
+    func pruneArchivedHistory(asOf date: Date) throws {}
 }
 
 @MainActor
@@ -48,6 +55,54 @@ struct AntigravityStatusLineBridge: AntigravityStatusLineBridging {
         }
         return statusLine["command"] as? String == statusCommand
             && statusLine["enabled"] as? Bool != false
+    }
+
+    func refreshOwnedScriptIfNeeded() throws {
+        guard isInstalled() else { return }
+        let current = try Data(contentsOf: scriptURL)
+        let replacement = Data(Self.script.utf8)
+        guard current != replacement else { return }
+        try replacement.write(to: scriptURL, options: .atomic)
+        try FileManager.default.setAttributes(
+            [.posixPermissions: 0o700],
+            ofItemAtPath: scriptURL.path
+        )
+    }
+
+    func pruneArchivedHistory(asOf date: Date) throws {
+        let historyURL = rootDirectoryURL.appendingPathComponent(
+            "history", isDirectory: true
+        )
+        guard let values = try? historyURL.resourceValues(
+            forKeys: [.isDirectoryKey, .isSymbolicLinkKey]
+        ), values.isDirectory == true,
+        values.isSymbolicLink != true else { return }
+
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = .current
+        guard let cutoff = calendar.date(
+            byAdding: .day, value: -29, to: calendar.startOfDay(for: date)
+        ) else { return }
+        let cutoffKey = TokenUsageCalendarDay.containing(
+            cutoff, calendar: calendar
+        ).key.replacingOccurrences(of: "-", with: "")
+
+        let directories = try FileManager.default.contentsOfDirectory(
+            at: historyURL,
+            includingPropertiesForKeys: [.isDirectoryKey, .isSymbolicLinkKey],
+            options: [.skipsHiddenFiles]
+        )
+        for directory in directories {
+            let key = directory.lastPathComponent
+            guard key.count == 8,
+                  key.utf8.allSatisfy({ (48...57).contains($0) }),
+                  key < cutoffKey,
+                  let directoryValues = try? directory.resourceValues(
+                    forKeys: [.isDirectoryKey, .isSymbolicLinkKey]
+                  ), directoryValues.isDirectory == true,
+                  directoryValues.isSymbolicLink != true else { continue }
+            try FileManager.default.removeItem(at: directory)
+        }
     }
 
     func install() throws {
@@ -195,6 +250,7 @@ umask 077
 
 root=${0%/*}
 sessions="$root/sessions"
+history="$root/history"
 backup="$root/statusline-backup.json"
 payload=$(/usr/bin/head -c 1000001)
 
@@ -207,12 +263,14 @@ add_string() {
     value=$(extract_raw "$1") || return 0
     [ -n "$value" ] || return 0
     [ ${#value} -le "$3" ] || value=$(/usr/bin/printf '%s' "$value" | /usr/bin/cut -c "1-$3")
-    /usr/bin/plutil -insert "$2" -string "$value" "$capture" >/dev/null 2>&1 || true
+    target=${4:-$capture}
+    /usr/bin/plutil -insert "$2" -string "$value" "$target" >/dev/null 2>&1 || true
 }
 
 add_integer() {
     value=$(extract_raw "$1") || return 0
-    /usr/bin/plutil -insert "$2" -integer "$value" "$capture" >/dev/null 2>&1 || true
+    target=${3:-$capture}
+    /usr/bin/plutil -insert "$2" -integer "$value" "$target" >/dev/null 2>&1 || true
 }
 
 add_float() {
@@ -223,6 +281,61 @@ add_float() {
 add_bool() {
     value=$(extract_raw "$1") || return 0
     /usr/bin/plutil -insert "$2" -bool "$value" "$capture" >/dev/null 2>&1 || true
+}
+
+archive_usage() {
+    [ ! -L "$history" ] || return 0
+    input_total=$(extract_raw context_window.total_input_tokens) || return 0
+    output_total=$(extract_raw context_window.total_output_tokens) || return 0
+    case "$input_total:$output_total" in *[!0-9:]*|:*|*:) return 0 ;; esac
+    [ "$input_total" -le 1000000000000 ] \
+        && [ "$output_total" -le 1000000000000 ] || return 0
+    observed_seconds=${observed_at%.*}
+    archive_day=$(/bin/date -r "$observed_seconds" +%Y%m%d) || return 0
+    day_directory="$history/$archive_day"
+    /bin/mkdir -p "$day_directory" || return 0
+    /bin/chmod 700 "$history" "$day_directory" 2>/dev/null || true
+    history_capture=$(/usr/bin/mktemp "$day_directory/.usage.XXXXXX") || return 0
+    if ! /usr/bin/plutil -create xml1 "$history_capture" >/dev/null 2>&1; then
+        /bin/rm -f "$history_capture"
+        return 0
+    fi
+    /usr/bin/plutil -insert schema_version -integer 1 "$history_capture" >/dev/null 2>&1 || true
+    /usr/bin/plutil -insert observed_at -float "$observed_at" "$history_capture" >/dev/null 2>&1 || true
+    /usr/bin/plutil -insert model -json '{}' "$history_capture" >/dev/null 2>&1 || true
+    /usr/bin/plutil -insert context_window -json '{}' "$history_capture" >/dev/null 2>&1 || true
+    add_string model.id model.id 160 "$history_capture"
+    add_integer context_window.total_input_tokens context_window.total_input_tokens "$history_capture"
+    add_integer context_window.total_output_tokens context_window.total_output_tokens "$history_capture"
+    if ! /usr/bin/plutil -convert json "$history_capture" >/dev/null 2>&1; then
+        /bin/rm -f "$history_capture"
+        return 0
+    fi
+    /bin/chmod 600 "$history_capture" 2>/dev/null || true
+    /bin/ln "$history_capture" "$day_directory/$session_key-first.json" 2>/dev/null || true
+    last_capture=$(/usr/bin/mktemp "$day_directory/.last.XXXXXX")
+    if [ -n "$last_capture" ]; then
+        if /bin/cp "$history_capture" "$last_capture" \
+            && /bin/chmod 600 "$last_capture" \
+            && /bin/mv -f "$last_capture" "$day_directory/$session_key-last.json"; then
+            :
+        else
+            /bin/rm -f "$last_capture"
+        fi
+    fi
+    /bin/rm -f "$history_capture"
+}
+
+prune_history() {
+    [ -d "$history" ] && [ ! -L "$history" ] || return 0
+    cutoff=$(/bin/date -v-29d +%Y%m%d) || return 0
+    for old_directory in "$history"/????????; do
+        [ -d "$old_directory" ] && [ ! -L "$old_directory" ] || continue
+        old_day=${old_directory##*/}
+        case "$old_day" in *[!0-9]*|'') continue ;; esac
+        [ "$old_day" -lt "$cutoff" ] || continue
+        /bin/rm -rf "$old_directory"
+    done
 }
 
 capture_payload() {
@@ -241,7 +354,8 @@ capture_payload() {
     trap '/bin/rm -f "$capture"' EXIT HUP INT TERM
     /usr/bin/plutil -create xml1 "$capture" >/dev/null 2>&1 || return 0
     /usr/bin/plutil -insert schema_version -integer 1 "$capture" >/dev/null 2>&1 || return 0
-    /usr/bin/plutil -insert observed_at -integer "$(/bin/date +%s)" "$capture" >/dev/null 2>&1 || return 0
+    observed_at=$(/usr/bin/perl -MTime::HiRes=time -e 'printf "%.6f", time' 2>/dev/null || /bin/date +%s)
+    /usr/bin/plutil -insert observed_at -float "$observed_at" "$capture" >/dev/null 2>&1 || return 0
     /usr/bin/plutil -insert model -json '{}' "$capture" >/dev/null 2>&1 || true
     /usr/bin/plutil -insert context_window -json '{}' "$capture" >/dev/null 2>&1 || true
     /usr/bin/plutil -insert context_window.current_usage -json '{}' "$capture" >/dev/null 2>&1 || true
@@ -268,8 +382,10 @@ capture_payload() {
 
     /usr/bin/plutil -convert json "$capture" >/dev/null 2>&1 || return 0
     /bin/chmod 600 "$capture" 2>/dev/null || true
+    archive_usage
     /bin/mv -f "$capture" "$sessions/$session_key.json"
     trap - EXIT HUP INT TERM
+    prune_history
 }
 
 capture_payload || true

@@ -113,23 +113,17 @@ struct AntigravityConnectionSettingsView: View {
     private var actions: some View {
         switch store.connectionState {
         case .cliMissing:
-            HStack(spacing: DSSpacing.small) {
-                Button("Install agy", action: installCLI)
-                    .buttonStyle(DSButtonStyle(kind: .primary))
-                    .disabled(installationState == .installing)
-                    .accessibilityIdentifier("settings.antigravity.install")
-                if store.isBridgeInstalled { moreActions }
-            }
-        case .signedOut:
-            HStack(spacing: DSSpacing.small) {
-                Button("Sign in with Antigravity") {
-                    startSignIn()
-                }
+            Button("Install agy", action: installCLI)
                 .buttonStyle(DSButtonStyle(kind: .primary))
-                .focused($focusedAction, equals: .signIn)
-                .accessibilityIdentifier("settings.antigravity.signIn")
-                if store.isBridgeInstalled { moreActions }
+                .disabled(installationState == .installing)
+                .accessibilityIdentifier("settings.antigravity.install")
+        case .signedOut:
+            Button("Sign in with Antigravity") {
+                startSignIn()
             }
+            .buttonStyle(DSButtonStyle(kind: .primary))
+            .focused($focusedAction, equals: .signIn)
+            .accessibilityIdentifier("settings.antigravity.signIn")
         case .connected:
             HStack(spacing: DSSpacing.small) {
                 refreshButton
@@ -144,13 +138,10 @@ struct AntigravityConnectionSettingsView: View {
                 moreActions
             }
         case .failed:
-            HStack(spacing: DSSpacing.small) {
-                Button("Retry") { Task { await store.refresh() } }
-                    .buttonStyle(DSButtonStyle(kind: .primary))
-                    .disabled(store.isRefreshing)
-                    .accessibilityIdentifier("settings.antigravity.retry")
-                if store.isBridgeInstalled { moreActions }
-            }
+            Button("Retry") { Task { await store.refresh() } }
+                .buttonStyle(DSButtonStyle(kind: .primary))
+                .disabled(store.isRefreshing)
+                .accessibilityIdentifier("settings.antigravity.retry")
         case .checking, .signingIn, .signingOut:
             EmptyView()
         }
@@ -178,34 +169,15 @@ struct AntigravityConnectionSettingsView: View {
                 }
                 .accessibilityIdentifier("settings.antigravity.showAuthLog")
 
-                if store.isBridgeInstalled || canSignOut { Divider() }
+                Divider()
             }
 
-            if store.isBridgeInstalled {
-                Button("Disconnect local session metrics") {
-                    store.disconnectStatusLine()
-                }
-                .accessibilityIdentifier(
-                    "settings.antigravity.disconnectSessionMetrics"
-                )
-                if store.bridgeErrorText != nil {
-                    Text("Could not disconnect local session metrics. Try again.")
-                        .foregroundStyle(theme.dangerForeground)
-                }
-                if canSignOut { Divider() }
+            Button(role: .destructive) {
+                startSignOut()
+            } label: {
+                Label("Sign Out", systemImage: "rectangle.portrait.and.arrow.right")
             }
-
-            if canSignOut {
-                Button(role: .destructive) {
-                    startSignOut()
-                } label: {
-                    Label(
-                        "Sign Out",
-                        systemImage: "rectangle.portrait.and.arrow.right"
-                    )
-                }
-                .accessibilityIdentifier("settings.antigravity.signOut")
-            }
+            .accessibilityIdentifier("settings.antigravity.signOut")
         } label: {
             Image(systemName: "ellipsis")
                 .font(.system(size: 12, weight: .semibold))
@@ -227,16 +199,6 @@ struct AntigravityConnectionSettingsView: View {
         .help("More Antigravity connection actions")
         .accessibilityLabel("More Antigravity connection actions")
         .accessibilityIdentifier("settings.antigravity.moreActions")
-    }
-
-    private var canSignOut: Bool {
-        switch store.connectionState {
-        case .connected, .stale:
-            true
-        case .cliMissing, .checking, .signedOut, .signingIn, .signingOut,
-             .failed:
-            false
-        }
     }
 
     private func authenticationTerminal(
@@ -378,12 +340,11 @@ struct AntigravityConnectionSettingsView: View {
                 "Signing out", nil, nil, nil, .processing,
                 "Signing out of Antigravity"
             )
-        case let .connected(lastUpdated):
+        case .connected:
             return (
-                "Connected", nil,
-                "Updated \(relative(lastUpdated))",
+                "Connected", nil, nil,
                 "checkmark.circle.fill", .information,
-                "Connected to Antigravity, updated \(relative(lastUpdated))"
+                "Connected to Antigravity"
             )
         case let .stale(snapshot, message):
             return (

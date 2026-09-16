@@ -423,20 +423,11 @@ final class AntigravityFeatureTests: XCTestCase {
         XCTAssertTrue(bridge.isInstalled())
 
         let payload = #"{"conversation_id":"session-123","email":"private@example.com","cwd":"/secret/project","transcript_path":"/secret/transcript.jsonl","model":{"id":"gemini-pro","display_name":"Gemini Pro"},"version":"1.2.2","plan_tier":"pro","agent_state":"working","task_count":2,"context_window":{"total_input_tokens":120,"total_output_tokens":30,"context_window_size":200000,"remaining_percentage":42}}"#
-        let process = Process()
-        let input = Pipe()
-        process.executableURL = URL(fileURLWithPath: "/bin/sh")
-        process.arguments = [
+        try runStatusLineBridge(
             home.appendingPathComponent(
                 ".gemini/dockmagic-antigravity/dockmagic-statusline.sh"
-            ).path
-        ]
-        process.standardInput = input
-        try process.run()
-        input.fileHandleForWriting.write(Data(payload.utf8))
-        try input.fileHandleForWriting.close()
-        process.waitUntilExit()
-        XCTAssertEqual(process.terminationStatus, 0)
+            ), payload: payload
+        )
 
         let files = try FileManager.default.contentsOfDirectory(
             at: bridge.sessionsDirectoryURL,
@@ -451,6 +442,36 @@ final class AntigravityFeatureTests: XCTestCase {
         XCTAssertFalse(stored.contains("transcript"))
         XCTAssertFalse(stored.contains("session-123"))
 
+        let historyDirectory = bridge.sessionsDirectoryURL
+            .deletingLastPathComponent()
+            .appendingPathComponent("history")
+            .appendingPathComponent(
+                TokenUsageCalendarDay.containing(.now).key
+                    .replacingOccurrences(of: "-", with: "")
+            )
+        let historyFiles = try FileManager.default.contentsOfDirectory(
+            at: historyDirectory, includingPropertiesForKeys: nil
+        )
+        XCTAssertEqual(historyFiles.count, 2)
+        let directoryPermissions = try FileManager.default.attributesOfItem(
+            atPath: historyDirectory.path
+        )[.posixPermissions] as? NSNumber
+        XCTAssertEqual(directoryPermissions?.intValue, 0o700)
+        for historyFile in historyFiles {
+            let filePermissions = try FileManager.default.attributesOfItem(
+                atPath: historyFile.path
+            )[.posixPermissions] as? NSNumber
+            XCTAssertEqual(filePermissions?.intValue, 0o600)
+            let archived = try String(contentsOf: historyFile, encoding: .utf8)
+            XCTAssertFalse(archived.contains("private@example.com"))
+            XCTAssertFalse(archived.contains("/secret/project"))
+            XCTAssertFalse(archived.contains("transcript"))
+            XCTAssertFalse(archived.contains("session-123"))
+            XCTAssertFalse(archived.contains("plan_tier"))
+            XCTAssertFalse(archived.contains("task_count"))
+            XCTAssertFalse(archived.contains("agent_state"))
+        }
+
         let sessions = AntigravityStatusLineReader(
             sessionsDirectoryURL: bridge.sessionsDirectoryURL,
             now: .now
@@ -459,6 +480,212 @@ final class AntigravityFeatureTests: XCTestCase {
         XCTAssertEqual(sessions[0].modelID, "gemini-pro")
         XCTAssertEqual(sessions[0].context?.observedTotalTokens, 150)
         XCTAssertEqual(sessions[0].context?.remainingPercent, 42)
+    }
+
+    @MainActor
+    func testHistoryReplaysOfflineSamplesWithoutDoubleCountingAfterRestart()
+        throws {
+        let home = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: home) }
+        let bridge = AntigravityStatusLineBridge(home: home)
+        try bridge.install()
+        let scriptURL = home.appendingPathComponent(
+            ".gemini/dockmagic-antigravity/dockmagic-statusline.sh"
+        )
+        let first = #"{"conversation_id":"offline-session","model":{"id":"gemini-pro"},"context_window":{"total_input_tokens":100,"total_output_tokens":25}}"#
+        let last = #"{"conversation_id":"offline-session","model":{"id":"gemini-pro"},"context_window":{"total_input_tokens":160,"total_output_tokens":45}}"#
+        try runStatusLineBridge(scriptURL, payload: first)
+        try runStatusLineBridge(scriptURL, payload: last)
+
+        let reader = AntigravityStatusLineReader(
+            sessionsDirectoryURL: bridge.sessionsDirectoryURL,
+            now: .now
+        )
+        let archived = reader.readHistorySessions()
+        XCTAssertEqual(archived.count, 2)
+        XCTAssertEqual(archived.map(\.context?.observedTotalTokens), [125, 205])
+
+        let cacheURL = home.appendingPathComponent("cache.json")
+        let store = AntigravityUsageStore(
+            locator: FixedAntigravityLocator(),
+            bridge: bridge,
+            streakTracker: FakeAntigravityStreakTracker(),
+            cacheURL: cacheURL,
+            readSessions: { [] },
+            pollingInterval: .seconds(60)
+        )
+        XCTAssertEqual(
+            store.state.snapshot?.tokenUsage?.dailyUsageBuckets.last?.tokens,
+            80
+        )
+
+        let reloaded = AntigravityUsageStore(
+            locator: FixedAntigravityLocator(),
+            bridge: bridge,
+            streakTracker: FakeAntigravityStreakTracker(),
+            cacheURL: cacheURL,
+            readSessions: { [] },
+            pollingInterval: .seconds(60)
+        )
+        XCTAssertEqual(
+            reloaded.state.snapshot?.tokenUsage?.dailyUsageBuckets.last?.tokens,
+            80
+        )
+
+        let oldDay = try XCTUnwrap(
+            Calendar.current.date(byAdding: .day, value: -31, to: .now)
+        )
+        let oldDirectory = bridge.sessionsDirectoryURL
+            .deletingLastPathComponent()
+            .appendingPathComponent("history")
+            .appendingPathComponent(
+                TokenUsageCalendarDay.containing(oldDay).key
+                    .replacingOccurrences(of: "-", with: "")
+            )
+        try FileManager.default.createDirectory(
+            at: oldDirectory, withIntermediateDirectories: true
+        )
+        try runStatusLineBridge(scriptURL, payload: last)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: oldDirectory.path))
+    }
+
+    @MainActor
+    func testHistoryReplayKeepsOfflineDaysSeparateAndDropsCrossDayGap()
+        throws {
+        let root = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = .current
+        let today = calendar.startOfDay(
+            for: Date(timeIntervalSince1970: 1_800_000_000)
+        )
+        let yesterday = try XCTUnwrap(
+            calendar.date(byAdding: .day, value: -1, to: today)
+        )
+        let now = today.addingTimeInterval(12 * 3_600)
+        let sessionID = String(repeating: "b", count: 64)
+        let historyDirectory = root.appendingPathComponent("history")
+        for (day, firstInput, firstOutput, lastInput, lastOutput) in [
+            (yesterday, Int64(100), Int64(10), Int64(160), Int64(20)),
+            (today, Int64(170), Int64(25), Int64(230), Int64(35))
+        ] {
+            let directory = historyDirectory.appendingPathComponent(
+                TokenUsageCalendarDay.containing(day, calendar: calendar)
+                    .key.replacingOccurrences(of: "-", with: "")
+            )
+            try FileManager.default.createDirectory(
+                at: directory, withIntermediateDirectories: true
+            )
+            try writeHistorySample(
+                to: directory.appendingPathComponent("\(sessionID)-first.json"),
+                input: firstInput,
+                output: firstOutput,
+                at: day.addingTimeInterval(10 * 3_600)
+            )
+            try writeHistorySample(
+                to: directory.appendingPathComponent("\(sessionID)-last.json"),
+                input: lastInput,
+                output: lastOutput,
+                at: day.addingTimeInterval(11 * 3_600)
+            )
+        }
+
+        let store = AntigravityUsageStore(
+            locator: FixedAntigravityLocator(),
+            bridge: FakeAntigravityBridge(
+                sessionsDirectoryURL: root.appendingPathComponent("sessions")
+            ),
+            streakTracker: FakeAntigravityStreakTracker(),
+            cacheURL: root.appendingPathComponent("cache.json"),
+            readSessions: { [] },
+            now: { now }
+        )
+        XCTAssertEqual(
+            store.state.snapshot?.tokenUsage?.dailyUsageBuckets.map(\.tokens),
+            [70, 70]
+        )
+    }
+
+    @MainActor
+    func testHistoryPrunesExpiredDaysOnLaunchWithoutNewCLIEvent() throws {
+        let home = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: home) }
+        let bridge = AntigravityStatusLineBridge(home: home)
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = .current
+        let history = bridge.rootDirectoryURL.appendingPathComponent("history")
+        var directories: [URL] = []
+        for offset in [29, 30] {
+            let day = try XCTUnwrap(calendar.date(
+                byAdding: .day, value: -offset, to: now
+            ))
+            let key = TokenUsageCalendarDay.containing(day, calendar: calendar)
+                .key.replacingOccurrences(of: "-", with: "")
+            let directory = history.appendingPathComponent(key)
+            try FileManager.default.createDirectory(
+                at: directory, withIntermediateDirectories: true
+            )
+            directories.append(directory)
+        }
+
+        try bridge.pruneArchivedHistory(asOf: now)
+
+        XCTAssertTrue(FileManager.default.fileExists(
+            atPath: directories[0].path
+        ))
+        XCTAssertFalse(FileManager.default.fileExists(
+            atPath: directories[1].path
+        ))
+    }
+
+    @MainActor
+    func testHistoryDoesNotArchiveMissingTokenCounters() throws {
+        let home = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: home) }
+        let bridge = AntigravityStatusLineBridge(home: home)
+        try bridge.install()
+        let scriptURL = bridge.rootDirectoryURL.appendingPathComponent(
+            "dockmagic-statusline.sh"
+        )
+        try runStatusLineBridge(
+            scriptURL,
+            payload: #"{"conversation_id":"session-without-output","context_window":{"total_input_tokens":100}}"#
+        )
+
+        XCTAssertEqual(
+            AntigravityStatusLineReader(
+                sessionsDirectoryURL: bridge.sessionsDirectoryURL,
+                now: .now
+            ).readHistorySessions().count,
+            0
+        )
+    }
+
+    func testHistoryReaderSkipsSymlinkedArchiveRoot() throws {
+        let root = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let target = root.appendingPathComponent("external-history")
+        let todayKey = TokenUsageCalendarDay.containing(.now).key
+            .replacingOccurrences(of: "-", with: "")
+        let day = target.appendingPathComponent(todayKey)
+        try FileManager.default.createDirectory(
+            at: day, withIntermediateDirectories: true
+        )
+        let sessionID = String(repeating: "c", count: 64)
+        try writeHistorySample(
+            to: day.appendingPathComponent("\(sessionID)-first.json"),
+            input: 100, output: 10, at: .now
+        )
+        try FileManager.default.createSymbolicLink(
+            at: root.appendingPathComponent("history"),
+            withDestinationURL: target
+        )
+
+        XCTAssertTrue(AntigravityStatusLineReader(
+            sessionsDirectoryURL: root.appendingPathComponent("sessions"),
+            now: .now
+        ).readHistorySessions().isEmpty)
     }
 
     @MainActor
@@ -730,6 +957,37 @@ final class AntigravityFeatureTests: XCTestCase {
             withIntermediateDirectories: true
         )
         return url
+    }
+
+    private func runStatusLineBridge(_ scriptURL: URL, payload: String) throws {
+        let process = Process()
+        let input = Pipe()
+        process.executableURL = URL(fileURLWithPath: "/bin/sh")
+        process.arguments = [scriptURL.path]
+        process.standardInput = input
+        try process.run()
+        input.fileHandleForWriting.write(Data(payload.utf8))
+        try input.fileHandleForWriting.close()
+        process.waitUntilExit()
+        XCTAssertEqual(process.terminationStatus, 0)
+    }
+
+    private func writeHistorySample(
+        to url: URL,
+        input: Int64,
+        output: Int64,
+        at date: Date
+    ) throws {
+        let payload: [String: Any] = [
+            "schema_version": 1,
+            "observed_at": date.timeIntervalSince1970,
+            "model": ["id": "gemini-pro"],
+            "context_window": [
+                "total_input_tokens": input,
+                "total_output_tokens": output
+            ]
+        ]
+        try JSONSerialization.data(withJSONObject: payload).write(to: url)
     }
 
     private static let usageJSON = #"{"conversation_id":"","status":"SUCCESS","response":"ignored","duration_seconds":0,"num_turns":0,"usage":{"input_tokens":0,"output_tokens":0},"command":{"name":"usage","data":{"description":"Quota is shared within each group.","groups":[{"name":"Gemini Models","buckets":[{"id":"gemini-weekly","name":"Weekly Limit Remaining","window":"weekly","remaining_fraction":1,"reset_time":"2026-09-21T14:29:56.590Z"}]},{"name":"Claude and GPT models","buckets":[{"id":"3p-weekly","name":"Weekly Limit Remaining","window":"weekly","remaining_fraction":0,"reset_time":"2026-09-15T08:08:56.761Z"}]}]}}}"#

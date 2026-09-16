@@ -175,6 +175,8 @@ struct SettingsView: View {
     @AppStorage(DSAppearanceMode.storageKey)
     private var appearanceRawValue = DSAppearanceMode.system.rawValue
     @Environment(\.designTheme) private var theme
+    @Environment(\.dsAccessibilityOverrides) private var accessibilityOverrides
+    @Environment(\.colorSchemeContrast) private var contrast
 
     init(
         appModel: DockAppModel,
@@ -306,21 +308,15 @@ struct SettingsView: View {
     private var sidebar: some View {
         VStack(spacing: 0) {
             SettingsHeaderView()
-                .padding(DSSpacing.medium)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .dsSurface(
-                    RoundedRectangle(
-                        cornerRadius: DSRadius.largePanel,
-                        style: .continuous
-                    ),
-                    kind: .chrome,
-                    elevation: .primary
-                )
+                .padding(.horizontal, DSSpacing.xLarge)
+                .padding(.vertical, DSSpacing.large)
+
+            sidebarDivider
                 .padding(.horizontal, DSSpacing.medium)
-                .padding(.top, DSSpacing.small)
 
             ScrollView {
-                LazyVStack(alignment: .leading, spacing: DSSpacing.small) {
+                LazyVStack(alignment: .leading, spacing: DSSpacing.large) {
                     sidebarRow(.general)
 
                     sidebarSection(
@@ -345,7 +341,7 @@ struct SettingsView: View {
                     )
                 }
                 .padding(.horizontal, DSSpacing.medium)
-                .padding(.vertical, DSSpacing.small)
+                .padding(.vertical, DSSpacing.medium)
             }
 
             VStack(spacing: DSSpacing.small) {
@@ -386,28 +382,48 @@ struct SettingsView: View {
         identifier: String,
         items: [SettingsDestination]
     ) -> some View {
-        VStack(alignment: .leading, spacing: DSSpacing.xSmall) {
+        VStack(alignment: .leading, spacing: DSSpacing.small) {
+            sidebarDivider
+
             Text(title)
-                .font(DSTypography.caption.weight(.semibold))
+                .font(DSTypography.metadata)
                 .foregroundStyle(theme.textSecondary)
-                .textCase(.uppercase)
-                .padding(.horizontal, DSSpacing.small)
+                .padding(.horizontal, DSSpacing.medium)
                 .accessibilityAddTraits(.isHeader)
                 .accessibilityIdentifier("settings.nav.section.\(identifier)")
 
-            ForEach(items) { item in
-                sidebarRow(item)
+            VStack(spacing: DSSpacing.xSmall) {
+                ForEach(items) { item in
+                    sidebarRow(item)
+                }
             }
         }
-        .padding(.horizontal, DSSpacing.small)
-        .padding(.vertical, DSSpacing.xSmall)
-        .dsSurface(
-            RoundedRectangle(
-                cornerRadius: DSRadius.row,
-                style: .continuous
-            ),
-            kind: .raised
-        )
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var sidebarDivider: some View {
+        GeometryReader { geometry in
+            Path { path in
+                path.move(to: CGPoint(x: 0, y: 1))
+                path.addLine(to: CGPoint(x: geometry.size.width, y: 1))
+            }
+            .stroke(
+                effectivelyIncreasesContrast
+                    ? theme.outlineStrong
+                    : theme.outline,
+                style: StrokeStyle(
+                    lineWidth: effectivelyIncreasesContrast ? 1.5 : 1,
+                    dash: [4, 5]
+                )
+            )
+        }
+        .frame(height: 2)
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+
+    private var effectivelyIncreasesContrast: Bool {
+        accessibilityOverrides.increaseContrast ?? (contrast == .increased)
     }
 
     private func sidebarRow(_ item: SettingsDestination) -> some View {
@@ -438,16 +454,25 @@ struct SettingsView: View {
             .background {
                 if destination == item {
                     RoundedRectangle(
-                        cornerRadius: DSRadius.control,
+                        cornerRadius: DSRadius.row,
                         style: .continuous
                     )
                     .fill(theme.sidebarSelectionFill)
+                    .overlay {
+                        if effectivelyIncreasesContrast {
+                            RoundedRectangle(
+                                cornerRadius: DSRadius.row,
+                                style: .continuous
+                            )
+                            .strokeBorder(theme.selectionOutline, lineWidth: 1.5)
+                        }
+                    }
                     .accessibilityHidden(true)
                 }
             }
             .contentShape(
                 RoundedRectangle(
-                    cornerRadius: DSRadius.control,
+                    cornerRadius: DSRadius.row,
                     style: .continuous
                 )
             )

@@ -147,16 +147,21 @@ elevation.
   solid low-opacity fill plus a single accent stroke, with no gradient, axes,
   ticks, legend, or chart numbers. Missing calendar days remain gaps rather
   than becoming zero.
-- Antigravity export is available only when the optional local bridge has
-  enough observed activity for both today's momentum and a meaningful chart.
-  Its chart uses the same caption-free treatment as Codex. The token label
-  remains `TOKENS OBSERVED TODAY` so the local observation is not presented as
-  complete provider history.
+- Antigravity's activity card is available when the optional local bridge has
+  an eligible current-day token observation. A meaningful 14-day chart uses
+  the same caption-free treatment as Codex; sparse history instead shows a
+  neutral `NO HISTORY` cue, not an invented plot. The token label remains
+  `TOKENS OBSERVED TODAY` so local observation is not presented as complete
+  provider history.
 - When Antigravity has a reported `/usage` quota but not enough local activity,
-  the same header export control offers a dedicated 1200 × 1200 quota card for
-  Save, Copy, and Share. It shows model-pool scope, window, remaining percentage,
-  reported reset time, and last-checked/last-known semantics. The card never
-  substitutes quota for token activity or silently hides additional pools.
+  the header export control defaults to an activity-availability image using
+  the Codex layout: locked badge unless independently earned, unavailable
+  token and Ship values, neutral
+  `NO HISTORY` cue, and quota-sourced `CHECKED`/`LAST KNOWN` date. Save, Copy,
+  and Share expose only the activity layout, with no quota-data mode. The
+  separate quota-detail renderer remains available for regression fixtures
+  but is not selected in Antigravity's export manifest. Neither layout
+  substitutes quota for token activity.
 
 ## 7. Accessibility
 

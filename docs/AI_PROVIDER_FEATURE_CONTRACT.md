@@ -77,6 +77,7 @@ future providers fabricate parity.
 | Ship momentum | Score/rank from eligible current-day activity | Same | Capability-gated derived module |
 | Active work | No dedicated module | Sessions/tasks/goals and realtime hook setup | Capability-gated |
 | Activity-card export | Save, copy, share a dedicated 1200×1200 PNG | Same | Capability-gated shared action |
+| Activity-layout availability export | Not shipped | Not shipped | Explicitly approved provider variant; unavailable slots only |
 | Quota-card export | Not currently shipped | Not currently shipped | Capability-gated action when provider-reported quota is available |
 | Failure states | Idle, loading, live, stale, unavailable | Same data states plus detailed connection states | Required |
 
@@ -180,8 +181,10 @@ capability status warrants them:
 6. active sessions, tasks, goals, or tools;
 7. observed cost;
 8. activity-card export.
-9. quota-card export when the provider reports scoped quota but eligible activity
-   is unavailable.
+9. an explicitly approved activity-layout availability export when a valid
+   source anchor exists but eligible activity is unavailable;
+10. quota-card export when the provider reports scoped quota, including as a
+    separately selectable detail mode alongside an eligible activity card.
 
 If a capability is supported but temporarily missing, preserve the module's
 place only when it helps explain setup, loading, stale, or unavailable state.
@@ -210,13 +213,27 @@ prompts, answers, task descriptions, or goal text.
 ### Quota-card export
 
 A provider may offer Save, Copy, and Share of a dedicated quota card when a
-valid provider-reported quota snapshot exists but activity-card export is not
-eligible. Show each included bucket's upstream scope, window, remaining value,
+valid provider-reported quota snapshot exists, including as a separate export
+mode when activity-card export is eligible. Show each included bucket's
+upstream scope, window, remaining value,
 and reset time when reported; identify omitted buckets explicitly if the card
 cannot fit them all. Preserve last-known and source-timestamp semantics. Never
 derive token activity, an aggregate account quota, or a missing reset from the
 quota snapshot. Apply the same PNG resolution and redaction rules as the
 activity card.
+
+### Activity-layout availability export
+
+When explicitly requested and selected in a provider manifest, a distinct
+availability artifact may reuse activity-card geometry even though daily
+activity is not observed. It needs a valid non-sensitive source anchor, such as
+a provider-reported quota snapshot, to establish identity, source date, and
+freshness. Its badge is locked unless an independently eligible earned badge
+exists; the token value and Ship momentum are unavailable rather than zero;
+the trend slot states that history is unavailable instead of drawing a data
+line. Label the artifact as an availability layout, not a live activity card.
+Do not infer any activity value from quota. Keep a quota-detail card accessible
+separately when that export is selected by the provider.
 
 ## 6. Data semantics and derivation rules
 

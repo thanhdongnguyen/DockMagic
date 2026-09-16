@@ -898,7 +898,7 @@ final class DockMagicUITests: XCTestCase {
         try assertAntigravityLoginCLIIsFullyVisible(appearance: "dark")
     }
 
-    func testAntigravitySettingsHidesLocalMetricsButCanDisconnectLegacyBridge() {
+    func testAntigravitySettingsHidesLocalMetricsAndLegacyBridgeActions() {
         assertAntigravitySettingsHasNoLocalMetrics(appearance: "dark")
     }
 
@@ -928,21 +928,16 @@ final class DockMagicUITests: XCTestCase {
         )
         XCTAssertFalse(app.staticTexts["Local session metrics"].exists)
         XCTAssertFalse(app.buttons["settings.antigravity.statusLine"].exists)
-
-        let moreActions = app.descendants(matching: .any)[
-            "settings.antigravity.moreActions"
-        ]
-        XCTAssertTrue(moreActions.waitForExistence(timeout: 3))
-        moreActions.click()
-        let disconnect = app.descendants(matching: .any)[
-            "settings.antigravity.disconnectSessionMetrics"
-        ]
-        XCTAssertTrue(disconnect.waitForExistence(timeout: 3))
-        disconnect.click()
-
-        XCTAssertTrue(app.buttons["settings.antigravity.signIn"].exists)
-        XCTAssertFalse(app.staticTexts["Local session metrics"].exists)
-        XCTAssertFalse(moreActions.exists)
+        XCTAssertFalse(
+            app.descendants(matching: .any)[
+                "settings.antigravity.moreActions"
+            ].exists
+        )
+        XCTAssertFalse(
+            app.descendants(matching: .any)[
+                "settings.antigravity.disconnectSessionMetrics"
+            ].exists
+        )
         attachScreenshot(
             named: "Settings — Antigravity — No Local Session Metrics — \(appearance)",
             in: app
@@ -1036,11 +1031,11 @@ final class DockMagicUITests: XCTestCase {
         )
         wait(for: [connected], timeout: 5)
 
-        let moreActions = app.descendants(matching: .any)[
-            "settings.antigravity.moreActions"
-        ]
+        let moreActions = app.buttons["settings.antigravity.moreActions"]
         XCTAssertTrue(moreActions.waitForExistence(timeout: 3))
+        XCTAssertTrue(moreActions.isHittable)
         moreActions.click()
+
         let signOut = app.descendants(matching: .any)[
             "settings.antigravity.signOut"
         ]

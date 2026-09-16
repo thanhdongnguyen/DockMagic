@@ -4,6 +4,11 @@ struct AntigravityStatusLineReader: Sendable {
     let sessionsDirectoryURL: URL
     var now: Date = .now
 
+    private var historyDirectoryURL: URL {
+        sessionsDirectoryURL.deletingLastPathComponent()
+            .appendingPathComponent("history", isDirectory: true)
+    }
+
     func readSessions() -> [AntigravitySessionSnapshot] {
         let fileManager = FileManager.default
         guard let files = try? fileManager.contentsOfDirectory(
@@ -44,7 +49,73 @@ struct AntigravityStatusLineReader: Sendable {
             .sorted { $0.observedAt > $1.observedAt }
     }
 
-    private func decode(_ url: URL) -> AntigravitySessionSnapshot? {
+    func readHistorySessions(
+        maximumDays: Int = 30
+    ) -> [AntigravitySessionSnapshot] {
+        let fileManager = FileManager.default
+        guard let historyValues = try? historyDirectoryURL.resourceValues(
+            forKeys: [.isDirectoryKey, .isSymbolicLinkKey]
+        ), historyValues.isDirectory == true,
+        historyValues.isSymbolicLink != true else { return [] }
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = .current
+        let today = calendar.startOfDay(for: now)
+        var snapshots: [AntigravitySessionSnapshot] = []
+        var remainingFiles = 10_000
+        var remainingBytes = 16_000_000
+
+        for offset in 0..<max(0, min(maximumDays, 30))
+            where remainingFiles > 0 && remainingBytes > 0 {
+            guard let day = calendar.date(byAdding: .day, value: -offset, to: today)
+            else { continue }
+            let key = TokenUsageCalendarDay.containing(day, calendar: calendar)
+                .key.replacingOccurrences(of: "-", with: "")
+            let directory = historyDirectoryURL.appendingPathComponent(
+                key, isDirectory: true
+            )
+            guard let directoryValues = try? directory.resourceValues(
+                forKeys: [.isDirectoryKey, .isSymbolicLinkKey]
+            ), directoryValues.isDirectory == true,
+            directoryValues.isSymbolicLink != true,
+            let files = try? fileManager.contentsOfDirectory(
+                at: directory,
+                includingPropertiesForKeys: [
+                    .isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey
+                ],
+                options: [.skipsHiddenFiles]
+            ) else { continue }
+
+            for url in files where remainingFiles > 0 && remainingBytes > 0 {
+                guard url.pathExtension == "json",
+                      let sessionID = Self.historySessionKey(
+                        url.deletingPathExtension().lastPathComponent
+                      ),
+                      let values = try? url.resourceValues(forKeys: [
+                        .isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey
+                      ]),
+                      values.isRegularFile == true,
+                      values.isSymbolicLink != true,
+                      let size = values.fileSize,
+                      size > 1, size <= 128 * 1_024,
+                      size <= remainingBytes else { continue }
+                remainingFiles -= 1
+                remainingBytes -= size
+                guard let snapshot = decode(url, sessionID: sessionID),
+                      calendar.isDate(snapshot.observedAt, inSameDayAs: day),
+                      snapshot.observedAt <= now.addingTimeInterval(60) else {
+                    continue
+                }
+                snapshots.append(snapshot)
+            }
+        }
+
+        return snapshots.sorted { $0.observedAt < $1.observedAt }
+    }
+
+    private func decode(
+        _ url: URL,
+        sessionID: String? = nil
+    ) -> AntigravitySessionSnapshot? {
         guard let data = try? Data(contentsOf: url, options: [.mappedIfSafe]),
               let payload = try? JSONDecoder().decode(Payload.self, from: data),
               payload.schemaVersion == 1,
@@ -80,7 +151,7 @@ struct AntigravityStatusLineReader: Sendable {
         }
 
         return AntigravitySessionSnapshot(
-            id: url.deletingPathExtension().lastPathComponent,
+            id: sessionID ?? url.deletingPathExtension().lastPathComponent,
             modelID: text(payload.model?.id, limit: 160),
             modelDisplayName: text(payload.model?.displayName, limit: 160),
             cliVersion: text(payload.version, limit: 80),
@@ -125,6 +196,19 @@ struct AntigravityStatusLineReader: Sendable {
 
     private static func isSessionKey(_ value: String) -> Bool {
         value.count == 64 && value.allSatisfy { $0.isHexDigit }
+    }
+
+    private static func historySessionKey(_ value: String) -> String? {
+        let suffix: String
+        if value.hasSuffix("-first") {
+            suffix = "-first"
+        } else if value.hasSuffix("-last") {
+            suffix = "-last"
+        } else {
+            return nil
+        }
+        let sessionID = String(value.dropLast(suffix.count))
+        return isSessionKey(sessionID) ? sessionID : nil
     }
 
     private struct Payload: Decodable {

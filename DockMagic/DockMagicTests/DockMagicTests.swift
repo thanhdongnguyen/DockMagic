@@ -7036,6 +7036,48 @@ final class DockMagicTests: XCTestCase {
             name: "Antigravity — Activity Card — Captionless Chart"
         )
 
+        let oneDayUsage = CodexAccountTokenUsage(
+            lifetimeTokens: nil,
+            peakDailyTokens: 8_560,
+            longestRunningTurnSeconds: nil,
+            dailyUsageBuckets: [
+                CodexTokenUsageDailyBucket(
+                    startDate: calendar.startOfDay(for: captionlessNow),
+                    tokens: 8_560
+                )
+            ]
+        )
+        let oneDayState = AntigravityUsageState.live(
+            AntigravityUsageSnapshot(
+                quota: nil,
+                tokenUsage: oneDayUsage,
+                streakSummary: nil,
+                currentSession: nil,
+                activeSessionCount: 0,
+                historyIsPartial: true,
+                fetchedAt: captionlessNow,
+                activityObservedAt: captionlessNow
+            )
+        )
+        let oneDayArtifact = try CodexDashboardCaptureService
+            .renderActivityCard(
+                state: oneDayState,
+                appearanceMode: .dark,
+                now: captionlessNow
+            )
+        XCTAssertEqual(oneDayArtifact.pixelWidth, 1_200)
+        XCTAssertTrue(oneDayArtifact.fileName.contains("Antigravity-Activity"))
+        try oneDayArtifact.pngData.write(
+            to: destination.appendingPathComponent(
+                "antigravity-activity-no-history.png"
+            ),
+            options: .atomic
+        )
+        attachPNG(
+            oneDayArtifact.pngData,
+            name: "Antigravity — Observed tokens without chart history"
+        )
+
         for (name, mode, overrides) in [
             ("light", DSAppearanceMode.light, DSAccessibilityOverrides()),
             (
@@ -7099,8 +7141,8 @@ final class DockMagicTests: XCTestCase {
     }
 
     @MainActor
-    func testAntigravityQuotaOnlyDashboardOffersShareAndRendersQuotaCard() throws {
-        let now = Date(timeIntervalSince1970: 1_779_000_000)
+    func testAntigravityQuotaOnlyDashboardSharesActivityLayout() throws {
+        let now = Date(timeIntervalSince1970: 1_789_534_800)
         let quota = AntigravityQuotaSnapshot(
             buckets: [
                 AntigravityQuotaBucket(
@@ -7161,6 +7203,97 @@ final class DockMagicTests: XCTestCase {
             at: destination,
             withIntermediateDirectories: true
         )
+        let availability = try CodexDashboardCaptureService
+            .renderAntigravityAvailabilityCard(
+                state: state,
+                appearanceMode: .dark,
+                now: now
+            )
+        let availabilityBitmap = try XCTUnwrap(
+            NSBitmapImageRep(data: availability.pngData)
+        )
+        XCTAssertEqual(availability.pixelWidth, 1_200)
+        XCTAssertEqual(availability.pixelHeight, 1_200)
+        XCTAssertEqual(availabilityBitmap.pixelsWide, 1_200)
+        XCTAssertEqual(availabilityBitmap.pixelsHigh, 1_200)
+        XCTAssertEqual(
+            try XCTUnwrap(availabilityBitmap.colorAt(x: 1, y: 1))
+                .alphaComponent,
+            1,
+            accuracy: 0.01
+        )
+        XCTAssertTrue(availability.fileName.contains("Antigravity-Availability"))
+        XCTAssertNotEqual(availability.pngData, artifact.pngData)
+        try availability.pngData.write(
+            to: destination.appendingPathComponent(
+                "antigravity-availability-dark.png"
+            ),
+            options: .atomic
+        )
+        let earnedSummary = TokenUsageStreakSummary.fixture(
+            currentDays: 0,
+            bestDays: 14,
+            endingAt: now
+        )
+        XCTAssertEqual(earnedSummary.earnedBadge, .builder)
+        let earnedAvailability = try CodexDashboardCaptureService
+            .renderAntigravityAvailabilityCard(
+                state: .live(
+                    AntigravityUsageSnapshot(
+                        quota: quota,
+                        tokenUsage: nil,
+                        streakSummary: earnedSummary,
+                        currentSession: nil,
+                        activeSessionCount: 0,
+                        historyIsPartial: true,
+                        fetchedAt: now
+                    )
+                ),
+                appearanceMode: .dark,
+                now: now
+            )
+        XCTAssertNotEqual(availability.pngData, earnedAvailability.pngData)
+        try earnedAvailability.pngData.write(
+            to: destination.appendingPathComponent(
+                "antigravity-availability-earned-badge.png"
+            ),
+            options: .atomic
+        )
+        attachPNG(
+            earnedAvailability.pngData,
+            name: "Antigravity — Earned badge with unavailable daily activity"
+        )
+        let availabilityPasteboard = NSPasteboard.withUniqueName()
+        try CodexDashboardCaptureService.copy(
+            availability,
+            to: availabilityPasteboard
+        )
+        XCTAssertEqual(
+            availabilityPasteboard.data(forType: .png),
+            availability.pngData
+        )
+        let availabilityShareDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: availabilityShareDirectory,
+            withIntermediateDirectories: true
+        )
+        defer {
+            try? FileManager.default.removeItem(at: availabilityShareDirectory)
+        }
+        let availabilityShareURL = try CodexDashboardCaptureService
+            .temporaryShareURL(
+                for: availability,
+                directory: availabilityShareDirectory
+            )
+        XCTAssertEqual(
+            try Data(contentsOf: availabilityShareURL),
+            availability.pngData
+        )
+        attachPNG(
+            availability.pngData,
+            name: "Antigravity — Activity layout without observed tokens"
+        )
         try artifact.pngData.write(
             to: destination.appendingPathComponent(
                 "antigravity-quota-dark.png"
@@ -7190,6 +7323,19 @@ final class DockMagicTests: XCTestCase {
                 appearanceMode: .dark,
                 now: now
             )
+        let availabilityStale = try CodexDashboardCaptureService
+            .renderAntigravityAvailabilityCard(
+                state: .stale(snapshot, message: "Offline"),
+                appearanceMode: .dark,
+                now: now
+            )
+        XCTAssertNotEqual(availability.pngData, availabilityStale.pngData)
+        try availabilityStale.pngData.write(
+            to: destination.appendingPathComponent(
+                "antigravity-availability-stale.png"
+            ),
+            options: .atomic
+        )
         XCTAssertNotEqual(artifact.pngData, stale.pngData)
         let aged = try CodexDashboardCaptureService
             .renderAntigravityQuotaCard(
@@ -7197,7 +7343,24 @@ final class DockMagicTests: XCTestCase {
                 appearanceMode: .dark,
                 now: now.addingTimeInterval(10 * 60)
             )
-        XCTAssertEqual(aged.pngData, stale.pngData)
+        let staleBitmap = try XCTUnwrap(NSBitmapImageRep(data: stale.pngData))
+        let agedBitmap = try XCTUnwrap(NSBitmapImageRep(data: aged.pngData))
+        XCTAssertEqual(agedBitmap.bytesPerRow, staleBitmap.bytesPerRow)
+        XCTAssertEqual(agedBitmap.pixelsHigh, staleBitmap.pixelsHigh)
+        let agedPixels = Data(
+            bytes: try XCTUnwrap(agedBitmap.bitmapData),
+            count: agedBitmap.bytesPerRow * agedBitmap.pixelsHigh
+        )
+        let stalePixels = Data(
+            bytes: try XCTUnwrap(staleBitmap.bitmapData),
+            count: staleBitmap.bytesPerRow * staleBitmap.pixelsHigh
+        )
+        // Separate ImageRenderer passes can vary by one or two antialiasing
+        // levels while preserving the same Last known content and layout.
+        let maximumChannelDifference = zip(agedPixels, stalePixels).reduce(0) {
+            max($0, abs(Int($1.0) - Int($1.1)))
+        }
+        XCTAssertLessThanOrEqual(maximumChannelDifference, 2)
         try stale.pngData.write(
             to: destination.appendingPathComponent(
                 "antigravity-quota-stale.png"
@@ -7269,6 +7432,13 @@ final class DockMagicTests: XCTestCase {
                 now: now
             )
         )
+        XCTAssertThrowsError(
+            try CodexDashboardCaptureService.renderAntigravityAvailabilityCard(
+                state: .loading,
+                appearanceMode: .dark,
+                now: now
+            )
+        )
 
         let panelSize = DockHoverPanelPlacement.antigravityPanelSize
         func dashboard(
@@ -7318,11 +7488,11 @@ final class DockMagicTests: XCTestCase {
         )
         try open.write(
             to: destination.appendingPathComponent(
-                "antigravity-quota-export-menu.png"
+                "antigravity-activity-layout-export-menu.png"
             ),
             options: .atomic
         )
-        attachPNG(open, name: "Antigravity — Quota-only Share menu")
+        attachPNG(open, name: "Antigravity — Activity-layout Share menu")
         for (name, appearanceMode, appearanceName, overrides) in [
             (
                 "light", DSAppearanceMode.light, NSAppearance.Name.aqua,
@@ -7345,23 +7515,26 @@ final class DockMagicTests: XCTestCase {
                 ),
                 size: panelSize,
                 appearanceName: appearanceName,
-                name: "Antigravity quota export menu — \(name)"
+                name: "Antigravity activity-layout export menu — \(name)"
             )
             try menu.write(
                 to: destination.appendingPathComponent(
-                    "antigravity-quota-export-menu-\(name).png"
+                    "antigravity-activity-layout-export-menu-\(name).png"
                 ),
                 options: .atomic
             )
-            attachPNG(menu, name: "Antigravity quota export menu — \(name)")
+            attachPNG(
+                menu,
+                name: "Antigravity activity-layout export menu — \(name)"
+            )
         }
         let grayscaleMenu = try grayscalePNG(
             open,
-            name: "Antigravity quota export menu"
+            name: "Antigravity activity-layout export menu"
         )
         try grayscaleMenu.write(
             to: destination.appendingPathComponent(
-                "antigravity-quota-export-menu-grayscale.png"
+                "antigravity-activity-layout-export-menu-grayscale.png"
             ),
             options: .atomic
         )
@@ -7395,6 +7568,23 @@ final class DockMagicTests: XCTestCase {
                 ),
                 options: .atomic
             )
+            let availabilityVariant = try CodexDashboardCaptureService
+                .renderAntigravityAvailabilityCard(
+                    state: state,
+                    appearanceMode: mode,
+                    now: now,
+                    accessibilityOverrides: overrides
+                )
+            try availabilityVariant.pngData.write(
+                to: destination.appendingPathComponent(
+                    "antigravity-availability-\(name.lowercased().replacingOccurrences(of: " ", with: "-"))" + ".png"
+                ),
+                options: .atomic
+            )
+            attachPNG(
+                availabilityVariant.pngData,
+                name: "Antigravity activity availability — \(name)"
+            )
         }
         let grayscale = try grayscalePNG(
             artifact.pngData,
@@ -7409,6 +7599,16 @@ final class DockMagicTests: XCTestCase {
         attachPNG(
             grayscale,
             name: "Antigravity quota card — Grayscale"
+        )
+        let availabilityGrayscale = try grayscalePNG(
+            availability.pngData,
+            name: "Antigravity activity availability card"
+        )
+        try availabilityGrayscale.write(
+            to: destination.appendingPathComponent(
+                "antigravity-availability-grayscale.png"
+            ),
+            options: .atomic
         )
     }
 

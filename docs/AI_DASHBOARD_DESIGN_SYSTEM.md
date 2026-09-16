@@ -120,7 +120,8 @@ merely to fill space.
 | work.active | Documented local realtime metadata and setup | Claude Code |
 | detail.dailyTokens | Supported hourly or model/token breakdown | Codex |
 | export.activityCard | Enough nonsensitive eligible activity | Codex and Claude Code |
-| export.quotaCard | Valid provider-reported scoped quota when activity export is ineligible | Catalog option; not a Codex or Claude baseline |
+| export.activityAvailability | Explicitly approved activity-layout variant with a valid source anchor and unavailable activity slots | Antigravity quota-only option |
+| export.quotaCard | Valid provider-reported scoped quota and explicit manifest selection | Catalog option; not selected by Codex, Claude Code, or Antigravity Share |
 
 The table inventories current UI, not universal support. A future provider
 must receive its own evidence-backed manifest.
@@ -313,7 +314,8 @@ the overview's other modules.
 ## 14. Export controls and artifacts
 
 An eligible header export control opens one shared menu with Save, Copy, and
-Share. It exposes its type as "activity card" or "quota card", its output size,
+Share. It exposes its type as "activity card", an approved "activity layout",
+or "quota card", its output size,
 an error within the menu, Escape dismissal, and unique provider-qualified
 identifiers. Rendering, clipboard, save, and share use the same artifact
 bytes for one export attempt.
@@ -329,11 +331,22 @@ task description, or goal text.
 AI_SHARE_ACTIVITY_CARD_LAYOUT.md defines the activity card's visual zones,
 geometry, state variants, and Codex/Claude Code reference images.
 
-If eligible activity is absent but a valid provider-reported scoped quota
-exists, the optional quota card uses the same dimensions and actions. It
+If a valid provider-reported scoped quota exists, the optional quota card uses
+the same dimensions and actions, including as a separate export mode when
+eligible activity also exists. It
 shows each included bucket's scope, window, remaining value, reported reset,
 and last-checked/last-known semantics. If the artifact cannot include all
 buckets, identify omitted buckets. Quota never stands in for token activity.
+
+Antigravity's explicitly selected activity-availability option is a distinct
+artifact and the only Share layout when activity is absent but quota exists.
+It reuses the
+Codex activity-card geometry with a locked badge unless an independently
+eligible badge was earned, unavailable token/Ship
+values, a neutral `NO HISTORY` cue instead of a plotted chart, and a
+quota-sourced `CHECKED` or `LAST KNOWN` date. Antigravity's Share menu exposes
+only the activity layout and its Save, Copy, and Share actions. The separate
+quota-detail renderer is not selected in Antigravity's current export manifest.
 
 ## 15. Appearance and accessibility
 

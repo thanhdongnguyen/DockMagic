@@ -9,8 +9,6 @@ final class AntigravityUsageStore {
     private(set) var isMonitoring = false
     private(set) var isRefreshing = false
     private(set) var isBridgeInstalled: Bool
-    private(set) var isInstallingBridge = false
-    private(set) var bridgeErrorText: String?
     private(set) var executableURL: URL?
 
     var resolvedExecutablePath: String? { executableURL?.path }
@@ -22,11 +20,14 @@ final class AntigravityUsageStore {
     @ObservationIgnored private let bridge: any AntigravityStatusLineBridging
     @ObservationIgnored private let streakTracker: any TokenUsageStreakTracking
     @ObservationIgnored private let readSessions: @Sendable () -> [AntigravitySessionSnapshot]
+    @ObservationIgnored private let readHistorySessions:
+        @Sendable (Int) -> [AntigravitySessionSnapshot]
     @ObservationIgnored private let cacheURL: URL
     @ObservationIgnored private let pollingInterval: Duration
     @ObservationIgnored private let quotaRefreshInterval: TimeInterval
     @ObservationIgnored private let staleAfter: TimeInterval
     @ObservationIgnored private let now: () -> Date
+    @ObservationIgnored private var lastHistoryPruneDay: String?
     @ObservationIgnored private var pollingTask: Task<Void, Never>?
     @ObservationIgnored private var refreshTask: Task<Void, Never>?
     @ObservationIgnored private var refreshTaskIncludesQuota = false
@@ -50,6 +51,7 @@ final class AntigravityUsageStore {
         streakTracker: (any TokenUsageStreakTracking)? = nil,
         cacheURL: URL? = nil,
         readSessions: (@Sendable () -> [AntigravitySessionSnapshot])? = nil,
+        readHistorySessions: (@Sendable (Int) -> [AntigravitySessionSnapshot])? = nil,
         pollingInterval: Duration = .seconds(15),
         quotaRefreshInterval: TimeInterval = 5 * 60,
         staleAfter: TimeInterval = 15 * 60,
@@ -73,6 +75,11 @@ final class AntigravityUsageStore {
         self.quotaRefreshInterval = quotaRefreshInterval
         self.staleAfter = staleAfter
         self.now = now
+        try? bridge.refreshOwnedScriptIfNeeded()
+        try? bridge.pruneArchivedHistory(asOf: now())
+        lastHistoryPruneDay = TokenUsageCalendarDay.containing(
+            now(), calendar: Self.localCalendar
+        ).key
         isBridgeInstalled = bridge.isInstalled()
         if let data = try? Data(contentsOf: self.cacheURL),
            data.count <= 2_000_000,
@@ -90,8 +97,14 @@ final class AntigravityUsageStore {
                 now: now()
             ).readSessions()
         }
+        self.readHistorySessions = readHistorySessions ?? { maximumDays in
+            AntigravityStatusLineReader(
+                sessionsDirectoryURL: sessionsURL,
+                now: now()
+            ).readHistorySessions(maximumDays: maximumDays)
+        }
         let initialSessions = self.readSessions()
-        ingest(initialSessions)
+        ingest(initialSessions, historyDays: 30)
         resolveExecutableAvailability()
         persistCache()
         rebuildState(sessions: initialSessions, errorMessage: nil)
@@ -108,6 +121,8 @@ final class AntigravityUsageStore {
 
     func start() {
         guard pollingTask == nil else { return }
+        ingest(readSessions(), historyDays: 30)
+        persistCache()
         isMonitoring = true
         syncEventMonitor()
         pollingTask = Task { @MainActor [weak self] in
@@ -247,37 +262,6 @@ final class AntigravityUsageStore {
         ingest(sessions)
         persistCache()
         rebuildState(sessions: sessions, errorMessage: nil)
-    }
-
-    func connectStatusLine() async {
-        guard !isInstallingBridge else { return }
-        isInstallingBridge = true
-        bridgeErrorText = nil
-        defer { isInstallingBridge = false }
-        do {
-            try bridge.install()
-            isBridgeInstalled = bridge.isInstalled()
-            guard isBridgeInstalled else {
-                throw AntigravityUsageError.invalidConfiguration
-            }
-            syncEventMonitor()
-            await refresh(forceQuota: false)
-        } catch {
-            isBridgeInstalled = bridge.isInstalled()
-            bridgeErrorText = error.localizedDescription
-        }
-    }
-
-    func disconnectStatusLine() {
-        bridgeErrorText = nil
-        do {
-            try bridge.uninstall()
-            isBridgeInstalled = bridge.isInstalled()
-            syncEventMonitor()
-        } catch {
-            isBridgeInstalled = bridge.isInstalled()
-            bridgeErrorText = error.localizedDescription
-        }
     }
 
     func refresh(forceQuota: Bool = true) async {
@@ -461,8 +445,12 @@ final class AntigravityUsageStore {
         )
     }
 
-    private func ingest(_ sessions: [AntigravitySessionSnapshot]) {
-        for session in sessions.sorted(by: { $0.observedAt < $1.observedAt }) {
+    private func ingest(
+        _ sessions: [AntigravitySessionSnapshot],
+        historyDays: Int = 2
+    ) {
+        let observations = readHistorySessions(historyDays) + sessions
+        for session in observations.sorted(by: { $0.observedAt < $1.observedAt }) {
             guard let input = session.context?.totalInputTokens,
                   let output = session.context?.totalOutputTokens else {
                 continue
@@ -479,7 +467,7 @@ final class AntigravityUsageStore {
             }
             guard session.observedAt > previous.observedAt else { continue }
             defer { cache.baselines[session.id] = next }
-            guard Calendar.current.isDate(
+            guard Self.localCalendar.isDate(
                 session.observedAt,
                 inSameDayAs: previous.observedAt
             ), input >= previous.inputTokens,
@@ -496,7 +484,7 @@ final class AntigravityUsageStore {
             )
             let day = TokenUsageCalendarDay.containing(
                 session.observedAt,
-                calendar: .current
+                calendar: Self.localCalendar
             ).key
             cache.dailyTokens[day] = Self.add(cache.dailyTokens[day] ?? 0, delta)
             if let model = session.modelID, model == previous.model {
@@ -579,7 +567,7 @@ final class AntigravityUsageStore {
     }
 
     private func normalizedTokenUsage() -> CodexAccountTokenUsage? {
-        let calendar = Calendar.current
+        let calendar = Self.localCalendar
         let cutoff = calendar.date(
             byAdding: .day,
             value: -29,
@@ -615,7 +603,14 @@ final class AntigravityUsageStore {
 
     private func pruneCache() {
         let timestamp = now()
-        let calendar = Calendar.current
+        let calendar = Self.localCalendar
+        let todayKey = TokenUsageCalendarDay.containing(
+            timestamp, calendar: calendar
+        ).key
+        if lastHistoryPruneDay != todayKey {
+            try? bridge.pruneArchivedHistory(asOf: timestamp)
+            lastHistoryPruneDay = todayKey
+        }
         let cutoff = calendar.date(
             byAdding: .day,
             value: -29,
@@ -632,7 +627,7 @@ final class AntigravityUsageStore {
             cache.latestTokenDeltaAt = nil
         }
         cache.baselines = cache.baselines.filter {
-            timestamp.timeIntervalSince($0.value.observedAt) <= 32 * 86_400
+            $0.value.observedAt >= cutoff
         }
     }
 
@@ -687,6 +682,12 @@ final class AntigravityUsageStore {
             month: parts[1],
             day: parts[2]
         ))
+    }
+
+    private static var localCalendar: Calendar {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = .current
+        return calendar
     }
 
     private static func add(_ lhs: Int64, _ rhs: Int64) -> Int64 {

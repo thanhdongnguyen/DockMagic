@@ -255,8 +255,8 @@ struct AntigravityHoverDashboardView: View {
         .onHover { isHovering in
             isCaptureButtonHovered = isHovering
         }
-        .help("Share or export Antigravity \(exportCardName)")
-        .accessibilityLabel("Share Antigravity \(exportCardName)")
+        .help("Share or export Antigravity activity layout")
+        .accessibilityLabel("Share Antigravity activity layout")
         .accessibilityHint("Opens 1200 by 1200 PNG export options")
         .accessibilityIdentifier("antigravity.capture.button")
     }
@@ -273,7 +273,7 @@ struct AntigravityHoverDashboardView: View {
                 .padding(.trailing, 7)
 
             VStack(spacing: 1) {
-                Text(exportCardName.localizedUppercase)
+                Text("ACTIVITY LAYOUT")
                     .font(.system(size: 7, weight: .bold))
                     .tracking(0.8)
                     .foregroundStyle(theme.textSecondary)
@@ -323,7 +323,7 @@ struct AntigravityHoverDashboardView: View {
             )
         }
         .accessibilityElement(children: .contain)
-        .accessibilityLabel("Antigravity \(exportCardName) export options")
+        .accessibilityLabel("Antigravity activity layout export options")
         .accessibilityIdentifier("antigravity.capture.menu")
     }
 
@@ -432,7 +432,7 @@ struct AntigravityHoverDashboardView: View {
                     now: now
                 )
             }
-            return try CodexDashboardCaptureService.renderAntigravityQuotaCard(
+            return try CodexDashboardCaptureService.renderAntigravityAvailabilityCard(
                 state: state,
                 appearanceMode: captureConfiguration.appearanceMode,
                 now: now
@@ -508,9 +508,10 @@ struct AntigravityHoverDashboardView: View {
 
     private var tokenHeader: some View {
         HStack(alignment: .lastTextBaseline, spacing: 6) {
-            Text("Daily tokens")
+            Text("Daily tokens · CLI observed")
                 .font(.system(size: 12, weight: .bold))
                 .foregroundStyle(theme.textPrimary)
+                .help("Only Antigravity CLI sessions connected to DockMagic contribute token samples. Antigravity Desktop activity is not included.")
 
             if let dateRangeLabel {
                 Text(dateRangeLabel)
@@ -570,6 +571,8 @@ struct AntigravityHoverDashboardView: View {
                         .accessibilityHidden(true)
                     Text(tokenEmptyMessage)
                         .font(.system(size: 10, weight: .medium))
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 12)
                 }
                 .foregroundStyle(theme.textSecondary)
                 .frame(maxWidth: .infinity, minHeight: tokenChartPlotHeight)
@@ -650,23 +653,17 @@ struct AntigravityHoverDashboardView: View {
               (shipMomentum?.todayTokens ?? 0) > 0 else {
             return false
         }
-        let samples = CodexDashboardCaptureService.activityCardChartSamples(
-            from: tokenUsage,
-            now: now
-        )
-        return CodexDashboardCaptureService.activityCardChartHasRenderableTrend(
-            samples
-        )
+        return true
+    }
+
+    private var isAvailabilityLayoutExportAvailable: Bool {
+        !(snapshot?.quota?.buckets.isEmpty ?? true)
     }
 
     private var isExportAvailable: Bool {
         guard captureConfiguration != nil else { return false }
         return isActivityCardExportAvailable
-            || !(snapshot?.quota?.buckets.isEmpty ?? true)
-    }
-
-    private var exportCardName: String {
-        isActivityCardExportAvailable ? "activity card" : "quota card"
+            || isAvailabilityLayoutExportAvailable
     }
 
     private var dayObservations: [AntigravityDailyTokenObservation] {
@@ -741,11 +738,9 @@ struct AntigravityHoverDashboardView: View {
     private var tokenEmptyMessage: String {
         switch state {
         case .loading:
-            "Loading token usage from \(brand.displayName)…"
-        case let .unavailable(message), let .stale(_, message):
-            message
-        case .idle, .live:
-            "Locally observed token history is not available."
+            "Waiting for connected CLI token samples…"
+        case .idle, .live, .stale, .unavailable:
+            "Desktop token usage is not included. This chart tracks connected CLI sessions."
         }
     }
 

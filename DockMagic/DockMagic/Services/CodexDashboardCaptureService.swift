@@ -25,6 +25,7 @@ enum CodexDashboardCaptureError: LocalizedError {
     case unexpectedPixelSize(width: Int, height: Int)
     case pasteboardWriteFailed
     case noShareableActivity
+    case noShareableAvailability
     case noShareableQuota
 
     var errorDescription: String? {
@@ -39,6 +40,8 @@ enum CodexDashboardCaptureError: LocalizedError {
             "DockMagic could not copy the PNG to the clipboard."
         case .noShareableActivity:
             "Antigravity activity is not available to share yet."
+        case .noShareableAvailability:
+            "Antigravity has no quota snapshot for an activity availability card."
         case .noShareableQuota:
             "Antigravity quota is not available to share yet."
         }
@@ -145,6 +148,9 @@ enum CodexDashboardCaptureService {
             dataTimestamp: snapshot?.fetchedAt ?? now,
             isStale: state.isStale,
             isHistoryPartial: false,
+            showsUnavailableChartCue: false,
+            datePrefixOverride: nil,
+            isAvailabilityCard: false,
             accessibilityOverrides: accessibilityOverrides
         )
     }
@@ -166,8 +172,7 @@ enum CodexDashboardCaptureService {
             from: snapshot?.tokenUsage,
             now: now
         )
-        guard (momentum?.todayTokens ?? 0) > 0,
-              activityCardChartHasRenderableTrend(samples) else {
+        guard (momentum?.todayTokens ?? 0) > 0 else {
             throw CodexDashboardCaptureError.noShareableActivity
         }
         let activityTimestamp = snapshot?.activityObservedAt
@@ -185,6 +190,37 @@ enum CodexDashboardCaptureService {
             dataTimestamp: activityTimestamp,
             isStale: activityAge < -60 || activityAge > 15 * 60,
             isHistoryPartial: snapshot?.historyIsPartial ?? true,
+            showsUnavailableChartCue: !activityCardChartHasRenderableTrend(samples),
+            datePrefixOverride: nil,
+            isAvailabilityCard: false,
+            accessibilityOverrides: accessibilityOverrides
+        )
+    }
+
+    static func renderAntigravityAvailabilityCard(
+        state: AntigravityUsageState,
+        appearanceMode: DSAppearanceMode,
+        now: Date = .now,
+        accessibilityOverrides: DSAccessibilityOverrides = .init()
+    ) throws -> CodexDashboardCaptureArtifact {
+        guard let quota = state.snapshot?.quota,
+              !quota.buckets.isEmpty else {
+            throw CodexDashboardCaptureError.noShareableAvailability
+        }
+        let quotaAge = now.timeIntervalSince(quota.fetchedAt)
+        return try renderActivityCard(
+            tokenUsage: nil,
+            streakSummary: state.snapshot?.streakSummary,
+            momentum: nil,
+            brand: .antigravity,
+            appearanceMode: appearanceMode,
+            now: now,
+            dataTimestamp: quota.fetchedAt,
+            isStale: state.isStale || quotaAge < -60 || quotaAge > 5 * 60,
+            isHistoryPartial: true,
+            showsUnavailableChartCue: true,
+            datePrefixOverride: "CHECKED",
+            isAvailabilityCard: true,
             accessibilityOverrides: accessibilityOverrides
         )
     }
@@ -237,6 +273,9 @@ enum CodexDashboardCaptureService {
         dataTimestamp: Date,
         isStale: Bool,
         isHistoryPartial: Bool,
+        showsUnavailableChartCue: Bool,
+        datePrefixOverride: String?,
+        isAvailabilityCard: Bool,
         accessibilityOverrides: DSAccessibilityOverrides
     ) throws -> CodexDashboardCaptureArtifact {
         let resolvedAccessibility = resolvedAccessibilityOverrides(
@@ -251,7 +290,10 @@ enum CodexDashboardCaptureService {
                 now: now,
                 dataTimestamp: dataTimestamp,
                 isStale: isStale,
-                isHistoryPartial: isHistoryPartial
+                isHistoryPartial: isHistoryPartial,
+                showsUnavailableChartCue: showsUnavailableChartCue,
+                datePrefixOverride: datePrefixOverride,
+                isAvailabilityCard: isAvailabilityCard
             ),
             appearanceMode: appearanceMode
         )
@@ -264,7 +306,9 @@ enum CodexDashboardCaptureService {
         let dimensions = activityCardPixelDimensions
         return CodexDashboardCaptureArtifact(
             pngData: pngData,
-            fileName: activityCardFileName(for: brand, at: now),
+            fileName: isAvailabilityCard
+                ? antigravityAvailabilityCardFileName(at: now)
+                : activityCardFileName(for: brand, at: now),
             pixelWidth: dimensions.width,
             pixelHeight: dimensions.height
         )
@@ -416,6 +460,8 @@ enum CodexDashboardCaptureService {
         panel.nameFieldStringValue = artifact.fileName
         panel.title = if artifact.fileName.contains("-Antigravity-Quota-") {
             "Save Antigravity Quota Card"
+        } else if artifact.fileName.contains("-Antigravity-Availability-") {
+            "Save Antigravity Activity Layout"
         } else if artifact.fileName.contains("-Antigravity-") {
             "Save Antigravity Activity Card"
         } else if artifact.fileName.contains("-Claude-Code-") {
@@ -522,6 +568,18 @@ enum CodexDashboardCaptureService {
         formatter.dateFormat = "yyyy-MM-dd-HHmmss"
         return "DockMagic-Antigravity-Quota-\(formatter.string(from: date)).png"
     }
+
+    static func antigravityAvailabilityCardFileName(
+        at date: Date,
+        timeZone: TimeZone = .current
+    ) -> String {
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = timeZone
+        formatter.dateFormat = "yyyy-MM-dd-HHmmss"
+        return "DockMagic-Antigravity-Availability-\(formatter.string(from: date)).png"
+    }
 }
 
 @MainActor
@@ -536,81 +594,79 @@ private struct AntigravityQuotaShareCard: View {
     private var isDense: Bool { quota.buckets.count > 2 }
 
     var body: some View {
-        ZStack {
+        ZStack(alignment: .top) {
             theme.opaqueSurface
 
-            VStack(alignment: .leading, spacing: isDense ? 5 : 8) {
-                HStack(spacing: 8) {
-                    PreservedVectorAssetImage(
-                        assetName: StreakServiceBrand.antigravity.logoAssetName
-                    )
-                    .scaledToFit()
-                    .frame(
-                        width: isDense ? 20 : 22,
-                        height: isDense ? 20 : 22
-                    )
-                    .clipShape(
-                        RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    )
-                    .accessibilityHidden(true)
+            header
+                .padding(.horizontal, 14)
+                .padding(.top, 11)
 
-                    Text("Antigravity")
-                        .font(.system(size: isDense ? 14 : 16, weight: .bold))
-                        .foregroundStyle(theme.textPrimary)
-
-                    Spacer(minLength: 0)
-
-                    Text("\(isStale ? "LAST KNOWN" : "CHECKED") · \(Self.shortDate(quota.fetchedAt))")
-                        .font(.system(size: isDense ? 6.5 : 7, weight: .bold))
-                        .tracking(0.9)
-                        .foregroundStyle(theme.textSecondary)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.75)
-                }
-
-                Rectangle()
-                    .fill(theme.outline)
-                    .frame(height: 0.5)
-                    .accessibilityHidden(true)
-
+            VStack(alignment: .leading, spacing: 0) {
                 Text("MODEL-POOL QUOTA")
-                    .font(.system(size: isDense ? 7.5 : 8, weight: .bold))
-                    .tracking(1)
+                    .font(.system(size: 7.5, weight: .bold))
+                    .tracking(1.1)
                     .foregroundStyle(theme.textSecondary)
 
-                Spacer(minLength: isDense ? 0 : 4)
+                Spacer(minLength: isDense ? 3 : 8)
 
-                VStack(alignment: .leading, spacing: isDense ? 5 : 8) {
+                VStack(alignment: .leading, spacing: isDense ? 3 : 16) {
                     ForEach(Array(quota.buckets.prefix(maximumVisibleBuckets))) {
                         bucket in
                         quotaRow(bucket)
                     }
                 }
 
-                Spacer(minLength: isDense ? 0 : 4)
+                Spacer(minLength: isDense ? 3 : 8)
 
                 if quota.buckets.count > maximumVisibleBuckets {
                     Text("+\(quota.buckets.count - maximumVisibleBuckets) model \(quota.buckets.count - maximumVisibleBuckets == 1 ? "pool" : "pools") omitted")
-                        .font(.system(size: isDense ? 7.5 : 8, weight: .medium))
+                        .font(.system(size: isDense ? 7 : 7.5, weight: .medium))
                         .foregroundStyle(theme.textSecondary)
                 }
-
-                HStack(spacing: 4) {
-                    Text("agy /usage · \(quota.fetchedAt.formatted(.dateTime.year().month(.abbreviated).day().hour().minute()))")
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.8)
-                    Spacer(minLength: 0)
-                    Text("DockMagic")
-                }
-                .font(.system(size: isDense ? 6.5 : 7, weight: .semibold))
-                .foregroundStyle(theme.textTertiary)
             }
-            .padding(isDense ? 10 : 14)
+            .frame(height: isDense ? 228 : 220)
+            .padding(.horizontal, 14)
+            .padding(.top, isDense ? 38 : 43)
+
+            Text("DockMagic")
+                .font(.system(size: 7, weight: .semibold))
+                .foregroundStyle(theme.textTertiary)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+                .padding(.bottom, 8)
         }
         .frame(width: 300, height: 300)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Antigravity model-pool quota card")
         .accessibilityValue(accessibilityValue)
+    }
+
+    private var header: some View {
+        HStack(spacing: 8) {
+            PreservedVectorAssetImage(
+                assetName: StreakServiceBrand.antigravity.logoAssetName
+            )
+            .scaledToFit()
+            .frame(width: 22, height: 22)
+            .clipShape(
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+            )
+            .accessibilityHidden(true)
+
+            Text("Antigravity")
+                .font(.system(size: 15, weight: .bold))
+                .foregroundStyle(theme.textPrimary)
+
+            Spacer(minLength: 8)
+
+            Text("\(isStale ? "LAST KNOWN" : "CHECKED") · \(Self.shortDate(quota.fetchedAt))")
+                .font(.system(size: 7.5, weight: .bold))
+                .tracking(0.8)
+                .foregroundStyle(theme.textSecondary)
+                .monospacedDigit()
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+        }
+        .frame(height: 22)
     }
 
     private func quotaRow(_ bucket: AntigravityQuotaBucket) -> some View {
@@ -619,30 +675,38 @@ private struct AntigravityQuotaShareCard: View {
             : remaining <= 0.2 ? theme.warning : theme.action
         let valueForeground = remaining <= 0.05 ? theme.dangerForeground
             : remaining <= 0.2 ? theme.warningForeground : theme.textPrimary
-        return VStack(alignment: .leading, spacing: isDense ? 2 : 3) {
+        return VStack(alignment: .leading, spacing: isDense ? 1 : 4) {
             HStack(alignment: .firstTextBaseline, spacing: 6) {
                 Text(bucket.groupName)
-                    .font(.system(size: isDense ? 9 : 10, weight: .semibold))
+                    .font(.system(size: isDense ? 8.5 : 11, weight: .bold))
                     .foregroundStyle(theme.textPrimary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.75)
 
                 Spacer(minLength: 0)
 
-                Text("\(Int((remaining * 100).rounded()))% LEFT")
-                    .font(.system(
-                        size: isDense ? 11 : 12,
-                        weight: .bold,
-                        design: .rounded
-                    ))
-                    .foregroundStyle(valueForeground)
-                    .monospacedDigit()
+                VStack(alignment: .trailing, spacing: 0) {
+                    Text("\(Int((remaining * 100).rounded()))%")
+                        .font(.system(
+                            size: isDense ? 13 : 27,
+                            weight: .black,
+                            design: .rounded
+                        ))
+                        .foregroundStyle(valueForeground)
+                        .monospacedDigit()
+
+                    Text("LEFT")
+                        .font(.system(size: isDense ? 6 : 7.5, weight: .bold))
+                        .tracking(0.9)
+                        .foregroundStyle(theme.textSecondary)
+                }
+                .fixedSize(horizontal: true, vertical: false)
             }
 
             Text(bucket.title == bucket.windowTitle
                  ? "\(bucket.windowTitle) window"
                  : "\(bucket.title) · \(bucket.windowTitle) window")
-                .font(.system(size: isDense ? 7.5 : 8, weight: .medium))
+                .font(.system(size: isDense ? 7 : 8, weight: .medium))
                 .foregroundStyle(theme.textSecondary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
@@ -655,7 +719,7 @@ private struct AntigravityQuotaShareCard: View {
                         .frame(width: geometry.size.width * CGFloat(remaining))
                 }
             }
-            .frame(height: isDense ? 4 : 5)
+            .frame(height: isDense ? 4 : 7)
             .overlay {
                 Capsule().strokeBorder(
                     theme.outlineStrong,
@@ -668,7 +732,7 @@ private struct AntigravityQuotaShareCard: View {
             Text(bucket.resetsAt.map {
                 "Resets \($0.formatted(.dateTime.year().month(.abbreviated).day().hour().minute()))"
             } ?? "Reset time unavailable")
-            .font(.system(size: isDense ? 7.5 : 8, weight: .medium))
+            .font(.system(size: isDense ? 7 : 8, weight: .medium))
             .foregroundStyle(theme.textSecondary)
         }
     }
@@ -709,6 +773,9 @@ private struct DockMagicUsageActivityCard: View {
     let dataTimestamp: Date
     let isStale: Bool
     let isHistoryPartial: Bool
+    let showsUnavailableChartCue: Bool
+    let datePrefixOverride: String?
+    let isAvailabilityCard: Bool
 
     @Environment(\.designTheme) private var theme
     @Environment(\.dsAccessibilityOverrides) private var accessibilityOverrides
@@ -796,7 +863,11 @@ private struct DockMagicUsageActivityCard: View {
             height: CodexDashboardCaptureService.activityCardSize.height
         )
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(brand.displayName) daily activity card")
+        .accessibilityLabel(
+            isAvailabilityCard
+                ? "\(brand.displayName) activity availability card"
+                : "\(brand.displayName) daily activity card"
+        )
         .accessibilityValue(accessibilityValue)
     }
 
@@ -810,11 +881,18 @@ private struct DockMagicUsageActivityCard: View {
 
             Spacer(minLength: 8)
 
-            Text(Self.dateLabel(dataTimestamp, now: now, isStale: isStale))
+            Text(Self.dateLabel(
+                dataTimestamp,
+                now: now,
+                isStale: isStale,
+                freshPrefix: datePrefixOverride
+            ))
                 .font(.system(size: 7.5, weight: .bold))
                 .tracking(0.8)
                 .foregroundStyle(theme.textSecondary)
                 .monospacedDigit()
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
         }
         .frame(height: 22)
     }
@@ -862,6 +940,15 @@ private struct DockMagicUsageActivityCard: View {
                     .frame(width: 82, height: 29)
                     .frame(width: 88, alignment: .trailing)
                 }
+            } else if showsUnavailableChartCue {
+                HStack(alignment: .center, spacing: 12) {
+                    tokenMetricText(alignment: .leading)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+
+                    UsageActivityUnavailableChartCue()
+                        .frame(width: 82, height: 29)
+                        .frame(width: 88, alignment: .trailing)
+                }
             } else {
                 tokenMetricText(alignment: .center)
                     .frame(maxWidth: .infinity, alignment: .center)
@@ -880,7 +967,10 @@ private struct DockMagicUsageActivityCard: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.72)
 
-            Text(isHistoryPartial ? "TOKENS OBSERVED TODAY" : "TOKENS TODAY")
+            Text(
+                isAvailabilityCard ? "TOKENS UNAVAILABLE"
+                    : isHistoryPartial ? "TOKENS OBSERVED TODAY" : "TOKENS TODAY"
+            )
                 .font(.system(size: isHistoryPartial ? 6.5 : 7.5, weight: .bold))
                 .tracking(isHistoryPartial ? 0.72 : 1.4)
                 .foregroundStyle(theme.textSecondary)
@@ -951,15 +1041,20 @@ private struct DockMagicUsageActivityCard: View {
                 ? "Partial locally observed 14-day token history."
                 : "14-day token history."
             : "Token history unavailable."
-        let dailyLabel = isHistoryPartial ? "Tokens observed today" : "Tokens today"
+        let dailyLabel = isAvailabilityCard ? "Tokens unavailable"
+            : isHistoryPartial ? "Tokens observed today" : "Tokens today"
         let freshness = isStale ? "Last known at \(dataTimestamp.formatted()). " : ""
-        return "\(freshness)Badge: \(badge). \(dailyLabel): \(tokens). \(history) Ship momentum: \(ship)."
+        let source = isAvailabilityCard
+            ? "Quota was checked at \(dataTimestamp.formatted()); activity was not observed. "
+            : ""
+        return "\(freshness)\(source)Badge: \(badge). \(dailyLabel): \(tokens). \(history) Ship momentum: \(ship)."
     }
 
     private static func dateLabel(
         _ date: Date,
         now: Date,
-        isStale: Bool
+        isStale: Bool,
+        freshPrefix: String?
     ) -> String {
         let formatter = DateFormatter()
         formatter.calendar = Calendar(identifier: .gregorian)
@@ -967,7 +1062,7 @@ private struct DockMagicUsageActivityCard: View {
         formatter.timeZone = .current
         formatter.dateFormat = "MMM d, yyyy"
         let prefix = isStale || !Calendar.current.isDate(date, inSameDayAs: now)
-            ? "LAST KNOWN" : "TODAY"
+            ? "LAST KNOWN" : freshPrefix ?? "TODAY"
         return "\(prefix) · \(formatter.string(from: date).localizedUppercase)"
     }
 
@@ -987,6 +1082,24 @@ private struct DockMagicUsageActivityCard: View {
         let value = Double(amount) / Double(unit.threshold)
         let precision = value >= 100 ? 0 : value >= 10 ? 1 : 2
         return String(format: "%.*f", precision, value) + unit.suffix
+    }
+}
+
+private struct UsageActivityUnavailableChartCue: View {
+    @Environment(\.designTheme) private var theme
+
+    var body: some View {
+        VStack(spacing: 1) {
+            Image(systemName: "chart.xyaxis.line")
+                .symbolRenderingMode(.monochrome)
+                .font(.system(size: 15, weight: .medium))
+
+            Text("NO HISTORY")
+                .font(.system(size: 6, weight: .bold))
+                .tracking(0.5)
+        }
+        .foregroundStyle(theme.textSecondary)
+        .accessibilityHidden(true)
     }
 }
 

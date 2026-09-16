@@ -21,6 +21,19 @@ The fixture values, earned badges, and dates are examples, not design-system con
 
 This contract covers the **activity card**. A quota card is a separate artifact with a separate content layout, even when it uses the same canvas and export actions. A new provider does not gain activity-card eligibility or any slot merely because Codex and Claude Code use this layout.
 
+Antigravity also offers a separately labeled **activity availability** artifact
+when only a valid quota snapshot exists. It reuses these zones as a visual
+layout, not as a claim that quota supplies badge, token, trend, or Ship data.
+Its locked badge (unless independently earned), em-dash token value,
+`NO HISTORY` chart-slot cue, and
+unavailable momentum are explicit missing states; `CHECKED`/`LAST KNOWN`
+comes from the quota fetch timestamp. Antigravity Share exposes only this
+activity layout; its quota-detail renderer remains separate but is not
+selected as an export option.
+The [earned-badge availability fixture](share-card-concepts/implementation/antigravity-availability-earned-badge.png)
+shows the Builder artwork only because the provider-local streak summary
+independently earned it; token, trend, and Ship values remain unavailable.
+
 ## 2. Canvas and reading order
 
 Render a dedicated 300 × 300 pt SwiftUI composition directly at 4× into an opaque 1200 × 1200 PNG. The image is square, flat, and self-contained. Use the resolved opaque surface role across the entire canvas. Exclude popup material, Dock pointer, window shadow, menu, capture control, and other dashboard chrome. Keep the visual content within 14 pt horizontal insets and an 8 pt bottom inset. Use one consistent composition for Save, Copy, and Share within an export attempt.
@@ -57,7 +70,11 @@ The amount is the largest numeric text on the card: current baseline 33 pt black
 
 Use TOKENS TODAY when the eligible source represents the selected day's complete account bucket. Use TOKENS OBSERVED TODAY when the source is partial local observation. The label is directly below the number in small tracked secondary text (current baseline 7.5 pt, or 6.5 pt for the longer partial label). The amount and label occupy one coherent left block.
 
-The chart is an optional 82 × 29 pt area/line graphic in an 88 pt trailing slot. It has no title, axes, ticks, numbers, legend, or gradient. It samples 14 consecutive local-calendar days ending today. Unknown days remain missing and break the line; a known zero remains a zero point. Use one solid bounded data hue for the line and a low-opacity fill, with a neutral dashed cue for missing samples. The current baseline uses a 1 pt line and 0.18 fill opacity, strengthened to 1.25 pt and 0.28 in Increased Contrast. The current renderer shows a trend only if it has a positive sample and at least one adjacent pair of known days. If that condition is not met, remove the chart slot and center the token block; do not show an empty chart scaffold or imply a flat zero trend.
+The chart is an optional 82 × 29 pt area/line graphic in an 88 pt trailing slot. It has no title, axes, ticks, numbers, legend, or gradient. It samples 14 consecutive local-calendar days ending today. Unknown days remain missing and break the line; a known zero remains a zero point. Use one solid bounded data hue for the line and a low-opacity fill, with a neutral dashed cue for missing samples. The current baseline uses a 1 pt line and 0.18 fill opacity, strengthened to 1.25 pt and 0.28 in Increased Contrast. The current renderer shows a trend only if it has a positive sample and at least one adjacent pair of known days. If that condition is not met, Codex and Claude Code remove the chart slot and center the token block; they do not show an empty chart scaffold or imply a flat zero trend.
+
+Antigravity's requested sparse-history variant retains the trailing slot with
+a neutral `NO HISTORY` icon-and-text cue. This is not a plotted chart: it must
+not draw a flat line, invented points, or a colored area.
 
 The mini chart is decorative in the visual hierarchy. The accessible card value must say whether a 14-day history is present, partial, or unavailable.
 
@@ -85,9 +102,16 @@ The card must remain legible in Light, Dark, Increased Contrast, Reduce Transpar
 | No earned badge | Locked/default badge treatment; READY TO BEGIN; NO BADGE YET. |
 | Known zero tokens | Show 0 and preserve known zero samples; chart visibility still follows the meaningful-trend rule. |
 | Missing token amount | Show an em dash only if other non-sensitive activity still makes export eligible; otherwise do not offer an activity card. |
-| Missing trend | Center the token block and omit the chart slot. |
+| Missing trend | Codex/Claude center the token block and omit the chart slot; Antigravity's approved sparse-history variant keeps a neutral `NO HISTORY` cue. |
 | Missing momentum | Show — / 100 and UNAVAILABLE only when the remaining activity card is eligible. |
 | No eligible activity | Do not export an empty activity card. A separately eligible provider-reported quota may use a quota card under its own contract. |
+
+The Antigravity activity-availability artifact is not an eligible-activity
+card: its distinct filename and accessibility label identify the variant.
+It uses the same slot positions with missing-state text and a neutral chart
+icon rather than a plotted series. Once CLI-observed activity is eligible,
+the ordinary activity card replaces it, and a one-day observation may keep
+the `NO HISTORY` cue until an adjacent known-day trend exists.
 
 Every slot uses data from the selected provider and its declared scope. Do not include account identifiers, internal paths, prompts, answers, task or goal descriptions, raw transcript content, or private setup diagnostics in the image. Source failures belong to the affected slot or export action and must not be presented as a provider outage without evidence.
 

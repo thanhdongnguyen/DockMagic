@@ -29,9 +29,9 @@ Settings uses a native `NavigationSplitView`:
 - `Antigravity`: a Claude Code-style authentication card backed by an embedded
   official `agy` session, structured model-pool quota from the CLI, shared
   display controls, and no local session metrics setup section. Existing
-  DockMagic-owned `statusLine` connections remain observable and can be
-  disconnected from More Actions; authentication state is not overlaid on the
-  Dock preview.
+  DockMagic-owned `statusLine` connections remain observable, but Settings
+  does not manage them; authentication state is not overlaid on the Dock
+  preview.
 
 ## 2. Ownership
 
@@ -504,24 +504,37 @@ credential and reads no credential store. The Dock preview remains a pure
 renderer and carries no installation/authentication button overlay.
 
 An already-installed optional session connection uses a wrapper around
-Antigravity's documented `statusLine` command. Settings no longer offers a
-Connect action or local session metrics section; it keeps only a legacy
-Disconnect action so an existing connection is not stranded. Before writing under
-`~/.gemini/dockmagic-antigravity/`, the wrapper allowlists model/plan labels,
+Antigravity's documented `statusLine` command. Settings does not offer a
+Connect or Disconnect action or a local session metrics section. Before writing
+under `~/.gemini/dockmagic-antigravity/`, the wrapper allowlists model/plan labels,
 context token counters/percentages, agent/execution state, bounded task fields,
 CLI version, and observation time. It discards email, current/project paths,
 transcript path/content, VCS and sandbox data, raw IDs, and unknown future
 fields. The raw conversation/session ID is transformed into a SHA-256 filename.
-An existing status-line command is backed up and receives the same bounded
-payload after DockMagic captures its subset; disconnect restores it only while
-DockMagic still owns the setting.
+For an existing DockMagic-owned bridge, the saved predecessor receives the same
+bounded payload after DockMagic captures its subset. Settings never restores or
+otherwise changes the underlying status-line command.
+
+The DockMagic-owned script also keeps a private first and last token-counter
+sample for each hashed session and local day. These archived samples contain
+only the sample time, model ID, and total input/output counters; the script
+removes day directories older than 30 local calendar days. DockMagic refreshes
+an already-installed owned script on launch without changing the CLI setting,
+then replays the 30-day archive into its normalized local ledger. While running,
+it reads the current and previous day to catch samples missed between polls.
+The archive improves restart recovery but cannot reconstruct a day with only
+one sample, counter resets between saved endpoints, or activity before the
+bridge was installed. A time-zone change between capture and replay can also
+leave a sample outside the matching local-day archive.
+Antigravity Desktop sessions do not invoke this CLI `statusLine` script; their
+shared model-pool quota can change without adding token samples to the chart.
 
 Successive total input/output counters create daily activity only for positive
 deltas from the same hashed session on the same local day. The first sample,
 counter decreases, cross-day changes, and model changes establish or update a
 baseline without inventing attribution. Model totals require the model to be
 unchanged across the delta. The 30-day result is always labelled partial because
-it misses activity before setup and while DockMagic is not observing events.
+it misses activity before setup and intervals without enough archived samples.
 A partial-aware chart and intensity grid render days without an observed bucket
 as unavailable dashed marks rather than zero. Top models use only attributed
 deltas, and streak plus Ship momentum are derived from the same provider-local
@@ -531,13 +544,17 @@ A session older than 15 minutes is no longer presented as current; active work
 expires after 30 minutes. Account lifetime/hourly totals, cost, reasoning/tool
 tokens, goals, and service health are omitted because no eligible official
 passive source was established. Activity-card export is capability-gated on an
-explicit current-day observation plus enough retained daily samples to render
-a meaningful partial-history chart; the card labels those values as locally
-observed and never exports session identifiers or content. When that activity
-card is ineligible but `/usage` has a valid quota snapshot, the same hover
-export control renders a dedicated quota card from provider-reported model
-pools, remaining fractions, reset times, and the original fetch timestamp.
-Missing activity is not inferred from quota. The complete
+explicit positive current-day observation; the card labels its tokens as
+locally observed, renders a trend only with enough retained daily samples,
+and shows `NO HISTORY` for sparse history rather than plotting an invented
+line. It never exports session identifiers or content. When that activity card
+is ineligible but `/usage` has a valid quota snapshot, the hover export
+control defaults to a distinct activity-layout availability image. It keeps
+the Codex badge, token, chart, and Ship zones but marks missing activity
+unavailable; an independently earned badge may still appear. The separate
+quota-detail renderer remains a regression fixture but is not a Share mode.
+Save, Copy, and Share preserve the same activity-layout PNG artifact. Missing
+activity is not inferred from quota. The complete
 evidence and field classification are in
 [ANTIGRAVITY_USAGE.md](ANTIGRAVITY_USAGE.md).
 
@@ -589,8 +606,6 @@ animations to provide immediate interaction feedback.
   days of count/timestamp history with its ETag;
 - the last successful Weather snapshot;
 - the Codex executable override, if present.
-- Antigravity's last structured quota snapshot, hashed counter baselines, and
-  positive partial daily/model totals for at most 30 local calendar days.
 
 Real-time metric samples, Network history, prompts, and account metadata are not
 persisted in the app container. The optional GitHub access token is persisted
@@ -609,6 +624,11 @@ the official CLI.
 Its optional bridge persists only the allowlisted session fields described
 above with private permissions; prompts, answers, transcripts, paths, email,
 and raw session identifiers never enter DockMagic's cache.
+The normalized last quota is cached separately from the 30-day hashed
+baselines and positive daily/model totals in the private
+`~/Library/Application Support/DockMagic/antigravity-usage-v2.json` file. The
+bridge's separate 30-day history archive contains only the numeric counters,
+model ID, and sample time needed for restart replay.
 
 ## 16. Threading and failure containment
 

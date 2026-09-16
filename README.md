@@ -129,8 +129,12 @@ Click any screenshot to view it at full resolution.
   flow, without DockMagic storing credentials or clipboard content.
   An optional connection to Antigravity's documented `statusLine` extension
   adds the latest model, plan, context pressure, agent state, background-task
-  count, and explicitly partial local token history. It does not use private
-  Desktop endpoints or parse prompts, answers, or transcripts.
+  count, and explicitly partial local token history. A private 30-day sample
+  archive helps recover eligible token deltas after DockMagic restarts. The
+  token chart tracks connected CLI sessions; Antigravity Desktop usage does not
+  populate it even when a shared model-pool quota decreases. The
+  integration does not use private Desktop endpoints or parse prompts, answers,
+  or transcripts.
 - **General settings** select exactly one feature to run and display in the
   Dock. CPU & RAM, Storage, GitHub, Codex, Claude Code, and Antigravity support
   `Chart` and `Numbers` display styles; Clock offers `Analog`, `Digital`, and
