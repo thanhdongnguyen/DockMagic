@@ -1,0 +1,11 @@
+{
+  "accountKind": "unsigned-isolated-home",
+  "cliVersion": "1.0.30",
+  "fixtureOrigin": "synthetic",
+  "observedAt": "2026-09-16T08:56:54Z",
+  "passed": true,
+  "probe": "local-usage-with-empty-home",
+  "releaseVerified": false,
+  "binarySHA256": "d53b6e543e482716236748914331db50145c696ac7af91f1ebdedcf5654cfecb",
+  "signatureTeam": "5Y6N3AJ54S"
+}

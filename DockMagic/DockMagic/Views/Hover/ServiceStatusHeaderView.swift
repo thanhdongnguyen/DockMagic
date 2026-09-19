@@ -7,14 +7,14 @@ struct ServiceStatusHeaderView: View {
 
     var body: some View {
         HStack(spacing: 5) {
-            Image(systemName: systemImage)
+            DSIcon(systemName: systemImage)
                 .symbolRenderingMode(.monochrome)
-                .font(.system(size: 9, weight: .bold))
+                .dsFont(size: 9, weight: .bold)
                 .foregroundStyle(statusForeground)
                 .accessibilityHidden(true)
 
             Text(statusTitle)
-                .font(.system(size: 9.5, weight: .semibold))
+                .dsFont(size: 9.5, weight: .semibold)
                 .foregroundStyle(statusForeground)
                 .lineLimit(1)
 
@@ -23,13 +23,13 @@ struct ServiceStatusHeaderView: View {
             Link(destination: state.provider.statusPageURL) {
                 HStack(spacing: 3) {
                     Text(state.provider.statusLinkTitle)
-                    Image(systemName: "arrow.up.right")
-                        .font(.system(size: 7.5, weight: .bold))
+                    DSIcon(systemName: "arrow.up.right")
+                        .dsFont(size: 7.5, weight: .bold)
                 }
-                .font(.system(size: 9, weight: .semibold))
+                .dsFont(size: 9, weight: .semibold)
                 .foregroundStyle(theme.textSecondary)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(DSContentButtonStyle())
             .help("Open \(state.provider.statusPageURL.absoluteString)")
             .accessibilityIdentifier(
                 "serviceStatus.\(state.provider.rawValue).link"

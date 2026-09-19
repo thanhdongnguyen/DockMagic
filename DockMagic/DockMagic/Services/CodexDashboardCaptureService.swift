@@ -156,6 +156,27 @@ enum CodexDashboardCaptureService {
     }
 
     static func renderActivityCard(
+        state: OpenCodeUsageState,
+        appearanceMode: DSAppearanceMode,
+        now: Date = .now,
+        accessibilityOverrides: DSAccessibilityOverrides = .init()
+    ) throws -> CodexDashboardCaptureArtifact {
+        guard OpenCodePresentation.canExport(state, now: now), let snapshot = state.snapshot else {
+            throw CodexDashboardCaptureError.noShareableActivity
+        }
+        let account = OpenCodePresentation.account(snapshot)
+        return try renderActivityCard(
+            tokenUsage: account, streakSummary: OpenCodePresentation.streak(snapshot, now: now),
+            momentum: OpenCodePresentation.momentum(snapshot, now: now), brand: .openCode,
+            appearanceMode: appearanceMode, now: now, dataTimestamp: snapshot.readAt,
+            isStale: state.isStale, isHistoryPartial: snapshot.isPartial,
+            showsUnavailableChartCue: !activityCardChartHasRenderableTrend(activityCardChartSamples(from: account, now: now, calendar: snapshot.calendar)),
+            datePrefixOverride: nil, isAvailabilityCard: false,
+            accessibilityOverrides: accessibilityOverrides
+        )
+    }
+
+    static func renderActivityCard(
         state: AntigravityUsageState,
         appearanceMode: DSAppearanceMode,
         now: Date = .now,
@@ -553,6 +574,9 @@ enum CodexDashboardCaptureService {
         case .codex: "Codex"
         case .claudeCode: "Claude-Code"
         case .antigravity: "Antigravity"
+        case .grokBuild: "Grok-Build" // Name only; Grok's manifest does not select export.
+        case .openCode: "OpenCode"
+        case .augment: "Augment" // Name only; Augment's manifest does not select export.
         }
         return "DockMagic-\(provider)-Activity-\(formatter.string(from: date)).png"
     }
@@ -603,7 +627,7 @@ private struct AntigravityQuotaShareCard: View {
 
             VStack(alignment: .leading, spacing: 0) {
                 Text("MODEL-POOL QUOTA")
-                    .font(.system(size: 7.5, weight: .bold))
+                    .dsFont(size: 7.5, weight: .bold)
                     .tracking(1.1)
                     .foregroundStyle(theme.textSecondary)
 
@@ -620,7 +644,7 @@ private struct AntigravityQuotaShareCard: View {
 
                 if quota.buckets.count > maximumVisibleBuckets {
                     Text("+\(quota.buckets.count - maximumVisibleBuckets) model \(quota.buckets.count - maximumVisibleBuckets == 1 ? "pool" : "pools") omitted")
-                        .font(.system(size: isDense ? 7 : 7.5, weight: .medium))
+                        .dsFont(size: isDense ? 7 : 7.5, weight: .medium)
                         .foregroundStyle(theme.textSecondary)
                 }
             }
@@ -629,7 +653,7 @@ private struct AntigravityQuotaShareCard: View {
             .padding(.top, isDense ? 38 : 43)
 
             Text("DockMagic")
-                .font(.system(size: 7, weight: .semibold))
+                .dsFont(size: 7, weight: .semibold)
                 .foregroundStyle(theme.textTertiary)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
                 .padding(.bottom, 8)
@@ -653,13 +677,13 @@ private struct AntigravityQuotaShareCard: View {
             .accessibilityHidden(true)
 
             Text("Antigravity")
-                .font(.system(size: 15, weight: .bold))
+                .dsFont(size: 15, weight: .bold)
                 .foregroundStyle(theme.textPrimary)
 
             Spacer(minLength: 8)
 
             Text("\(isStale ? "LAST KNOWN" : "CHECKED") · \(Self.shortDate(quota.fetchedAt))")
-                .font(.system(size: 7.5, weight: .bold))
+                .dsFont(size: 7.5, weight: .bold)
                 .tracking(0.8)
                 .foregroundStyle(theme.textSecondary)
                 .monospacedDigit()
@@ -678,7 +702,7 @@ private struct AntigravityQuotaShareCard: View {
         return VStack(alignment: .leading, spacing: isDense ? 1 : 4) {
             HStack(alignment: .firstTextBaseline, spacing: 6) {
                 Text(bucket.groupName)
-                    .font(.system(size: isDense ? 8.5 : 11, weight: .bold))
+                    .dsFont(size: isDense ? 8.5 : 11, weight: .bold)
                     .foregroundStyle(theme.textPrimary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.75)
@@ -687,16 +711,16 @@ private struct AntigravityQuotaShareCard: View {
 
                 VStack(alignment: .trailing, spacing: 0) {
                     Text("\(Int((remaining * 100).rounded()))%")
-                        .font(.system(
+                        .dsFont(
                             size: isDense ? 13 : 27,
                             weight: .black,
                             design: .rounded
-                        ))
+                        )
                         .foregroundStyle(valueForeground)
                         .monospacedDigit()
 
                     Text("LEFT")
-                        .font(.system(size: isDense ? 6 : 7.5, weight: .bold))
+                        .dsFont(size: isDense ? 6 : 7.5, weight: .bold)
                         .tracking(0.9)
                         .foregroundStyle(theme.textSecondary)
                 }
@@ -706,7 +730,7 @@ private struct AntigravityQuotaShareCard: View {
             Text(bucket.title == bucket.windowTitle
                  ? "\(bucket.windowTitle) window"
                  : "\(bucket.title) · \(bucket.windowTitle) window")
-                .font(.system(size: isDense ? 7 : 8, weight: .medium))
+                .dsFont(size: isDense ? 7 : 8, weight: .medium)
                 .foregroundStyle(theme.textSecondary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
@@ -732,7 +756,7 @@ private struct AntigravityQuotaShareCard: View {
             Text(bucket.resetsAt.map {
                 "Resets \($0.formatted(.dateTime.year().month(.abbreviated).day().hour().minute()))"
             } ?? "Reset time unavailable")
-            .font(.system(size: isDense ? 7 : 8, weight: .medium))
+            .dsFont(size: isDense ? 7 : 8, weight: .medium)
             .foregroundStyle(theme.textSecondary)
         }
     }
@@ -787,7 +811,11 @@ private struct DockMagicUsageActivityCard: View {
         milestone ?? .firstPrompt
     }
     private var accent: Color {
-        brand == .claudeCode ? ProjectTheme.claudeCodeUsage : theme.action
+        switch brand {
+        case .codex, .antigravity: theme.codexActivity
+        case .claudeCode: ProjectTheme.claudeCodeUsage
+        default: theme.action
+        }
     }
     private var strongOutlineWidth: CGFloat {
         accessibilityOverrides.increaseContrast == true ? 1.5 : 0.75
@@ -822,20 +850,20 @@ private struct DockMagicUsageActivityCard: View {
                 .accessibilityHidden(true)
 
                 Text("CURRENT BADGE")
-                    .font(.system(size: 7, weight: .bold))
+                    .dsFont(size: 7, weight: .bold)
                     .tracking(1.5)
                     .foregroundStyle(theme.textSecondary)
                     .padding(.top, 1)
 
                 Text(milestone?.title.localizedUppercase ?? "READY TO BEGIN")
-                    .font(.system(size: 20, weight: .black))
+                    .dsFont(size: 20, weight: .black)
                     .foregroundStyle(theme.textPrimary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.66)
                     .padding(.horizontal, 8)
 
                 Text(badgeSubtitle)
-                    .font(.system(size: 7.5, weight: .bold))
+                    .dsFont(size: 7.5, weight: .bold)
                     .tracking(1.2)
                     .foregroundStyle(theme.textSecondary)
                     .padding(.top, 1)
@@ -850,7 +878,7 @@ private struct DockMagicUsageActivityCard: View {
                     .padding(.top, 5)
 
                 Text("DockMagic")
-                    .font(.system(size: 7, weight: .semibold))
+                    .dsFont(size: 7, weight: .semibold)
                     .foregroundStyle(theme.textTertiary)
                     .padding(.top, 4)
             }
@@ -876,7 +904,7 @@ private struct DockMagicUsageActivityCard: View {
             brandLogo
 
             Text(brand.displayName)
-                .font(.system(size: 15, weight: .bold))
+                .dsFont(size: 15, weight: .bold)
                 .foregroundStyle(theme.textPrimary)
 
             Spacer(minLength: 8)
@@ -887,7 +915,7 @@ private struct DockMagicUsageActivityCard: View {
                 isStale: isStale,
                 freshPrefix: datePrefixOverride
             ))
-                .font(.system(size: 7.5, weight: .bold))
+                .dsFont(size: 7.5, weight: .bold)
                 .tracking(0.8)
                 .foregroundStyle(theme.textSecondary)
                 .monospacedDigit()
@@ -961,8 +989,11 @@ private struct DockMagicUsageActivityCard: View {
     ) -> some View {
         VStack(alignment: alignment, spacing: 0) {
             Text(Self.tokenLabel(momentum?.todayTokens))
-                .font(.system(size: 33, weight: .black, design: .rounded))
-                .foregroundStyle(theme.textPrimary)
+                .dsFont(size: 33, weight: .black)
+                .foregroundStyle(
+                    (brand == .codex || brand == .antigravity)
+                        && momentum != nil ? accent : theme.textPrimary
+                )
                 .monospacedDigit()
                 .lineLimit(1)
                 .minimumScaleFactor(0.72)
@@ -971,7 +1002,7 @@ private struct DockMagicUsageActivityCard: View {
                 isAvailabilityCard ? "TOKENS UNAVAILABLE"
                     : isHistoryPartial ? "TOKENS OBSERVED TODAY" : "TOKENS TODAY"
             )
-                .font(.system(size: isHistoryPartial ? 6.5 : 7.5, weight: .bold))
+                .dsFont(size: isHistoryPartial ? 6.5 : 7.5, weight: .bold)
                 .tracking(isHistoryPartial ? 0.72 : 1.4)
                 .foregroundStyle(theme.textSecondary)
                 .lineLimit(1)
@@ -983,7 +1014,7 @@ private struct DockMagicUsageActivityCard: View {
         HStack(alignment: .bottom, spacing: 10) {
             VStack(alignment: .leading, spacing: 5) {
                 Text("SHIP MOMENTUM")
-                    .font(.system(size: 7.5, weight: .bold))
+                    .dsFont(size: 7.5, weight: .bold)
                     .tracking(1.1)
                     .foregroundStyle(theme.textSecondary)
 
@@ -1012,12 +1043,12 @@ private struct DockMagicUsageActivityCard: View {
 
             VStack(alignment: .trailing, spacing: 0) {
                 Text(momentum.map { "\($0.score) / 100" } ?? "— / 100")
-                    .font(.system(size: 12.5, weight: .black, design: .rounded))
+                    .dsFont(size: 12.5, weight: .black)
                     .foregroundStyle(theme.textPrimary)
                     .monospacedDigit()
 
                 Text(momentum?.rank.title.localizedUppercase ?? "UNAVAILABLE")
-                    .font(.system(size: 7.5, weight: .bold))
+                    .dsFont(size: 7.5, weight: .bold)
                     .tracking(0.9)
                     .foregroundStyle(theme.textSecondary)
             }
@@ -1090,12 +1121,12 @@ private struct UsageActivityUnavailableChartCue: View {
 
     var body: some View {
         VStack(spacing: 1) {
-            Image(systemName: "chart.xyaxis.line")
+            DSIcon(systemName: "chart.xyaxis.line")
                 .symbolRenderingMode(.monochrome)
-                .font(.system(size: 15, weight: .medium))
+                .dsFont(size: 15, weight: .medium)
 
             Text("NO HISTORY")
-                .font(.system(size: 6, weight: .bold))
+                .dsFont(size: 6, weight: .bold)
                 .tracking(0.5)
         }
         .foregroundStyle(theme.textSecondary)

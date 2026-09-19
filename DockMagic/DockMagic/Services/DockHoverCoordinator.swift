@@ -169,9 +169,11 @@ final class DockHoverCoordinator {
     private let appModel: DockAppModel
     private let dockObserver: DockAccessibilityObserver
     private let panelController: DockHoverPanelController
+    private let nowPlayingPanelController = NowPlayingPanelController()
     private var isRunning = false
     private var configurationObservationActive = false
     private var isDockMenuPresented = false
+    private var suppressesHoverUntilExit = false
     private var healthTask: Task<Void, Never>?
 
     init(
@@ -201,11 +203,13 @@ final class DockHoverCoordinator {
         isRunning = false
         configurationObservationActive = false
         isDockMenuPresented = false
+        suppressesHoverUntilExit = false
         healthTask?.cancel()
         healthTask = nil
         dockObserver.stop()
         panelController.hide()
         permissionController.stop()
+        nowPlayingPanelController.hide()
     }
 
     func applicationDidBecomeActive() {
@@ -218,7 +222,27 @@ final class DockHoverCoordinator {
         applyConfiguration()
     }
 
+    func openNowPlaying() {
+        appModel.activateFeature(.nowPlaying)
+        nowPlayingPanelController.show(appModel: appModel, interactive: true)
+    }
+
+    /// A Dock click owns the interaction until the pointer leaves the icon.
+    /// Cancel the dwell timer before Settings activates, including repeated AX
+    /// selection notifications caused by Dock magnification.
+    func dockIconClicked() {
+        suppressesHoverUntilExit = true
+        panelController.hide()
+        nowPlayingPanelController.hide()
+    }
+
+    func dockMenuDidClose() {
+        isDockMenuPresented = false
+        nowPlayingPanelController.dockMenuDidClose()
+    }
+
     func dockMenuWillOpen() {
+        nowPlayingPanelController.dockMenuWillOpen()
         isDockMenuPresented = true
         panelController.hide()
     }
@@ -248,6 +272,7 @@ final class DockHoverCoordinator {
     private func applyConfiguration() {
         let isEnabled = appModel.preferences.isDockHoverDashboardEnabled
         let activeFeature = appModel.preferences.activeFeature
+        if activeFeature != .nowPlaying { nowPlayingPanelController.hide() }
         permissionController.synchronize(isEnabled: isEnabled)
 
         guard isEnabled,
@@ -255,6 +280,7 @@ final class DockHoverCoordinator {
               activeFeature.hasHoverDashboard else {
             dockObserver.stop()
             panelController.hide()
+            nowPlayingPanelController.hideTransient()
             return
         }
 
@@ -264,7 +290,12 @@ final class DockHoverCoordinator {
             }
             switch event {
             case let .hovered(anchor):
-                guard !self.isDockMenuPresented else {
+                guard !self.isDockMenuPresented, !self.suppressesHoverUntilExit else {
+                    return
+                }
+                if self.appModel.preferences.activeFeature == .nowPlaying {
+                    self.panelController.hide()
+                    self.nowPlayingPanelController.scheduleShow(anchor: anchor, appModel: self.appModel)
                     return
                 }
                 self.panelController.scheduleShow(
@@ -273,7 +304,9 @@ final class DockHoverCoordinator {
                 )
             case .exited:
                 self.isDockMenuPresented = false
+                self.suppressesHoverUntilExit = false
                 self.panelController.scheduleHide()
+                self.nowPlayingPanelController.scheduleHide()
             }
         }
         if !attached {
@@ -651,8 +684,10 @@ enum DockHoverScreenGeometry {
 }
 
 enum DockHoverPanelPlacement {
+    static let nowPlayingPanelSize = CGSize(width: 572, height: 362)
     static let standardPanelSize = CGSize(width: 440, height: 304)
     static let systemMetricsPanelSize = CGSize(width: 620, height: 474)
+    static let calendarPanelSize = CGSize(width: 480, height: 620)
     static let weatherPanelSize = CGSize(width: 440, height: 420)
     static let codexPanelSize = CGSize(width: 440, height: 556)
     static let claudeCodePanelSize = CGSize(width: 440, height: 740)
@@ -671,12 +706,24 @@ enum DockHoverPanelPlacement {
         switch feature {
         case .systemMetrics:
             systemMetricsPanelSize
+        case .binance:
+            CGSize(width: 620, height: 740)
+        case .calendar:
+            calendarPanelSize
+        case .nowPlaying:
+            nowPlayingPanelSize
         case .weather:
             weatherPanelSize
         case .codex:
             codexPanelSize
         case .claudeCode:
             claudeCodePanelSize
+        case .augment:
+            CGSize(width: 440, height: 650)
+        case .grokBuild:
+            CGSize(width: 440, height: 740)
+        case .openCode:
+            CGSize(width: 440, height: 680)
         case .antigravity:
             antigravityPanelSize
         default:
@@ -756,6 +803,96 @@ final class DockHoverPanelController {
     private var latestHoverAnchor: DockHoverAnchor?
     private var pendingHideTask: Task<Void, Never>?
     private var activeStreakCelebration: TokenUsageStreakCelebration?
+    private var visibleFeature: DockFeature?
+    private var outsideMonitor: Any?
+    private var localMonitor: Any?
+    private var menuObservers: [NSObjectProtocol] = []
+    private var isTrackingMenu = false
+    private var overlayLeases: Set<UUID> = []
+    private var explicitInteraction = false
+    private weak var previousKeyWindow: NSWindow?
+    private(set) var isInteracting = false
+
+    func setBinanceInteraction(_ active: Bool) {
+        guard visibleFeature == .binance else { return }
+        explicitInteraction = active
+        updateInteraction()
+    }
+
+    private func updateInteraction() {
+        guard let panel else { return }
+        let active = explicitInteraction || !overlayLeases.isEmpty
+        guard active != isInteracting else { return }
+        isInteracting = active
+        panel.acceptsKeyboard = active
+        if active {
+            pendingHideTask?.cancel()
+            pendingHideTask = nil
+            if NSApp.keyWindow !== panel { previousKeyWindow = NSApp.keyWindow }
+            panel.makeKey()
+        } else {
+            panel.makeFirstResponder(nil)
+            panel.resignKey()
+            previousKeyWindow?.makeKey()
+            previousKeyWindow = nil
+            scheduleHide()
+        }
+    }
+
+    private func owns(_ window: NSWindow) -> Bool {
+        var ancestor: NSWindow? = window
+        while let current = ancestor {
+            if current === panel { return true }
+            ancestor = current.parent ?? current.sheetParent
+        }
+        return false
+    }
+
+    private func installOutsideMonitors() {
+        guard outsideMonitor == nil else { return }
+        menuObservers = [
+            NotificationCenter.default.addObserver(forName: DSOverlayActivity.began, object: nil, queue: .main) { [weak self] note in
+                MainActor.assumeIsolated {
+                    guard let self, let window = note.object as? NSWindow,
+                          self.owns(window),
+                          let id = note.userInfo?["id"] as? UUID else { return }
+                    self.overlayLeases.insert(id)
+                    self.updateInteraction()
+                }
+            },
+            NotificationCenter.default.addObserver(forName: DSOverlayActivity.ended, object: nil, queue: .main) { [weak self] note in
+                MainActor.assumeIsolated {
+                    guard let self, let id = note.userInfo?["id"] as? UUID,
+                          self.overlayLeases.remove(id) != nil else { return }
+                    self.updateInteraction()
+                }
+            },
+            NotificationCenter.default.addObserver(forName: NSMenu.didBeginTrackingNotification, object: nil, queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated {
+                    self?.isTrackingMenu = true
+                    self?.pendingHideTask?.cancel()
+                }
+            },
+            NotificationCenter.default.addObserver(forName: NSMenu.didEndTrackingNotification, object: nil, queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated {
+                    self?.isTrackingMenu = false
+                    self?.scheduleHide()
+                }
+            }
+        ]
+        outsideMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown, .otherMouseDown]) { [weak self] _ in
+            MainActor.assumeIsolated { self?.hide() }
+        }
+        localMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown, .otherMouseDown]) { [weak self] event in
+            MainActor.assumeIsolated {
+                guard let self, event.window !== self.panel, !self.isTrackingMenu else { return }
+                // A child popup/menu belongs to the same interaction.
+                if let window = event.window, self.owns(window) { return }
+                self.hide()
+            }
+            return event
+        }
+    }
 
     init(showDelay: Duration = .seconds(1)) {
         self.showDelay = showDelay
@@ -816,9 +953,23 @@ final class DockHoverPanelController {
 
         pendingHideTask?.cancel()
         pendingHideTask = nil
-        let panelSize = DockHoverPanelPlacement.panelSize(
+        var panelSize = DockHoverPanelPlacement.panelSize(
             for: appModel.preferences.activeFeature
         )
+        let feature = appModel.preferences.activeFeature
+        if feature == .binance {
+            panelSize.width = min(panelSize.width, anchor.screen.visibleFrame.width - 16)
+            panelSize.height = min(panelSize.height, anchor.screen.visibleFrame.height - 16)
+        }
+        if visibleFeature != feature { hide() }
+        visibleFeature = feature
+        if appModel.preferences.activeFeature == .openCode || appModel.preferences.activeFeature == .grokBuild || appModel.preferences.activeFeature == .augment {
+            panelSize.height = min(panelSize.height, max(240, anchor.screen.visibleFrame.height - 24))
+        }
+        if isVisible, visibleFeature == feature, panel?.frame.size == panelSize {
+            panel?.setFrameOrigin(DockHoverPanelPlacement.frame(anchor: anchor, panelSize: panelSize).origin)
+            return
+        }
         let provider = streakProvider(
             for: appModel.preferences.activeFeature
         )
@@ -836,13 +987,16 @@ final class DockHoverPanelController {
                 appModel: appModel,
                 pointerEdge: anchor.pointerEdge,
                 panelSize: panelSize,
+                appearanceMode: DSAppearanceMode.stored(in: DockMagicRuntimeDefaults.current),
                 initialStreakCelebration: celebration,
                 onStreakCelebrationDismissed: { [weak self] celebrationID in
                     guard self?.activeStreakCelebration?.id == celebrationID else {
                         return
                     }
                     self?.activeStreakCelebration = nil
-                }
+                },
+                onBinanceInteraction: { [weak self] active in self?.setBinanceInteraction(active) },
+                onBinanceClose: { [weak self] in self?.hide() }
             )
         )
         let panel = panel ?? makePanel(
@@ -858,6 +1012,7 @@ final class DockHoverPanelController {
             display: true
         )
         panel.orderFrontRegardless()
+        installOutsideMonitors()
         dockHoverLogger.notice(
             "Presented hover dashboard at x=\(panel.frame.minX) y=\(panel.frame.minY)."
         )
@@ -867,14 +1022,33 @@ final class DockHoverPanelController {
         cancelPendingShow()
         pendingHideTask?.cancel()
         pendingHideTask = nil
+        panel?.acceptsKeyboard = false
+        panel?.makeFirstResponder(nil)
+        panel?.childWindows?.forEach { $0.orderOut(nil) }
         panel?.orderOut(nil)
+        if isInteracting { previousKeyWindow?.makeKey() }
+        previousKeyWindow = nil
+        isInteracting = false
+        explicitInteraction = false
+        overlayLeases.removeAll()
+        if let outsideMonitor { NSEvent.removeMonitor(outsideMonitor) }
+        if let localMonitor { NSEvent.removeMonitor(localMonitor) }
+        outsideMonitor = nil
+        localMonitor = nil
+        menuObservers.forEach(NotificationCenter.default.removeObserver)
+        menuObservers = []
+        isTrackingMenu = false
+        // orderOut does not guarantee SwiftUI onDisappear. Release the root
+        // so the Binance demand token is always released with the panel.
+        hostingView?.rootView = AnyView(EmptyView())
+        visibleFeature = nil
     }
 
     func scheduleHide() {
         cancelPendingShow()
         pendingHideTask?.cancel()
         pendingHideTask = nil
-        guard isVisible else { return }
+        guard isVisible, !isInteracting, !isTrackingMenu else { return }
         pendingHideTask = Task { @MainActor [weak self] in
             do {
                 try await Task.sleep(for: .milliseconds(160))
@@ -887,8 +1061,7 @@ final class DockHoverPanelController {
 
                 try await Task.sleep(for: .milliseconds(120))
                 try Task.checkCancellation()
-                panel.orderOut(nil)
-                self.pendingHideTask = nil
+                self.hide()
             } catch {
                 return
             }
@@ -906,7 +1079,7 @@ final class DockHoverPanelController {
         case .antigravity:
             .antigravity
         case .dockMagic, .systemMetrics, .network, .storage, .weather,
-             .clock, .batteries, .github, .searchConsole:
+             .clock, .calendar, .batteries, .github, .searchConsole, .augment, .openCode, .grokBuild, .binance, .nowPlaying:
             nil
         }
     }
@@ -926,6 +1099,7 @@ final class DockHoverPanelController {
             ?? CGRect(origin: .zero, size: panelSize)
         hostingView.autoresizingMask = [.width, .height]
 
+        panel.identifier = NSUserInterfaceItemIdentifier("dockHover.panel")
         panel.contentView = hostingView
         panel.backgroundColor = .clear
         panel.isOpaque = false
@@ -952,6 +1126,7 @@ final class DockHoverPanelController {
 }
 
 private final class DockHoverPanel: NSPanel {
-    override var canBecomeKey: Bool { false }
+    var acceptsKeyboard = false
+    override var canBecomeKey: Bool { acceptsKeyboard }
     override var canBecomeMain: Bool { false }
 }

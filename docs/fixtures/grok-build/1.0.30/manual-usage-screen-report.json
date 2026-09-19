@@ -1,0 +1,18 @@
+{
+  "evidenceKind": "user-supplied-screenshot",
+  "capturedAtLocal": "2026-09-16 17:25:37",
+  "observedLabel": "Weekly limit (X Premium)",
+  "displayedPercentage": "0%",
+  "displayedReset": "September 21, 17:34",
+  "resetTimezoneExplicitlyShown": false,
+  "sessionInputTokens": 35879,
+  "sessionCachedInputTokens": 6144,
+  "sessionOutputTokens": 108,
+  "sessionReasoningTokens": 54,
+  "sessionTotalTokens": 35987,
+  "sessionModelCalls": 1,
+  "localProbeTotalMatches": true,
+  "automatedBillingVerified": false,
+  "releaseVerified": false,
+  "notes": "Manual reference only. Not a billing wire-schema fixture, live quota snapshot, or timezone proof. Cache/reasoning are not added to total. No cost feature enabled."
+}

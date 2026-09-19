@@ -35,27 +35,44 @@ headless session rather than the user's subscription limits.
 
 DockMagic executes the absolute resolved Claude binary directly, without a
 shell, using `claude auth status --json`. `loggedIn: true` means the CLI has a
-credential; it does not by itself mean quota is available. Settings reports:
+credential; it does not by itself mean quota is available. Settings reports
+settled outcomes:
 
-- **Signed out** when `loggedIn` is false;
-- **Signed in / loading quota** after auth succeeds but before `/usage` parses;
+- **Signed out** when `loggedIn` is false or the quota PTY explicitly reports
+  that login is required; both invalidate cached quota and authentication;
 - **Connected** only after both 5-hour and weekly all-models quota parse;
 - **Quota unavailable** for API/cloud-provider billing or a fresh `/usage`
   failure without a previous snapshot;
 - **Last known** when a previous quota snapshot exists and the next capture
   fails.
 
+The automatic **Checking** phase keeps the compact connection row neutral.
+After authentication is known, an initial **Loading quota** summary distinguishes
+a CLI session from a successful quota capture. Background refreshes preserve a
+settled result until a new result arrives. The left connection title remains
+visible in every state, matching Antigravity. Missing-CLI and signed-out rows
+show only their setup action beside the title. User-initiated sign-in and
+sign-out remain visible processing states. Authenticated quota failures offer
+Retry and Sign Out; a subscription login is not prompted to choose a plan
+merely because its quota request failed.
+
 The visible Settings terminal runs only the fixed command
 `claude auth login --claudeai`. It is independent from the hidden quota PTY and
 does not expose a general-purpose shell. The fallback `.command` file contains
-only the absolute Claude path and those fixed arguments.
+only the absolute Claude path and those fixed arguments. Each new sign-in
+attempt creates a new terminal process; callbacks from a cancelled or replaced
+terminal cannot finish another attempt.
 
 Settings keeps the normal connected state to one compact row: title, connection
-state, last-update time, Refresh, and a More menu. **Sign Out** lives in that
+state, Refresh, and a More menu. Stale results include their last-update time.
+**Sign Out** lives in that
 menu and runs the resolved binary directly as `claude auth logout`, without a
-shell. Signing out stops the quota PTY and removes the in-memory 5-hour/weekly
-snapshot; local JSONL history, activity hooks, tasks, goals, and streak data are
-not deleted.
+shell. Signing out immediately stops the quota PTY, excludes concurrent quota
+refreshes, and stays processing until a follow-up `claude auth status --json`
+reports `loggedIn: false`. A failed logout keeps Sign Out accessible even when
+no quota has ever been captured. Verified sign-out removes the in-memory
+5-hour/weekly snapshot; activity events cannot restore it. Local JSONL history,
+activity hooks, tasks, goals, and streak data are not deleted.
 
 ## Quota capture lifecycle
 
@@ -68,8 +85,10 @@ not deleted.
   private app-owned directory.
 - Only one `/usage` capture can run at a time; manual refreshes coalesce.
 - Claude can first paint cached quota and then redraw only the changed rows.
-  DockMagic waits for the completed redraw and prefers its final all-model
-  weekly value instead of publishing the cached percentage.
+  DockMagic waits for the completed redraw and updates both the session and
+  all-model weekly values. A redraw without a section heading is accepted
+  only when its reset timestamp matches that window's preceding section;
+  it is never assigned to a different quota window.
 - A capture times out after 15 seconds. DockMagic restarts the PTY once, then
   keeps the last snapshot as stale and waits for the next 60-second cycle.
 - Sign-out, a changed executable, app shutdown, sleep recovery, or cancellation

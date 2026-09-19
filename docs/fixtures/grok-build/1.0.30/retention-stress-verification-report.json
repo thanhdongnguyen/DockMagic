@@ -1,0 +1,128 @@
+{
+  "schemaVersion": 1,
+  "verifiedAt": "2026-09-16T17:07:49Z",
+  "localDate": "2026-09-17",
+  "scope": "Synthetic durable history accumulation, persistence, expiry, calendar equivalence and bounded high-volume stress",
+  "productionEnabled": false,
+  "billingStartupSafetyVerified": false,
+  "runtimeVerifiedVersions": [],
+  "releaseVerified": false,
+  "retention": {
+    "dailyCase": {
+      "days": 3650,
+      "turnsPerDay": 1,
+      "observationWindowDays": 30,
+      "diskRestartCheckpoints": 11,
+      "detailedTurnsBeforeFinalExpiry": 30,
+      "detailedTurnsAfterFinalExpiry": 0,
+      "durableWitnessesAfterExpiry": 3650,
+      "retainedBestDays": 3650,
+      "historicalCelebrationsReplayed": 0,
+      "timeZoneReprojections": ["America/Los_Angeles", "Asia/Kathmandu", "Pacific/Kiritimati", "Etc/GMT+12", "UTC"]
+    },
+    "delayedRevision": "After 180 days and detailed-cache expiry, an accepted same-session/turn revision moves the existing witness, preserves the 7-day badge, does not bridge the unknown gap, and does not replay its new-day claim after disk restart.",
+    "capacityFailure": "An over-32-MiB synthetic metadata payload fails before overwriting the previous valid cache; the persisted badge survives and a subsequent valid save succeeds.",
+    "unboundedRetentionClaimed": false,
+    "maximumCacheBytes": 33554432,
+    "capacityPolicyUnchanged": true,
+    "activityCompactedOrTruncated": false
+  },
+  "stress": {
+    "optInEnvironment": "GROK_RUN_RETENTION_STRESS=1",
+    "days": 1095,
+    "turnsPerDay": 100,
+    "durableWitnesses": 109500,
+    "recentDetailedTurns": 3000,
+    "diskRestartCheckpoints": 4,
+    "cacheBytes": 8995766,
+    "before": {
+      "passed": 1,
+      "failed": 0,
+      "generateSeconds": 52.248454291671806,
+      "saveSeconds": 1.3289608749983017,
+      "loadSeconds": 1.2431088750017807,
+      "snapshotSeconds": 0.8779452916642185,
+      "log": "/private/tmp/dockmagic-grok-retention-stress-before.log"
+    },
+    "after": {
+      "generateSeconds": 23.35789404167008,
+      "saveSeconds": 1.310964291667915,
+      "loadSeconds": 1.2228265833327896,
+      "snapshotSeconds": 0.16185674999724142,
+      "log": "/private/tmp/dockmagic-grok-retention-optimized.log"
+    },
+    "measurementBoundary": "Single synthetic Debug executions on this machine, not repeated statistical benchmarking, actual UI frame timing, production maximum capacity or a real-account soak."
+  },
+  "optimization": {
+    "file": "DockMagic/DockMagic/Models/GrokBuildActivityLedger.swift",
+    "change": "Filter timestamps by now, deduplicate local day starts, then construct canonical day indices once per day instead of once per turn.",
+    "sharedLegacyCodeChanged": false,
+    "cacheSchemaChanged": false,
+    "referenceEquivalenceCombinations": 128,
+    "timeZones": ["America/Los_Angeles", "America/New_York", "Australia/Lord_Howe", "Pacific/Apia", "Asia/Kathmandu", "Pacific/Kiritimati", "Etc/GMT+12", "UTC"],
+    "cases": ["2026 spring DST", "2025 fall DST", "2024 leap day", "2011 Samoa skipped local date"],
+    "clockRollbackSeconds": [0, 3600, 86400, 172800]
+  },
+  "focused": {
+    "passed": 5,
+    "failed": 0,
+    "includesStress": true,
+    "log": "/private/tmp/dockmagic-grok-retention-optimized.log"
+  },
+  "initialHarnessIssue": {
+    "category": "Swift 5.10 compile-time expression complexity, not a product assertion failure",
+    "resolution": "Split a nested fixture flatMap/map expression into explicit typed loops",
+    "log": "/private/tmp/dockmagic-grok-retention-focused.log"
+  },
+  "foundation": {
+    "selected": 124,
+    "passed": 117,
+    "skipped": 7,
+    "skippedBreakdown": {"liveOptInProbes": 6, "separatelyExercisedStressCase": 1},
+    "failed": 0,
+    "completedAt": "2026-09-16T17:07:15Z",
+    "log": "/private/tmp/dockmagic-grok-retention-foundation-final.log"
+  },
+  "appHosted": {
+    "selected": 83,
+    "passed": 82,
+    "skippedStressCases": 1,
+    "failed": 0,
+    "completedAt": "2026-09-16T17:07:49Z",
+    "suites": {"GrokBuildIntegrationTests": 51, "GrokBuildDerivedTests": 23, "TokenUsageStreakStoreTests": 9},
+    "resultBundle": "/private/tmp/dockmagic-grok-retention-apphost.xcresult",
+    "log": "/private/tmp/dockmagic-grok-retention-apphost.log",
+    "overlap": "Grok cases also run in Foundation; counts are not additive unique totals."
+  },
+  "xcodeScope": {
+    "configuration": "Debug",
+    "destination": "platform=macOS,arch=arm64",
+    "xcconfig": "/private/tmp/dockmagic-grok-ui-isolated.xcconfig",
+    "derivedData": "/private/tmp/dockmagic-grok-ui-build.acevBnKZ",
+    "packageCache": "/private/tmp/dockmagic-grok-interactive-packages.rESQuSxj",
+    "automaticPackageResolutionDisabled": true,
+    "parallelTestingEnabled": false,
+    "jobs": 2,
+    "excludedSourceFile": "CalendarSyncTests.swift",
+    "fullAppRegression": false,
+    "uiInteractionRerun": false,
+    "standardWorkflowRelaunchPerformed": false,
+    "ownedTestProcessesAbsentAfterRun": true
+  },
+  "safety": {
+    "realGrokCLIStarted": false,
+    "realHomeACPStarted": false,
+    "credentialsRead": false,
+    "promptsSent": 0,
+    "productionPreferencesChanged": false,
+    "systemClockOrTimezoneChanged": false,
+    "temporaryFixtureDirectoriesRemovedByTests": true
+  },
+  "remaining": [
+    "Safe official billing startup and authenticated quota fixture",
+    "Official terminal controller and real auth lifecycle",
+    "Actual Dock, full keyboard/VoiceOver, machine sleep/wake, full roadmap scrolling and transient-banner interaction",
+    "Broader live source attribution and real multi-model coverage",
+    "Final identity asset and full release regression/package verification"
+  ]
+}

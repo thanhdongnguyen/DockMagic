@@ -1,0 +1,38 @@
+{
+  "probe": "billing-sandbox-candidates",
+  "observedAt": "2026-09-16T10:01:53Z",
+  "releaseVerified": false,
+  "accountKind": "unsigned-isolated-home",
+  "cases": [
+    {
+      "profile": "off",
+      "cliVersion": "1.0.30",
+      "outcome": "authenticationRequired",
+      "syntheticStartupFailure": null,
+      "deadPoolMarkerRemoved": true
+    },
+    {
+      "profile": "read-only",
+      "cliVersion": "1.0.30",
+      "outcome": "protocolErrorOrStartupExit",
+      "syntheticStartupFailure": "warning: sandbox could not be applied: runtime-socket deny resolution failed: could not resolve runtime-socket deny path /var/run/docker.sock: endpoint is a symlink",
+      "deadPoolMarkerRemoved": false
+    },
+    {
+      "profile": "strict",
+      "cliVersion": "1.0.30",
+      "outcome": "protocolErrorOrStartupExit",
+      "syntheticStartupFailure": "warning: sandbox could not be applied: runtime-socket deny resolution failed: could not resolve runtime-socket deny path /var/run/docker.sock: endpoint is a symlink",
+      "deadPoolMarkerRemoved": false
+    },
+    {
+      "profile": "dockmagic-audit",
+      "cliVersion": "1.0.30",
+      "outcome": "protocolErrorOrStartupExit",
+      "syntheticStartupFailure": "warning: sandbox could not be applied: runtime-socket deny resolution failed: could not resolve runtime-socket deny path /var/run/docker.sock: endpoint is a symlink",
+      "deadPoolMarkerRemoved": false
+    }
+  ],
+  "reviewOutcome": "blocked-runtime-socket-symlink",
+  "reviewScope": "Synthetic unsigned homes only; no real-home agent or Docker changes."
+}

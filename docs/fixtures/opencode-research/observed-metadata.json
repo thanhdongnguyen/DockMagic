@@ -1,0 +1,33 @@
+{
+  "verifiedDate": "2026-09-16",
+  "source": "read-only local SQLite metadata projection; no transcript or credentials",
+  "cliVersion": "1.18.4",
+  "sourceCommit": "49c69c5ed3ccf706b61b3febb43c8aaff7f8325e",
+  "localSessionVersionMin": "1.1.14",
+  "localSessionVersionMax": "1.1.34",
+  "schema": {
+    "legacyMessageTable": true,
+    "sessionMessageTable": false,
+    "sessionTokenCounters": false
+  },
+  "counts": {
+    "sessions": 4,
+    "messages": 63,
+    "assistantMessages": 57,
+    "userMessages": 6,
+    "assistantMessagesWithTokens": 57,
+    "assistantMessagesWithCost": 57,
+    "parts": 285,
+    "todos": 0,
+    "toolCompleted": 113,
+    "toolError": 1
+  },
+  "isolatedCliSqlProbe": {
+    "exitCode": 0,
+    "metadata_probe": 1,
+    "sqlite_version": "3.43.2"
+  },
+  "liveAccountValidated": false,
+  "liveHttpValidated": false,
+  "liveEventsValidated": false
+}

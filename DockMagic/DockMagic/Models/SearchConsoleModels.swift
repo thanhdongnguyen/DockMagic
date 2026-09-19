@@ -201,6 +201,10 @@ struct SearchConsoleConfiguration: Equatable, Sendable {
     var timeRange: SearchConsoleTimeRange
     var displayMode: SearchConsoleDisplayMode
     var credentialIdentifier: String?
+    var clicksColor = defaultClicksColor
+    var impressionsColor = defaultImpressionsColor
+    static let defaultClicksColor = DockColor(red: 0.20, green: 0.79, blue: 0.96)
+    static let defaultImpressionsColor = DockColor(red: 0.64, green: 0.36, blue: 1.00)
 
     static let defaultValue = SearchConsoleConfiguration(
         metadata: nil,

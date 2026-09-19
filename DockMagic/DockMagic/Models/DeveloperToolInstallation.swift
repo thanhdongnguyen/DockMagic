@@ -69,8 +69,8 @@ extension DockFeature {
             .claudeCode
         case .antigravity:
             .antigravity
-        case .dockMagic, .systemMetrics, .network, .storage, .weather, .clock,
-             .batteries, .github, .searchConsole:
+        case .dockMagic, .systemMetrics, .network, .storage, .weather, .clock, .calendar,
+             .batteries, .github, .searchConsole, .augment, .openCode, .grokBuild, .binance, .nowPlaying:
             nil
         }
     }

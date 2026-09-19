@@ -1,0 +1,16 @@
+{
+  "recordedAt": "2026-09-17T07:50:50.681994+00:00",
+  "command": "./script/build_and_run.sh --verify",
+  "exitCode": 0,
+  "build": "BUILD SUCCEEDED",
+  "launch": "process verified by script",
+  "derivedData": "/private/tmp/dockmagic-binance-ui-derived",
+  "sourcePackages": "/private/tmp/binance-ui-packages",
+  "preferencesSuite": "DockMagicBinanceUIReview20260917",
+  "app": "/private/tmp/dockmagic-binance-ui-derived/Build/Products/Debug/DockMagic.app",
+  "binanceData": "real public REST and WebSocket; no Binance fixture environment key",
+  "otherProviders": "existing UITesting composition",
+  "fullLog": "/tmp/binance-ui-build-run-final.log",
+  "initialAttempt": "build and app launch succeeded; exact process-path check did not match /tmp alias; canonical /private/tmp rerun passed",
+  "productionSigningChanges": false
+}

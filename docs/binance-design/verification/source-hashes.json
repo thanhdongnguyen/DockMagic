@@ -1,0 +1,15 @@
+{
+  "DockMagic/DockMagicTests/BinanceFeatureTests.swift": "989505d6c03ffbda3acf1e73afbe3ed908813824875e2bb3127ec6026fd3d395",
+  "DockMagic/DockMagicTests/BinanceRenderTests.swift": "12894991b2157fee05a1dee8dcdc32e80e8d0b9e8d8d24ee7a859fbf63c40bc4",
+  "DockMagic/DockMagic/Stores/BinanceMarketStore.swift": "d7b5ea657f5fb570048f9232baf1a3d1b32d79a55511761cdde39805ceb5bfc1",
+  "DockMagic/DockMagic/Models/BinanceMarketModels.swift": "f1aa27a5b9fc3dd06330cdde5982e5ddaa8ba460d06a1ed0621029e2817d6bfb",
+  "DockMagic/DockMagic/Support/BinanceFixtures.swift": "5e74237d757521f8a603cba9dddce73d1c808999f305dba8d4ebd9f6fe8c04be",
+  "DockMagic/DockMagic/Views/Settings/BinanceSettingsView.swift": "1f19e098f8259b79e85a37ff2232870c115d2ad96ca3cc941b65eeacd5ed52ed",
+  "DockMagic/DockMagic/Views/Hover/BinancePriceChartView.swift": "5fae69360ebc58db1802fe0be60ab9137c366e5d80f64f41cd6621d47361d58f",
+  "DockMagic/DockMagic/Views/Hover/BinanceDashboardView.swift": "d164488aa95f1cff6f7a516382663b59d670c05c1a79c5b7b38cf6580c5a73c3",
+  "DockMagic/DockMagic/Views/Dock/DockBinanceView.swift": "b2962379f5e83e332dcaacb67169cbd85395b7551c0001a2f347cfa0e6657e24",
+  "DockMagic/DockMagic/Services/BinanceMarketCache.swift": "1256734579a40539438dabb02afe3dea296c115bccd0c393474f84489bb01592",
+  "DockMagic/DockMagic/Services/BinanceMarketStreamClient.swift": "1867e7370a03af00a1103ed50f55ce574b89bcc109e51f28277cd4cb81d90f40",
+  "DockMagic/DockMagic/Services/BinanceMarketDataClient.swift": "0c021ae2e2762ab8bdd950ff1203c7b43c53ab806e2d2990f0f359719cd04d28",
+  "DockMagic/DockMagicUITests/BinanceUITests.swift": "d4d61ad54fbd19ac1af4dc44940cea6d346a31869bfb80b2a54dfde0725f9abb"
+}

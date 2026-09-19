@@ -22,6 +22,10 @@ final class ClaudeCodeUsageStore {
     private(set) var bridgeCleanupWarning: String?
     private(set) var executableURL: URL?
 
+    var hasAuthenticatedConnectionContext: Bool {
+        lastAuthInfo != nil
+    }
+
     @ObservationIgnored private let provider: any ClaudeCodeRateLimitProviding
     @ObservationIgnored private let bridge: any ClaudeCodeStatusLineBridging
     @ObservationIgnored private let activityHookBridge: any ClaudeCodeActivityHookBridging
@@ -34,6 +38,10 @@ final class ClaudeCodeUsageStore {
     @ObservationIgnored private var pollingTask: Task<Void, Never>?
     @ObservationIgnored private var pollingSleepTask: Task<Void, Error>?
     @ObservationIgnored private var refreshTask: Task<Void, Never>?
+    @ObservationIgnored private var refreshGeneration: UUID?
+    @ObservationIgnored private var authenticationTask: Task<Void, Never>?
+    @ObservationIgnored private var authenticationGeneration: UUID?
+    @ObservationIgnored private var lifecycleGeneration = UUID()
     @ObservationIgnored private var activityMonitor: LocalTelemetryEventMonitor?
     @ObservationIgnored private var activityDebounceTask: Task<Void, Never>?
     @ObservationIgnored private var lastQuotaCapture: ClaudeCodeQuotaCapture?
@@ -73,6 +81,7 @@ final class ClaudeCodeUsageStore {
         pollingTask?.cancel()
         pollingSleepTask?.cancel()
         refreshTask?.cancel()
+        authenticationTask?.cancel()
         activityDebounceTask?.cancel()
         activityMonitor?.stop()
     }
@@ -83,19 +92,18 @@ final class ClaudeCodeUsageStore {
             if isMonitoring { Task { await refresh() } }
             return
         }
-        usageCollector.stop()
+        cancelConnectionWork()
         self.executableURL = normalized
-        lastQuotaCapture = nil
-        lastAuthInfo = nil
+        clearAuthentication()
         connectionState = .checking
         migrateRetiredStatusLineBridgeIfNeeded()
         if isMonitoring { Task { await refresh() } }
     }
 
     func markCLIMissing() {
+        cancelConnectionWork()
         executableURL = nil
-        usageCollector.stop()
-        lastQuotaCapture = nil
+        clearAuthentication()
         connectionState = .cliMissing
     }
 
@@ -134,7 +142,7 @@ final class ClaudeCodeUsageStore {
     func stop() {
         pollingTask?.cancel()
         pollingSleepTask?.cancel()
-        refreshTask?.cancel()
+        cancelConnectionWork()
         activityDebounceTask?.cancel()
         pollingTask = nil
         pollingSleepTask = nil
@@ -146,62 +154,125 @@ final class ClaudeCodeUsageStore {
         isMonitoring = false
         isRefreshing = false
         if case .loading = state { state = .idle }
+        if isAuthenticating { connectionState = .checking }
     }
 
     func beginSignIn() {
+        guard !isAuthenticating else { return }
+        cancelConnectionWork()
+        clearAuthentication()
+        pollingSleepTask?.cancel()
         connectionState = .signingIn
-        usageCollector.stop()
     }
 
     func loginProcessDidFinish() async {
+        guard connectionState == .signingIn else { return }
         connectionState = .checking
         await refresh()
     }
 
     func cancelSignIn() async {
+        guard connectionState == .signingIn else { return }
         connectionState = .checking
         await refresh()
     }
 
     func signOut() async {
+        if let authenticationTask {
+            await authenticationTask.value
+            return
+        }
+        guard connectionState != .signingIn else { return }
         guard let executableURL else {
             connectionState = .cliMissing
             return
         }
 
         let previousSnapshot = state.snapshot
-        refreshTask?.cancel()
-        if let refreshTask { await refreshTask.value }
-        refreshTask = nil
+        let pendingRefresh = refreshTask
+        cancelRefresh()
+        lifecycleGeneration = UUID()
         pollingSleepTask?.cancel()
-        usageCollector.stop()
         connectionState = .signingOut
-
-        do {
-            try await authProvider.signOut(executableURL: executableURL)
-            try Task.checkCancellation()
-            lastQuotaCapture = nil
-            lastAuthInfo = nil
-            await publishTelemetryWithoutQuota(
-                message: "Sign in to Claude to load 5-hour and weekly quota."
-            )
-            connectionState = .signedOut
-        } catch is CancellationError {
-            return
-        } catch {
-            let message = "Sign out failed: \(error.localizedDescription)"
-            claudeActivityLogger.error("\(message, privacy: .public)")
-            if let previousSnapshot, previousSnapshot.hasSupportedWindow {
-                let stale = observingStreak(in: previousSnapshot)
-                state = .stale(stale, message: message)
-                connectionState = .stale(
-                    lastSnapshot: stale,
-                    message: message
-                )
-            } else {
-                connectionState = .failed(message: message)
-                state = .unavailable(message: message)
+        let generation = UUID()
+        authenticationGeneration = generation
+        let task = Task { @MainActor [weak self] in
+            guard let self else { return }
+            defer {
+                if self.authenticationGeneration == generation {
+                    self.authenticationTask = nil
+                    self.authenticationGeneration = nil
+                }
             }
+            if let pendingRefresh { await pendingRefresh.value }
+            guard !Task.isCancelled,
+                  self.authenticationGeneration == generation else { return }
+            do {
+                try await self.authProvider.signOut(executableURL: executableURL)
+                try Task.checkCancellation()
+                let status = try await self.authProvider.status(executableURL: executableURL)
+                try Task.checkCancellation()
+                guard !status.loggedIn else {
+                    throw ClaudeCodeAuthStatusError.commandFailed(
+                        "Claude CLI still reports a signed-in session. Retry Sign Out."
+                    )
+                }
+                self.clearAuthentication()
+                await self.publishTelemetryWithoutQuota(
+                    message: "Sign in to Claude to load 5-hour and weekly quota."
+                )
+                try Task.checkCancellation()
+                self.connectionState = .signedOut
+            } catch is CancellationError {
+                return
+            } catch {
+                guard !Task.isCancelled,
+                      self.authenticationGeneration == generation else { return }
+                let message = "Sign out failed: \(error.localizedDescription)"
+                claudeActivityLogger.error("\(message, privacy: .public)")
+                if let previousSnapshot, previousSnapshot.hasSupportedWindow {
+                    let stale = self.observingStreak(in: previousSnapshot)
+                    self.state = .stale(stale, message: message)
+                    self.connectionState = .stale(lastSnapshot: stale, message: message)
+                } else {
+                    self.connectionState = .failed(message: message)
+                    self.state = .unavailable(message: message)
+                }
+            }
+        }
+        authenticationTask = task
+        await task.value
+    }
+
+    private var isAuthenticating: Bool {
+        connectionState == .signingIn || connectionState == .signingOut
+            || authenticationTask != nil
+    }
+
+    private func cancelRefresh() {
+        refreshTask?.cancel()
+        refreshTask = nil
+        refreshGeneration = nil
+        isRefreshing = false
+        usageCollector.stop()
+    }
+
+    private func cancelConnectionWork() {
+        lifecycleGeneration = UUID()
+        cancelRefresh()
+        authenticationTask?.cancel()
+        authenticationTask = nil
+        authenticationGeneration = nil
+    }
+
+    private func clearAuthentication() {
+        lastAuthInfo = nil
+        lastQuotaCapture = nil
+        if let snapshot = state.snapshot {
+            state = .stale(
+                observingStreak(in: mergedSnapshot(telemetry: snapshot, quota: nil)),
+                message: "Claude quota is not available."
+            )
         }
     }
 
@@ -241,6 +312,7 @@ final class ClaudeCodeUsageStore {
     }
 
     func refresh() async {
+        guard !isAuthenticating else { return }
         isBridgeInstalled = bridge.isInstalled()
         isActivityHookInstalled = activityHookBridge.isInstalled()
         syncActivityMonitor()
@@ -249,39 +321,53 @@ final class ClaudeCodeUsageStore {
             return
         }
         isRefreshing = true
+        let generation = UUID()
+        refreshGeneration = generation
         let previousSnapshot = state.snapshot
         let task = Task { @MainActor [weak self] in
             guard let self else { return }
+            defer {
+                if self.refreshGeneration == generation {
+                    self.refreshTask = nil
+                    self.refreshGeneration = nil
+                    self.isRefreshing = false
+                    self.pollingSleepTask?.cancel()
+                }
+            }
             await self.performRefresh(previousSnapshot: previousSnapshot)
         }
         refreshTask = task
         await task.value
-        refreshTask = nil
-        isRefreshing = false
-        pollingSleepTask?.cancel()
     }
 
     func refreshAfterInterruption() async {
+        guard !isAuthenticating else { return }
         activityMonitor?.stop()
         activityMonitor = nil
         syncActivityMonitor()
-        usageCollector.stop()
+        cancelRefresh()
         await refresh()
     }
 
     private func performRefresh(previousSnapshot: ClaudeCodeRateLimitSnapshot?) async {
+        guard !Task.isCancelled else { return }
         guard let executableURL else {
             connectionState = .cliMissing
             await refreshTelemetryOnly()
             return
         }
+        let preservesConnectionPresentation =
+            preservesConnectionPresentationDuringRefresh
         if previousSnapshot == nil { state = .loading }
-        connectionState = .checking
+        if !preservesConnectionPresentation {
+            connectionState = .checking
+        }
         do {
             let cliStatus = try await authProvider.status(executableURL: executableURL)
             try Task.checkCancellation()
             guard ClaudeCodeAuthStatusProvider.isSupported(version: cliStatus.version) else {
                 usageCollector.stop()
+                clearAuthentication()
                 connectionState = .cliOutdated(
                     installed: cliStatus.version,
                     required: ClaudeCodeAuthStatusProvider.minimumVersion
@@ -291,7 +377,7 @@ final class ClaudeCodeUsageStore {
             }
             guard cliStatus.loggedIn else {
                 usageCollector.stop()
-                lastAuthInfo = nil
+                clearAuthentication()
                 connectionState = .signedOut
                 await publishTelemetryWithoutQuota(message: "Sign in to Claude to load 5-hour and weekly quota.")
                 return
@@ -299,14 +385,18 @@ final class ClaudeCodeUsageStore {
             lastAuthInfo = cliStatus.authInfo
             guard cliStatus.authInfo.isSubscriptionLogin else {
                 usageCollector.stop()
+                lastQuotaCapture = nil
                 let reason = "This login uses API or cloud-provider billing. 5-hour and weekly plan limits require a Claude subscription."
                 connectionState = .quotaUnavailable(cliStatus.authInfo, reason: reason)
                 await publishTelemetryWithoutQuota(message: reason)
                 return
             }
-            connectionState = .signedInWaitingForQuota(cliStatus.authInfo)
+            if !preservesConnectionPresentation {
+                connectionState = .signedInWaitingForQuota(cliStatus.authInfo)
+            }
             usageCollector.configure(executableURL: executableURL, cliVersion: cliStatus.version)
             let telemetry = try? await provider.fetchRateLimits()
+            try Task.checkCancellation()
             let capture = try await usageCollector.capture()
             try Task.checkCancellation()
             lastQuotaCapture = capture
@@ -315,7 +405,14 @@ final class ClaudeCodeUsageStore {
             connectionState = .connected(cliStatus.authInfo, lastUpdated: capture.capturedAt)
         } catch is CancellationError {
             return
+        } catch ClaudeCodeUsageCaptureError.signedOut {
+            guard !Task.isCancelled else { return }
+            usageCollector.stop()
+            clearAuthentication()
+            connectionState = .signedOut
+            await publishTelemetryWithoutQuota(message: "Sign in to Claude to load 5-hour and weekly quota.")
         } catch {
+            guard !Task.isCancelled else { return }
             let message = error.localizedDescription
             claudeActivityLogger.error("Claude /usage refresh failed: \(message, privacy: .public)")
             if let previousSnapshot, previousSnapshot.hasSupportedWindow {
@@ -332,12 +429,28 @@ final class ClaudeCodeUsageStore {
         }
     }
 
+    private var preservesConnectionPresentationDuringRefresh: Bool {
+        switch connectionState {
+        case .cliOutdated, .signedOut, .connected, .quotaUnavailable, .stale,
+             .failed:
+            true
+        case .cliMissing, .checking, .signingIn, .signingOut,
+             .signedInWaitingForQuota:
+            false
+        }
+    }
+
     private func refreshTelemetryOnly() async {
+        let generation = lifecycleGeneration
         let telemetry = try? await provider.fetchRateLimits()
+        guard !Task.isCancelled, generation == lifecycleGeneration,
+              !isAuthenticating else { return }
         guard telemetry != nil || lastQuotaCapture != nil else { return }
         let snapshot = observingStreak(in: mergedSnapshot(telemetry: telemetry, quota: lastQuotaCapture))
         if let quota = lastQuotaCapture {
-            if now().timeIntervalSince(quota.capturedAt) > staleAfter {
+            if case let .stale(_, message) = connectionState {
+                state = .stale(snapshot, message: message)
+            } else if now().timeIntervalSince(quota.capturedAt) > staleAfter {
                 state = .stale(snapshot, message: "Claude quota is older than 15 minutes.")
             } else {
                 state = .live(snapshot)
@@ -351,7 +464,9 @@ final class ClaudeCodeUsageStore {
     }
 
     private func publishTelemetryWithoutQuota(message: String) async {
-        guard let telemetry = try? await provider.fetchRateLimits() else {
+        let telemetry = try? await provider.fetchRateLimits()
+        guard !Task.isCancelled else { return }
+        guard let telemetry else {
             state = .unavailable(message: message)
             return
         }

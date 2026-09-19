@@ -1,0 +1,9 @@
+{
+  "resultBundle": "/tmp/dockmagic-binance-validation/.derivedData/Logs/Test/Test-DockMagic-2026.09.16_21-51-17-+0700.xcresult",
+  "metrics": {
+    "testsCount": "19",
+    "totalCoveragePercentage": "0.14158348366406093",
+    "warningCount": "13"
+  },
+  "testFailures": []
+}

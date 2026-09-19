@@ -2,11 +2,6 @@ import SwiftUI
 
 @MainActor
 struct AntigravityHoverDashboardView: View {
-    private enum CaptureAction {
-        case save
-        case copy
-        case share
-    }
 
     let state: AntigravityUsageState
     let brand: StreakServiceBrand
@@ -21,9 +16,7 @@ struct AntigravityHoverDashboardView: View {
     @State private var hoveredBucketID: Date?
     @State private var isStreakDetailPresented: Bool
     @State private var streakCelebration: TokenUsageStreakCelebration?
-    @State private var isCaptureButtonHovered = false
     @State private var isCaptureMenuPresented: Bool
-    @State private var hoveredCaptureAction: CaptureAction?
     @State private var captureErrorText: String?
     @State private var pendingShareURL: URL?
 
@@ -80,6 +73,7 @@ struct AntigravityHoverDashboardView: View {
                 StreakDetailView(
                     summary: streakSummary,
                     brand: brand,
+                    unknownDayStyle: .dash,
                     onBack: { setStreakDetailPresented(false) }
                 )
                 .transition(.opacity)
@@ -107,11 +101,12 @@ struct AntigravityHoverDashboardView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(alignment: .topTrailing) {
             if captureConfiguration != nil {
-                CodexDashboardSharePresenter(itemURL: $pendingShareURL)
+                DashboardSharePresenter(itemURL: $pendingShareURL)
                     .frame(width: 1, height: 1)
                     .opacity(0.001)
             }
         }
+        .dsOverlayInteraction(isPresented: isCaptureMenuPresented || isStreakDetailPresented)
         .onExitCommand {
             if streakCelebration != nil {
                 dismissStreakCelebration(openBadges: false)
@@ -163,11 +158,13 @@ struct AntigravityHoverDashboardView: View {
                 summary: streakSummary,
                 brand: brand,
                 accent: theme.action,
+                unknownDayStyle: .dash,
                 onOpen: { setStreakDetailPresented(true) }
             )
             CodexShipMomentumCard(
                 momentum: shipMomentum,
-                accent: theme.action,
+                accent: activityColor,
+                accentForeground: activityForeground,
                 isPartial: true,
                 showsPartialIndicator: false
             )
@@ -187,21 +184,21 @@ struct AntigravityHoverDashboardView: View {
                 .accessibilityHidden(true)
 
             Text(brand.displayName)
-                .font(.system(size: 17, weight: .bold))
+                .dsFont(size: 17, weight: .bold)
                 .foregroundStyle(theme.textPrimary)
 
             if let plan = snapshot?.planType, !plan.isEmpty {
-                CodexPlanBadge(plan: plan, providerName: brand.displayName)
+                DSPlanBadge(plan: plan, providerName: brand.displayName)
             }
 
             if showsHeaderState {
                 HStack(spacing: 3) {
-                    Image(systemName: stateSystemImage)
+                    DSIcon(systemName: stateSystemImage)
                         .symbolRenderingMode(.monochrome)
-                        .font(.system(size: 9, weight: .semibold))
+                        .dsFont(size: 9, weight: .semibold)
                         .accessibilityHidden(true)
                     Text(state.statusTitle)
-                        .font(.system(size: 10, weight: .semibold))
+                        .dsFont(size: 10, weight: .semibold)
                 }
                 .foregroundStyle(stateForeground)
                 .accessibilityElement(children: .combine)
@@ -217,199 +214,22 @@ struct AntigravityHoverDashboardView: View {
     }
 
     private var captureButton: some View {
-        Button {
+        DSExportButton(isPresented: isCaptureMenuPresented, identifier: "antigravity.capture" + ".button") {
             captureErrorText = nil
             setCaptureMenuPresented(!isCaptureMenuPresented)
-        } label: {
-            Image(systemName: "square.and.arrow.up")
-                .symbolRenderingMode(.monochrome)
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(theme.textPrimary)
-                .frame(width: 26, height: 26)
-                .background {
-                    RoundedRectangle(cornerRadius: 7, style: .continuous)
-                        .fill(theme.opaqueSurfaceInset)
-                        .opacity(
-                            isCaptureButtonHovered || isCaptureMenuPresented
-                                ? 1
-                                : 0
-                        )
-                }
-                .overlay {
-                    RoundedRectangle(cornerRadius: 7, style: .continuous)
-                        .strokeBorder(
-                            isCaptureMenuPresented
-                                ? theme.outlineStrong
-                                : theme.outline,
-                            lineWidth: isCaptureMenuPresented ? 1 : 0.5
-                        )
-                        .opacity(
-                            isCaptureButtonHovered || isCaptureMenuPresented
-                                ? 1
-                                : 0
-                        )
-                }
         }
-        .buttonStyle(.plain)
-        .contentShape(Rectangle())
-        .onHover { isHovering in
-            isCaptureButtonHovered = isHovering
-        }
-        .help("Share or export Antigravity activity layout")
-        .accessibilityLabel("Share Antigravity activity layout")
-        .accessibilityHint("Opens 1200 by 1200 PNG export options")
-        .accessibilityIdentifier("antigravity.capture.button")
     }
 
     private var captureMenu: some View {
-        VStack(alignment: .trailing, spacing: 0) {
-            DockHoverPointerShape(direction: .up)
-                .fill(theme.opaqueSurfaceRaised)
-                .overlay {
-                    DockHoverPointerShape(direction: .up)
-                        .stroke(theme.outline, lineWidth: 0.75)
-                }
-                .frame(width: 12, height: 7)
-                .padding(.trailing, 7)
-
-            VStack(spacing: 1) {
-                Text("ACTIVITY LAYOUT")
-                    .font(.system(size: 7, weight: .bold))
-                    .tracking(0.8)
-                    .foregroundStyle(theme.textSecondary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 7)
-                    .padding(.vertical, 4)
-
-                captureMenuRow(
-                    captureAction: .save,
-                    title: "Save 4× PNG",
-                    subtitle: CodexDashboardCaptureService
-                        .activityCardPixelSizeLabel,
-                    systemImage: "photo",
-                    accessibilityHint:
-                        "Opens a save panel for the high-resolution PNG",
-                    action: saveDashboard
-                )
-                captureMenuRow(
-                    captureAction: .copy,
-                    title: "Copy image",
-                    systemImage: "doc.on.doc",
-                    action: copyDashboard
-                )
-                captureMenuRow(
-                    captureAction: .share,
-                    title: "Share…",
-                    systemImage: "square.and.arrow.up",
-                    action: shareDashboard
-                )
-
-                if let captureErrorText {
-                    Text(captureErrorText)
-                        .font(.system(size: 8, weight: .medium))
-                        .foregroundStyle(theme.dangerForeground)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .padding(.horizontal, 7)
-                        .padding(.vertical, 4)
-                        .accessibilityIdentifier("antigravity.capture.error")
-                }
-            }
-            .padding(4)
-            .frame(width: 146)
-            .dsSurface(
-                RoundedRectangle(cornerRadius: 10, style: .continuous),
-                kind: .raised,
-                elevation: .secondary
-            )
-        }
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel("Antigravity activity layout export options")
-        .accessibilityIdentifier("antigravity.capture.menu")
-    }
-
-    private func captureMenuRow(
-        captureAction: CaptureAction,
-        title: String,
-        subtitle: String? = nil,
-        systemImage: String,
-        accessibilityHint: String? = nil,
-        action: @escaping @MainActor () -> Void
-    ) -> some View {
-        let isActive = activeCaptureAction == captureAction
-
-        return Button(action: action) {
-            HStack(spacing: 8) {
-                Image(systemName: systemImage)
-                    .symbolRenderingMode(.monochrome)
-                    .font(
-                        .system(
-                            size: 11,
-                            weight: isActive ? .bold : .medium
-                        )
-                    )
-                    .frame(width: 16)
-                    .accessibilityHidden(true)
-
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(title)
-                        .font(
-                            .system(
-                                size: 11,
-                                weight: isActive ? .bold : .medium
-                            )
-                        )
-
-                    if let subtitle {
-                        Text(subtitle)
-                            .font(.system(size: 8.5, weight: .medium))
-                            .opacity(0.82)
-                    }
-                }
-
-                Spacer(minLength: 0)
-            }
-            .foregroundStyle(
-                isActive ? theme.textPrimary : theme.textSecondary
-            )
-            .padding(.horizontal, 8)
-            .frame(maxWidth: .infinity, minHeight: subtitle == nil ? 26 : 36)
-            .background {
-                if isActive {
-                    RoundedRectangle(cornerRadius: 7, style: .continuous)
-                        .fill(theme.outlineStrong.opacity(0.18))
-                        .overlay {
-                            RoundedRectangle(
-                                cornerRadius: 7,
-                                style: .continuous
-                            )
-                            .strokeBorder(theme.outlineStrong, lineWidth: 1)
-                        }
-                }
-            }
-            .contentShape(
-                RoundedRectangle(cornerRadius: 7, style: .continuous)
-            )
-        }
-        .buttonStyle(.plain)
-        .onHover { isHovering in
-            if isHovering {
-                hoveredCaptureAction = captureAction
-            } else if hoveredCaptureAction == captureAction {
-                hoveredCaptureAction = nil
-            }
-        }
-        .accessibilityLabel(title)
-        .accessibilityValue(subtitle ?? "")
-        .accessibilityHint(accessibilityHint ?? "")
-    }
-
-    private var activeCaptureAction: CaptureAction {
-        hoveredCaptureAction ?? .save
+        DSExportActions(identifier: "antigravity.capture",
+            pixelSizeLabel: CodexDashboardCaptureService.activityCardPixelSizeLabel,
+            layoutCaption: "ACTIVITY LAYOUT",
+            error: captureErrorText, pointerTrailing: 7,
+            save: saveDashboard, copy: copyDashboard, share: shareDashboard)
     }
 
     private func setCaptureMenuPresented(_ isPresented: Bool) {
         if !isPresented {
-            hoveredCaptureAction = nil
         }
 
         if reduceMotion {
@@ -488,7 +308,7 @@ struct AntigravityHoverDashboardView: View {
                             : "gauge.with.dots.needle.33percent",
                         remainingFraction: bucket.remainingFraction,
                         resetLabel: Self.resetLabel(bucket.resetsAt),
-                        usageAccent: theme.action
+                        usageAccent: activityColor
                     )
                     .help(
                         [bucket.groupName, bucket.windowTitle]
@@ -509,13 +329,13 @@ struct AntigravityHoverDashboardView: View {
     private var tokenHeader: some View {
         HStack(alignment: .lastTextBaseline, spacing: 6) {
             Text("Daily tokens · CLI observed")
-                .font(.system(size: 12, weight: .bold))
+                .dsFont(size: 12, weight: .bold)
                 .foregroundStyle(theme.textPrimary)
                 .help("Only Antigravity CLI sessions connected to DockMagic contribute token samples. Antigravity Desktop activity is not included.")
 
             if let dateRangeLabel {
                 Text(dateRangeLabel)
-                    .font(.system(size: 9, weight: .medium))
+                    .dsFont(size: 9, weight: .medium)
                     .foregroundStyle(theme.textTertiary)
             }
 
@@ -524,25 +344,25 @@ struct AntigravityHoverDashboardView: View {
             if let hoveredBucket {
                 HStack(alignment: .lastTextBaseline, spacing: 4) {
                     Text(Self.hoverDateLabel(hoveredBucket.startDate))
-                        .font(.system(size: 9, weight: .medium))
+                        .dsFont(size: 9, weight: .medium)
                         .foregroundStyle(theme.textSecondary)
                     Text(hoveredTokenLabel)
-                        .font(.system(size: 12, weight: .bold, design: .rounded))
-                        .foregroundStyle(theme.textPrimary)
+                        .dsFont(size: 12, weight: .bold)
+                        .foregroundStyle(activityColor)
                         .monospacedDigit()
                     Text("tokens")
-                        .font(.system(size: 9, weight: .semibold))
+                        .dsFont(size: 9, weight: .semibold)
                         .foregroundStyle(theme.textSecondary)
                 }
                 .accessibilityElement(children: .combine)
             } else if let todayObservedTokens {
                 HStack(alignment: .lastTextBaseline, spacing: 4) {
                     Text(Self.tokenLabel(todayObservedTokens))
-                        .font(.system(size: 13, weight: .bold, design: .rounded))
-                        .foregroundStyle(theme.textPrimary)
+                        .dsFont(size: 13, weight: .bold)
+                        .foregroundStyle(activityColor)
                         .monospacedDigit()
                     Text("today")
-                        .font(.system(size: 9, weight: .semibold))
+                        .dsFont(size: 9, weight: .semibold)
                         .foregroundStyle(theme.textSecondary)
                 }
                 .accessibilityElement(children: .combine)
@@ -555,22 +375,23 @@ struct AntigravityHoverDashboardView: View {
     @ViewBuilder
     private var tokenChart: some View {
         ZStack(alignment: .top) {
-            CodexTokenHistoryChart(
+            AIUsageTokenHistoryChart(
                 buckets: chartBuckets,
                 hoveredBucketID: $hoveredBucketID,
                 plotHeight: tokenChartPlotHeight,
                 unavailableBucketIDs: unavailableDayIDs,
                 isSelectionEnabled: false,
+                dataColor: activityColor,
                 onSelectBucket: { _ in }
             )
 
             if !hasTokenHistory {
                 HStack(spacing: 6) {
-                    Image(systemName: "chart.bar")
+                    DSIcon(systemName: "chart.bar")
                         .symbolRenderingMode(.monochrome)
                         .accessibilityHidden(true)
                     Text(tokenEmptyMessage)
-                        .font(.system(size: 10, weight: .medium))
+                        .dsFont(size: 10, weight: .medium)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 12)
                 }
@@ -585,9 +406,9 @@ struct AntigravityHoverDashboardView: View {
 
     private var usageInsights: some View {
         HStack(spacing: 7) {
-            CodexDailyIntensityCard(
+            AIUsageDailyIntensityCard(
                 buckets: intensityBuckets,
-                accent: theme.action,
+                accent: activityColor,
                 unavailableBucketIDs: unavailableDayIDs,
                 isPartial: true,
                 showsPartialIndicator: false,
@@ -598,7 +419,7 @@ struct AntigravityHoverDashboardView: View {
             CodexTopModelsCard(
                 models: topModels,
                 isPartial: true,
-                accent: theme.action,
+                accent: activityColor,
                 providerName: brand.displayName,
                 showsPartialIndicator: false
             )
@@ -612,12 +433,12 @@ struct AntigravityHoverDashboardView: View {
         text: String
     ) -> some View {
         HStack(spacing: 7) {
-            Image(systemName: systemImage)
+            DSIcon(systemName: systemImage)
                 .symbolRenderingMode(.monochrome)
-                .font(.system(size: 10, weight: .semibold))
+                .dsFont(size: 10, weight: .semibold)
                 .accessibilityHidden(true)
             Text(text)
-                .font(.system(size: 9, weight: .medium))
+                .dsFont(size: 9, weight: .medium)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .foregroundStyle(theme.textTertiary)
@@ -633,9 +454,9 @@ struct AntigravityHoverDashboardView: View {
     }
 
     private func stateBanner(_ message: String) -> some View {
-        Label(message, systemImage: "exclamationmark.triangle.fill")
+        DSLabel(message, systemImage: "exclamationmark.triangle.fill")
             .symbolRenderingMode(.monochrome)
-            .font(.system(size: 9.5, weight: .semibold))
+            .dsFont(size: 9.5, weight: .semibold)
             .foregroundStyle(theme.warningForeground)
             .padding(8)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -645,6 +466,8 @@ struct AntigravityHoverDashboardView: View {
 
     private var snapshot: AntigravityUsageSnapshot? { state.snapshot }
     private var tokenUsage: CodexAccountTokenUsage? { snapshot?.tokenUsage }
+    private var activityColor: Color { theme.codexActivity }
+    private var activityForeground: Color { theme.codexActivityForeground }
     private var streakSummary: TokenUsageStreakSummary? {
         snapshot?.streakSummary
     }

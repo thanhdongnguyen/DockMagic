@@ -1,0 +1,342 @@
+{
+  "method": "sRGB relative luminance, alpha composited on named opaque background; no material/compositor proof",
+  "pairs": [
+    {
+      "mode": "light",
+      "foreground": "DSTextPrimary",
+      "background": "DSOpaqueSurface",
+      "ratio": 19.111,
+      "threshold": 4.5,
+      "passes": true
+    },
+    {
+      "mode": "light",
+      "foreground": "DSTextSecondary",
+      "background": "DSOpaqueSurface",
+      "ratio": 5.239,
+      "threshold": 4.5,
+      "passes": true
+    },
+    {
+      "mode": "light",
+      "foreground": "DSTextTertiary",
+      "background": "DSOpaqueSurface",
+      "ratio": 4.591,
+      "threshold": 4.5,
+      "passes": true
+    },
+    {
+      "mode": "light",
+      "foreground": "DSActionForeground",
+      "background": "DSOpaqueSurface",
+      "ratio": 5.219,
+      "threshold": 4.5,
+      "passes": true
+    },
+    {
+      "mode": "light",
+      "foreground": "DSWarningForeground",
+      "background": "DSOpaqueSurface",
+      "ratio": 5.173,
+      "threshold": 4.5,
+      "passes": true
+    },
+    {
+      "mode": "light",
+      "foreground": "DSDangerForeground",
+      "background": "DSOpaqueSurface",
+      "ratio": 4.913,
+      "threshold": 4.5,
+      "passes": true
+    },
+    {
+      "mode": "light",
+      "foreground": "DSTextPrimary",
+      "background": "DSOpaqueSurfaceRaised",
+      "ratio": 21.0,
+      "threshold": 4.5,
+      "passes": true
+    },
+    {
+      "mode": "light",
+      "foreground": "DSTextSecondary",
+      "background": "DSOpaqueSurfaceRaised",
+      "ratio": 5.571,
+      "threshold": 4.5,
+      "passes": true
+    },
+    {
+      "mode": "light",
+      "foreground": "DSTextTertiary",
+      "background": "DSOpaqueSurfaceRaised",
+      "ratio": 4.849,
+      "threshold": 4.5,
+      "passes": true
+    },
+    {
+      "mode": "light",
+      "foreground": "DSActionForeground",
+      "background": "DSOpaqueSurfaceRaised",
+      "ratio": 5.735,
+      "threshold": 4.5,
+      "passes": true
+    },
+    {
+      "mode": "light",
+      "foreground": "DSWarningForeground",
+      "background": "DSOpaqueSurfaceRaised",
+      "ratio": 5.685,
+      "threshold": 4.5,
+      "passes": true
+    },
+    {
+      "mode": "light",
+      "foreground": "DSDangerForeground",
+      "background": "DSOpaqueSurfaceRaised",
+      "ratio": 5.399,
+      "threshold": 4.5,
+      "passes": true
+    },
+    {
+      "mode": "light",
+      "foreground": "DSTextPrimary",
+      "background": "DSOpaqueSurfaceInset",
+      "ratio": 19.469,
+      "threshold": 4.5,
+      "passes": true
+    },
+    {
+      "mode": "light",
+      "foreground": "DSTextSecondary",
+      "background": "DSOpaqueSurfaceInset",
+      "ratio": 5.303,
+      "threshold": 4.5,
+      "passes": true
+    },
+    {
+      "mode": "light",
+      "foreground": "DSTextTertiary",
+      "background": "DSOpaqueSurfaceInset",
+      "ratio": 4.641,
+      "threshold": 4.5,
+      "passes": true
+    },
+    {
+      "mode": "light",
+      "foreground": "DSActionForeground",
+      "background": "DSOpaqueSurfaceInset",
+      "ratio": 5.317,
+      "threshold": 4.5,
+      "passes": true
+    },
+    {
+      "mode": "light",
+      "foreground": "DSWarningForeground",
+      "background": "DSOpaqueSurfaceInset",
+      "ratio": 5.27,
+      "threshold": 4.5,
+      "passes": true
+    },
+    {
+      "mode": "light",
+      "foreground": "DSDangerForeground",
+      "background": "DSOpaqueSurfaceInset",
+      "ratio": 5.005,
+      "threshold": 4.5,
+      "passes": true
+    },
+    {
+      "mode": "light",
+      "foreground": "DSOnAction",
+      "background": "DSAction",
+      "ratio": 5.961,
+      "threshold": 4.5,
+      "passes": true
+    },
+    {
+      "mode": "light",
+      "foreground": "DSOnWarning",
+      "background": "DSWarning",
+      "ratio": 9.094,
+      "threshold": 4.5,
+      "passes": true
+    },
+    {
+      "mode": "light",
+      "foreground": "DSOnDanger",
+      "background": "DSDanger",
+      "ratio": 5.885,
+      "threshold": 4.5,
+      "passes": true
+    },
+    {
+      "mode": "dark",
+      "foreground": "DSTextPrimary",
+      "background": "DSOpaqueSurface",
+      "ratio": 16.613,
+      "threshold": 4.5,
+      "passes": true
+    },
+    {
+      "mode": "dark",
+      "foreground": "DSTextSecondary",
+      "background": "DSOpaqueSurface",
+      "ratio": 6.206,
+      "threshold": 4.5,
+      "passes": true
+    },
+    {
+      "mode": "dark",
+      "foreground": "DSTextTertiary",
+      "background": "DSOpaqueSurface",
+      "ratio": 4.735,
+      "threshold": 4.5,
+      "passes": true
+    },
+    {
+      "mode": "dark",
+      "foreground": "DSActionForeground",
+      "background": "DSOpaqueSurface",
+      "ratio": 5.142,
+      "threshold": 4.5,
+      "passes": true
+    },
+    {
+      "mode": "dark",
+      "foreground": "DSWarningForeground",
+      "background": "DSOpaqueSurface",
+      "ratio": 7.447,
+      "threshold": 4.5,
+      "passes": true
+    },
+    {
+      "mode": "dark",
+      "foreground": "DSDangerForeground",
+      "background": "DSOpaqueSurface",
+      "ratio": 4.84,
+      "threshold": 4.5,
+      "passes": true
+    },
+    {
+      "mode": "dark",
+      "foreground": "DSTextPrimary",
+      "background": "DSOpaqueSurfaceRaised",
+      "ratio": 16.613,
+      "threshold": 4.5,
+      "passes": true
+    },
+    {
+      "mode": "dark",
+      "foreground": "DSTextSecondary",
+      "background": "DSOpaqueSurfaceRaised",
+      "ratio": 6.206,
+      "threshold": 4.5,
+      "passes": true
+    },
+    {
+      "mode": "dark",
+      "foreground": "DSTextTertiary",
+      "background": "DSOpaqueSurfaceRaised",
+      "ratio": 4.735,
+      "threshold": 4.5,
+      "passes": true
+    },
+    {
+      "mode": "dark",
+      "foreground": "DSActionForeground",
+      "background": "DSOpaqueSurfaceRaised",
+      "ratio": 5.142,
+      "threshold": 4.5,
+      "passes": true
+    },
+    {
+      "mode": "dark",
+      "foreground": "DSWarningForeground",
+      "background": "DSOpaqueSurfaceRaised",
+      "ratio": 7.447,
+      "threshold": 4.5,
+      "passes": true
+    },
+    {
+      "mode": "dark",
+      "foreground": "DSDangerForeground",
+      "background": "DSOpaqueSurfaceRaised",
+      "ratio": 4.84,
+      "threshold": 4.5,
+      "passes": true
+    },
+    {
+      "mode": "dark",
+      "foreground": "DSTextPrimary",
+      "background": "DSOpaqueSurfaceInset",
+      "ratio": 16.668,
+      "threshold": 4.5,
+      "passes": true
+    },
+    {
+      "mode": "dark",
+      "foreground": "DSTextSecondary",
+      "background": "DSOpaqueSurfaceInset",
+      "ratio": 6.217,
+      "threshold": 4.5,
+      "passes": true
+    },
+    {
+      "mode": "dark",
+      "foreground": "DSTextTertiary",
+      "background": "DSOpaqueSurfaceInset",
+      "ratio": 4.741,
+      "threshold": 4.5,
+      "passes": true
+    },
+    {
+      "mode": "dark",
+      "foreground": "DSActionForeground",
+      "background": "DSOpaqueSurfaceInset",
+      "ratio": 5.159,
+      "threshold": 4.5,
+      "passes": true
+    },
+    {
+      "mode": "dark",
+      "foreground": "DSWarningForeground",
+      "background": "DSOpaqueSurfaceInset",
+      "ratio": 7.471,
+      "threshold": 4.5,
+      "passes": true
+    },
+    {
+      "mode": "dark",
+      "foreground": "DSDangerForeground",
+      "background": "DSOpaqueSurfaceInset",
+      "ratio": 4.856,
+      "threshold": 4.5,
+      "passes": true
+    },
+    {
+      "mode": "dark",
+      "foreground": "DSOnAction",
+      "background": "DSAction",
+      "ratio": 6.5,
+      "threshold": 4.5,
+      "passes": true
+    },
+    {
+      "mode": "dark",
+      "foreground": "DSOnWarning",
+      "background": "DSWarning",
+      "ratio": 9.413,
+      "threshold": 4.5,
+      "passes": true
+    },
+    {
+      "mode": "dark",
+      "foreground": "DSOnDanger",
+      "background": "DSDanger",
+      "ratio": 6.119,
+      "threshold": 4.5,
+      "passes": true
+    }
+  ],
+  "counterexample_white_on_light_action": 3.523
+}

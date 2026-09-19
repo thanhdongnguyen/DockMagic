@@ -1,0 +1,23 @@
+{
+  "recordedAt": "2026-09-16T15:21:20.859104+00:00",
+  "application": "DockMagic Binance QA (isolated bundle and defaults, live Binance clients)",
+  "method": "Native computer-use Accessibility actions and screenshot inspection",
+  "passed": [
+    "Binance feature picker and Settings navigation",
+    "Open dashboard while Dock hover disabled",
+    "Empty watchlist and trading-pair suggestions",
+    "Search and add BTCUSDT, ETHUSDT, SOLUSDT",
+    "Pin ETH; searching a tracked BTC pair keeps ETH selected",
+    "7D and Candlestick dashboard selections propagate to Settings",
+    "Volume setting enabled",
+    "Remove pinned ETH; BTC becomes the preview/Dock pair",
+    "Unicode search query dong coin with Vietnamese diacritics and empty results",
+    "First Escape returns to cards; second Escape returns to Settings",
+    "Distinct accessibility identifiers for search, add, range, chart picker, pin and menu"
+  ],
+  "notClaimed": [
+    "Vietnamese IME marked-text composition",
+    "Physical Dock on every edge and at every size",
+    "XCUI runner execution; it never bootstrapped on this host"
+  ]
+}

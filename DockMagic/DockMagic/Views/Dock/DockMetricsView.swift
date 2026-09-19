@@ -33,6 +33,10 @@ struct DockTileView: View {
     @ViewBuilder
     private var tileContent: some View {
         switch presentation {
+        case let .nowPlaying(presentation):
+            DockNowPlayingView(presentation: presentation)
+        case .binance(let snapshot):
+            DockBinanceView(snapshot: snapshot)
         case .dockMagic:
             DockMagicLogoView()
         case let .systemMetrics(snapshot, appearance, errorDescription):
@@ -60,6 +64,9 @@ struct DockTileView: View {
                 state: state,
                 animatesChanges: animatesChanges
             )
+        case let .calendar(date, events, configuration, access, isLoading, hasError):
+            DockCalendarView(date: date, events: events, configuration: configuration,
+                             access: access, isLoading: isLoading, hasError: hasError)
         case let .clock(date, configuration):
             DockClockView(
                 date: date,
@@ -94,6 +101,12 @@ struct DockTileView: View {
                 serviceStatusTransition: serviceStatusTransition,
                 animatesChanges: animatesChanges
             )
+        case let .augment(state, appearance):
+            DockAugmentView(state: state, appearance: appearance)
+        case let .grokBuild(local, settings, appearance):
+            DockGrokBuildView(local: local, settings: settings, appearance: appearance)
+        case let .openCode(state, appearance):
+            DockOpenCodeView(state: state, appearance: appearance)
         case let .antigravity(state, appearance):
             DockAntigravityView(
                 state: state,
@@ -431,9 +444,9 @@ private struct DockServiceStatusBeacon: View {
 
         ZStack {
             if let transition {
-                Image(systemName: "exclamationmark.triangle")
+                DSIcon(systemName: "exclamationmark.triangle")
                     .symbolRenderingMode(.monochrome)
-                    .font(.system(size: iconSize, weight: .black))
+                    .dsFont(size: iconSize, weight: .black)
                     .foregroundStyle(statusColor)
                     .scaleEffect(1 + 1.7 * transition.progress)
                     .opacity(echoOpacity(for: transition.progress))
@@ -443,9 +456,9 @@ private struct DockServiceStatusBeacon: View {
                 .fill(theme.dockBackgroundInset)
                 .frame(width: containerSize, height: containerSize)
 
-            Image(systemName: "exclamationmark.triangle.fill")
+            DSIcon(systemName: "exclamationmark.triangle.fill")
                 .symbolRenderingMode(.monochrome)
-                .font(.system(size: iconSize, weight: .black))
+                .dsFont(size: iconSize, weight: .black)
                 .foregroundStyle(statusColor)
                 .scaleEffect(badgeScale)
         }
@@ -517,29 +530,11 @@ struct DockTileSurface<Content: View>: View {
 
             ZStack {
                 shape.fill(
-                    LinearGradient(
-                        colors: [
-                            theme.dockBackgroundRaised,
-                            theme.dockBackgroundInset
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
+                    theme.dockBackgroundRaised
                 )
 
                 shape.strokeBorder(
-                    LinearGradient(
-                        colors: [
-                            theme.dockOutline.opacity(
-                                increasedContrast ? 1 : 0.88
-                            ),
-                            theme.dockOutline.opacity(
-                                increasedContrast ? 0.82 : 0.58
-                            )
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    ),
+                    theme.dockOutline.opacity(increasedContrast ? 1 : 0.8),
                     lineWidth: increasedContrast
                         ? max(1.5, side * 0.018)
                         : max(1.25, side * 0.014)
@@ -579,10 +574,10 @@ struct DockUsageNumericTileView: View {
                         if usesSingleValueLayout && label.count > 3 {
                             VStack(spacing: side * 0.03) {
                                 Text(label)
-                                    .font(.system(size: side * 0.12, weight: .bold, design: .rounded))
+                                    .dsFont(size: side * 0.12, weight: .bold)
                                     .foregroundStyle(theme.dockOutline)
                                 Text(value.value)
-                                    .font(.system(size: side * 0.30, weight: .bold, design: .rounded))
+                                    .dsFont(size: side * 0.30, weight: .bold)
                                     .foregroundStyle(value.color)
                                     .monospacedDigit()
                             }
@@ -593,25 +588,21 @@ struct DockUsageNumericTileView: View {
                                 + Text(" \(value.value)")
                                     .foregroundColor(value.color)
                             )
-                            .font(
-                                .system(
+                            .dsFont(
                                     size: fontSize,
                                     weight: .bold,
                                     design: .rounded
                                 )
-                            )
                             .monospacedDigit()
                             .lineLimit(1)
                         }
                     } else {
                         Text(value.value)
-                            .font(
-                                .system(
+                            .dsFont(
                                     size: fontSize,
                                     weight: .bold,
                                     design: .rounded
                                 )
-                            )
                             .monospacedDigit()
                             .lineLimit(1)
                             .foregroundColor(value.color)
@@ -639,13 +630,11 @@ struct DockNumericTileView: View {
                     HStack(alignment: .firstTextBaseline, spacing: side * 0.045) {
                         if let label = value.label {
                             Text(label)
-                                .font(
-                                    .system(
+                                .dsFont(
                                         size: fontSize,
                                         weight: .bold,
                                         design: .rounded
                                     )
-                                )
                                 .lineLimit(1)
                                 .minimumScaleFactor(0.65)
                                 .foregroundStyle(theme.dockOutline)
@@ -653,13 +642,11 @@ struct DockNumericTileView: View {
                         }
 
                         Text(value.value)
-                            .font(
-                                .system(
+                            .dsFont(
                                     size: fontSize,
                                     weight: .bold,
                                     design: .rounded
                                 )
-                            )
                             .monospacedDigit()
                             .minimumScaleFactor(0.65)
                             .lineLimit(1)
@@ -719,8 +706,8 @@ struct DockRingTileView: View {
                 }
 
                 if let stateSymbol {
-                    Image(systemName: stateSymbol)
-                        .font(.system(size: max(8, side * 0.12), weight: .bold))
+                    DSIcon(systemName: stateSymbol)
+                        .dsFont(size: max(8, side * 0.12), weight: .bold)
                         .foregroundStyle(theme.color(for: stateRole) ?? theme.dockOutline)
                         .padding(max(3, side * 0.035))
                         .background {

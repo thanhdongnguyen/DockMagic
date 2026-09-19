@@ -1,0 +1,17 @@
+{
+  "research_date": "2026-09-16",
+  "repository": "https://github.com/binance/binance-spot-api-docs",
+  "head_sha": "b8a0f61e088c65d18a157f2e11a8e273826b6c08",
+  "head_commit_time": "2026-09-09T01:06:42Z",
+  "toolchain": "Apple Swift 5.10, arm64-apple-macosx14.0",
+  "source_sha256": {
+    "rest-api.md": "49ea6809243fc7fb426e07f2fe662097736c7bb405bd2da5eef637d715427999",
+    "web-socket-streams.md": "32bf73a0bed3b75e3ca981fdbaf48c53544bbdfb5944ef8ed1c4d7af9aceba0a",
+    "PROD-TERMS-OF-USE.md": "73cf92c7836939b1ef1969551fd103221f021f99628750801abcea04938d97e2"
+  },
+  "notes": [
+    "Read-only public endpoints; no account or API key.",
+    "Documentation fetched from master alongside HEAD metadata; source hashes identify the fetched bytes.",
+    "No product implementation or DockMagic build/visual validation in this research."
+  ]
+}

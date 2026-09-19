@@ -1,22 +1,39 @@
 import SwiftUI
 
 struct DSIconPlate: View {
-    let systemImage: String
+    let icon: DSIconName
     var role: DSSemanticRole = .neutral
     var size: CGFloat = 30
 
     @Environment(\.designTheme) private var theme
 
+    init(
+        _ icon: DSIconName,
+        role: DSSemanticRole = .neutral,
+        size: CGFloat = 30
+    ) {
+        self.icon = icon
+        self.role = role
+        self.size = size
+    }
+
+    init(
+        systemImage: String,
+        role: DSSemanticRole = .neutral,
+        size: CGFloat = 30
+    ) {
+        let resolved = DSIconName.fromLegacySymbol(systemImage)
+        assert(resolved != nil, "Unmapped Maia icon: \(systemImage)")
+        self.init(resolved ?? .help, role: role, size: size)
+    }
+
     var body: some View {
-        Image(systemName: systemImage)
-            .font(.system(size: 13, weight: .semibold))
+        DSIcon(icon)
+            .dsFont(size: 13, weight: .semibold)
             .foregroundStyle(theme.accentForeground(for: role))
             .frame(width: size, height: size)
             .dsSurface(
-                RoundedRectangle(
-                    cornerRadius: DSRadius.control,
-                    style: .continuous
-                ),
+                Capsule(style: .circular),
                 kind: .inset,
                 role: role
             )
@@ -33,7 +50,7 @@ struct DSStatusBadge: View {
 
     var body: some View {
         HStack(spacing: DSSpacing.compact) {
-            Image(systemName: systemImage)
+            DSIcon(systemName: systemImage)
                 .accessibilityHidden(true)
 
             Text(title)
@@ -48,88 +65,47 @@ struct DSStatusBadge: View {
         .padding(.horizontal, 7)
         .padding(.vertical, 4)
         .dsSurface(
-            RoundedRectangle(
-                cornerRadius: DSRadius.control,
-                style: .continuous
-            ),
+            Capsule(style: .circular),
             kind: .inset,
             role: role
         )
     }
 }
 
+enum DSMetricCardVariant { case standard, compact }
+
 struct DSMetricCard: View {
     let title: String
-    let systemImage: String
-    let value: Double
-    let tintRole: DSSemanticRole
-
+    var icon: DSIconName? = nil
+    let state: DSDataState<DSMetricValue>
+    var variant: DSMetricCardVariant = .standard
+    var role: DSSemanticRole = .neutral
     @Environment(\.designTheme) private var theme
 
     var body: some View {
-        let normalizedValue = normalized(value)
-        let tint = tintRole == .neutral
-            ? theme.actionForeground
-            : theme.accentForeground(for: tintRole)
-
-        VStack(alignment: .leading, spacing: DSSpacing.standard) {
-            HStack(spacing: DSSpacing.compact) {
-                DSIconPlate(
-                    systemImage: systemImage,
-                    role: tintRole,
-                    size: 28
-                )
-
-                Text(title)
-                    .font(DSTypography.bodyEmphasis)
-                    .foregroundStyle(theme.textPrimary)
-
-                Spacer(minLength: DSSpacing.compact)
+        DSCard(density: .small, role: role) {
+            HStack(spacing: 8) {
+                if let icon { DSIcon(icon).accessibilityHidden(true) }
+                Text(title).font(variant == .compact ? DSTypography.caption : DSTypography.bodyEmphasis)
+                Spacer(minLength: 0)
+            }.foregroundStyle(theme.textPrimary)
+        } content: {
+            if state.isLoading { DSLoadingState() }
+            else {
+                HStack(alignment: .firstTextBaseline, spacing: 4) {
+                    Text(state.value?.formatted ?? "—").font(variant == .compact ? DSTypography.bodyLarge : DSTypography.metric).monospacedDigit()
+                    if let unit = state.value?.unit { Text(unit).font(DSTypography.metadata) }
+                }.foregroundStyle(theme.accentForeground(for: role))
+                if let fraction = state.value?.fraction {
+                    DSProgress(value: fraction, title: title)
+                }
             }
-
-            Text(
-                normalizedValue,
-                format: .percent.precision(.fractionLength(0))
-            )
-            .font(DSTypography.metric)
-            .monospacedDigit()
-            .foregroundStyle(tint)
-
-            ProgressView(value: normalizedValue)
-            .progressViewStyle(.linear)
-            .tint(tint)
-            .accessibilityLabel(title)
-            .accessibilityValue(
-                normalizedValue.formatted(
-                    .percent.precision(.fractionLength(0))
-                )
-            )
+        } footer: {
+            if let detail = state.detail { Text(detail).font(DSTypography.metadata).foregroundStyle(theme.textSecondary) }
         }
-        .padding(14)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .dsSurface(
-            RoundedRectangle(
-                cornerRadius: DSRadius.row,
-                style: .continuous
-            ),
-            kind: .raised
-        )
         .accessibilityElement(children: .combine)
         .accessibilityLabel(title)
-        .accessibilityValue(
-            normalizedValue.formatted(
-                .percent.precision(.fractionLength(0))
-            )
-        )
-        .accessibilityIdentifier("metric.\(title.lowercased())")
-    }
-
-    private func normalized(_ value: Double) -> Double {
-        guard value.isFinite else {
-            return 0
-        }
-
-        return min(max(value, 0), 1)
+        .accessibilityValue([state.value?.formatted, state.detail].compactMap { $0 }.joined(separator: ". "))
     }
 }
 
@@ -290,8 +266,8 @@ struct DSSettingsRow<Trailing: View>: View {
     var body: some View {
         HStack(spacing: DSSpacing.standard) {
             if let systemImage {
-                Image(systemName: systemImage)
-                    .font(.system(size: 15, weight: .medium))
+                DSIcon(systemName: systemImage)
+                    .dsFont(size: 15, weight: .medium)
                     .foregroundStyle(theme.textSecondary)
                     .frame(width: 20)
                     .accessibilityHidden(true)
@@ -322,38 +298,19 @@ struct DSSettingsSection<Content: View>: View {
     var detail: String? = nil
     var role: DSSemanticRole = .neutral
     @ViewBuilder let content: () -> Content
-
     @Environment(\.designTheme) private var theme
 
     var body: some View {
-        VStack(alignment: .leading, spacing: DSSpacing.large) {
-            VStack(alignment: .leading, spacing: DSSpacing.xSmall) {
-                Text(title)
-                    .font(DSTypography.sectionTitle)
-                    .foregroundStyle(theme.textPrimary)
-
+        DSCard(role: role) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title).font(DSTypography.panelTitle).foregroundStyle(theme.textPrimary)
                 if let detail {
-                    Text(detail)
-                        .font(DSTypography.body)
-                        .foregroundStyle(theme.textSecondary)
+                    Text(detail).font(DSTypography.body).foregroundStyle(theme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
-
-            VStack(alignment: .leading, spacing: DSSpacing.large) {
-                content()
-            }
-        }
-        .padding(DSSpacing.xLarge)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .dsSurface(
-            RoundedRectangle(
-                cornerRadius: DSRadius.largePanel,
-                style: .continuous
-            ),
-            kind: .raised,
-            role: role,
-            elevation: .primary
-        )
+        } content: {
+            VStack(alignment: .leading, spacing: DSSpacing.large, content: content)
+        } footer: { EmptyView() }
     }
 }

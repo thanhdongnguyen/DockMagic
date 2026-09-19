@@ -318,13 +318,11 @@ private struct DockDigitalClockFace: View {
 
     private func digitText(_ text: String) -> some View {
         Text(text)
-            .font(
-                .system(
+            .dsFont(
                     size: side * 0.36,
                     weight: .heavy,
                     design: .rounded
                 )
-            )
             .monospacedDigit()
             .foregroundStyle(theme.dockForeground)
             .lineLimit(1)
@@ -499,13 +497,11 @@ private struct DockSplitFlapClockFace: View {
         side cellSide: CGFloat
     ) -> some View {
         Text(String(digit))
-            .font(
-                .system(
+            .dsFont(
                     size: cellSide * 0.72,
                     weight: .heavy,
                     design: .rounded
                 )
-            )
             .monospacedDigit()
             .foregroundStyle(theme.dockForeground)
             .lineLimit(1)

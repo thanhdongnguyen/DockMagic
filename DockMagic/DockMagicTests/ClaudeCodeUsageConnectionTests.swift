@@ -1,4 +1,7 @@
 import XCTest
+import AppKit
+import SwiftUI
+import CoreImage
 @testable import DockMagic
 
 final class ClaudeCodeUsageConnectionTests: XCTestCase {
@@ -194,6 +197,43 @@ final class ClaudeCodeUsageConnectionTests: XCTestCase {
         XCTAssertNotNil(parsed.weekly.resetsAt)
     }
 
+    func testUsageParserRefreshesBothWindowsWithoutMixingUnlabelledRows() throws {
+        let initial = """
+        Current session
+        17% 17% used
+        Resets 1:50pm (Asia/Saigon)
+        Current week (all models)
+        24% 24% used
+        Resets Sep 20 at 10am (Asia/Saigon)
+        Refreshing…
+        Esc to cancel
+        """
+        let output = initial + """
+        18% 18% used
+        Resets 1:50pm (Asia/Saigon)
+        Current week (all models)
+        25% 25% used
+        Resets Sep 20 at 10am (Asia/Saigon)
+        What's contributing to your limits usage?
+        55% of your usage came from local sessions
+        Usage credits
+        0% 0% used
+        Esc to cancel
+        """
+        let parsed = try ClaudeCodeUsageOutputParser.parse(output)
+        XCTAssertEqual(parsed.fiveHour.usedPercent, 18)
+        XCTAssertEqual(parsed.weekly.usedPercent, 25)
+
+        let onlySessionRedraw = initial + """
+        19% 19% used
+        Resets 1:50pm (Asia/Saigon)
+        Esc to cancel
+        """
+        let sessionOnly = try ClaudeCodeUsageOutputParser.parse(onlySessionRedraw)
+        XCTAssertEqual(sessionOnly.fiveHour.usedPercent, 19)
+        XCTAssertEqual(sessionOnly.weekly.usedPercent, 24)
+    }
+
     func testUsageParserRejectsPartialOrChangedOutput() {
         XCTAssertThrowsError(
             try ClaudeCodeUsageOutputParser.parse(
@@ -205,6 +245,25 @@ final class ClaudeCodeUsageConnectionTests: XCTestCase {
                 .outputFormatChanged
             )
         }
+    }
+
+    func testUsageParserDoesNotAssignAnAmbiguousUnlabelledReset() throws {
+        let output = """
+        Current session
+        17% used
+        Resets in 2h
+        Current week (all models)
+        24% used
+        Resets in 2h
+        Refreshing…
+        Esc to cancel
+        19% used
+        Resets in 2h
+        Esc to cancel
+        """
+        let parsed = try ClaudeCodeUsageOutputParser.parse(output)
+        XCTAssertEqual(parsed.fiveHour.usedPercent, 17)
+        XCTAssertEqual(parsed.weekly.usedPercent, 24)
     }
 
     func testUsageParserRecognizesSignedOutOutput() {
@@ -452,6 +511,81 @@ final class ClaudeCodeUsageConnectionTests: XCTestCase {
     }
 
     @MainActor
+    func testBackgroundQuotaRefreshKeepsConnectedPresentation() async {
+        let capture = sampleCapture(fiveHour: 23, weekly: 41)
+        let collector = PausingSecondClaudeUsageCollector(capture: capture)
+        let store = ClaudeCodeUsageStore(
+            provider: FixedClaudeTelemetryProvider(snapshot: sampleSnapshot()),
+            bridge: TestClaudeStatusLineBridge(installed: false),
+            activityHookBridge: TestClaudeActivityBridge(),
+            authProvider: FixedClaudeAuthProvider(loggedIn: true),
+            usageCollector: collector
+        )
+        store.configure(executableURL: URL(fileURLWithPath: "/tmp/claude"))
+        await store.refresh()
+        let settledState = store.connectionState
+
+        let refresh = Task { await store.refresh() }
+        await collector.waitUntilSecondCaptureStarted()
+
+        XCTAssertEqual(store.connectionState, settledState)
+        XCTAssertTrue(store.isRefreshing)
+
+        collector.resumeSecondCapture()
+        await refresh.value
+    }
+
+    @MainActor
+    func testSettingsSeparatesSetupFromQuotaLoading() {
+        let authInfo = ClaudeCodeAuthInfo(
+            authMethod: "claude.ai",
+            apiProvider: "firstParty"
+        )
+
+        XCTAssertFalse(
+            ClaudeCodeConnectionSettingsView.displaysConnectionSummary(
+                for: .checking
+            )
+        )
+        XCTAssertTrue(
+            ClaudeCodeConnectionSettingsView.displaysConnectionSummary(
+                for: .signedInWaitingForQuota(authInfo)
+            )
+        )
+        XCTAssertTrue(
+            ClaudeCodeConnectionSettingsView.displaysConnectionSummary(
+                for: .signingIn
+            )
+        )
+        XCTAssertTrue(
+            ClaudeCodeConnectionSettingsView.displaysConnectionSummary(
+                for: .signingOut
+            )
+        )
+        XCTAssertEqual(
+            ClaudeCodeConnectionSettingsView.actionPresentation(
+                for: .checking,
+                hasAuthenticatedContext: false
+            ),
+            .signIn
+        )
+        XCTAssertEqual(
+            ClaudeCodeConnectionSettingsView.actionPresentation(
+                for: .checking,
+                hasAuthenticatedContext: true
+            ),
+            .authenticated
+        )
+        XCTAssertEqual(
+            ClaudeCodeConnectionSettingsView.actionPresentation(
+                for: .signedInWaitingForQuota(authInfo),
+                hasAuthenticatedContext: true
+            ),
+            .authenticated
+        )
+    }
+
+    @MainActor
     func testStorePreservesLastQuotaWhenPTYRefreshFails() async {
         let collector = StubUsageCollector(results: [
             .success(sampleCapture(fiveHour: 18, weekly: 52)),
@@ -648,6 +782,237 @@ final class ClaudeCodeUsageConnectionTests: XCTestCase {
         try? await Task.sleep(for: .milliseconds(25))
         XCTAssertGreaterThanOrEqual(collector.captureCount, 3)
         store.stop()
+    }
+
+    @MainActor
+    func testExternalLogoutCannotRestoreQuotaFromActivity() async {
+        let auth = RecordingClaudeAuthProvider()
+        let store = connectionStore(auth: auth)
+        await store.refresh()
+        XCTAssertNotNil(store.state.snapshot?.fiveHour)
+        await auth.setLoggedIn(false)
+        await store.refresh()
+        XCTAssertEqual(store.connectionState, .signedOut)
+        XCTAssertFalse(store.hasAuthenticatedConnectionContext)
+        await store.installActivityHook()
+        XCTAssertNil(store.state.snapshot?.fiveHour)
+        XCTAssertNil(store.state.snapshot?.weekly)
+    }
+
+    @MainActor
+    func testPTYSignedOutClearsAuthenticationAndQuota() async {
+        let collector = StubUsageCollector(results: [
+            .success(sampleCapture(fiveHour: 18, weekly: 52)),
+            .failure(ClaudeCodeUsageCaptureError.signedOut)
+        ])
+        let store = connectionStore(auth: RecordingClaudeAuthProvider(), collector: collector)
+        await store.refresh()
+        await store.refresh()
+        XCTAssertEqual(store.connectionState, .signedOut)
+        XCTAssertFalse(store.hasAuthenticatedConnectionContext)
+        XCTAssertNil(store.state.snapshot?.fiveHour)
+        XCTAssertNil(store.state.snapshot?.weekly)
+    }
+
+    @MainActor
+    func testSignOutBlocksRefreshUntilSignedOutProbeCompletes() async {
+        let auth = RecordingClaudeAuthProvider(pauseVerification: true)
+        let collector = StubUsageCollector(results: [.success(sampleCapture(fiveHour: 18, weekly: 52))])
+        let store = connectionStore(auth: auth, collector: collector)
+        await store.refresh()
+        let logout = Task { await store.signOut() }
+        await auth.waitUntilVerificationStarted()
+        XCTAssertEqual(store.connectionState, .signingOut)
+        await store.refresh()
+        await store.refreshAfterInterruption()
+        XCTAssertEqual(store.connectionState, .signingOut)
+        XCTAssertEqual(collector.captureCount, 1)
+        let duplicate = Task { await store.signOut() }
+        await auth.resumeVerification()
+        await logout.value
+        await duplicate.value
+        XCTAssertEqual(store.connectionState, .signedOut)
+        let count = await auth.signOutCount
+        XCTAssertEqual(count, 1)
+        XCTAssertFalse(store.hasAuthenticatedConnectionContext)
+    }
+
+    @MainActor
+    func testSuccessfulLogoutCommandStillRequiresSignedOutStatus() async {
+        let auth = RecordingClaudeAuthProvider(keepsSessionAfterLogout: true)
+        let store = connectionStore(auth: auth)
+        await store.refresh()
+        await store.signOut()
+        guard case let .stale(_, message) = store.connectionState else {
+            return XCTFail("A successful command must not override a still-signed-in probe.")
+        }
+        XCTAssertTrue(message.contains("still reports a signed-in session"))
+        XCTAssertTrue(store.hasAuthenticatedConnectionContext)
+    }
+
+    @MainActor
+    func testFailedSignOutWithoutQuotaStillOffersSignOut() async {
+        let auth = RecordingClaudeAuthProvider(failsSignOut: true)
+        let store = connectionStore(auth: auth, collector: StubUsageCollector(results: [
+            .failure(ClaudeCodeUsageCaptureError.timedOut)
+        ]))
+        await store.refresh()
+        await store.signOut()
+        guard case .failed = store.connectionState else { return XCTFail("Expected logout error") }
+        XCTAssertTrue(store.hasAuthenticatedConnectionContext)
+        XCTAssertEqual(ClaudeCodeConnectionSettingsView.actionPresentation(
+            for: store.connectionState,
+            hasAuthenticatedContext: store.hasAuthenticatedConnectionContext
+        ), .stale, "Retry and the Sign Out menu must remain available without a quota snapshot.")
+    }
+
+    @MainActor
+    func testSignInFinishesWithFreshProbeInsteadOfJoiningCancelledRefresh() async {
+        let collector = PausingSecondClaudeUsageCollector(capture: sampleCapture(fiveHour: 18, weekly: 52))
+        let store = connectionStore(auth: RecordingClaudeAuthProvider(), collector: collector)
+        await store.refresh()
+        let oldRefresh = Task { await store.refresh() }
+        await collector.waitUntilSecondCaptureStarted()
+        store.beginSignIn()
+        await store.refresh()
+        XCTAssertEqual(store.connectionState, .signingIn)
+        await store.loginProcessDidFinish()
+        guard case .connected = store.connectionState else { return XCTFail("Expected a fresh quota capture") }
+        collector.resumeSecondCapture()
+        await oldRefresh.value
+        guard case .connected = store.connectionState else { return XCTFail("Cancelled work changed connection state") }
+    }
+
+    @MainActor
+    func testPTYRecognizesSignedOutBeforeUsageAndDuringUsage() async {
+        for plan in [
+            FakeUsageTerminalBuilder.Plan(initialText: "Not logged in. Please run /login", usageResponse: .none),
+            FakeUsageTerminalBuilder.Plan(initialText: Self.readyPrompt, usageResponse: .immediate("Not logged in"))
+        ] {
+            let builder = FakeUsageTerminalBuilder(plans: [plan])
+            let collector = makePTYCollector(builder: builder)
+            collector.configure(executableURL: URL(fileURLWithPath: "/tmp/claude"), cliVersion: "2.1.273")
+            do {
+                _ = try await collector.capture()
+                XCTFail("Expected authentication failure")
+            } catch {
+                XCTAssertEqual(error as? ClaudeCodeUsageCaptureError, .signedOut)
+                XCTAssertEqual(builder.sessions.count, 1, "Authentication errors must not be retried as timeouts.")
+            }
+            collector.stop()
+        }
+    }
+
+    @MainActor
+    func testConnectionCardsAppearanceMatrix() async throws {
+        let connected = connectionStore(auth: RecordingClaudeAuthProvider())
+        let signedOut = connectionStore(auth: FixedClaudeAuthProvider(loggedIn: false))
+        let unavailable = connectionStore(auth: RecordingClaudeAuthProvider(), collector: StubUsageCollector(results: [
+            .failure(ClaudeCodeUsageCaptureError.timedOut)
+        ]))
+        for store in [connected, signedOut, unavailable] { await store.refresh() }
+        let temporary = FileManager.default.temporaryDirectory.appendingPathComponent("connection-preview-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: temporary) }
+        func antigravity(signedOut: Bool) -> AntigravityUsageStore {
+            let adapter = ConnectionPreviewAntigravity(signedOut: signedOut)
+            return AntigravityUsageStore(
+                provider: adapter, locator: adapter,
+                bridge: AntigravityStatusLineBridge(home: temporary),
+                cacheURL: temporary.appendingPathComponent("\(signedOut).json"),
+                readSessions: { [] }, readHistorySessions: { _ in [] }
+            )
+        }
+        let agConnected = antigravity(signedOut: false)
+        let agSignedOut = antigravity(signedOut: true)
+        await agConnected.refresh()
+        await agSignedOut.refresh()
+        let cards = VStack(spacing: 16) {
+            ClaudeCodeConnectionSettingsView(store: connected, installationState: .installed(path: "/tmp/claude"), installCLI: {})
+            AntigravityConnectionSettingsView(store: agConnected, installationState: .installed(path: "/tmp/agy"), installCLI: {})
+            ClaudeCodeConnectionSettingsView(store: signedOut, installationState: .installed(path: "/tmp/claude"), installCLI: {})
+            AntigravityConnectionSettingsView(store: agSignedOut, installationState: .installed(path: "/tmp/agy"), installCLI: {})
+            ClaudeCodeConnectionSettingsView(store: unavailable, installationState: .installed(path: "/tmp/claude"), installCLI: {})
+        }.padding(20).frame(width: 900, height: 610)
+        let variants: [(String, DSAppearanceMode, NSAppearance.Name, DSAccessibilityOverrides, Bool)] = [
+            ("light", .light, .aqua, .init(), false),
+            ("dark", .dark, .darkAqua, .init(), false),
+            ("contrast", .dark, .accessibilityHighContrastDarkAqua, .init(increaseContrast: true), false),
+            ("opaque", .dark, .darkAqua, .init(reduceTransparency: true), false),
+            ("grayscale", .light, .aqua, .init(), true)
+        ]
+        let output = URL(fileURLWithPath: "/tmp/DockMagicConnectionAppearance", isDirectory: true)
+        try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
+        for (name, mode, appearance, overrides, grayscale) in variants {
+            let content = DockMagicThemeRoot(content: cards, appearanceMode: mode)
+                .environment(\.dsAccessibilityOverrides, overrides)
+            let host = NSHostingView(rootView: content)
+            let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 900, height: 610), styleMask: [.borderless], backing: .buffered, defer: false)
+            window.isReleasedWhenClosed = false
+            window.appearance = NSAppearance(named: appearance)
+            window.setFrameOrigin(NSPoint(x: -20_000, y: -20_000))
+            window.contentView = host
+            host.wantsLayer = true
+            try await Task.sleep(for: .milliseconds(80))
+            host.layoutSubtreeIfNeeded()
+            host.displayIfNeeded()
+            let bitmap = try XCTUnwrap(host.bitmapImageRepForCachingDisplay(in: host.bounds))
+            host.cacheDisplay(in: host.bounds, to: bitmap)
+            var data = try XCTUnwrap(bitmap.representation(using: .png, properties: [:]))
+            if grayscale {
+                let input = try XCTUnwrap(CIImage(data: data))
+                let filter = try XCTUnwrap(CIFilter(name: "CIColorControls"))
+                filter.setValue(input, forKey: kCIInputImageKey)
+                filter.setValue(0, forKey: kCIInputSaturationKey)
+                let output = try XCTUnwrap(filter.outputImage)
+                let image = try XCTUnwrap(CIContext().createCGImage(output, from: output.extent))
+                data = try XCTUnwrap(NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:]))
+            }
+            try data.write(to: output.appendingPathComponent(name + ".png"))
+            let attachment = XCTAttachment(data: data, uniformTypeIdentifier: "public.png")
+            attachment.name = "Connection cards — " + name
+            attachment.lifetime = .keepAlways
+            add(attachment)
+            window.contentView = nil
+            window.close()
+        }
+    }
+
+    /// Explicit local smoke check; never changes the real account session.
+    @MainActor
+    func testLiveClaudeQuotaIfRequested() async throws {
+        guard ProcessInfo.processInfo.environment["DockMagicLiveClaudeQuota"] == "1" else {
+            throw XCTSkip("Set TEST_RUNNER_DockMagicLiveClaudeQuota=1 for a read-only local CLI check.")
+        }
+        let executable = try ClaudeCodeExecutableLocator().locate()
+        let status = try await ClaudeCodeAuthStatusProvider().status(executableURL: executable)
+        guard status.loggedIn else {
+            throw XCTSkip("Claude CLI is signed out; the live check requires an existing login.")
+        }
+        let collector = ClaudeCodeUsageTerminalCollector()
+        defer { collector.stop() }
+        collector.configure(executableURL: executable, cliVersion: status.version)
+        let quota = try await collector.capture()
+        XCTAssertTrue((0...100).contains(quota.fiveHour.usedPercent))
+        XCTAssertTrue((0...100).contains(quota.weekly.usedPercent))
+        print("Live Claude CLI \(status.version): 5H used=\(quota.fiveHour.usedPercent), weekly used=\(quota.weekly.usedPercent)")
+    }
+
+    @MainActor
+    private func connectionStore(
+        auth: any ClaudeCodeAuthStatusProviding,
+        collector: (any ClaudeCodeUsageCollecting)? = nil
+    ) -> ClaudeCodeUsageStore {
+        let store = ClaudeCodeUsageStore(
+            provider: FixedClaudeTelemetryProvider(snapshot: sampleSnapshot()),
+            bridge: TestClaudeStatusLineBridge(installed: false),
+            activityHookBridge: TestClaudeActivityBridge(),
+            authProvider: auth,
+            usageCollector: collector ?? StubUsageCollector(results: [
+                .success(sampleCapture(fiveHour: 18, weekly: 52))
+            ])
+        )
+        store.configure(executableURL: URL(fileURLWithPath: "/tmp/claude"))
+        return store
     }
 
     @MainActor
@@ -888,15 +1253,35 @@ private actor RecordingInstallerRunner: InstallerProcessRunning {
 
 private actor RecordingClaudeAuthProvider: ClaudeCodeAuthStatusProviding {
     private let failsSignOut: Bool
+    private let keepsSessionAfterLogout: Bool
+    private let pauseVerification: Bool
+    private var loggedIn = true
+    private var verificationStarted = false
+    private var verificationContinuation: CheckedContinuation<Void, Never>?
     private(set) var signOutCount = 0
 
-    init(failsSignOut: Bool = false) {
+    init(failsSignOut: Bool = false, keepsSessionAfterLogout: Bool = false, pauseVerification: Bool = false) {
         self.failsSignOut = failsSignOut
+        self.keepsSessionAfterLogout = keepsSessionAfterLogout
+        self.pauseVerification = pauseVerification
+    }
+
+    func setLoggedIn(_ value: Bool) { loggedIn = value }
+    func waitUntilVerificationStarted() async {
+        while !verificationStarted { await Task.yield() }
+    }
+    func resumeVerification() {
+        verificationContinuation?.resume()
+        verificationContinuation = nil
     }
 
     func status(executableURL: URL) async throws -> ClaudeCodeCLIStatus {
-        .init(
-            loggedIn: true,
+        if !loggedIn && pauseVerification {
+            verificationStarted = true
+            await withCheckedContinuation { verificationContinuation = $0 }
+        }
+        return .init(
+            loggedIn: loggedIn,
             authInfo: .init(
                 authMethod: "claude.ai",
                 apiProvider: "firstParty"
@@ -910,6 +1295,7 @@ private actor RecordingClaudeAuthProvider: ClaudeCodeAuthStatusProviding {
         if failsSignOut {
             throw ClaudeCodeAuthStatusError.commandFailed("Logout failed")
         }
+        if !keepsSessionAfterLogout { loggedIn = false }
     }
 }
 
@@ -949,6 +1335,44 @@ final class StubUsageCollector: ClaudeCodeUsageCollecting {
     }
 
     func stop() { stopCount += 1 }
+}
+
+@MainActor
+private final class PausingSecondClaudeUsageCollector:
+    ClaudeCodeUsageCollecting
+{
+    private let captureValue: ClaudeCodeQuotaCapture
+    private var captureCount = 0
+    private var secondCaptureStarted = false
+    private var secondCaptureContinuation: CheckedContinuation<Void, Never>?
+
+    init(capture: ClaudeCodeQuotaCapture) {
+        captureValue = capture
+    }
+
+    func configure(executableURL: URL, cliVersion: String) {}
+
+    func capture() async throws -> ClaudeCodeQuotaCapture {
+        captureCount += 1
+        if captureCount == 2 {
+            secondCaptureStarted = true
+            await withCheckedContinuation {
+                secondCaptureContinuation = $0
+            }
+        }
+        return captureValue
+    }
+
+    func waitUntilSecondCaptureStarted() async {
+        while !secondCaptureStarted { await Task.yield() }
+    }
+
+    func resumeSecondCapture() {
+        secondCaptureContinuation?.resume()
+        secondCaptureContinuation = nil
+    }
+
+    func stop() {}
 }
 
 @MainActor
@@ -1011,4 +1435,16 @@ func testClaudeQuotaCapture(
         capturedAt: capturedAt,
         cliVersion: "2.1.268"
     )
+}
+
+private struct ConnectionPreviewAntigravity: AntigravityQuotaProviding, AntigravityExecutableLocating {
+    let signedOut: Bool
+    func locate() throws -> URL { URL(fileURLWithPath: "/tmp/agy") }
+    func fetchQuota(executableURL: URL) async throws -> AntigravityQuotaSnapshot {
+        if signedOut { throw AntigravityUsageError.signedOut }
+        return .init(buckets: [
+            .init(id: "weekly", groupName: "Model pool", title: "Weekly", description: nil,
+                  windowDurationMinutes: 10_080, remainingFraction: 0.6, resetsAt: nil)
+        ], fetchedAt: Date(), cliVersion: "fixture")
+    }
 }

@@ -1,0 +1,218 @@
+[
+  {
+    "family" : "SF Pro",
+    "missing" : [
+
+    ],
+    "normalization" : "NFC",
+    "postScriptName" : ".AppleSystemUIFont",
+    "sampleCovered" : true
+  },
+  {
+    "family" : "SF Pro",
+    "missing" : [
+
+    ],
+    "normalization" : "NFD",
+    "postScriptName" : ".AppleSystemUIFont",
+    "sampleCovered" : true
+  },
+  {
+    "family" : "SF Pro",
+    "missing" : [
+
+    ],
+    "normalization" : "NFC",
+    "postScriptName" : ".AppleSystemUIFontMedium",
+    "sampleCovered" : true
+  },
+  {
+    "family" : "SF Pro",
+    "missing" : [
+
+    ],
+    "normalization" : "NFD",
+    "postScriptName" : ".AppleSystemUIFontMedium",
+    "sampleCovered" : true
+  },
+  {
+    "family" : "SF Pro",
+    "missing" : [
+
+    ],
+    "normalization" : "NFC",
+    "postScriptName" : ".AppleSystemUIFontDemi",
+    "sampleCovered" : true
+  },
+  {
+    "family" : "SF Pro",
+    "missing" : [
+
+    ],
+    "normalization" : "NFD",
+    "postScriptName" : ".AppleSystemUIFontDemi",
+    "sampleCovered" : true
+  },
+  {
+    "family" : "SF Pro Rounded",
+    "missing" : [
+
+    ],
+    "normalization" : "NFC",
+    "postScriptName" : ".AppleSystemUIFontRounded-Regular",
+    "sampleCovered" : true
+  },
+  {
+    "family" : "SF Pro Rounded",
+    "missing" : [
+
+    ],
+    "normalization" : "NFD",
+    "postScriptName" : ".AppleSystemUIFontRounded-Regular",
+    "sampleCovered" : true
+  },
+  {
+    "family" : "SF Pro Rounded",
+    "missing" : [
+
+    ],
+    "normalization" : "NFC",
+    "postScriptName" : ".AppleSystemUIFontRounded-Medium",
+    "sampleCovered" : true
+  },
+  {
+    "family" : "SF Pro Rounded",
+    "missing" : [
+
+    ],
+    "normalization" : "NFD",
+    "postScriptName" : ".AppleSystemUIFontRounded-Medium",
+    "sampleCovered" : true
+  },
+  {
+    "family" : "SF Pro Rounded",
+    "missing" : [
+
+    ],
+    "normalization" : "NFC",
+    "postScriptName" : ".AppleSystemUIFontRounded-Semibold",
+    "sampleCovered" : true
+  },
+  {
+    "family" : "SF Pro Rounded",
+    "missing" : [
+
+    ],
+    "normalization" : "NFD",
+    "postScriptName" : ".AppleSystemUIFontRounded-Semibold",
+    "sampleCovered" : true
+  },
+  {
+    "family" : "Geist",
+    "missing" : [
+      "U+20AB"
+    ],
+    "normalization" : "NFC",
+    "postScriptName" : "Geist-Regular",
+    "sampleCovered" : false
+  },
+  {
+    "family" : "Geist",
+    "missing" : [
+      "U+20AB"
+    ],
+    "normalization" : "NFD",
+    "postScriptName" : "Geist-Regular",
+    "sampleCovered" : false
+  },
+  {
+    "family" : "Geist",
+    "missing" : [
+      "U+20AB"
+    ],
+    "normalization" : "NFC",
+    "postScriptName" : "Geist-Medium",
+    "sampleCovered" : false
+  },
+  {
+    "family" : "Geist",
+    "missing" : [
+      "U+20AB"
+    ],
+    "normalization" : "NFD",
+    "postScriptName" : "Geist-Medium",
+    "sampleCovered" : false
+  },
+  {
+    "family" : "Geist",
+    "missing" : [
+      "U+20AB"
+    ],
+    "normalization" : "NFC",
+    "postScriptName" : "Geist-SemiBold",
+    "sampleCovered" : false
+  },
+  {
+    "family" : "Geist",
+    "missing" : [
+      "U+20AB"
+    ],
+    "normalization" : "NFD",
+    "postScriptName" : "Geist-SemiBold",
+    "sampleCovered" : false
+  },
+  {
+    "family" : "IBM Plex Sans",
+    "missing" : [
+
+    ],
+    "normalization" : "NFC",
+    "postScriptName" : "IBMPlexSans",
+    "sampleCovered" : true
+  },
+  {
+    "family" : "IBM Plex Sans",
+    "missing" : [
+
+    ],
+    "normalization" : "NFD",
+    "postScriptName" : "IBMPlexSans",
+    "sampleCovered" : true
+  },
+  {
+    "family" : "IBM Plex Sans",
+    "missing" : [
+
+    ],
+    "normalization" : "NFC",
+    "postScriptName" : "IBMPlexSans-Medm",
+    "sampleCovered" : true
+  },
+  {
+    "family" : "IBM Plex Sans",
+    "missing" : [
+
+    ],
+    "normalization" : "NFD",
+    "postScriptName" : "IBMPlexSans-Medm",
+    "sampleCovered" : true
+  },
+  {
+    "family" : "IBM Plex Sans",
+    "missing" : [
+
+    ],
+    "normalization" : "NFC",
+    "postScriptName" : "IBMPlexSans-SmBld",
+    "sampleCovered" : true
+  },
+  {
+    "family" : "IBM Plex Sans",
+    "missing" : [
+
+    ],
+    "normalization" : "NFD",
+    "postScriptName" : "IBMPlexSans-SmBld",
+    "sampleCovered" : true
+  }
+]

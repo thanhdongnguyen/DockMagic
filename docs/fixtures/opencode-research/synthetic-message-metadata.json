@@ -1,0 +1,28 @@
+{
+  "fixtureKind": "synthetic, schema-derived metadata only; not an observed account response",
+  "sourceVersion": "1.18.4",
+  "legacyAssistantProjection": {
+    "role": "assistant",
+    "time": { "created": 1789516800000, "completed": 1789516801000 },
+    "providerID": "example-provider",
+    "modelID": "example-model",
+    "tokens": {
+      "input": 100,
+      "output": 20,
+      "reasoning": 5,
+      "cache": { "read": 30, "write": 10 }
+    },
+    "cost": 0.001,
+    "finish": "stop"
+  },
+  "expectedDerived": {
+    "sumOfTokenBuckets": 165,
+    "costClassification": "recorded by OpenCode; not validated billed cost"
+  },
+  "v2MissingUsageProjection": {
+    "type": "assistant",
+    "model": { "providerID": "example-provider", "id": "example-model" }
+  },
+  "expectedMissingUsageClassification": "unavailable, not zero",
+  "v2ZeroCostCaveat": "Step.Ended in the inspected V2 runner writes cost: 0; zero alone cannot establish free usage"
+}

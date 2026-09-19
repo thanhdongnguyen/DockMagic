@@ -1,12 +1,71 @@
+import AppKit
 import Foundation
 import SwiftUI
 
 /// DockMagic's product palette. Reusable components know only `DesignTheme`;
 /// this mapping and the named Color Set values remain application-owned.
 enum ProjectTheme {
-    /// Persistent renderer default matching DSAction's Light blue. User-picked
+    /// Persistent renderer default retained independently of neutral UI action. User-picked
     /// colors remain confined to Dock renders and their Settings previews.
     static let defaultUsageRingColor = DockColor(red: 0, green: 136 / 255, blue: 1)
+
+    @MainActor
+    static func resolvedColor(_ color: Color, colorScheme: ColorScheme) -> DockColor {
+        var result = DockColor(color)
+        NSAppearance(named: colorScheme == .dark ? .darkAqua : .aqua)?.performAsCurrentDrawingAppearance {
+            result = DockColor(color)
+        }
+        return result
+    }
+
+    /// Automatic follows the semantic theme; contrast correction is never
+    /// persisted and never colors the surrounding controls or status.
+    @MainActor
+    static func rendererColor(_ custom: DockColor?, automatic: Color, on background: Color,
+                              colorScheme: ColorScheme, minimumContrast: Double) -> Color {
+        readableRendererColor(custom ?? resolvedColor(automatic, colorScheme: colorScheme),
+            on: background, colorScheme: colorScheme, minimumContrast: minimumContrast).color
+    }
+
+    /// Contrast adjustment is confined to data rendering; the saved swatch is
+    /// unchanged. Never use a renderer choice as a chrome or status role.
+    @MainActor
+    static func readableRendererColor(_ requested: DockColor, on background: Color,
+                                      colorScheme: ColorScheme, minimumContrast: Double) -> DockColor {
+        var resolvedBackground = DockColor(background)
+        NSAppearance(named: colorScheme == .dark ? .darkAqua : .aqua)?.performAsCurrentDrawingAppearance {
+            resolvedBackground = DockColor(background)
+        }
+        let background = resolvedBackground
+        let opaque = DockColor(red: requested.red * requested.alpha + background.red * (1 - requested.alpha),
+            green: requested.green * requested.alpha + background.green * (1 - requested.alpha),
+            blue: requested.blue * requested.alpha + background.blue * (1 - requested.alpha))
+        guard rendererContrast(opaque, background) < minimumContrast else { return opaque }
+        let light = DockColor(red: 1, green: 1, blue: 1)
+        let dark = DockColor(red: 0, green: 0, blue: 0)
+        let target = rendererContrast(light, background) >= rendererContrast(dark, background) ? light : dark
+        func mixed(_ amount: Double) -> DockColor {
+            DockColor(red: opaque.red + (target.red - opaque.red) * amount,
+                green: opaque.green + (target.green - opaque.green) * amount,
+                blue: opaque.blue + (target.blue - opaque.blue) * amount)
+        }
+        var lower = 0.0, upper = 1.0
+        for _ in 0..<24 {
+            let midpoint = (lower + upper) / 2
+            if rendererContrast(mixed(midpoint), background) < minimumContrast { lower = midpoint }
+            else { upper = midpoint }
+        }
+        return mixed(upper)
+    }
+
+    static func rendererContrast(_ first: DockColor, _ second: DockColor) -> Double {
+        func luminance(_ color: DockColor) -> Double {
+            func linear(_ value: Double) -> Double { value <= 0.04045 ? value / 12.92 : pow((value + 0.055) / 1.055, 2.4) }
+            return 0.2126 * linear(color.red) + 0.7152 * linear(color.green) + 0.0722 * linear(color.blue)
+        }
+        let a = luminance(first), b = luminance(second)
+        return (max(a, b) + 0.05) / (min(a, b) + 0.05)
+    }
     /// Claude Code usage data uses the service's clay-orange identity as its
     /// single persistent data accent. Status colors still come from
     /// `DesignTheme` and replace this accent when they carry meaning.
@@ -16,12 +75,16 @@ enum ProjectTheme {
         action: Color("DSAction"),
         actionForeground: Color("DSActionForeground"),
         onAction: Color("DSOnAction"),
+        codexActivity: Color("DSCodexActivity"),
+        codexActivityForeground: Color("DSCodexActivityForeground"),
         information: Color("DSInformation"),
         informationForeground: Color("DSInformationForeground"),
         onInformation: Color("DSOnInformation"),
         processing: Color("DSProcessing"),
         processingForeground: Color("DSProcessingForeground"),
         onProcessing: Color("DSOnProcessing"),
+        streakActive: Color("DSStreakActive"),
+        onStreakActive: Color("DSOnStreakActive"),
         dockTrack: Color("DSDockTrack"),
         dockBackgroundRaised: Color("DSDockBackgroundRaised"),
         dockBackgroundInset: Color("DSDockBackgroundInset"),
@@ -33,6 +96,7 @@ enum ProjectTheme {
         danger: Color("DSDanger"),
         dangerForeground: Color("DSDangerForeground"),
         onDanger: Color("DSOnDanger"),
+        inputOutline: Color("DSInputOutline"),
         focus: Color("DSFocus"),
         textPrimary: Color("DSTextPrimary"),
         textSecondary: Color("DSTextSecondary"),
@@ -200,8 +264,7 @@ extension DSAppearanceMode {
             return .system
         }
 
-        // Migrate the former standalone Liquid Glass mode. Glass is now built
-        // into System, Light, and Dark, so the closest behavior is System.
+        // Preserve the former appearance preference as the system-following mode.
         if rawValue == "liquidGlass" {
             return .system
         }
@@ -232,6 +295,7 @@ enum DockMagicRuntimeDefaults {
 struct DockMagicThemeRoot<Content: View>: View {
     let content: Content
     private let appearanceOverride: DSAppearanceMode?
+    @Environment(\.colorScheme) private var inheritedColorScheme
 
     @AppStorage(DSAppearanceMode.storageKey)
     private var storedAppearance = DSAppearanceMode.system.rawValue
@@ -249,7 +313,12 @@ struct DockMagicThemeRoot<Content: View>: View {
             .environment(\.designTheme, ProjectTheme.current)
             .environment(\.dsAppearanceMode, appearanceMode)
             .preferredColorScheme(appearanceMode.preferredColorScheme)
+            .environment(\.colorScheme, appearanceMode.preferredColorScheme ?? inheritedColorScheme)
             .tint(ProjectTheme.current.action)
+            .font(DSTypography.body)
+            .buttonStyle(DSButtonStyle())
+            .textFieldStyle(DSInputStyle())
+            .toggleStyle(DSSwitchStyle())
     }
 
     private var appearanceMode: DSAppearanceMode {

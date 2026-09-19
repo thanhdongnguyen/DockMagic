@@ -1,5 +1,10 @@
 # DockMagic Repository Instructions
 
+## Mandatory project rules
+
+- Read [RULES.md](RULES.md) before planning or changing the project. It is a mandatory part of these repository instructions and records lasting user requirements and recurring problems that must not be repeated.
+- Apply every rule relevant to the task and check compliance before reporting completion. Maintain rule IDs and requirements in `RULES.md`; do not duplicate the full rule list here.
+
 ## Distribution
 
 - DockMagic is distributed directly to users and will not be uploaded to or released through the Mac App Store.
@@ -8,28 +13,7 @@
 - Before adopting an Apple capability, verify that it is supported for Developer ID distribution. If it is unavailable, prefer a public local macOS integration or present the limitation explicitly instead of silently coupling the app to Mac App Store distribution.
 - Do not add App Store-specific packaging or StoreKit behavior merely for distribution. App Sandbox is optional for direct distribution and must be evaluated against feature requirements rather than assumed.
 
-## UI and color
+## Design Markdown
 
-- Treat `docs/COLOR_DESIGN_SYSTEM.md` as the normative color contract and `docs/DESIGN_SYSTEM.md` as the component and appearance contract.
-- Keep DockMagic-owned UI neutral-first. Normal UI uses one action accent; semantic color appears only for a real information, processing, warning, or danger state and replaces the local accent when prominent.
-- Do not add `LinearGradient`, `RadialGradient`, `AngularGradient`, colored glow, decorative tinted cards, or a new feature-local palette.
-- Keep interface icons monochrome or hierarchical in one hue. Preserve full-color brand assets only inside a bounded identity region.
-- Keep user-selected and data-series colors inside their renderer, preview, swatch, and legend boundaries. Never reuse them for chrome, selection, focus, buttons, or status.
-- Use semantic `DesignTheme` roles and shared components. Do not add direct RGB, hex, system color names, or asset lookups in feature views when a semantic role exists.
-- Verify changed UI in Light, Dark, Increased Contrast, Reduce Transparency, and grayscale. State, selection, and data must not depend on color alone.
-
-## AI dashboards
-
-- Treat docs/AI_DASHBOARD_DESIGN_SYSTEM.md as the normative AI dashboard UI and composition contract. Use the existing color, component, and provider-data contracts for their respective decisions.
-- Select dashboard modules through an explicit, evidence-backed provider manifest. A shared UI change updates dashboards already using that module; a new metric must not appear in another provider without approved scope and proven capability.
-
-## AI Share images
-
-- Treat docs/AI_SHARE_ACTIVITY_CARD_LAYOUT.md as the normative layout contract for AI provider activity-card Save, Copy, and Share images. Use the Codex and Claude Code card as the shared layout baseline; include each metric only when the provider data contract permits it.
-- Keep quota-card exports as a separate layout. Any shared activity-card layout change must update participating provider fixtures and preserve the same dedicated PNG artifact across Save, Copy, and Share.
-
-## AI provider features
-
-- Treat `docs/AI_PROVIDER_FEATURE_CONTRACT.md` as the normative product and data contract when researching, designing, implementing, or reviewing an AI provider integration.
-- Classify each candidate metric as supported, unsupported, unknown, or prohibited before adding UI. Never convert absence into zero, infer quota from activity, or substitute one provider/window/model bucket for another.
-- Use `.codex/skills/ai-provider-integration/SKILL.md` for the repeatable provider research and implementation workflow; keep durable product rules in the contract instead of duplicating them in the skill.
+- For UI work, read [Design.md](Design.md) after `RULES.md`. It follows Google's DESIGN.md alpha format: YAML contains active design tokens; the eight Markdown sections explain their scope, native mapping, and usage. Keep this structure and valid `{group.token}` references when editing it.
+- Follow the mandatory [UI and design rules in RULES.md](RULES.md#ui-and-design-rules), including typography, native token mapping, color boundaries, component reuse, customization, and verification.

@@ -43,9 +43,9 @@ struct WeatherHoverDashboardView: View {
                         .interpolation(.high)
                         .scaledToFit()
                 } else {
-                    Image(systemName: "cloud.sun.fill")
+                    DSIcon(systemName: "cloud.sun.fill")
                         .symbolRenderingMode(.multicolor)
-                        .font(.system(size: 23, weight: .semibold))
+                        .dsFont(size: 23, weight: .semibold)
                 }
             }
             .frame(width: 30, height: 30)
@@ -53,20 +53,20 @@ struct WeatherHoverDashboardView: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 Text("Weather")
-                    .font(.system(size: 17, weight: .bold))
+                    .dsFont(size: 17, weight: .bold)
                     .foregroundStyle(theme.textPrimary)
 
                 HStack(spacing: 4) {
-                    Image(systemName: "mappin.and.ellipse")
+                    DSIcon(systemName: "mappin.and.ellipse")
                         .symbolRenderingMode(.monochrome)
-                        .font(.system(size: 8, weight: .semibold))
+                        .dsFont(size: 8, weight: .semibold)
                         .accessibilityHidden(true)
 
                     Text(locationLabel)
                         .lineLimit(1)
                         .truncationMode(.tail)
                 }
-                .font(.system(size: 9, weight: .medium))
+                .dsFont(size: 9, weight: .medium)
                 .foregroundStyle(theme.textTertiary)
             }
 
@@ -74,13 +74,13 @@ struct WeatherHoverDashboardView: View {
 
             if let status = statusPresentation {
                 HStack(spacing: 3) {
-                    Image(systemName: status.systemImage)
+                    DSIcon(systemName: status.systemImage)
                         .symbolRenderingMode(.monochrome)
-                        .font(.system(size: 8, weight: .semibold))
+                        .dsFont(size: 8, weight: .semibold)
                         .accessibilityHidden(true)
 
                     Text(status.title)
-                        .font(.system(size: 8.5, weight: .semibold))
+                        .dsFont(size: 8.5, weight: .semibold)
                 }
                 .foregroundStyle(status.foreground(theme))
                 .accessibilityElement(children: .combine)
@@ -100,26 +100,26 @@ struct WeatherHoverDashboardView: View {
                     )
                 )
                 .symbolRenderingMode(.hierarchical)
-                .font(.system(size: 45, weight: .medium))
+                .dsFont(size: 45, weight: .medium)
                 .foregroundStyle(theme.textPrimary)
                 .frame(width: 54, height: 58)
                 .accessibilityHidden(true)
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(temperatureLabel(snapshot.temperatureCelsius))
-                        .font(.system(size: 38, weight: .bold, design: .rounded))
+                        .dsFont(size: 38, weight: .bold)
                         .foregroundStyle(theme.textPrimary)
                         .monospacedDigit()
                         .lineLimit(1)
 
                     Text(snapshot.conditionDescription)
-                        .font(.system(size: 11, weight: .bold))
+                        .dsFont(size: 11, weight: .bold)
                         .foregroundStyle(theme.textPrimary)
                         .lineLimit(1)
 
                     if let feelsLike = snapshot.feelsLikeCelsius {
                         Text("Feels like \(temperatureLabel(feelsLike))")
-                            .font(.system(size: 9, weight: .medium))
+                            .dsFont(size: 9, weight: .medium)
                             .foregroundStyle(theme.textSecondary)
                             .lineLimit(1)
                     }
@@ -187,11 +187,11 @@ struct WeatherHoverDashboardView: View {
     ) -> some View {
         VStack(alignment: .leading, spacing: 1) {
             Text(title)
-                .font(.system(size: 8.5, weight: .semibold))
+                .dsFont(size: 8.5, weight: .semibold)
                 .foregroundStyle(theme.textTertiary)
 
             Text(temperatureLabel(value))
-                .font(.system(size: 15, weight: .bold, design: .rounded))
+                .dsFont(size: 15, weight: .bold)
                 .foregroundStyle(theme.textPrimary)
                 .monospacedDigit()
         }
@@ -206,18 +206,18 @@ struct WeatherHoverDashboardView: View {
     ) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             HStack(spacing: 3) {
-                Image(systemName: systemImage)
+                DSIcon(systemName: systemImage)
                     .symbolRenderingMode(.monochrome)
-                    .font(.system(size: 8, weight: .semibold))
+                    .dsFont(size: 8, weight: .semibold)
                     .accessibilityHidden(true)
 
                 Text(title)
-                    .font(.system(size: 8, weight: .semibold))
+                    .dsFont(size: 8, weight: .semibold)
             }
             .foregroundStyle(theme.textTertiary)
 
             Text(value)
-                .font(.system(size: 11, weight: .bold, design: .rounded))
+                .dsFont(size: 11, weight: .bold)
                 .foregroundStyle(theme.textPrimary)
                 .monospacedDigit()
                 .lineLimit(1)
@@ -233,11 +233,11 @@ struct WeatherHoverDashboardView: View {
         return VStack(spacing: 7) {
             HStack(alignment: .firstTextBaseline, spacing: 6) {
                 Text("7-day forecast")
-                    .font(.system(size: 11.5, weight: .bold))
+                    .dsFont(size: 11.5, weight: .bold)
                     .foregroundStyle(theme.textPrimary)
 
                 Text(forecastRangeLabel(days))
-                    .font(.system(size: 8.5, weight: .medium))
+                    .dsFont(size: 8.5, weight: .medium)
                     .foregroundStyle(theme.textTertiary)
 
                 Spacer(minLength: 4)
@@ -286,30 +286,30 @@ struct WeatherHoverDashboardView: View {
                     .accessibilityHidden(true)
 
                 Text("Updating weather")
-                    .font(.system(size: 13, weight: .bold))
+                    .dsFont(size: 13, weight: .bold)
                     .foregroundStyle(theme.textPrimary)
 
                 Text(
                     locationPlaceholder
                         ?? "Locating you and loading the week ahead."
                 )
-                .font(.system(size: 10, weight: .medium))
+                .dsFont(size: 10, weight: .medium)
                 .foregroundStyle(theme.textSecondary)
                 .multilineTextAlignment(.center)
 
             case let .unavailable(message):
-                Image(systemName: "exclamationmark.triangle.fill")
+                DSIcon(systemName: "exclamationmark.triangle.fill")
                     .symbolRenderingMode(.monochrome)
-                    .font(.system(size: 25, weight: .medium))
+                    .dsFont(size: 25, weight: .medium)
                     .foregroundStyle(theme.dangerForeground)
                     .accessibilityHidden(true)
 
                 Text("Weather unavailable")
-                    .font(.system(size: 13, weight: .bold))
+                    .dsFont(size: 13, weight: .bold)
                     .foregroundStyle(theme.textPrimary)
 
                 Text(message)
-                    .font(.system(size: 10, weight: .medium))
+                    .dsFont(size: 10, weight: .medium)
                     .foregroundStyle(theme.textSecondary)
                     .multilineTextAlignment(.center)
                     .lineLimit(3)
@@ -343,7 +343,7 @@ struct WeatherHoverDashboardView: View {
 
             Spacer(minLength: 0)
         }
-        .font(.system(size: 8.5, weight: .medium))
+        .dsFont(size: 8.5, weight: .medium)
         .frame(height: 14)
         .accessibilityIdentifier("dockHover.weather.attribution")
     }
@@ -374,18 +374,18 @@ struct WeatherHoverDashboardView: View {
     }
 
     private func temperatureLabel(_ celsius: Double?) -> String {
-        guard let celsius else { return "—" }
+        guard let celsius, celsius.isFinite else { return "—" }
         let value = usesFahrenheit ? celsius * 9 / 5 + 32 : celsius
         return "\(Int(value.rounded()))°"
     }
 
     private func percentageLabel(_ value: Double?) -> String {
-        guard let value else { return "—" }
+        guard let value, value.isFinite else { return "—" }
         return value.formatted(.percent.precision(.fractionLength(0)))
     }
 
     private func windLabel(_ kilometersPerHour: Double?) -> String {
-        guard let kilometersPerHour else { return "—" }
+        guard let kilometersPerHour, kilometersPerHour.isFinite else { return "—" }
         let value = usesFahrenheit
             ? kilometersPerHour * 0.621_371
             : kilometersPerHour
@@ -465,7 +465,7 @@ private struct WeatherHoverForecastDay: View {
     var body: some View {
         VStack(spacing: 5) {
             Text(dateLabel)
-                .font(.system(size: 9, weight: isToday ? .bold : .semibold))
+                .dsFont(size: 9, weight: isToday ? .bold : .semibold)
                 .foregroundStyle(
                     isToday ? theme.textPrimary : theme.textSecondary
                 )
@@ -473,34 +473,34 @@ private struct WeatherHoverForecastDay: View {
                 .minimumScaleFactor(0.8)
                 .frame(height: 12)
 
-            Image(systemName: forecast.condition.symbolName())
+            DSIcon(systemName: forecast.condition.symbolName())
                 .symbolRenderingMode(.hierarchical)
-                .font(.system(size: 25, weight: .medium))
+                .dsFont(size: 25, weight: .medium)
                 .foregroundStyle(theme.textPrimary)
                 .frame(height: 31)
                 .accessibilityHidden(true)
 
             VStack(spacing: 1) {
                 Text(temperatureLabel(forecast.highCelsius))
-                    .font(.system(size: 14, weight: .bold, design: .rounded))
+                    .dsFont(size: 14, weight: .bold)
                     .foregroundStyle(theme.textPrimary)
 
                 Text(temperatureLabel(forecast.lowCelsius))
-                    .font(.system(size: 10, weight: .semibold, design: .rounded))
+                    .dsFont(size: 10, weight: .semibold)
                     .foregroundStyle(theme.textSecondary)
             }
             .monospacedDigit()
 
             HStack(spacing: 2) {
-                Image(systemName: "drop")
+                DSIcon(systemName: "drop")
                     .symbolRenderingMode(.monochrome)
-                    .font(.system(size: 7.5, weight: .semibold))
+                    .dsFont(size: 7.5, weight: .semibold)
                     .accessibilityHidden(true)
 
                 Text(percentageLabel(forecast.precipitationChance))
                     .monospacedDigit()
             }
-            .font(.system(size: 8, weight: .medium))
+            .dsFont(size: 8, weight: .medium)
             .foregroundStyle(theme.textTertiary)
             .lineLimit(1)
         }

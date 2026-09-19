@@ -9,10 +9,10 @@ rare enough that it means something when it appears.
 
 ## 1. Core contract
 
-DockMagic uses a **neutral-first, one-accent** visual language:
+DockMagic uses a **neutral-first Maia** visual language:
 
 ```text
-Default surface       = neutral family + one action accent
+Default surface       = neutral family including primary action
 Data comparison       = neutral family + at most two data hues
 Warning/error surface = neutral family + one semantic status hue
 ```
@@ -32,7 +32,7 @@ chromatic color count.
 
 - Window backgrounds, navigation, cards, rows, dividers, labels, metadata, and
   inactive icons use neutral roles.
-- One action hue may be used for the primary action, current selection, focus,
+- The neutral action role is used for the primary action, current selection, focus,
   or the most important active state.
 - Hover is neutral. Hover alone does not introduce a new hue.
 - A screen must not give every feature, card, row, or icon its own accent.
@@ -53,11 +53,11 @@ chromatic color count.
 For DockMagic-owned interface elements in a single surface:
 
 1. Use the neutral family.
-2. Add at most one persistent action hue.
+2. Use the neutral primary-action family; no persistent blue action accent.
 3. Add at most one conditional semantic hue only when a real state requires it.
 
-The result should normally read as two families: neutral plus accent. A third
-family is exceptional and temporary. Data and brand exceptions are defined in
+The result normally reads as a neutral family. A semantic family is local
+and conditional. Data and brand exceptions are defined in
 Section 7 and must remain visually contained.
 
 ## 3. Semantic palette
@@ -65,21 +65,13 @@ Section 7 and must remain visually contained.
 Feature code chooses a semantic role. It does not choose RGB, hex, a system
 color name, or a convenient color borrowed from another feature.
 
-The current canonical product values are:
-
-| Family | Semantic asset | Light | Dark | Runtime role |
-| --- | --- | --- | --- | --- |
-| Canvas neutral | `DSSurface` | `#F5F4F2` | `#1F1E1E` | Default content background |
-| Raised neutral | `DSSurfaceRaised` | `#FFFFFF` | `#1F1E1E` | Raised content surface |
-| Primary text | `DSTextPrimary` | `#000000` | `#FFFFFF` | Main content and default icon |
-| Action blue | `DSAction` | `#0088FF` | `#0091FF` | The single persistent product accent |
-| Claude usage data | `DSClaudeCodeUsage` | `#D97757` | `#D97757` | Quota progress inside the Claude dashboard only |
-| Warning orange | `DSWarning` | `#FF8D28` | `#FF9230` | Conditional warning only |
-| Danger red | `DSDanger` | `#FF383C` | `#FF4245` | Conditional error/destructive state only |
-
-These values document the existing named assets; they must not be copied into
-feature code as literals. Secondary surfaces, text, outlines, on-colors, and
-accessibility variants continue to resolve through semantic assets.
+The canonical baseline is Neutral from pinned `bbVKHJo` / `base-maia`, converted
+from OKLCH to sRGB in foundation. See [Design.md](../Design.md) for source values
+and [native palette manifest](research/maia-native/palette.json) for exact values,
+alpha and accessibility adaptations. These are semantic assets, not literals to
+copy into features. Primary action is #171717 Light / #E5E5E5 Dark; canvas is
+#FFFFFF / #0A0A0A; card/popover is #FFFFFF / #171717. Destructive follows Maia;
+information/processing/warning remain bounded semantic extensions.
 
 | Role | Purpose | Use | Do not use |
 | --- | --- | --- | --- |
@@ -92,6 +84,14 @@ accessibility variants continue to resolve through semantic assets.
 | Danger | Failure or destructive consequence | Error, failed connection, destructive action | General emphasis or branding |
 | Data series | Quantitative differentiation | One or two series inside a chart/renderer | Settings chrome, status, unrelated icons |
 | Brand asset | Identity supplied by the service | Original logo inside a bounded logo region | Tinting surrounding surfaces or controls |
+
+`DesignTheme.marketPriceSeries` maps the neutral action family to the automatic quantitative price series role. Binance may override price and volume series through its appearance preferences; overrides remain inside their plots. Its separate Dock price override affects only the numeric Dock value and production preview. Market chrome still consumes action, focus, selection, and neutral roles directly. Candlestick direction also uses hollow/filled bodies.
+
+Automatic Binance colors follow the selected theme. Renderer-only contrast
+resolution uses `ProjectTheme.rendererColor` / `readableRendererColor` against
+the opaque plot/tile background (4.5:1 for Dock price, 3:1 for data marks),
+without changing the persisted swatch. Reset Defaults clears only the three
+appearance overrides. A selected user color never replaces a stale/error role.
 
 `information` and `processing` are compatibility roles, not additional
 persistent accents. New UI should prefer neutral explanatory text and the
@@ -124,7 +124,7 @@ or more visually interesting.
 | Element | Required treatment |
 | --- | --- |
 | Surface/background | Neutral semantic surface only. Content popovers and hover dashboards use an opaque semantic surface. |
-| Material/glass | Navigation chrome only. It must not cause wallpaper color to become part of content hierarchy. |
+| Material/glass | No app-owned materials. Every surface uses its opaque semantic role. System-owned UI retains platform presentation. |
 | Border/divider | Neutral outline roles. No colored border unless it communicates focus, selection, or status. |
 | Shadow | Neutral shadow only. No colored glow. The outer floating host owns elevation. |
 | Text | Neutral text roles by default. Accent text only for links/actions; semantic text only for real status. |
@@ -146,7 +146,7 @@ The following are not allowed in DockMagic-owned UI:
 - `LinearGradient`, `RadialGradient`, or `AngularGradient` used as product
   styling, including backgrounds, borders, progress fills, and chart fills.
 - Multiple unrelated accent colors in the same card, popup, toolbar, or row.
-- Full-color interface icons where a monochrome SF Symbol communicates the same
+- Full-color interface icons where a monochrome HugeIcon communicates the same
   action.
 - Feature or renderer colors reused for Settings chrome, popup chrome, status,
   selection, focus, or buttons.
@@ -172,6 +172,16 @@ Exceptions are allowed only when color is the content rather than decoration:
   and its color controls. They do not become semantic status or chrome colors.
 - A two-series chart may use two data hues when labels, shapes, or positions
   alone are insufficient. Its legend must repeat the series names.
+- Codex and Antigravity quantitative content use `DesignTheme.codexActivity`, owned by
+  `DSCodexActivity`: #0088FF Dark from the user's supplied reference and
+  #006BC9 Light for contrast. It covers quota progress, token charts/metrics,
+  Ship momentum, Daily intensity, Top models, daily detail and activity export.
+  `DSCodexActivityForeground` uses #008FFF Dark / #006BC9 Light for small data
+  text on inset surfaces (at least 4.5:1). The hue identifies the same token
+  activity across modules; it does not tint surfaces, buttons, focus or status.
+  Quota warning/danger still replaces blue at the existing thresholds. Other
+  provider palettes with their own documented data hues and persisted Dock
+  renderer colors remain independent.
 - Claude Code quota progress may use `DSClaudeCodeUsage` as its single data
   hue inside the dashboard quota rows and chart. It must not tint chrome, text,
   selection, or status; warning and danger replace it at their thresholds.
@@ -182,6 +192,12 @@ Exceptions are allowed only when color is the content rather than decoration:
   selection, focus, or status. Locked badges also use a lock symbol, label,
   lower emphasis, and grayscale-safe structure. Badge artwork must not use
   colored glow, a rainbow border, or code-rendered product gradients.
+- Verified streak days use the soft green `DesignTheme.streakActive` role,
+  owned by `DSStreakActive`: #43A66A Light / #57C07E Dark, with
+  `onStreakActive` #121212 for the check. It is confined to active day nodes in
+  the shared strip, celebration and badge-detail Recent activity. The check and
+  node shape preserve the state in grayscale; the role never colors badge art,
+  pending/unknown days, chrome, controls, focus or status.
 - Photography, weather imagery, and other content media are not UI palette
   tokens, but their container and controls still follow this contract.
 - System-owned macOS UI keeps its native appearance.
@@ -198,7 +214,7 @@ allowlist entry is not sufficient by itself.
   line style, or accessible label/value.
 - Light and Dark values are semantic counterparts, not simple inverted RGB.
 - Increased Contrast strengthens boundaries without adding hues.
-- Reduce Transparency replaces material with the matching opaque neutral role.
+- Reduce Transparency retains the same opaque neutral surfaces.
 - Grayscale must preserve reading order, selection, progress, and status.
 - Disabled content remains legible and is distinguished by control state, not
   arbitrary opacity alone.
@@ -218,9 +234,34 @@ Named Color Set assets
 - Add a semantic role only when it will be shared and its meaning is stable
   across features.
 - Prefer extending an existing shared component over styling a feature view.
-- Renderer appearance models may own user-configurable data colors, but those
-  values stop at the renderer/preview boundary.
+- Renderer appearance models may own user-configurable data colors. The same
+  saved color may feed a feature's Dock renderer, Settings preview and shared
+  dashboard chart, but it stops at those data-rendering boundaries.
 - Brand assets remain assets; do not extract a palette from them for UI chrome.
+
+AI daily history uses one `AIUsageHistoryChart` renderer. Codex supplies its
+approved blue data role, Claude supplies its clay usage role, and OpenCode plus
+Augment supply their persisted appearance color after a 3:1 plot-background
+contrast correction. The correction is render-only and never rewrites the
+saved swatch.
+
+### Required feature color customization
+
+Every new feature must provide a color customization section in Settings before
+it is considered complete. Use the same `DSColorPalettePicker` and
+`ProjectTheme.rendererColorOptions` as Claude Code Settings instead of a
+feature-local palette or a standalone system color panel.
+
+- Label each independently meaningful renderer or data-series color.
+- Persist the selected colors in the feature's appearance preferences and apply
+  changes immediately to its production renderer and live Settings preview.
+- Include Reset Defaults, restoring the feature's shared product defaults.
+- Preserve an existing custom saved color through the shared picker's current
+  color swatch until the user chooses a replacement or resets it.
+- Keep the selection indicator, keyboard focus, and surrounding Settings chrome
+  semantic and neutral-first. Renderer colors never replace status colors.
+- Verify the chosen swatch remains identifiable through its checkmark and
+  accessible label/value, including in grayscale.
 
 ## 10. Review and enforcement
 
@@ -235,6 +276,8 @@ Every UI change that introduces or changes color must include:
    color alone.
 7. A source scan for new gradients, direct colors, and feature colors leaking
    outside their boundary.
+8. For every new feature, its Settings color controls, persisted selection,
+   immediate production preview, and Reset Defaults behavior.
 
 A review must reject the change when the author cannot explain what user
 meaning would be lost by removing an added color.

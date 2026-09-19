@@ -1,0 +1,86 @@
+{
+  "schemaVersion": 1,
+  "verifiedAt": "2026-09-16T17:27:24Z",
+  "localDate": "2026-09-17",
+  "scope": "Direct native interaction with the existing isolated Debug QA app and synthetic Grok fixture",
+  "productionEnabled": false,
+  "billingStartupSafetyVerified": false,
+  "releaseVerified": false,
+  "app": {
+    "bundleIdentifier": "com.hypevibe.GrokUITest.DockMagic",
+    "bundlePath": "/private/tmp/dockmagic-grok-ui-build.acevBnKZ/Build/Products/Debug/DockMagic.app",
+    "defaultsSuite": "DockMagicGrokManualQA.20260917.001",
+    "environment": {"DockMagicUITesting": "1", "DockMagicUITestGrok": "available", "DOCKMAGIC_EXPERIMENTAL_GROK": "1"},
+    "fixtureExecutable": "/fixture/grok",
+    "fixtureHome": "/fixture/grok-home",
+    "launchedWithOpenAsAppBundle": true,
+    "standardWorkflowBuildPerformedThisRun": false,
+    "configuration": "Debug",
+    "appearance": "Light",
+    "leftRunningForPermissionHandoff": true
+  },
+  "signature": {
+    "command": "codesign --verify --deep --strict /private/tmp/dockmagic-grok-ui-build.acevBnKZ/Build/Products/Debug/DockMagic.app",
+    "restrictedShellResult": "CSSMERR_TP_NOT_TRUSTED",
+    "outsideRestrictedShellExitCode": 0,
+    "developerIDOrNotarizationProof": false
+  },
+  "observed": {
+    "enabledIntegrationThroughSettings": true,
+    "localStatus": "live",
+    "fixtureTokens": 35987,
+    "explicitMetric": "Tokens observed today",
+    "previewDisplayed": "36K",
+    "activeDockFeatureReportedBySettings": "Grok Build (Experimental)",
+    "quotaUnavailableWithoutFallback": true,
+    "signInDeviceCodeSignOutControlsDisabled": true,
+    "chartFirstDate": "2026-08-19",
+    "chartLastDate": "2026-09-17",
+    "chartTimeZone": "Asia/Ho_Chi_Minh",
+    "chartEndpointScrollbarValues": [0, 1],
+    "chartScrollMechanism": "Exposed native Accessibility Scroll Left / Scroll Right actions",
+    "genericHorizontalScrollHadVisibleEffect": false,
+    "unknownMarkersInspected": true,
+    "roadmapReachedBottom": true,
+    "finalRoadmapBadge": "Continuum, day 730, Locked",
+    "escapeFromRoadmapReturnedToOverview": true,
+    "overviewScrolledToMomentumIntensityAndTopModels": true,
+    "topModel": "fixture-grok",
+    "topModelTokens": 35987,
+    "headerSettingsButtonClosedPreview": true,
+    "nativeScreenshotsInspectedInThread": true,
+    "persistentScreenshotFilesCreated": false
+  },
+  "serviceLink": {
+    "nativeAXDestination": "https://status.x.ai/grok-build",
+    "publicPageTitleVerified": "Grok Build Status",
+    "nativeBrowserLaunchClickTested": false,
+    "machineReadableStatusCapabilityEnabled": false,
+    "operationalBadgeDisplayed": false
+  },
+  "dockBlockers": {
+    "computerUseDockSurfaceTimeouts": 2,
+    "timeoutClass": "Computer Use server timeoutReached, not proof of a DockMagic defect",
+    "qaAppPermissionState": "Accessibility required",
+    "userApprovalRequestedInChat": true,
+    "macOSPermissionPromptTriggered": false,
+    "accessibilityPermissionGranted": false,
+    "actualDockCompositeVisuallyVerified": false,
+    "actualHoverInteractionVerified": false
+  },
+  "safety": {
+    "realGrokCLIStarted": false,
+    "credentialsRead": false,
+    "accountAuthenticationActionPerformed": false,
+    "productionPreferencesChanged": false,
+    "systemAccessibilityOrTCCSettingsChanged": false,
+    "otherDockMagicInstancesStopped": false
+  },
+  "notVerifiedByThisRun": [
+    "Actual Dock icon compositing and hover interaction",
+    "Hardware pointer/trackpad and full keyboard/VoiceOver behavior",
+    "Transient celebration banner click",
+    "Dark, Increased Contrast, Reduce Transparency, Reduce Motion or grayscale runtime interactions",
+    "Real source collection, quota, authentication, sleep/wake or release packaging"
+  ]
+}

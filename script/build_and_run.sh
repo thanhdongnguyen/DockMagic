@@ -7,27 +7,52 @@ BUNDLE_ID="com.hypevibe.DockMagic"
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PROJECT_PATH="$ROOT_DIR/DockMagic/DockMagic.xcodeproj"
-DERIVED_DATA_PATH="$ROOT_DIR/.derivedData"
+DERIVED_DATA_PATH="${DOCKMAGIC_DERIVED_DATA_PATH:-$ROOT_DIR/.derivedData}"
+SOURCE_PACKAGES_PATH="${DOCKMAGIC_SOURCE_PACKAGES_PATH:-$DERIVED_DATA_PATH/SourcePackages}"
 APP_BUNDLE="$DERIVED_DATA_PATH/Build/Products/Debug/$APP_NAME.app"
 APP_BINARY="$APP_BUNDLE/Contents/MacOS/$APP_NAME"
 
+running_app_pids() {
+  # A shared process name is not sufficient: Xcode and parallel verification
+  # builds can run other DockMagic bundles at the same time. Only manage the
+  # executable produced by this script's DerivedData path.
+  while IFS= read -r app_pid; do
+    local executable
+    executable="$(ps -p "$app_pid" -o comm= 2>/dev/null || true)"
+    if [[ "$executable" == "$APP_BINARY" ]]; then
+      printf '%s\n' "$app_pid"
+    fi
+  done < <(pgrep -x "$APP_NAME" || true)
+}
+
 stop_running_app() {
-  pkill -x "$APP_NAME" >/dev/null 2>&1 || true
+  while read -r app_pid; do
+    kill "$app_pid" >/dev/null 2>&1 || true
+  done < <(running_app_pids)
 }
 
 build_app() {
   rm -rf "$APP_BUNDLE"
+  local build_args=(-project "$PROJECT_PATH" -scheme "$APP_NAME"
+    -configuration Debug -destination "platform=macOS"
+    -derivedDataPath "$DERIVED_DATA_PATH"
+    -clonedSourcePackagesDirPath "$SOURCE_PACKAGES_PATH")
+  if [[ -n "${DOCKMAGIC_XCCONFIG_PATH:-}" ]]; then
+    build_args+=(-xcconfig "$DOCKMAGIC_XCCONFIG_PATH")
+  fi
   xcodebuild \
-    -project "$PROJECT_PATH" \
-    -scheme "$APP_NAME" \
-    -configuration Debug \
-    -destination "platform=macOS" \
-    -derivedDataPath "$DERIVED_DATA_PATH" \
-    build
+    "${build_args[@]}" build
 }
 
 open_app() {
-  /usr/bin/open -n "$APP_BUNDLE"
+  local launch_args=(-n)
+  local key
+  # Opt-in QA composition only; never forward arbitrary environment/secrets.
+  # An absent Grok fixture key must remain absent for real-local verification.
+  for key in DockMagicUITesting DockMagicUITestDefaultsSuite DockMagicUITestGrok DOCKMAGIC_EXPERIMENTAL_GROK DockMagicMaiaGallery DockMagicMaiaAppearance DockMagicUITestBinanceFixtures DockMagicUITestCalendar DockMagicUITestNowPlaying DockMagicUITestAugment; do
+    if [[ -n "${!key:-}" ]]; then launch_args+=(--env "$key=${!key}"); fi
+  done
+  /usr/bin/open "${launch_args[@]}" "$APP_BUNDLE"
 }
 
 stop_running_app
@@ -40,7 +65,7 @@ case "$MODE" in
   --debug|debug)
     open_app
     sleep 1
-    APP_PID="$(pgrep -x "$APP_NAME" | tail -n 1)"
+    APP_PID="$(running_app_pids | tail -n 1)"
     exec lldb -p "$APP_PID"
     ;;
   --logs|logs)
@@ -54,7 +79,7 @@ case "$MODE" in
   --verify|verify)
     open_app
     for _ in {1..20}; do
-      if pgrep -x "$APP_NAME" >/dev/null; then
+      if [[ -n "$(running_app_pids)" ]]; then
         exit 0
       fi
       sleep 0.25

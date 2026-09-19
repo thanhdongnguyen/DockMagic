@@ -1,5 +1,10 @@
 # Sigma-inspired Design System for DockMagic
 
+> Historical research/proposal. The approved Maia implementation contract is
+> [Design.md](../Design.md) and [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md). Earlier
+> SF Pro, blue-action, glass and conflicting geometry recommendations are superseded.
+
+
 ## 1. Scope and sources of truth
 
 DockMagic applies the **public principles and tokens** of Sigma Design System 3

@@ -5,12 +5,18 @@ enum StreakServiceBrand: Sendable {
     case codex
     case claudeCode
     case antigravity
+    case openCode
+    case grokBuild
+    case augment
 
     var displayName: String {
         switch self {
         case .codex: "Codex"
         case .claudeCode: "Claude Code"
         case .antigravity: "Antigravity"
+        case .grokBuild: "Grok Build"
+        case .openCode: "OpenCode"
+        case .augment: "Augment"
         }
     }
 
@@ -19,6 +25,9 @@ enum StreakServiceBrand: Sendable {
         case .codex: "CodexLogo"
         case .claudeCode: "ClaudeCodeLogo"
         case .antigravity: "AntigravityLogo"
+        case .grokBuild: ""
+        case .openCode: "OpenCodeLogo"
+        case .augment: "AugmentLogo"
         }
     }
 }
@@ -61,9 +70,9 @@ struct StreakBadgeView: View {
                 .opacity(isUnlocked ? 1 : 0.34)
 
             if showsLock && !isUnlocked {
-                Image(systemName: "lock.fill")
+                DSIcon(systemName: "lock.fill")
                     .symbolRenderingMode(.monochrome)
-                    .font(.system(size: max(8, size * 0.13), weight: .bold))
+                    .dsFont(size: max(8, size * 0.13), weight: .bold)
                     .foregroundStyle(theme.textPrimary)
                     .padding(max(3, size * 0.055))
                     .background(theme.opaqueSurfaceRaised)
@@ -103,7 +112,7 @@ struct StreakCelebrationView: View {
             Spacer(minLength: 7)
 
             Text("TODAY'S STREAK")
-                .font(.system(size: 9, weight: .bold))
+                .dsFont(size: 9, weight: .bold)
                 .tracking(1.7)
                 .foregroundStyle(theme.textSecondary)
                 .offset(y: -8)
@@ -113,7 +122,7 @@ struct StreakCelebrationView: View {
                 .padding(.top, 7)
 
             Text("Streak secured")
-                .font(.system(size: 28, weight: .bold))
+                .dsFont(size: 28, weight: .bold)
                 .foregroundStyle(theme.textPrimary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.82)
@@ -127,14 +136,14 @@ struct StreakCelebrationView: View {
                 Text(milestoneLabel)
                     .foregroundStyle(theme.textSecondary)
             }
-            .font(.system(size: 12, weight: .semibold))
+            .dsFont(size: 12, weight: .semibold)
             .padding(.top, 2)
 
             recentDays
                 .padding(.top, 12)
 
             Text(nextMilestoneLabel)
-                .font(.system(size: 11, weight: .semibold, design: .rounded))
+                .dsFont(size: 11, weight: .semibold)
                 .foregroundStyle(theme.textSecondary)
                 .monospacedDigit()
                 .padding(.top, 9)
@@ -143,13 +152,13 @@ struct StreakCelebrationView: View {
 
             Button(action: onViewBadges) {
                 Text("View badges")
-                    .font(.system(size: 10, weight: .semibold))
+                    .dsFont(size: 10, weight: .semibold)
                     .foregroundStyle(accent)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
                     .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(DSContentButtonStyle())
             .help("Open streak badges")
             .accessibilityIdentifier("dockHover.streak.celebration.viewBadges")
 
@@ -168,7 +177,7 @@ struct StreakCelebrationView: View {
                 .padding(.top, 8)
 
             Text("Returning to dashboard in a moment…")
-                .font(.system(size: 8.5, weight: .medium))
+                .dsFont(size: 8.5, weight: .medium)
                 .foregroundStyle(theme.textTertiary)
                 .padding(.top, 3)
         }
@@ -186,7 +195,7 @@ struct StreakCelebrationView: View {
             brandLogo
 
             Text(brand.displayName)
-                .font(.system(size: 17, weight: .bold))
+                .dsFont(size: 17, weight: .bold)
                 .foregroundStyle(theme.textPrimary)
 
             if let planLabel, !planLabel.isEmpty {
@@ -198,10 +207,10 @@ struct StreakCelebrationView: View {
             if let trailingMetricValue, let trailingMetricLabel {
                 HStack(alignment: .firstTextBaseline, spacing: 3) {
                     Text(trailingMetricValue)
-                        .font(.system(size: 14, weight: .bold, design: .rounded))
+                        .dsFont(size: 14, weight: .bold)
                         .foregroundStyle(theme.textPrimary)
                     Text(trailingMetricLabel)
-                        .font(.system(size: 10, weight: .medium))
+                        .dsFont(size: 10, weight: .medium)
                         .foregroundStyle(theme.textSecondary)
                 }
                 .monospacedDigit()
@@ -223,7 +232,9 @@ struct StreakCelebrationView: View {
                     RoundedRectangle(cornerRadius: 7, style: .continuous)
                 )
                 .accessibilityHidden(true)
-        case .claudeCode, .antigravity:
+        case .grokBuild:
+            GrokBuildIdentityMark()
+        case .claudeCode, .antigravity, .openCode, .augment:
             PreservedVectorAssetImage(assetName: brand.logoAssetName)
                 .scaledToFit()
                 .frame(width: 26, height: 26)
@@ -238,14 +249,14 @@ struct StreakCelebrationView: View {
         HStack(spacing: 4) {
             if plan.trimmingCharacters(in: .whitespacesAndNewlines)
                 .lowercased() == "pro" {
-                Image(systemName: "crown.fill")
+                DSIcon(systemName: "crown.fill")
                     .symbolRenderingMode(.monochrome)
-                    .font(.system(size: 9, weight: .bold))
+                    .dsFont(size: 9, weight: .bold)
                     .accessibilityHidden(true)
             }
 
             Text(plan.localizedUppercase)
-                .font(.system(size: 10, weight: .bold))
+                .dsFont(size: 10, weight: .bold)
                 .tracking(0.25)
         }
         .foregroundStyle(theme.textPrimary)
@@ -279,9 +290,9 @@ struct StreakCelebrationView: View {
                     .rotationEffect(.degrees(angle))
             }
 
-            Image(systemName: "hexagon")
+            DSIcon(systemName: "hexagon")
                 .symbolRenderingMode(.monochrome)
-                .font(.system(size: 12, weight: .semibold))
+                .dsFont(size: 12, weight: .semibold)
                 .foregroundStyle(theme.textTertiary)
                 .offset(x: -102, y: -34)
                 .accessibilityHidden(true)
@@ -350,10 +361,23 @@ struct StreakCelebrationView: View {
     }
 }
 
+enum ContinuityStripPresentation: Sendable {
+    case tokenStreak
+    case organizationActivity
+}
+
+enum StreakUnknownDayStyle: Sendable {
+    case questionMark
+    case dash
+}
+
 struct StreakContinuityStrip: View {
     let summary: TokenUsageStreakSummary?
     let brand: StreakServiceBrand
     let accent: Color
+    var currentDayIsUnknown = false
+    var presentation: ContinuityStripPresentation = .tokenStreak
+    var unknownDayStyle: StreakUnknownDayStyle = .questionMark
     let onOpen: () -> Void
 
     @Environment(\.designTheme) private var theme
@@ -362,20 +386,20 @@ struct StreakContinuityStrip: View {
     var body: some View {
         Button(action: onOpen) {
             HStack(spacing: 9) {
-                badge
+                leadingMark
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(streakTitle)
-                        .font(.system(size: 11, weight: .bold))
+                        .dsFont(size: 11, weight: .bold)
                         .foregroundStyle(theme.textPrimary)
                         .lineLimit(1)
 
                     Text(streakSubtitle)
-                        .font(.system(size: 8.5, weight: .medium))
+                        .dsFont(size: 8.5, weight: .medium)
                         .foregroundStyle(theme.textTertiary)
                         .lineLimit(1)
                 }
-                .frame(width: 78, alignment: .leading)
+                .frame(width: presentation == .organizationActivity ? 92 : 78, alignment: .leading)
 
                 Rectangle()
                     .fill(theme.outline)
@@ -392,19 +416,19 @@ struct StreakContinuityStrip: View {
 
                 VStack(alignment: .trailing, spacing: 2) {
                     Text(progressTitle)
-                        .font(.system(size: 9.5, weight: .bold, design: .rounded))
+                        .dsFont(size: 9.5, weight: .bold)
                         .foregroundStyle(theme.textPrimary)
                         .monospacedDigit()
                     Text(progressSubtitle)
-                        .font(.system(size: 8, weight: .medium))
+                        .dsFont(size: 8, weight: .medium)
                         .foregroundStyle(theme.textTertiary)
                         .lineLimit(1)
                 }
                 .frame(width: 60, alignment: .trailing)
 
-                Image(systemName: "chevron.right")
+                DSIcon(systemName: "chevron.right")
                     .symbolRenderingMode(.monochrome)
-                    .font(.system(size: 9, weight: .bold))
+                    .dsFont(size: 9, weight: .bold)
                     .foregroundStyle(theme.textTertiary)
                     .accessibilityHidden(true)
             }
@@ -421,58 +445,128 @@ struct StreakContinuityStrip: View {
             }
             .contentShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(DSContentButtonStyle())
         .onHover { isHovered = $0 }
-        .help("Open streak badges")
+        .help(helpText)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Open \(brand.displayName) streak details")
+        .accessibilityLabel(accessibilityLabel)
         .accessibilityValue(accessibilityValue)
-        .accessibilityHint("Shows the current badge and all streak milestones")
-        .accessibilityIdentifier("dockHover.streak.open")
+        .accessibilityHint(accessibilityHint)
+        .accessibilityIdentifier(accessibilityIdentifier)
     }
 
-    private var badge: some View {
-        StreakBadgeView(
-            milestone: summary?.earnedBadge ?? .firstPrompt,
-            size: 48,
-            isUnlocked: summary?.earnedBadge != nil
-        )
+    @ViewBuilder
+    private var leadingMark: some View {
+        switch presentation {
+        case .tokenStreak:
+            StreakBadgeView(
+                milestone: summary?.earnedBadge ?? .firstPrompt,
+                size: 48,
+                isUnlocked: summary?.earnedBadge != nil
+            )
+        case .organizationActivity:
+            DSIcon(.activity, size: 24)
+                .foregroundStyle(accent)
+                .frame(width: 42, height: 42)
+                .background(accent.opacity(0.12))
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .strokeBorder(theme.outline, lineWidth: 0.5)
+                }
+                .frame(width: 48, height: 48)
+                .accessibilityHidden(true)
+        }
     }
 
     private var streakTitle: String {
-        guard let summary else { return "Streak unavailable" }
-        return "\(summary.currentDays)-day streak"
+        switch presentation {
+        case .tokenStreak:
+            guard let summary else { return "Streak unavailable" }
+            return currentDayIsUnknown ? "Streak unknown" : "\(summary.currentDays)-day streak"
+        case .organizationActivity:
+            guard let summary else { return "Activity unavailable" }
+            return currentDayIsUnknown ? "Activity unknown" : "\(summary.currentDays)-day activity"
+        }
     }
 
     private var streakSubtitle: String {
         guard let summary else { return "Waiting for usage data" }
-        if let earned = summary.earnedBadge {
-            return "\(earned.title) · best \(summary.bestDays)"
+        switch presentation {
+        case .tokenStreak:
+            if let earned = summary.earnedBadge {
+                return "\(earned.title) · best \(summary.bestDays)"
+            }
+            return "Use tokens to begin"
+        case .organizationActivity:
+            return "Organization · best \(summary.bestDays)"
         }
-        return "Use tokens to begin"
     }
 
     private var progressTitle: String {
+        guard !currentDayIsUnknown else { return "—" }
         guard let summary else { return "—" }
-        guard let days = summary.daysUntilNextBadge else { return "Complete" }
-        return "\(days)d"
+        switch presentation {
+        case .tokenStreak:
+            guard let days = summary.daysUntilNextBadge else { return "Complete" }
+            return "\(days)d"
+        case .organizationActivity:
+            return "\(summary.bestDays)d"
+        }
     }
 
     private var progressSubtitle: String {
         guard let summary else { return "No data" }
-        return summary.nextBadge?.title ?? "All earned"
+        switch presentation {
+        case .tokenStreak:
+            return summary.nextBadge?.title ?? "All earned"
+        case .organizationActivity:
+            return "Best run"
+        }
     }
 
     private var accessibilityValue: String {
-        guard let summary else { return "Streak data unavailable" }
-        let badge = summary.earnedBadge?.title ?? "No badge earned"
-        return "\(summary.currentDays) day current streak, best \(summary.bestDays) days, \(badge)"
+        guard let summary else { return presentation == .tokenStreak ? "Streak data unavailable" : "Organization activity data unavailable" }
+        switch presentation {
+        case .tokenStreak:
+            let badge = summary.earnedBadge?.title ?? "No badge earned"
+            return currentDayIsUnknown ? "Current streak unknown, best \(summary.bestDays) verified days, \(badge)" : "\(summary.currentDays) day current streak, best \(summary.bestDays) days, \(badge)"
+        case .organizationActivity:
+            return currentDayIsUnknown ? "Current organization activity run unknown, best \(summary.bestDays) reported days" : "\(summary.currentDays) day organization activity run, best \(summary.bestDays) days"
+        }
+    }
+
+    private var helpText: String {
+        presentation == .tokenStreak ? "Open streak badges" : "Open organization activity continuity"
+    }
+
+    private var accessibilityLabel: String {
+        presentation == .tokenStreak
+            ? "Open \(brand.displayName) streak details"
+            : "Open \(brand.displayName) organization activity details"
+    }
+
+    private var accessibilityHint: String {
+        presentation == .tokenStreak
+            ? "Shows the current badge and all streak milestones"
+            : "Shows reported UTC activity continuity and output intensity"
+    }
+
+    private var accessibilityIdentifier: String {
+        if brand == .grokBuild { return "grokBuild.streak.open" }
+        if brand == .augment { return "augment.continuity.open" }
+        return "dockHover.streak.open"
     }
 
     private func recentDayStrip(_ days: [TokenUsageStreakDay]) -> some View {
         HStack(spacing: 4) {
             ForEach(days) { day in
-                StreakDayNode(day: day, accent: accent, compact: true)
+                StreakDayNode(
+                    day: day,
+                    accent: accent,
+                    compact: true,
+                    unknownDayStyle: unknownDayStyle
+                )
             }
         }
         .accessibilityElement(children: .contain)
@@ -494,6 +588,9 @@ struct StreakContinuityStrip: View {
 struct StreakDetailView: View {
     let summary: TokenUsageStreakSummary?
     let brand: StreakServiceBrand
+    var currentDayIsUnknown = false
+    var handlesEscape = false
+    var unknownDayStyle: StreakUnknownDayStyle = .questionMark
     let onBack: () -> Void
 
     @Environment(\.designTheme) private var theme
@@ -514,15 +611,15 @@ struct StreakDetailView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("\(brand.displayName) streak details")
-        .accessibilityIdentifier("dockHover.streak.detail")
+        .accessibilityIdentifier(brand == .grokBuild ? "grokBuild.streak.detail" : "dockHover.streak.detail")
     }
 
     private var detailHeader: some View {
         HStack(spacing: 8) {
             Button(action: onBack) {
-                Image(systemName: "chevron.left")
+                DSIcon(systemName: "chevron.left")
                     .symbolRenderingMode(.monochrome)
-                    .font(.system(size: 10, weight: .bold))
+                    .dsFont(size: 10, weight: .bold)
                     .foregroundStyle(theme.textPrimary)
                     .frame(width: 26, height: 26)
                     .background(theme.opaqueSurfaceInset)
@@ -532,24 +629,27 @@ struct StreakDetailView: View {
                             .strokeBorder(theme.outline, lineWidth: 0.5)
                     }
             }
-            .buttonStyle(.plain)
+            .buttonStyle(DSContentButtonStyle())
             .help("Back to dashboard")
             .accessibilityLabel("Back to dashboard")
-            .accessibilityIdentifier("dockHover.streak.back")
+            .accessibilityIdentifier(brand == .grokBuild ? "grokBuild.streak.back" : "dockHover.streak.back")
+            .keyboardShortcut(handlesEscape ? .cancelAction : nil)
 
             VStack(alignment: .leading, spacing: 1) {
                 Text("Streak & badges")
-                    .font(.system(size: 15, weight: .bold))
+                    .dsFont(size: 15, weight: .bold)
                     .foregroundStyle(theme.textPrimary)
                 Text("Active token days · earned badges stay unlocked")
-                    .font(.system(size: 8.5, weight: .medium))
+                    .dsFont(size: 8.5, weight: .medium)
                     .foregroundStyle(theme.textTertiary)
             }
 
             Spacer(minLength: 0)
 
-            PreservedVectorAssetImage(assetName: brand.logoAssetName)
-                .scaledToFit()
+            Group {
+                if brand == .grokBuild { GrokBuildIdentityMark() }
+                else { PreservedVectorAssetImage(assetName: brand.logoAssetName).scaledToFit() }
+            }
                 .frame(width: 24, height: 24)
                 .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
                 .accessibilityHidden(true)
@@ -567,22 +667,22 @@ struct StreakDetailView: View {
 
             VStack(alignment: .leading, spacing: 7) {
                 Text("CURRENT BADGE")
-                    .font(.system(size: 8, weight: .bold))
+                    .dsFont(size: 8, weight: .bold)
                     .tracking(0.8)
                     .foregroundStyle(theme.textTertiary)
 
                 Text(summary?.earnedBadge?.title ?? "Ready to begin")
-                    .font(.system(size: 17, weight: .bold))
+                    .dsFont(size: 17, weight: .bold)
                     .foregroundStyle(theme.textPrimary)
 
                 Text(currentBadgeDetail)
-                    .font(.system(size: 9, weight: .medium))
+                    .dsFont(size: 9, weight: .medium)
                     .foregroundStyle(theme.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
 
                 HStack(spacing: 13) {
-                    heroMetric(value: summary.map { "\($0.currentDays)" } ?? "—", label: "CURRENT")
-                    heroMetric(value: summary.map { "\($0.bestDays)" } ?? "—", label: "BEST")
+                    heroMetric(value: currentDayIsUnknown ? "—" : summary.map { "\($0.currentDays)" } ?? "—", label: "CURRENT")
+                    heroMetric(value: summary.flatMap { currentDayIsUnknown && $0.bestDays == 0 ? nil : "\($0.bestDays)" } ?? "—", label: "BEST")
                     heroMetric(value: nextMetricValue, label: "TO NEXT")
                 }
             }
@@ -602,17 +702,18 @@ struct StreakDetailView: View {
     private func heroMetric(value: String, label: String) -> some View {
         VStack(alignment: .leading, spacing: 1) {
             Text(value)
-                .font(.system(size: 14, weight: .bold, design: .rounded))
+                .dsFont(size: 14, weight: .bold)
                 .foregroundStyle(theme.textPrimary)
                 .monospacedDigit()
             Text(label)
-                .font(.system(size: 7, weight: .bold))
+                .dsFont(size: 7, weight: .bold)
                 .foregroundStyle(theme.textTertiary)
         }
         .accessibilityElement(children: .combine)
     }
 
     private var currentBadgeDetail: String {
+        if currentDayIsUnknown { return "Today's activity is unknown. Verified badges remain unlocked; unknown days do not bridge a streak." }
         guard let summary else {
             return "Streak data will appear after local usage is available."
         }
@@ -626,6 +727,7 @@ struct StreakDetailView: View {
     }
 
     private var nextMetricValue: String {
+        guard !currentDayIsUnknown else { return "—" }
         guard let days = summary?.daysUntilNextBadge else { return "—" }
         return "\(days)d"
     }
@@ -634,11 +736,11 @@ struct StreakDetailView: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Text("Recent activity")
-                    .font(.system(size: 10.5, weight: .bold))
+                    .dsFont(size: 10.5, weight: .bold)
                     .foregroundStyle(theme.textPrimary)
                 Spacer(minLength: 4)
                 Text("Token use marks an active day")
-                    .font(.system(size: 8, weight: .medium))
+                    .dsFont(size: 8, weight: .medium)
                     .foregroundStyle(theme.textTertiary)
             }
 
@@ -648,14 +750,15 @@ struct StreakDetailView: View {
                         StreakDayNode(
                             day: day,
                             accent: theme.action,
-                            compact: false
+                            compact: false,
+                            unknownDayStyle: unknownDayStyle
                         )
                             .frame(maxWidth: .infinity)
                     }
                 }
             } else {
                 Text("No recent-day data available")
-                    .font(.system(size: 9, weight: .medium))
+                    .dsFont(size: 9, weight: .medium)
                     .foregroundStyle(theme.textSecondary)
                     .frame(maxWidth: .infinity, minHeight: 38, alignment: .leading)
             }
@@ -674,18 +777,18 @@ struct StreakDetailView: View {
             HStack(alignment: .firstTextBaseline) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Badge roadmap")
-                        .font(.system(size: 11, weight: .bold))
+                        .dsFont(size: 11, weight: .bold)
                         .foregroundStyle(theme.textPrimary)
 
                     Text("Build momentum one active day at a time")
-                        .font(.system(size: 8.5, weight: .medium))
+                        .dsFont(size: 8.5, weight: .medium)
                         .foregroundStyle(theme.textTertiary)
                 }
 
                 Spacer(minLength: 4)
 
                 Text(collectionCountLabel)
-                    .font(.system(size: 8.5, weight: .semibold))
+                    .dsFont(size: 8.5, weight: .semibold)
                     .foregroundStyle(theme.textSecondary)
                     .monospacedDigit()
             }
@@ -854,29 +957,29 @@ private struct StreakBadgeRoadmap: View {
 
         return VStack(alignment: alignment, spacing: 3) {
             Text("DAY \(milestone.requiredDays)")
-                .font(.system(size: 7.5, weight: .bold, design: .rounded))
+                .dsFont(size: 7.5, weight: .bold)
                 .tracking(0.65)
                 .foregroundStyle(theme.textTertiary)
                 .monospacedDigit()
 
             Text(milestone.title)
-                .font(.system(size: 11, weight: .bold))
+                .dsFont(size: 11, weight: .bold)
                 .foregroundStyle(theme.textPrimary)
                 .lineLimit(1)
 
             HStack(spacing: 3) {
-                Image(systemName: statusSymbol(for: milestone))
+                DSIcon(systemName: statusSymbol(for: milestone))
                     .symbolRenderingMode(.monochrome)
-                    .font(.system(size: 7, weight: .bold))
+                    .dsFont(size: 7, weight: .bold)
                     .accessibilityHidden(true)
 
                 Text(statusLabel(for: milestone))
-                    .font(.system(size: 8, weight: .semibold))
+                    .dsFont(size: 8, weight: .semibold)
             }
             .foregroundStyle(isCurrent ? theme.action : theme.textSecondary)
 
             Text(milestone.detail)
-                .font(.system(size: 7.5, weight: .medium))
+                .dsFont(size: 7.5, weight: .medium)
                 .foregroundStyle(theme.textTertiary)
                 .lineLimit(2)
                 .multilineTextAlignment(alignment == .leading ? .leading : .trailing)
@@ -1010,17 +1113,18 @@ private struct StreakDayNode: View {
     let day: TokenUsageStreakDay
     let accent: Color
     let compact: Bool
+    var unknownDayStyle: StreakUnknownDayStyle = .questionMark
 
     @Environment(\.designTheme) private var theme
 
     var body: some View {
         VStack(spacing: compact ? 2 : 4) {
             Text(weekdayInitial)
-                .font(.system(
+                .dsFont(
                     size: compact ? 8 : 9,
                     weight: .bold,
                     design: .rounded
-                ))
+                )
                 .foregroundStyle(theme.textSecondary)
                 .frame(
                     width: nodeSize,
@@ -1050,13 +1154,13 @@ private struct StreakDayNode: View {
         switch day.state {
         case .active:
             Circle()
-                .fill(accent)
+                .fill(theme.streakActive)
                 .frame(width: nodeSize, height: nodeSize)
                 .overlay {
-                    Image(systemName: "checkmark")
+                    DSIcon(systemName: "checkmark")
                         .symbolRenderingMode(.monochrome)
-                        .font(.system(size: compact ? 5 : 8, weight: .black))
-                        .foregroundStyle(theme.onAction)
+                        .dsFont(size: compact ? 8 : 12, weight: .black)
+                        .foregroundStyle(theme.onStreakActive)
                 }
         case .inactive:
             Circle()
@@ -1068,14 +1172,26 @@ private struct StreakDayNode: View {
                         .frame(width: nodeSize * 0.38, height: 1)
                 }
         case .unknown:
-            Circle()
-                .strokeBorder(theme.outline, style: StrokeStyle(lineWidth: 1, dash: [2, 2]))
-                .frame(width: nodeSize, height: nodeSize)
-                .overlay {
-                    Text("?")
-                        .font(.system(size: compact ? 6 : 8, weight: .bold))
-                        .foregroundStyle(theme.textTertiary)
-                }
+            switch unknownDayStyle {
+            case .questionMark:
+                Circle()
+                    .strokeBorder(theme.outline, style: StrokeStyle(lineWidth: 1, dash: [2, 2]))
+                    .frame(width: nodeSize, height: nodeSize)
+                    .overlay {
+                        Text("?")
+                            .dsFont(size: compact ? 6 : 8, weight: .bold)
+                            .foregroundStyle(theme.textTertiary)
+                    }
+            case .dash:
+                Circle()
+                    .strokeBorder(theme.outlineStrong, lineWidth: 1)
+                    .frame(width: nodeSize, height: nodeSize)
+                    .overlay {
+                        Rectangle()
+                            .fill(theme.textTertiary)
+                            .frame(width: nodeSize * 0.38, height: 1)
+                    }
+            }
         case .todayPending:
             Circle()
                 .strokeBorder(accent, lineWidth: 1.5)

@@ -189,6 +189,8 @@ struct ClaudeCodeAuthStatusProvider: ClaudeCodeAuthStatusProviding, @unchecked S
                 environment: ProcessInfo.processInfo.environment,
                 timeout: 15
             )
+        } catch is CancellationError {
+            throw CancellationError()
         } catch {
             throw ClaudeCodeAuthStatusError.commandFailed(
                 error.localizedDescription
@@ -239,7 +241,7 @@ enum ClaudeCodeUsageOutputParser {
             throw ClaudeCodeUsageCaptureError.signedOut
         }
 
-        guard let session = section(
+        guard let cachedSession = section(
             named: "Current session",
             in: text,
             now: now,
@@ -253,15 +255,17 @@ enum ClaudeCodeUsageOutputParser {
             throw ClaudeCodeUsageCaptureError.outputFormatChanged
         }
 
-        // The screen-reader stream does not always repeat the weekly header
-        // after its network refresh. Claude can repaint only the changed
-        // percentage/reset rows after the first "Esc to cancel" marker. Use
-        // that final redraw when present; otherwise retain the named section.
-        let weekly = refreshedWeeklySection(
-            in: text,
-            fallback: cachedWeekly,
-            now: now,
-            calendar: calendar
+        // Screen-reader redraws can omit an unchanged header. Match an
+        // unlabelled row by its reset timestamp, never by percentage order.
+        let session = refreshedSection(
+            named: "Current session", in: text, fallback: cachedSession,
+            otherWindowReset: cachedWeekly.resetsAt,
+            now: now, calendar: calendar
+        )
+        let weekly = refreshedSection(
+            named: "Current week (all models)", in: text, fallback: cachedWeekly,
+            otherWindowReset: cachedSession.resetsAt,
+            now: now, calendar: calendar
         )
 
         return (
@@ -334,59 +338,40 @@ enum ClaudeCodeUsageOutputParser {
         )
     }
 
-    private static func refreshedWeeklySection(
+    private static func refreshedSection(
+        named name: String,
         in text: String,
         fallback: (percent: Int, resetsAt: Date?),
+        otherWindowReset: Date?,
         now: Date,
         calendar: Calendar
     ) -> (percent: Int, resetsAt: Date?) {
-        guard text.localizedCaseInsensitiveContains("Refreshing") else {
-            return fallback
-        }
-
-        let markerNames = ["Esc to cancel", "Press Esc"]
-        let firstMarker = markerNames.compactMap {
+        guard text.localizedCaseInsensitiveContains("Refreshing"),
+              let reset = fallback.resetsAt,
+              reset != otherWindowReset else { return fallback }
+        let markers = ["Esc to cancel", "Press Esc"]
+        guard let firstMarker = markers.compactMap({
             text.range(of: $0, options: .caseInsensitive)
-        }.min { $0.lowerBound < $1.lowerBound }
-        guard let firstMarker else { return fallback }
-
+        }).min(by: { $0.lowerBound < $1.lowerBound }) else { return fallback }
         var redraw = String(text[firstMarker.upperBound...])
-        guard markerNames.contains(where: {
+        guard markers.contains(where: {
             redraw.range(of: $0, options: .caseInsensitive) != nil
-        }) else {
-            return fallback
-        }
-
-        // Usage credits are a separate percentage section. The last quota
-        // percentage before that heading is the all-model weekly row in the
-        // `/usage` layout, including layouts with model-specific rows above it.
-        if let credits = redraw.range(
-            of: "Usage credits",
-            options: .caseInsensitive
-        ) {
-            redraw = String(redraw[..<credits.lowerBound])
-        } else if let finalMarker = markerNames.compactMap({
-            redraw.range(of: $0, options: .caseInsensitive)
-        }).min(by: { $0.lowerBound < $1.lowerBound }) {
-            redraw = String(redraw[..<finalMarker.lowerBound])
-        }
-
-        guard let percent = allIntegers(
-            pattern: #"(?i)\b(\d{1,3})\s*%\s*used\b"#,
-            in: redraw
-        ).last else {
-            return fallback
-        }
-        let resetText = allCaptures(
-            pattern: #"(?im)^\s*Resets?\s+(.+?)\s*$"#,
-            in: redraw
-        ).last
-        return (
-            percent,
-            resetText.flatMap {
-                resetDate(from: $0, now: now, calendar: calendar)
-            } ?? fallback.resetsAt
-        )
+        }) else { return fallback }
+        // section(named:) already selected the latest fully labelled row.
+        if redraw.contains(name) { return fallback }
+        // Only the leading unlabelled quota row is eligible. Exclude named
+        // model pools, contribution statistics and usage-credit percentages.
+        let boundaries = ["Current ", "Usage credits", "What's contributing"] + markers
+        if let end = boundaries.compactMap({
+            redraw.range(of: $0, options: .caseInsensitive)?.lowerBound
+        }).min() { redraw = String(redraw[..<end]) }
+        guard let percent = firstInteger(
+            pattern: #"(?i)\b(\d{1,3})\s*%\s*used\b"#, in: redraw
+        ), let resetText = firstCapture(
+            pattern: #"(?im)^\s*Resets?\s+(.+?)\s*$"#, in: redraw
+        ), let updatedReset = resetDate(from: resetText, now: now, calendar: calendar),
+              updatedReset == reset else { return fallback }
+        return (percent, updatedReset)
     }
 
     private static func resetDate(
@@ -642,6 +627,7 @@ final class ClaudeCodeUsageTerminalCollector: ClaudeCodeUsageCollecting {
     private var cliVersion = ""
     private var terminal: (any ClaudeCodeUsageTerminalSession)?
     private var captureTask: Task<ClaudeCodeQuotaCapture, Error>?
+    private var captureGeneration: UUID?
     private var processGeneration = UUID()
     private let now: () -> Date
     private let sessionBuilder: any ClaudeCodeUsageTerminalSessionBuilding
@@ -683,18 +669,26 @@ final class ClaudeCodeUsageTerminalCollector: ClaudeCodeUsageCollecting {
         if let captureTask {
             return try await captureTask.value
         }
+        let generation = UUID()
+        captureGeneration = generation
         let task = Task { @MainActor [weak self] in
             guard let self else { throw CancellationError() }
             return try await self.capture(restartRemaining: 1)
         }
         captureTask = task
-        defer { captureTask = nil }
+        defer {
+            if captureGeneration == generation {
+                captureTask = nil
+                captureGeneration = nil
+            }
+        }
         return try await task.value
     }
 
     func stop() {
         captureTask?.cancel()
         captureTask = nil
+        captureGeneration = nil
         guard let terminal else { return }
         terminal.send(bytes: [0x03])
         Task { @MainActor in
@@ -722,6 +716,9 @@ final class ClaudeCodeUsageTerminalCollector: ClaudeCodeUsageCollecting {
             while ContinuousClock.now < deadline {
                 try Task.checkCancellation()
                 let text = terminal.bufferText
+                if Self.isSignedOut(text) {
+                    throw ClaudeCodeUsageCaptureError.signedOut
+                }
                 let hasNewCommand = text.localizedCaseInsensitiveContains(
                     "Current session"
                 )
@@ -821,6 +818,9 @@ final class ClaudeCodeUsageTerminalCollector: ClaudeCodeUsageCollecting {
                 throw ClaudeCodeUsageCaptureError.processExited
             }
             let text = terminal.bufferText
+            if Self.isSignedOut(text) {
+                throw ClaudeCodeUsageCaptureError.signedOut
+            }
             if Self.isOwnedDirectoryTrustPrompt(text) {
                 guard !acceptedOwnedDirectoryTrust else {
                     try await Task.sleep(for: pollInterval)
@@ -900,6 +900,13 @@ final class ClaudeCodeUsageTerminalCollector: ClaudeCodeUsageCollecting {
             || text.localizedCaseInsensitiveContains("-- INSERT --")
             || text.localizedCaseInsensitiveContains("Claude Code v")
             || text.localizedCaseInsensitiveContains("Try \"")
+    }
+
+    private static func isSignedOut(_ output: String) -> Bool {
+        let text = ClaudeCodeUsageOutputParser.normalized(output).lowercased()
+        return text.contains("not logged in") || text.contains("please log in")
+            || text.contains("please run /login")
+            || text.contains("select login method")
     }
 
     private func stopProcessOnly() {

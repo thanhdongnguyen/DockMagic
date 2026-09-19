@@ -2,11 +2,6 @@ import SwiftUI
 
 @MainActor
 struct ClaudeCodeHoverDashboardView: View {
-    private enum CaptureAction {
-        case save
-        case copy
-        case share
-    }
 
     private enum UsageMetric: String, CaseIterable {
         case tokens = "Tokens"
@@ -33,9 +28,7 @@ struct ClaudeCodeHoverDashboardView: View {
     @State private var selectedMetric = UsageMetric.tokens
     @State private var isStreakDetailPresented: Bool
     @State private var streakCelebration: TokenUsageStreakCelebration?
-    @State private var isCaptureButtonHovered = false
     @State private var isCaptureMenuPresented: Bool
-    @State private var hoveredCaptureAction: CaptureAction?
     @State private var captureErrorText: String?
     @State private var pendingShareURL: URL?
 
@@ -133,11 +126,12 @@ struct ClaudeCodeHoverDashboardView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(alignment: .topTrailing) {
             if captureConfiguration != nil {
-                CodexDashboardSharePresenter(itemURL: $pendingShareURL)
+                DashboardSharePresenter(itemURL: $pendingShareURL)
                     .frame(width: 1, height: 1)
                     .opacity(0.001)
             }
         }
+        .dsOverlayInteraction(isPresented: isCaptureMenuPresented || isStreakDetailPresented)
         .onExitCommand {
             if streakCelebration != nil {
                 dismissStreakCelebration(openBadges: false)
@@ -216,22 +210,22 @@ struct ClaudeCodeHoverDashboardView: View {
                     .accessibilityHidden(true)
 
                 Text(brand.displayName)
-                    .font(.system(size: 17, weight: .bold))
+                    .dsFont(size: 17, weight: .bold)
                     .foregroundStyle(theme.textPrimary)
 
                 if let plan = snapshot?.planType, !plan.isEmpty {
-                    CodexPlanBadge(plan: plan, providerName: brand.displayName)
+                    DSPlanBadge(plan: plan, providerName: brand.displayName)
                 }
 
                 if let statusTitle, let statusSystemImage {
                     HStack(spacing: 3) {
-                        Image(systemName: statusSystemImage)
+                        DSIcon(systemName: statusSystemImage)
                             .symbolRenderingMode(.monochrome)
-                            .font(.system(size: 9, weight: .semibold))
+                            .dsFont(size: 9, weight: .semibold)
                             .accessibilityHidden(true)
 
                         Text(statusTitle)
-                            .font(.system(size: 10, weight: .semibold))
+                            .dsFont(size: 10, weight: .semibold)
                     }
                     .foregroundStyle(statusForeground)
                     .accessibilityElement(children: .combine)
@@ -250,195 +244,21 @@ struct ClaudeCodeHoverDashboardView: View {
     }
 
     private var captureButton: some View {
-        Button {
+        DSExportButton(isPresented: isCaptureMenuPresented, identifier: "\(providerID).capture" + ".button") {
             captureErrorText = nil
             setCaptureMenuPresented(!isCaptureMenuPresented)
-        } label: {
-            Image(systemName: "square.and.arrow.up")
-                .symbolRenderingMode(.monochrome)
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(theme.textPrimary)
-                .frame(width: 26, height: 26)
-                .background {
-                    RoundedRectangle(cornerRadius: 7, style: .continuous)
-                        .fill(theme.opaqueSurfaceInset)
-                        .opacity(
-                            isCaptureButtonHovered || isCaptureMenuPresented
-                                ? 1
-                                : 0
-                        )
-                }
-                .overlay {
-                    RoundedRectangle(cornerRadius: 7, style: .continuous)
-                        .strokeBorder(
-                            isCaptureMenuPresented
-                                ? theme.outlineStrong
-                                : theme.outline,
-                            lineWidth: isCaptureMenuPresented ? 1 : 0.5
-                        )
-                        .opacity(
-                            isCaptureButtonHovered || isCaptureMenuPresented
-                                ? 1
-                                : 0
-                        )
-                }
         }
-        .buttonStyle(.plain)
-        .contentShape(Rectangle())
-        .onHover { isHovering in
-            isCaptureButtonHovered = isHovering
-        }
-        .help("Export activity card")
-        .accessibilityLabel("Export activity card")
-        .accessibilityHint("Opens 1200 by 1200 PNG export options")
-        .accessibilityIdentifier("\(providerID).capture.button")
     }
 
     private var captureMenu: some View {
-        VStack(alignment: .trailing, spacing: 0) {
-            DockHoverPointerShape(direction: .up)
-                .fill(theme.opaqueSurfaceRaised)
-                .overlay {
-                    DockHoverPointerShape(direction: .up)
-                        .stroke(theme.outline, lineWidth: 0.75)
-                }
-                .frame(width: 12, height: 7)
-                .padding(.trailing, 7)
-
-            VStack(spacing: 1) {
-                captureMenuRow(
-                    captureAction: .save,
-                    title: "Save 4× PNG",
-                    subtitle: capturePixelSizeLabel,
-                    systemImage: "photo",
-                    accessibilityHint:
-                        "Opens a save panel for the high-resolution PNG",
-                    action: saveDashboard
-                )
-                captureMenuRow(
-                    captureAction: .copy,
-                    title: "Copy image",
-                    systemImage: "doc.on.doc",
-                    action: copyDashboard
-                )
-                captureMenuRow(
-                    captureAction: .share,
-                    title: "Share…",
-                    systemImage: "square.and.arrow.up",
-                    action: shareDashboard
-                )
-
-                if let captureErrorText {
-                    Text(captureErrorText)
-                        .font(.system(size: 8, weight: .medium))
-                        .foregroundStyle(theme.dangerForeground)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .padding(.horizontal, 7)
-                        .padding(.vertical, 4)
-                        .accessibilityIdentifier("\(providerID).capture.error")
-                }
-            }
-            .padding(4)
-            .frame(width: 146)
-            .dsSurface(
-                RoundedRectangle(cornerRadius: 10, style: .continuous),
-                kind: .raised,
-                elevation: .secondary
-            )
-        }
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel("Activity card export options")
-        .accessibilityIdentifier("\(providerID).capture.menu")
-    }
-
-    private var capturePixelSizeLabel: String {
-        guard captureConfiguration != nil else { return "" }
-        return CodexDashboardCaptureService.activityCardPixelSizeLabel
-    }
-
-    private func captureMenuRow(
-        captureAction: CaptureAction,
-        title: String,
-        subtitle: String? = nil,
-        systemImage: String,
-        accessibilityHint: String? = nil,
-        action: @escaping @MainActor () -> Void
-    ) -> some View {
-        let isActive = activeCaptureAction == captureAction
-
-        return Button(action: action) {
-            HStack(spacing: 8) {
-                Image(systemName: systemImage)
-                    .symbolRenderingMode(.monochrome)
-                    .font(
-                        .system(
-                            size: 11,
-                            weight: isActive ? .bold : .medium
-                        )
-                    )
-                    .frame(width: 16)
-                    .accessibilityHidden(true)
-
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(title)
-                        .font(
-                            .system(
-                                size: 11,
-                                weight: isActive ? .bold : .medium
-                            )
-                        )
-
-                    if let subtitle {
-                        Text(subtitle)
-                            .font(.system(size: 8.5, weight: .medium))
-                            .opacity(0.82)
-                    }
-                }
-
-                Spacer(minLength: 0)
-            }
-            .foregroundStyle(
-                isActive ? theme.textPrimary : theme.textSecondary
-            )
-            .padding(.horizontal, 8)
-            .frame(maxWidth: .infinity, minHeight: subtitle == nil ? 26 : 36)
-            .background {
-                if isActive {
-                    RoundedRectangle(cornerRadius: 7, style: .continuous)
-                        .fill(theme.outlineStrong.opacity(0.18))
-                        .overlay {
-                            RoundedRectangle(
-                                cornerRadius: 7,
-                                style: .continuous
-                            )
-                            .strokeBorder(theme.outlineStrong, lineWidth: 1)
-                        }
-                }
-            }
-            .contentShape(
-                RoundedRectangle(cornerRadius: 7, style: .continuous)
-            )
-        }
-        .buttonStyle(.plain)
-        .onHover { isHovering in
-            if isHovering {
-                hoveredCaptureAction = captureAction
-            } else if hoveredCaptureAction == captureAction {
-                hoveredCaptureAction = nil
-            }
-        }
-        .accessibilityLabel(title)
-        .accessibilityValue(subtitle ?? "")
-        .accessibilityHint(accessibilityHint ?? "")
-    }
-
-    private var activeCaptureAction: CaptureAction {
-        hoveredCaptureAction ?? .save
+        DSExportActions(identifier: "\(providerID).capture",
+            pixelSizeLabel: CodexDashboardCaptureService.activityCardPixelSizeLabel,
+            error: captureErrorText, pointerTrailing: 7,
+            save: saveDashboard, copy: copyDashboard, share: shareDashboard)
     }
 
     private func setCaptureMenuPresented(_ isPresented: Bool) {
         if !isPresented {
-            hoveredCaptureAction = nil
         }
 
         if reduceMotion {
@@ -535,7 +355,7 @@ struct ClaudeCodeHoverDashboardView: View {
         VStack(spacing: 8) {
             HStack(spacing: 8) {
                 Text("Daily usage")
-                    .font(.system(size: 11, weight: .bold))
+                    .dsFont(size: 11, weight: .bold)
                     .foregroundStyle(theme.textPrimary)
                     .lineLimit(1)
                 Spacer(minLength: 8)
@@ -579,58 +399,26 @@ struct ClaudeCodeHoverDashboardView: View {
 
     private var usageRange: some View {
         Text(usageRangeLabel)
-            .font(.system(size: 8.5, weight: .medium))
+            .dsFont(size: 8.5, weight: .medium)
             .foregroundStyle(theme.textTertiary)
             .fixedSize()
     }
 
     private var todayUsage: some View {
         Text(todayUsageLabel)
-            .font(.system(size: 13, weight: .bold, design: .rounded))
+            .dsFont(size: 13, weight: .bold)
             .foregroundStyle(theme.textPrimary)
             .monospacedDigit()
             .fixedSize()
     }
 
     private var metricSelector: some View {
-        HStack(spacing: 2) {
-            ForEach(UsageMetric.allCases, id: \.self) { metric in
-                Button {
-                    selectedMetric = metric
-                } label: {
-                    Text(metric.rawValue)
-                        .font(.system(size: 8.5, weight: selectedMetric == metric ? .bold : .medium))
-                        .foregroundStyle(
-                            selectedMetric == metric
-                                ? theme.textPrimary
-                                : theme.textTertiary
-                        )
-                        .padding(.horizontal, 8)
-                        .frame(height: 22)
-                        .background {
-                            if selectedMetric == metric {
-                                Capsule()
-                                    .fill(theme.opaqueSurfaceRaised)
-                                    .overlay {
-                                        Capsule().strokeBorder(theme.outlineStrong, lineWidth: 0.75)
-                                    }
-                            }
-                        }
-                }
-                .buttonStyle(.plain)
-                .accessibilityIdentifier(
-                    "dockHover.\(providerID).metric.\(metric.rawValue.lowercased())"
-                )
-                .accessibilityAddTraits(
-                    selectedMetric == metric ? .isSelected : []
-                )
-            }
-        }
-        .padding(2)
-        .background(Capsule().fill(theme.opaqueSurfaceInset))
-        .overlay {
-            Capsule().strokeBorder(theme.outline, lineWidth: 0.5)
-        }
+        DSSegmentedControl(title: "Usage metric", selection: $selectedMetric,
+            options: UsageMetric.allCases.map {
+                .init(value: $0, title: $0.rawValue,
+                      accessibilityIdentifier: "dockHover.\(providerID).metric.\($0.rawValue.lowercased())")
+            }, size: .small)
+            .frame(width: 150)
     }
 
     private var shipMomentumCard: some View {
@@ -641,7 +429,7 @@ struct ClaudeCodeHoverDashboardView: View {
     }
 
     private var dailyIntensityCard: some View {
-        CodexDailyIntensityCard(
+        AIUsageDailyIntensityCard(
             buckets: intensityBuckets,
             accent: usageAccent
         )
@@ -665,7 +453,7 @@ struct ClaudeCodeHoverDashboardView: View {
         VStack(spacing: 6) {
             HStack {
                 Text("Active work")
-                    .font(.system(size: 10.5, weight: .bold))
+                    .dsFont(size: 10.5, weight: .bold)
                     .foregroundStyle(theme.textPrimary)
                 Spacer(minLength: 4)
                 if isActivityHookInstalled,
@@ -674,7 +462,7 @@ struct ClaudeCodeHoverDashboardView: View {
                         "\(visibleActiveTasks.count) active · \(activeGoals.count) "
                             + (activeGoals.count == 1 ? "goal" : "goals")
                     )
-                        .font(.system(size: 8, weight: .medium))
+                        .dsFont(size: 8, weight: .medium)
                         .foregroundStyle(theme.textTertiary)
                         .monospacedDigit()
                 }
@@ -721,7 +509,7 @@ struct ClaudeCodeHoverDashboardView: View {
     private var activityHookSetup: some View {
         VStack(spacing: 6) {
             Text("Connect \(brand.displayName) events to see sessions and tools here in realtime.")
-                .font(.system(size: 8.5, weight: .medium))
+                .dsFont(size: 8.5, weight: .medium)
                 .foregroundStyle(theme.textTertiary)
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
@@ -740,7 +528,7 @@ struct ClaudeCodeHoverDashboardView: View {
                     )
                 }
             }
-            .buttonStyle(DSButtonStyle(kind: .primary))
+            .buttonStyle(DSButtonStyle(emphasis: .primary))
             .disabled(isInstallingActivityHook)
             .accessibilityHint(
                 "Adds DockMagic event hooks while preserving existing hooks"
@@ -749,7 +537,7 @@ struct ClaudeCodeHoverDashboardView: View {
 
             if let activityHookErrorText {
                 Text(activityHookErrorText)
-                    .font(.system(size: 8, weight: .medium))
+                    .dsFont(size: 8, weight: .medium)
                     .foregroundStyle(theme.dangerForeground)
                     .lineLimit(2)
                     .multilineTextAlignment(.center)
@@ -767,9 +555,9 @@ struct ClaudeCodeHoverDashboardView: View {
         foreground: Color
     ) -> some View {
         HStack(spacing: 7) {
-            Image(systemName: systemImage)
+            DSIcon(systemName: systemImage)
                 .symbolRenderingMode(.monochrome)
-                .font(.system(size: 11, weight: .semibold))
+                .dsFont(size: 11, weight: .semibold)
                 .foregroundStyle(foreground)
                 .frame(width: 27, height: 27)
                 .background(theme.opaqueSurfaceInset)
@@ -781,11 +569,11 @@ struct ClaudeCodeHoverDashboardView: View {
 
             VStack(alignment: .leading, spacing: 1) {
                 Text(title)
-                    .font(.system(size: 9, weight: .semibold))
+                    .dsFont(size: 9, weight: .semibold)
                     .foregroundStyle(theme.textPrimary)
                     .lineLimit(1)
                 Text(detail)
-                    .font(.system(size: 8, weight: .medium))
+                    .dsFont(size: 8, weight: .medium)
                     .foregroundStyle(theme.textTertiary)
                     .lineLimit(1)
             }
@@ -793,7 +581,7 @@ struct ClaudeCodeHoverDashboardView: View {
             Spacer(minLength: 4)
 
             Text(state.replacingOccurrences(of: "_", with: " ").capitalized)
-                .font(.system(size: 7.5, weight: .bold))
+                .dsFont(size: 7.5, weight: .bold)
                 .foregroundStyle(foreground)
                 .lineLimit(1)
         }
@@ -809,12 +597,12 @@ struct ClaudeCodeHoverDashboardView: View {
         text: String
     ) -> some View {
         HStack(spacing: 6) {
-            Image(systemName: systemImage)
+            DSIcon(systemName: systemImage)
                 .symbolRenderingMode(.monochrome)
-                .font(.system(size: 9, weight: .semibold))
+                .dsFont(size: 9, weight: .semibold)
                 .accessibilityHidden(true)
             Text(text)
-                .font(.system(size: 8.5, weight: .medium))
+                .dsFont(size: 8.5, weight: .medium)
                 .lineLimit(2)
         }
         .foregroundStyle(theme.textTertiary)
@@ -1020,196 +808,6 @@ struct ClaudeCodeHoverDashboardView: View {
     }
 }
 
-struct ProviderDailyUsageChartBucket: Identifiable, Equatable, Sendable {
-    let startDate: Date
-    let value: Double
-    let accessibilityValue: String
-    var isAvailable = true
-
-    var id: Date { startDate }
-}
-
-struct ProviderDailyUsageBars: View {
-    let buckets: [ProviderDailyUsageChartBucket]
-    let metric: String
-    let accent: Color
-    let providerID: String
-    let hasData: Bool
-
-    @Environment(\.designTheme) private var theme
-    @Environment(\.isDashboardCapture) private var isDashboardCapture
-
-    private let plotHeight: CGFloat = 88
-    private let columnWidth: CGFloat = 46
-    private let columnSpacing: CGFloat = 8
-    private let dateLabelHeight: CGFloat = 20
-    // Leaves space below the labels for both overlay and always-visible scrollers.
-    private var scrollerSpace: CGFloat { isDashboardCapture ? 0 : 20 }
-
-    var body: some View {
-        HStack(alignment: .top, spacing: 6) {
-            VStack(alignment: .trailing, spacing: 0) {
-                Text(axisLabel(axisMaximum))
-                Spacer(minLength: 0)
-                Text(axisLabel(axisMaximum / 2))
-                Spacer(minLength: 0)
-                Text("0")
-            }
-            .font(.system(size: 7, weight: .medium, design: .rounded))
-            .foregroundStyle(theme.textTertiary)
-            .monospacedDigit()
-            .lineLimit(1)
-            .minimumScaleFactor(0.75)
-            .frame(width: 40, height: plotHeight, alignment: .trailing)
-
-            if hasData {
-                DashboardHistoryViewport(
-                    latestID: buckets.last?.id,
-                    viewportHeight: plotHeight + 4 + dateLabelHeight + scrollerSpace,
-                    documentSize: CGSize(
-                        width: CGFloat(buckets.count) * columnWidth
-                            + CGFloat(max(0, buckets.count - 1)) * columnSpacing + 8,
-                        height: plotHeight + 4 + dateLabelHeight
-                    )
-                ) {
-                    HStack(alignment: .top, spacing: columnSpacing) {
-                        ForEach(buckets) { bucket in
-                            usageColumn(for: bucket)
-                                .id(bucket.id)
-                        }
-                    }
-                    .padding(.horizontal, 4)
-                    .background(alignment: .top) {
-                        chartGrid
-                    }
-                }
-                .frame(height: plotHeight + 4 + dateLabelHeight + scrollerSpace)
-                .clipped()
-                .accessibilityIdentifier("dockHover.\(providerID).usageHistory")
-            } else {
-                HStack(spacing: 6) {
-                    Image(systemName: "chart.bar.xaxis")
-                        .symbolRenderingMode(.monochrome)
-                        .accessibilityHidden(true)
-                    Text("Waiting for real \(metric.lowercased()) data")
-                        .font(.system(size: 9, weight: .medium))
-                }
-                .foregroundStyle(theme.textTertiary)
-                .frame(maxWidth: .infinity)
-                .frame(height: plotHeight)
-            }
-        }
-        .frame(height: plotHeight + 4 + dateLabelHeight + scrollerSpace)
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel("Daily \(metric.lowercased()) usage over the last 30 days")
-    }
-
-    private var chartGrid: some View {
-        VStack(spacing: 0) {
-            Rectangle().fill(theme.outline).frame(height: 0.5)
-            Spacer(minLength: 0)
-            Rectangle().fill(theme.outline).frame(height: 0.5)
-            Spacer(minLength: 0)
-            Rectangle().fill(theme.outline).frame(height: 0.5)
-        }
-        .frame(height: plotHeight)
-    }
-
-    private func usageColumn(
-        for bucket: ProviderDailyUsageChartBucket
-    ) -> some View {
-        VStack(spacing: 4) {
-            bar(bucket, height: plotHeight)
-                .frame(width: 27, height: plotHeight)
-
-            VStack(spacing: 1) {
-                Text(Self.weekdayLabel(bucket.startDate))
-                Text(Self.dayLabel(bucket.startDate))
-            }
-            .font(.system(size: 7.5, weight: .semibold))
-            .foregroundStyle(theme.textTertiary)
-            .monospacedDigit()
-            .lineLimit(1)
-            .frame(height: dateLabelHeight, alignment: .top)
-        }
-        .frame(width: columnWidth)
-        .contentShape(Rectangle())
-        .help("\(Self.fullDateLabel(bucket.startDate)): \(bucket.accessibilityValue)")
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(Self.fullDateLabel(bucket.startDate))
-        .accessibilityValue(bucket.accessibilityValue)
-    }
-
-    private func bar(
-        _ bucket: ProviderDailyUsageChartBucket,
-        height: CGFloat
-    ) -> some View {
-        let maximum = max(
-            buckets.filter(\.isAvailable).map(\.value).max() ?? 0,
-            1
-        )
-        let fraction = min(max(bucket.value / maximum, 0), 1)
-        return VStack(spacing: 0) {
-            Spacer(minLength: 0)
-            if bucket.isAvailable {
-                RoundedRectangle(cornerRadius: 3, style: .continuous)
-                    .fill(
-                        bucket.value > 0
-                            ? accent
-                            : theme.dockTrack
-                    )
-                    .frame(
-                        height: bucket.value > 0
-                            ? max(4, height * fraction)
-                            : 2
-                    )
-            } else {
-                RoundedRectangle(cornerRadius: 2, style: .continuous)
-                    .stroke(
-                        theme.outlineStrong,
-                        style: StrokeStyle(lineWidth: 0.75, dash: [2, 2])
-                    )
-                    .frame(height: 4)
-            }
-        }
-        .frame(maxWidth: .infinity)
-    }
-
-    private var axisMaximum: Double {
-        max(buckets.filter(\.isAvailable).map(\.value).max() ?? 0, 1)
-    }
-
-    private func axisLabel(_ value: Double) -> String {
-        if metric == "Cost" {
-            return ClaudeCodeHoverDashboardPresentation.costLabel(value)
-        }
-        return Int64(value).formatted(
-            .number.notation(.compactName).precision(.fractionLength(0...1))
-        )
-    }
-
-    private static func weekdayLabel(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.dateFormat = "EEE"
-        return formatter.string(from: date)
-    }
-
-    private static func dayLabel(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.dateFormat = "d"
-        return formatter.string(from: date)
-    }
-
-    private static func fullDateLabel(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.dateFormat = "MMM d"
-        return formatter.string(from: date)
-    }
-}
-
 enum ClaudeCodeHoverDashboardPresentation {
     static let maximumChartDays = 30
 
@@ -1373,27 +971,27 @@ private struct ClaudeCodeUnavailableLimitRow: View {
 
     var body: some View {
         HStack(spacing: 6) {
-            Image(systemName: systemImage)
+            DSIcon(systemName: systemImage)
                 .symbolRenderingMode(.monochrome)
-                .font(.system(size: 10, weight: .semibold))
+                .dsFont(size: 10, weight: .semibold)
                 .foregroundStyle(theme.textSecondary)
                 .frame(width: 15)
                 .accessibilityHidden(true)
 
             Text(title)
-                .font(.system(size: 10.5, weight: .semibold))
+                .dsFont(size: 10.5, weight: .semibold)
                 .foregroundStyle(theme.textPrimary)
                 .frame(width: 50, alignment: .leading)
 
             Text("—")
-                .font(.system(size: 11.5, weight: .bold, design: .rounded))
+                .dsFont(size: 11.5, weight: .bold)
                 .foregroundStyle(theme.textTertiary)
                 .frame(width: 67, alignment: .center)
 
             Capsule().fill(theme.dockTrack).frame(height: 6)
 
             Text("Not reported")
-                .font(.system(size: 9, weight: .medium))
+                .dsFont(size: 9, weight: .medium)
                 .foregroundStyle(theme.textTertiary)
                 .frame(width: 126, alignment: .trailing)
                 .lineLimit(1)

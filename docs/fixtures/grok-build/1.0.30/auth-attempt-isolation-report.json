@@ -1,0 +1,93 @@
+{
+  "schemaVersion": 1,
+  "verifiedAt": "2026-09-16T16:55:44Z",
+  "scope": "Synthetic authentication state-machine callback isolation; no real login or quota",
+  "productionEnabled": false,
+  "billingStartupSafetyVerified": false,
+  "runtimeVerifiedVersions": [],
+  "releaseVerified": false,
+  "defect": {
+    "before": "Login completion had no attempt identity; a callback from an old terminal could complete a new home login or cancel a retry, and duplicate starts were accepted.",
+    "failingTestsBeforeFix": 3,
+    "assertionFailuresBeforeFix": 5,
+    "log": "/private/tmp/dockmagic-grok-auth-identity-before.log",
+    "focusedAfter": {
+      "passed": 6,
+      "failed": 0,
+      "log": "/private/tmp/dockmagic-grok-auth-identity-focused.log"
+    }
+  },
+  "invariants": [
+    "Each attempt has a unique in-memory ID and immutable executable/home configuration",
+    "A repeated start cannot replace a running login",
+    "Only the matching active attempt can complete or cancel sign-in",
+    "Stop and reconfiguration invalidate old attempts, including same-home retries",
+    "An accepted completion is consumed before any asynchronous quota verification",
+    "Exit zero still requires a fresh successful quota response",
+    "Stale or duplicate callbacks do not launch additional quota probes",
+    "Authentication does not rewrite local history or source freshness"
+  ],
+  "newTests": [
+    "testRepeatedSignInStartDoesNotCreateAnotherAttempt",
+    "testOldLoginCompletionCannotFinishNewHomeAttempt",
+    "testOldCancelledLoginCallbackCannotCancelRetry",
+    "testStoppedLoginCannotFinishRetryAfterResumeWithSameConfiguration"
+  ],
+  "foundation": {
+    "selected": 119,
+    "passed": 113,
+    "skippedOptInProbes": 6,
+    "failed": 0,
+    "completedAt": "2026-09-16T16:54:19Z",
+    "log": "/private/tmp/dockmagic-grok-auth-identity-foundation.log"
+  },
+  "appHosted": {
+    "selected": 78,
+    "passed": 78,
+    "failed": 0,
+    "completedAt": "2026-09-16T16:55:44Z",
+    "suites": {"GrokBuildIntegrationTests": 51, "GrokBuildDerivedTests": 18, "TokenUsageStreakStoreTests": 9},
+    "resultBundle": "/private/tmp/dockmagic-grok-auth-identity-apphost.xcresult",
+    "log": "/private/tmp/dockmagic-grok-auth-identity-apphost.log",
+    "overlap": "The 51 integration and 18 derived cases also run in Foundation; these are not additive unique test totals.",
+    "warnings": "Existing actor-isolation and optional-coercion warnings remain outside this change."
+  },
+  "xcodeScope": {
+    "configuration": "Debug",
+    "destination": "platform=macOS,arch=arm64",
+    "xcconfig": "/private/tmp/dockmagic-grok-ui-isolated.xcconfig",
+    "derivedData": "/private/tmp/dockmagic-grok-ui-build.acevBnKZ",
+    "packageCache": "/private/tmp/dockmagic-grok-interactive-packages.rESQuSxj",
+    "automaticPackageResolutionDisabled": true,
+    "parallelTestingEnabled": false,
+    "jobs": 2,
+    "excludedSourceFile": "CalendarSyncTests.swift",
+    "fullAppRegression": false,
+    "uiInteractionRerun": false,
+    "standardWorkflowRelaunchPerformed": false,
+    "ownedTestProcessesAbsentAfterRun": true
+  },
+  "safety": {
+    "realGrokCLIStarted": false,
+    "realHomeACPStarted": false,
+    "credentialsRead": false,
+    "promptsSent": 0,
+    "productionPreferencesChanged": false,
+    "terminalAuthenticationImplemented": false,
+    "authenticationButtonsRemainDisabled": true
+  },
+  "identityAssetResearch": {
+    "guidelines": "https://x.ai/legal/brand-guidelines",
+    "downloadURL": "https://data.x.ai/logos/SpaceXAI_Grok_Assets.zip",
+    "directDownloadHTTPStatus": 403,
+    "browserArtifactRetrieved": false,
+    "assetImported": false,
+    "temporaryIdentityUnchanged": true
+  },
+  "remaining": [
+    "Safe official billing startup and authenticated quota fixture",
+    "Official terminal controller and real login/cancel/timeout/logout lifecycle",
+    "Actual Dock, keyboard/VoiceOver, real sleep/wake and wider live attribution verification",
+    "Long-term retention stress, final identity asset and complete release regression/package gates"
+  ]
+}

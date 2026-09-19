@@ -26,6 +26,10 @@
 	<string>$(MACOSX_DEPLOYMENT_TARGET)</string>
 	<key>NSAccentColorName</key>
 	<string>AccentColor</string>
+	<key>NSCalendarsFullAccessUsageDescription</key>
+	<string>DockMagic displays your events and saves events you create, edit, or delete in its Calendar dashboard to Apple Calendar.</string>
+	<key>NSRemindersFullAccessUsageDescription</key>
+	<string>DockMagic displays your reminders and saves reminders you create, edit, complete, or delete in its Calendar dashboard to Apple Reminders.</string>
 	<key>NSLocationUsageDescription</key>
 	<string>DockMagic uses your current location to show local weather and the location name in the Dock preview.</string>
 	<key>SUEnableAutomaticChecks</key>
@@ -40,5 +44,7 @@
 	<integer>86400</integer>
 	<key>SUVerifyUpdateBeforeExtraction</key>
 	<true/>
+	<key>NSAppleEventsUsageDescription</key>
+	<string>DockMagic reads the current song and controls playback in Spotify and Music when you connect each app.</string>
 </dict>
 </plist>

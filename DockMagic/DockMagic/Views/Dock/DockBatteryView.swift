@@ -10,10 +10,10 @@ struct DockBatteryView: View {
     var body: some View {
         BatteryDockTileSurface { side in
             if snapshot.dockDevices.isEmpty {
-                Image(systemName: errorDescription == nil
+                DSIcon(systemName: errorDescription == nil
                     ? "battery.0percent"
                     : "exclamationmark.triangle.fill")
-                    .font(.system(size: side * 0.31, weight: .medium))
+                    .dsFont(size: side * 0.31, weight: .medium)
                     .foregroundStyle(
                         errorDescription == nil
                             ? theme.dockOutline
@@ -66,14 +66,7 @@ private struct BatteryDockTileSurface<Content: View>: View {
 
             ZStack {
                 shape.fill(
-                    LinearGradient(
-                        colors: [
-                            theme.dockBackgroundRaised,
-                            theme.dockBackgroundInset
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
+                    theme.dockBackgroundRaised
                 )
 
                 shape.strokeBorder(
@@ -172,7 +165,7 @@ private struct BatteryRing: View {
                 .stroke(
                     contrast == .increased
                         ? theme.dockOutline
-                        : Color.white.opacity(0.2),
+                        : theme.dockTrack,
                     lineWidth: lineWidth
                 )
 
@@ -200,8 +193,8 @@ private struct BatteryRing: View {
             )
 
             if device.showsPowerIndicator {
-                Image(systemName: "bolt.fill")
-                    .font(.system(size: diameter * 0.22, weight: .black))
+                DSIcon(systemName: "bolt.fill")
+                    .dsFont(size: diameter * 0.22, weight: .black)
                     .foregroundStyle(tint)
                     .padding(diameter * 0.025)
                     .background(Circle().fill(theme.dockBackgroundRaised))
@@ -235,8 +228,8 @@ struct BatteryDeviceGlyph: View {
     let size: CGFloat
 
     var body: some View {
-        Image(systemName: kind.systemImage)
-            .font(.system(size: size, weight: .medium))
+        DSIcon(systemName: kind.systemImage)
+            .dsFont(size: size, weight: .medium)
             .foregroundStyle(color)
             .symbolRenderingMode(.monochrome)
             .accessibilityHidden(true)

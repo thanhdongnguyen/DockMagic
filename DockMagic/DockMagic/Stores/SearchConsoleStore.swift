@@ -257,6 +257,18 @@ final class SearchConsoleStore {
         }
     }
 
+    func setRendererColor(_ color: DockColor, for metric: SearchConsoleMetric) {
+        if metric == .clicks { configuration.clicksColor = color }
+        else { configuration.impressionsColor = color }
+        persistConfiguration()
+    }
+
+    func resetRendererColors() {
+        configuration.clicksColor = SearchConsoleConfiguration.defaultClicksColor
+        configuration.impressionsColor = SearchConsoleConfiguration.defaultImpressionsColor
+        persistConfiguration()
+    }
+
     func setPrimaryMetric(_ metric: SearchConsoleMetric) {
         guard configuration.primaryMetric != metric else { return }
         configuration.primaryMetric = metric

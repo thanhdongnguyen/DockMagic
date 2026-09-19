@@ -4,6 +4,7 @@ import Observation
 @MainActor
 @Observable
 final class DockPreferencesStore {
+    static let binanceConfigurationKey = "DockMagicBinanceConfiguration"
     static let clockConfigurationKey = "DockMagicClockConfiguration"
     static let systemMetricsAppearanceKey = "DockMagicSystemMetricsAppearance"
     static let networkAppearanceKey = "DockMagicNetworkAppearance"
@@ -29,6 +30,12 @@ final class DockPreferencesStore {
         }
     }
 
+    var binanceConfiguration: BinanceConfiguration {
+        didSet {
+            if let data = try? JSONEncoder().encode(binanceConfiguration) { defaults.set(data, forKey: Self.binanceConfigurationKey) }
+        }
+    }
+
     private(set) var clockConfiguration: DockClockConfiguration
     private(set) var systemMetricsAppearance: DockRingAppearance
     private(set) var networkAppearance: DockNetworkAppearance
@@ -37,6 +44,26 @@ final class DockPreferencesStore {
     private(set) var codexAppearance: DockRingAppearance
     private(set) var claudeCodeAppearance: DockRingAppearance
     private(set) var antigravityAppearance: DockRingAppearance
+    var augmentAppearance: AugmentDockAppearance {
+        didSet {
+            if let data = try? JSONEncoder().encode(augmentAppearance) { defaults.set(data, forKey: "DockMagicAugmentAppearance") }
+        }
+    }
+    var grokBuildSettings: GrokBuildSettings {
+        didSet {
+            if let data = try? JSONEncoder().encode(grokBuildSettings) { defaults.set(data, forKey: "DockMagicGrokBuildSettings") }
+        }
+    }
+    var grokBuildAppearance: GrokBuildAppearance {
+        didSet {
+            if let data = try? JSONEncoder().encode(grokBuildAppearance) { defaults.set(data, forKey: "DockMagicGrokBuildAppearance") }
+        }
+    }
+    var openCodeAppearance: OpenCodeDockAppearance {
+        didSet {
+            if let data = try? JSONEncoder().encode(openCodeAppearance) { defaults.set(data, forKey: "DockMagicOpenCodeAppearance") }
+        }
+    }
 
     var githubRepositoryURL: String {
         didSet {
@@ -100,9 +127,16 @@ final class DockPreferencesStore {
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
+        var binance = Self.decodeValue(BinanceConfiguration.self, from: defaults, key: Self.binanceConfigurationKey, fallback: .init())
+        binance.normalize()
+        binanceConfiguration = binance
+        augmentAppearance = Self.decodeValue(AugmentDockAppearance.self, from: defaults, key: "DockMagicAugmentAppearance", fallback: .standard)
+        grokBuildSettings = Self.decodeValue(GrokBuildSettings.self, from: defaults, key: "DockMagicGrokBuildSettings", fallback: .init())
+        grokBuildAppearance = Self.decodeValue(GrokBuildAppearance.self, from: defaults, key: "DockMagicGrokBuildAppearance", fallback: .standard)
+        openCodeAppearance = Self.decodeValue(OpenCodeDockAppearance.self, from: defaults, key: "DockMagicOpenCodeAppearance", fallback: .standard)
         let storedFeature = defaults.string(forKey: DockFeature.storageKey)
-        activeFeature = storedFeature.flatMap(DockFeature.init(rawValue:))
-            ?? .systemMetrics
+        let restoredFeature = storedFeature.flatMap(DockFeature.init(rawValue:)) ?? .systemMetrics
+        activeFeature = DockFeature.availableCases.contains(restoredFeature) ? restoredFeature : .systemMetrics
         clockConfiguration = Self.decodeValue(
             DockClockConfiguration.self,
             from: defaults,

@@ -1,0 +1,20 @@
+{
+  "Design.md": "e3a96a5fa6a712d2d44debb9291c05745b5aaac94cbb80073ba88cb75b979eb9",
+  "DockMagic/DockMagic/App/DockMagicApp.swift": "e24fd2a2e7ac59d4550fcbe6a865069199e119c47ee42f77da02bedf0823881f",
+  "DockMagic/DockMagic/DesignSystem/Components/DSControls.swift": "faa7c6945aa5ba3edf3f66592cf7fb8d92a3cd716077c2747cc2f852041e7f74",
+  "DockMagic/DockMagic/DesignSystem/Foundation/DesignTokens.swift": "2697ab149389d10ec6f892b4c0e93844af7e36bd48db4ec66f10f93b9fdc7a27",
+  "DockMagic/DockMagic/Models/BinanceMarketModels.swift": "ffc4e2ef78403bfb440e75dad2ac2c95823ae1f44d21921870e909ee44e4f20f",
+  "DockMagic/DockMagic/Services/DockHoverCoordinator.swift": "0da11fa6614d1c2aaf7a7c4b430ac5a65d16753577c34f040942754bbe2c4fd3",
+  "DockMagic/DockMagic/Stores/BinanceMarketStore.swift": "990adfe72fb112a865bd03bd8b915b72f971f39101c6ee815f8e8a7d28e1fef9",
+  "DockMagic/DockMagic/Support/BinanceFixtures.swift": "41d4bd1e634f6a161edb2d9a04095d49d093df61d4eb30cef89168aa68bcb136",
+  "DockMagic/DockMagic/Support/ProjectTheme.swift": "805d705d2e68a0d9b3dccd5ce5f56bc65f11df641321227c3b6a2420f83730b0",
+  "DockMagic/DockMagic/Views/Dock/DockBinanceView.swift": "e155b98e075a3c4c09848804fd007acf0b72ee640f2e4e522f2d0103d6edaccd",
+  "DockMagic/DockMagic/Views/Hover/BinanceDashboardView.swift": "73ca5c0680a7b54968de1a720d4b7d9a69d942b94bc9ab0a72dfa02b1a9ff34c",
+  "DockMagic/DockMagic/Views/Hover/BinancePriceChartView.swift": "c869f8008621ca4158249eacc750fb41781138b06ed56935b0a1bb8f921a1d48",
+  "DockMagic/DockMagic/Views/Settings/BinanceSettingsView.swift": "38486ddb3bd1ffc1c8bf4899f89c00a4b31b9b0cecdebd12bd73d74d19b9670f",
+  "DockMagic/DockMagicTests/BinanceFeatureTests.swift": "5b32036da5b6be4a5f1fa2ef4f055327dfc62bccea4fc97dd8332a0d49b39c6f",
+  "DockMagic/DockMagicTests/BinanceRenderTests.swift": "add500274b3cb81045889a66c08600397c1243c911e4117fb6797a49a08d7774",
+  "DockMagic/DockMagicTests/DockHoverDelayTests.swift": "0bcd2b5ab025ff5c89241e97055057db91ed55234e8af4c498c3973b15d9599f",
+  "DockMagic/DockMagicUITests/BinanceUITests.swift": "1f27806e66b038945c2e35c9dbd3ebf3cde9306cc175d4965642be7883235560",
+  "RULES.md": "99b0ed7f199ec44dfebd8adf59c9212a395336f9bd40f8667531d34c81c38b5f"
+}

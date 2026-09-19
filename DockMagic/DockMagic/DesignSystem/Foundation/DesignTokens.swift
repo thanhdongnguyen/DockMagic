@@ -1,7 +1,6 @@
 import SwiftUI
 
-/// Appearance controls only color-scheme selection. Liquid Glass navigation
-/// chrome is part of every mode instead of being a separate appearance.
+/// Appearance controls the Maia Light/Dark palette; app-owned surfaces are opaque.
 enum DSAppearanceMode: String, CaseIterable, Codable, Identifiable, Sendable {
     case system
     case light
@@ -29,11 +28,11 @@ enum DSAppearanceMode: String, CaseIterable, Codable, Identifiable, Sendable {
     var detail: String {
         switch self {
         case .system:
-            "Follow macOS and use Liquid Glass navigation chrome."
+            "Follow the macOS appearance."
         case .light:
-            "Use the light palette with Liquid Glass navigation chrome."
+            "Use the light Maia palette."
         case .dark:
-            "Use the dark palette with Liquid Glass navigation chrome."
+            "Use the dark Maia palette."
         }
     }
 
@@ -59,26 +58,28 @@ enum DSAppearanceMode: String, CaseIterable, Codable, Identifiable, Sendable {
         }
     }
 
-    var usesGlassMaterials: Bool {
-        true
-    }
+    var usesGlassMaterials: Bool { false }
 }
 
 enum DSRadius {
-    static let fixedSmall: CGFloat = 8
-    static let fixedMedium: CGFloat = 12
-    static let fixedLarge: CGFloat = 16
-    static let fixedExtraLarge: CGFloat = 24
-    static let capsule: CGFloat = 999
+    static let small: CGFloat = 6
+    static let medium: CGFloat = 8
+    static let large: CGFloat = 10
+    static let extraLarge: CGFloat = 14
+    static let card: CGFloat = 18
+    static let doubleExtraLarge: CGFloat = 22
+    static let capsule: CGFloat = 26
+    static let fixedSmall = small
+    static let fixedMedium = medium
+    static let fixedLarge = extraLarge
+    static let fixedExtraLarge = card
+    static let keycap = small
+    static let control = capsule
+    static let inset = extraLarge
+    static let row = medium
+    static let panel = card
+    static let largePanel = card
 
-    static let keycap = fixedSmall
-    static let control = fixedMedium
-    static let inset = fixedMedium
-    static let row = fixedLarge
-    static let panel = fixedLarge
-    static let largePanel = fixedExtraLarge
-
-    /// Sigma describes concentric corners as the parent radius minus padding.
     static func concentric(parentRadius: CGFloat, padding: CGFloat) -> CGFloat {
         max(0, parentRadius - padding)
     }
@@ -92,6 +93,9 @@ enum DSSpacing {
     static let xLarge: CGFloat = 24
     static let xxLarge: CGFloat = 32
 
+    static let iconGap: CGFloat = 6
+    static let field: CGFloat = 12
+    static let fieldGroup: CGFloat = 28
     static let compact = small
     static let standard = medium
     static let section = large
@@ -99,18 +103,36 @@ enum DSSpacing {
 }
 
 enum DSTypography {
-    static let title = Font.system(size: 32, weight: .bold)
-    static let headline = Font.system(size: 20, weight: .semibold)
-    static let panelTitle = Font.system(size: 16, weight: .semibold)
-    static let sectionTitle = Font.system(size: 14, weight: .semibold)
-    static let bodyLarge = Font.system(size: 16)
-    static let body = Font.system(size: 14)
-    static let bodyEmphasis = Font.system(size: 14, weight: .semibold)
-    static let metadata = Font.system(size: 12, weight: .medium)
-    static let caption = Font.system(size: 11)
-    static let keycap = Font.system(size: 11, weight: .medium, design: .monospaced)
+    static func font(size: CGFloat, weight: Font.Weight = .regular, design: Font.Design = .default) -> Font {
+        let result = DSFonts.font(size: size, weight: weight)
+        return design == .monospaced ? result.monospacedDigit() : result
+    }
+    enum Surface { case settings, dashboard }
+
+    /// Named roles remain surface-specific; every role resolves to bundled Geist.
+    /// Dock renderers choose proportional sizes from the same foundation.
+    enum Dashboard {
+        static let headline = DSFonts.font(size: 20, weight: .semibold)
+        static let panelTitle = DSFonts.font(size: 16, weight: .medium)
+        static let body = DSFonts.font(size: 14)
+        static let bodyEmphasis = DSFonts.font(size: 14, weight: .medium)
+        static let metadata = DSFonts.font(size: 12, weight: .medium)
+        static let caption = DSFonts.font(size: 11)
+        static let metric = DSFonts.font(size: 24, weight: .bold)
+    }
+
+    static let title = DSFonts.font(size: 32, weight: .bold)
+    static let headline = DSFonts.font(size: 20, weight: .semibold)
+    static let panelTitle = DSFonts.font(size: 16, weight: .medium)
+    static let sectionTitle = DSFonts.font(size: 14, weight: .semibold)
+    static let bodyLarge = DSFonts.font(size: 16)
+    static let body = DSFonts.font(size: 14)
+    static let bodyEmphasis = DSFonts.font(size: 14, weight: .medium)
+    static let metadata = DSFonts.font(size: 12, weight: .medium)
+    static let caption = DSFonts.font(size: 11)
+    static let keycap = DSFonts.font(size: 11, weight: .medium)
     static let settingsTitle = title
-    static let metric = Font.system(size: 24, weight: .bold, design: .rounded)
+    static let metric = DSFonts.font(size: 24, weight: .bold)
 }
 
 enum DSMotion {
@@ -171,19 +193,8 @@ enum DSSurfaceKind {
     case inset
     case chrome
 
-    var material: Material {
-        switch self {
-        case .chrome:
-            .thinMaterial
-        case .shell, .panel, .raised:
-            .regularMaterial
-        case .inset:
-            .ultraThinMaterial
-        }
-    }
-
-    /// Public Sigma guidance reserves Liquid Glass for the navigation layer.
-    var isGlassEligible: Bool { self == .chrome }
+    /// App-owned Maia surfaces are opaque in every appearance.
+    var isGlassEligible: Bool { false }
 }
 
 enum DSSemanticRole {
@@ -192,10 +203,4 @@ enum DSSemanticRole {
     case processing
     case warning
     case danger
-}
-
-enum DSButtonKind {
-    case neutral
-    case primary
-    case destructive
 }

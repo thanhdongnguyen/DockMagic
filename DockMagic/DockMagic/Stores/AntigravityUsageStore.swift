@@ -12,6 +12,7 @@ final class AntigravityUsageStore {
     private(set) var executableURL: URL?
 
     var resolvedExecutablePath: String? { executableURL?.path }
+    var hasAuthenticatedConnectionContext: Bool { lastQuota != nil }
 
     @ObservationIgnored private let provider: any AntigravityQuotaProviding
     @ObservationIgnored private let authenticationProvider:
@@ -276,6 +277,8 @@ final class AntigravityUsageStore {
         isRefreshing = true
         let previousSnapshot = state.snapshot
         let previousConnectionState = connectionState
+        let preservesConnectionPresentation =
+            preservesConnectionPresentationDuringRefresh
         if state.snapshot == nil { state = .loading }
         refreshTaskIncludesQuota = forceQuota
         let generation = UUID()
@@ -308,7 +311,9 @@ final class AntigravityUsageStore {
                     )
                     return
                 }
-                self.connectionState = .checking
+                if !preservesConnectionPresentation {
+                    self.connectionState = .checking
+                }
                 self.lastQuotaAttemptAt = self.now()
                 do {
                     let executableURL = try self.locator.locate()
@@ -357,6 +362,15 @@ final class AntigravityUsageStore {
         case .signingIn, .signingOut:
             true
         case .cliMissing, .checking, .signedOut, .connected, .stale, .failed:
+            false
+        }
+    }
+
+    private var preservesConnectionPresentationDuringRefresh: Bool {
+        switch connectionState {
+        case .connected, .stale, .failed:
+            true
+        case .cliMissing, .checking, .signingIn, .signingOut, .signedOut:
             false
         }
     }

@@ -7,6 +7,101 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		D5A000000000000000000099 /* DSSegmentedControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5B000000000000000000099 /* DSSegmentedControl.swift */; };
+		8DB3677BF6ACF22F38230AD1 /* NowPlayingArtworkView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F9FBEF70F4399F046A64B04 /* NowPlayingArtworkView.swift */; };
+		632CCEEEFEB705FB0C1AC987 /* DSIdentityContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = DFF35F4A8C00ECD7531445F5 /* DSIdentityContainer.swift */; };
+		ABFFBCDFC20FA003112A227D /* DashboardExportActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1AD74614EC9356816CC1E30E /* DashboardExportActions.swift */; };
+		A6D7DD769C80DEE3E32060DE /* ProviderDailyUsageBars.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34CCFF8F56B23C493933F7D8 /* ProviderDailyUsageBars.swift */; };
+		641B574227F6AED0224EA560 /* DSSettingsCompositions.swift in Sources */ = {isa = PBXBuildFile; fileRef = F13A80A0100537D33BDCE2C8 /* DSSettingsCompositions.swift */; };
+		ECF3C685FCFB0C56F8A8C0B2 /* DashboardSharePresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4AC79045B26B2873B3DC549E /* DashboardSharePresenter.swift */; };
+		72F8E34B9D8AB071DA8E1315 /* DockHoverDashboardRoot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 52287AA73050BB6058E6958B /* DockHoverDashboardRoot.swift */; };
+		4E7EC4E6E0E400FEEAE92B54 /* MaiaUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA9271E7C9C57511D496152A /* MaiaUITests.swift */; };
+		25E4BD0520DB34C277E10DF4 /* MaiaDesignSystemTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F8089C4FD5FEBBF3E5C65E9 /* MaiaDesignSystemTests.swift */; };
+		80683D46D5912E27C314A17E /* DSComponentGallery.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32AEF4E2DB2E314046FBCFE3 /* DSComponentGallery.swift */; };
+		B596992BFBD176E855353E8A /* DSPlanBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = B48BB68A5316EF6844DC8C0F /* DSPlanBadge.swift */; };
+		A45318BB883D1ACC819E724B /* DashboardHistoryViewport.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC6CC32FE7E906C95F697E50 /* DashboardHistoryViewport.swift */; };
+		E0CCBAA4199581239B9DAF05 /* AIUsageCards.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5946CE991FC164529DE24E1 /* AIUsageCards.swift */; };
+		4A9B8A62C3B4BC6128DF83D3 /* DashboardChrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = 710BD665EC178408D05A1FEA /* DashboardChrome.swift */; };
+		E533B71D261D7A645E831CE5 /* DSSlider.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA7B5E0F54840BEBCF8F75A0 /* DSSlider.swift */; };
+		E8C014C8D5149DE4768EBCCC /* DSContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 497DD60ADA6C5F6ED761EA72 /* DSContent.swift */; };
+		C805CF5B075B1FA26AA3AC17 /* DSDataState.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB531370E218A459F34DAF80 /* DSDataState.swift */; };
+		724FF22CE16E6AB0A73B85C1 /* DSSelect.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC231BFD3837D678613C0809 /* DSSelect.swift */; };
+		673C8A96B46B0E5FDDA518F2 /* DSOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FB2118F966A5C3070FAEDCB /* DSOverlay.swift */; };
+		69C7BAD5E25E416F208EFC92 /* DSFormControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6831DCB18639B3F805CE7ABF /* DSFormControls.swift */; };
+		C31225CF140415DB95E41039 /* MaiaFonts in Resources */ = {isa = PBXBuildFile; fileRef = ECBFD15D98998781838F907D /* MaiaFonts */; };
+		E66833DB8A4D3F3576076F6C /* DSIcon.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03E96D0F18BE6AB71E0D8906 /* DSIcon.swift */; };
+		4FA556DAEE77217D8D651483 /* DSIconName.swift in Sources */ = {isa = PBXBuildFile; fileRef = B137976053E0A5250B6E1D1A /* DSIconName.swift */; };
+		32ABF263BC116779A41DFF65 /* DSFonts.swift in Sources */ = {isa = PBXBuildFile; fileRef = AEA79F9CDF2523D02995207C /* DSFonts.swift */; };
+		E7A000000000000000000022 /* GrokBuildAuthenticationController.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7B000000000000000000022 /* GrokBuildAuthenticationController.swift */; };
+		E7A000000000000000000021 /* GrokBuildAuthenticationSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7B000000000000000000021 /* GrokBuildAuthenticationSection.swift */; };
+		CA160000000000000000A014 /* CalendarSyncTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA160000000000000000B014 /* CalendarSyncTests.swift */; };
+		A8CBA009563DBC28BDC03AF3 /* AugmentIntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 256F2F9835965F59B81EFF3F /* AugmentIntegrationTests.swift */; };
+		CFEC173B1B4A69C7144E1E4E /* AugmentUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA583EEA3E1B1B19EF067CE4 /* AugmentUITests.swift */; };
+		CA160000000000000000A013 /* CalendarUITestProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA160000000000000000B013 /* CalendarUITestProvider.swift */; };
+		516B32A59647D48D918984C6 /* AugmentFixtures.swift in Sources */ = {isa = PBXBuildFile; fileRef = FEC3C765A363BDB4C22D92C9 /* AugmentFixtures.swift */; };
+		E7A000000000000000000018 /* GrokPresentationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7B000000000000000000018 /* GrokPresentationTests.swift */; };
+		E7A000000000000000000019 /* GrokUIFixtures.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7B000000000000000000019 /* GrokUIFixtures.swift */; };
+		E7A000000000000000000020 /* GrokUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7B000000000000000000020 /* GrokUITests.swift */; };
+		CA160000000000000000A012 /* CalendarItemEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA160000000000000000B012 /* CalendarItemEditorView.swift */; };
+		CA160000000000000000A011 /* CalendarEditorWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA160000000000000000B011 /* CalendarEditorWindowController.swift */; };
+		CA160000000000000000A010 /* EventKitCalendarWriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA160000000000000000B010 /* EventKitCalendarWriter.swift */; };
+		CA160000000000000000A009 /* CalendarEditing.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA160000000000000000B009 /* CalendarEditing.swift */; };
+		53F6AC5AB7FFB636C8363E8A /* AugmentStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C3D24171D1A7ECECA61FA6F /* AugmentStoreTests.swift */; };
+		E7C7764B0289BD21024EA16E /* AugmentAnalyticsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5E1292BC2383EE14C3A7529 /* AugmentAnalyticsTests.swift */; };
+		45FB7CDFF2D4FF72E84EED2D /* AugmentSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2486EEC4B09BE3A5DC8E3DF /* AugmentSettingsView.swift */; };
+		B54C9D5809CBBF5D9EF49802 /* AugmentHoverDashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 565BBE7951F2C599AD510358 /* AugmentHoverDashboardView.swift */; };
+		B8B69E05E3A6F4898F022FA0 /* DockAugmentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 215AF5AC0D6DFAA0CCCD2CB5 /* DockAugmentView.swift */; };
+		950ABAAC51A7BF0947B38383 /* AugmentUsageStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AE2F2EE17FD76B12E0C839C /* AugmentUsageStore.swift */; };
+		C28C19707B6A0C633904E5D6 /* AugmentHistoryCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55D00EF34870BB6956ED7042 /* AugmentHistoryCache.swift */; };
+		2A2B6F907B0EAAEC2F692E64 /* AugmentCredentialVault.swift in Sources */ = {isa = PBXBuildFile; fileRef = 197428DE2FAE9BF43323A224 /* AugmentCredentialVault.swift */; };
+		5FA499CEF72D21648711BBFC /* AugmentAnalyticsClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 913591A465E369AE47433D66 /* AugmentAnalyticsClient.swift */; };
+		D6AA1E99D35A1989D430871B /* AugmentPresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DC392E8389699A165E16D7E /* AugmentPresentation.swift */; };
+		E711F37F4A923990D6D7FBED /* AugmentUsage.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE623AAA48EBA3CC0FA44BE9 /* AugmentUsage.swift */; };
+		E7A000000000000000000012 /* GrokBuildSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7B000000000000000000012 /* GrokBuildSettings.swift */; };
+		E7A000000000000000000013 /* GrokIntegrationController.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7B000000000000000000013 /* GrokIntegrationController.swift */; };
+		E7A000000000000000000014 /* GrokBuildPresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7B000000000000000000014 /* GrokBuildPresentation.swift */; };
+		E7A000000000000000000015 /* GrokBuildHoverDashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7B000000000000000000015 /* GrokBuildHoverDashboardView.swift */; };
+		E7A000000000000000000016 /* GrokBuildSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7B000000000000000000016 /* GrokBuildSettingsView.swift */; };
+		E7A000000000000000000017 /* DockGrokBuildView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7B000000000000000000017 /* DockGrokBuildView.swift */; };
+		B1A90000000000000000002C /* AIUsageHistoryChart.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1B90000000000000000002C /* AIUsageHistoryChart.swift */; };
+		B1A90000000000000000002B /* BinanceUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1B90000000000000000002B /* BinanceUITests.swift */; };
+		B1A90000000000000000002A /* BinanceRenderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1B90000000000000000002A /* BinanceRenderTests.swift */; };
+		B1A900000000000000000029 /* BinanceFeatureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1B900000000000000000029 /* BinanceFeatureTests.swift */; };
+		B1A900000000000000000028 /* BinanceFixtures.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1B900000000000000000028 /* BinanceFixtures.swift */; };
+		B1A900000000000000000009 /* BinanceSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1B900000000000000000009 /* BinanceSettingsView.swift */; };
+		B1A900000000000000000008 /* BinanceDashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1B900000000000000000008 /* BinanceDashboardView.swift */; };
+		B1A900000000000000000007 /* BinancePriceChartView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1B900000000000000000007 /* BinancePriceChartView.swift */; };
+		B1A900000000000000000006 /* DockBinanceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1B900000000000000000006 /* DockBinanceView.swift */; };
+		B1A900000000000000000005 /* BinanceMarketStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1B900000000000000000005 /* BinanceMarketStore.swift */; };
+		B1A900000000000000000004 /* BinanceMarketCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1B900000000000000000004 /* BinanceMarketCache.swift */; };
+		B1A900000000000000000003 /* BinanceMarketStreamClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1B900000000000000000003 /* BinanceMarketStreamClient.swift */; };
+		B1A900000000000000000002 /* BinanceMarketDataClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1B900000000000000000002 /* BinanceMarketDataClient.swift */; };
+		B1A900000000000000000001 /* BinanceMarketModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1B900000000000000000001 /* BinanceMarketModels.swift */; };
+		CA160000000000000000A008 /* CalendarUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA160000000000000000B008 /* CalendarUITests.swift */; };
+		CA160000000000000000A007 /* CalendarFeatureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA160000000000000000B007 /* CalendarFeatureTests.swift */; };
+		CA160000000000000000A006 /* CalendarSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA160000000000000000B006 /* CalendarSettingsView.swift */; };
+		CA160000000000000000A005 /* CalendarHoverDashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA160000000000000000B005 /* CalendarHoverDashboardView.swift */; };
+		CA160000000000000000A004 /* DockCalendarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA160000000000000000B004 /* DockCalendarView.swift */; };
+		CA160000000000000000A003 /* CalendarStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA160000000000000000B003 /* CalendarStore.swift */; };
+		CA160000000000000000A002 /* EventKitCalendarProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA160000000000000000B002 /* EventKitCalendarProvider.swift */; };
+		CA160000000000000000A001 /* CalendarAgenda.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA160000000000000000B001 /* CalendarAgenda.swift */; };
+		E7A000000000000000000010 /* GrokBuildActivityLedger.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7B000000000000000000010 /* GrokBuildActivityLedger.swift */; };
+		E7A000000000000000000011 /* GrokBuildDerivedTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7B000000000000000000011 /* GrokBuildDerivedTests.swift */; };
+		E7A00000000000000000000F /* GrokBuildProcessLifecycleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7B00000000000000000000F /* GrokBuildProcessLifecycleTests.swift */; };
+		E7A000000000000000000009 /* GrokBuildObservation.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7B000000000000000000009 /* GrokBuildObservation.swift */; };
+		E7A00000000000000000000A /* GrokBuildHistoryCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7B00000000000000000000A /* GrokBuildHistoryCache.swift */; };
+		E7A00000000000000000000B /* GrokBuildLocalUsageProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7B00000000000000000000B /* GrokBuildLocalUsageProvider.swift */; };
+		E7A00000000000000000000C /* GrokBuildFileEventMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7B00000000000000000000C /* GrokBuildFileEventMonitor.swift */; };
+		E7A00000000000000000000D /* GrokBuildUsageStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7B00000000000000000000D /* GrokBuildUsageStore.swift */; };
+		E7A00000000000000000000E /* GrokBuildIntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7B00000000000000000000E /* GrokBuildIntegrationTests.swift */; };
+		E7A000000000000000000001 /* GrokBuildUsage.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7B000000000000000000001 /* GrokBuildUsage.swift */; };
+		E7A000000000000000000002 /* GrokBuildUsageParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7B000000000000000000002 /* GrokBuildUsageParser.swift */; };
+		E7A000000000000000000003 /* GrokBuildHistoryAggregator.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7B000000000000000000003 /* GrokBuildHistoryAggregator.swift */; };
+		E7A000000000000000000004 /* GrokBuildSessionDiscovery.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7B000000000000000000004 /* GrokBuildSessionDiscovery.swift */; };
+		E7A000000000000000000005 /* GrokBuildProcessRunner.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7B000000000000000000005 /* GrokBuildProcessRunner.swift */; };
+		E7A000000000000000000006 /* GrokBuildCLIProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7B000000000000000000006 /* GrokBuildCLIProvider.swift */; };
+		E7A000000000000000000007 /* GrokBuildFoundationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7B000000000000000000007 /* GrokBuildFoundationTests.swift */; };
+		E7A000000000000000000008 /* GrokBuildLiveProbeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7B000000000000000000008 /* GrokBuildLiveProbeTests.swift */; };
 		C9A000000000000000000001 /* AntigravityUsage.swift in Sources */ = {isa = PBXBuildFile; fileRef = C9B000000000000000000001 /* AntigravityUsage.swift */; };
 		C9A000000000000000000002 /* AntigravityCLIUsageProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = C9B000000000000000000002 /* AntigravityCLIUsageProvider.swift */; };
 		C9A000000000000000000003 /* AntigravityStatusLineBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = C9B000000000000000000003 /* AntigravityStatusLineBridge.swift */; };
@@ -118,7 +213,31 @@
 		D5AA4A60DD41FF46DFB966EB /* AntigravitySettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 25B6738E8A8D32551895BEDE /* AntigravitySettingsView.swift */; };
 		C8A000000000000000000003 /* SwiftTerm in Frameworks */ = {isa = PBXBuildFile; productRef = C8E000000000000000000001 /* SwiftTerm */; };
 		C8A000000000000000000004 /* ClaudeCodeUsageConnectionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8B000000000000000000003 /* ClaudeCodeUsageConnectionTests.swift */; };
-		C8A000000000000000000005 /* THIRD_PARTY_NOTICES.md in Resources */ = {isa = PBXBuildFile; fileRef = C8B000000000000000000004 /* THIRD_PARTY_NOTICES.md */; };
+		C8A000000000000000000005 /* ThirdPartyNotices.txt in Resources */ = {isa = PBXBuildFile; fileRef = C8B000000000000000000004 /* ThirdPartyNotices.txt */; };
+		845AE7332747CFA16A0A3C0F /* OpenCodeUsage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F71ABB3E00FACDB6A197AC1 /* OpenCodeUsage.swift */; };
+		32233786F118B1DDB06FEBDA /* OpenCodePresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A7C7F13185F4C6A1AF99E1C /* OpenCodePresentation.swift */; };
+		091D621570727E401C08DE53 /* OpenCodeHistoryReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 498D2B9F1CA35547EF2E6C24 /* OpenCodeHistoryReader.swift */; };
+		69F3EB868CEC30DE6CA1DB0C /* OpenCodeHistoryCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 285CEB13D5B05F09CF979CA6 /* OpenCodeHistoryCache.swift */; };
+		002B400A81D152CCD26871B1 /* OpenCodeUsageStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2C02188610D75C9F2358447 /* OpenCodeUsageStore.swift */; };
+		31A73A226A6F75E83B3D2013 /* DockOpenCodeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E31379BC6A22D044D03AD75A /* DockOpenCodeView.swift */; };
+		2AA4BD9FC632E17894288183 /* OpenCodeHoverDashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DED490EB3CBEBC44656003E /* OpenCodeHoverDashboardView.swift */; };
+		CD9FA6103F4ADCDB6ED06B2A /* OpenCodeSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7601003927F97DEB4F70E205 /* OpenCodeSettingsView.swift */; };
+		F0E1497D849EC7EBEE0E5325 /* OpenCodeHistoryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E27E49C95F59E531491A99D /* OpenCodeHistoryTests.swift */; };
+		C5DAA0DDD6A84294C6C1B1EE /* OpenCodeStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B590AE588FF9A7D00575621 /* OpenCodeStoreTests.swift */; };
+		62F7FB56D1C81C25236742D0 /* OpenCodeIntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88999821FEBCD3D47469A5E4 /* OpenCodeIntegrationTests.swift */; };
+		ED09378213FB1043C6A0569B /* OpenCodeUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 783EB5EBEF27DFA8D47B9A8B /* OpenCodeUITests.swift */; };
+		5277526C2644CCF97431A9BB /* NowPlaying.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB27573D42A3E95F5A99EAE2 /* NowPlaying.swift */; };
+		A5FFE1BB5083C9A7C3E08B9D /* NowPlayingProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = EFA9CFF734B71D9B8A5249BF /* NowPlayingProvider.swift */; };
+		BE9FC9D7B01411744FED80DC /* AppleEventsPlaybackClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = E8A1A600EBE963EB6EFD9570 /* AppleEventsPlaybackClient.swift */; };
+		21750A2CA8118A3EF864D4A9 /* NowPlayingArtworkCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6905A0B91C42FA6E6A576058 /* NowPlayingArtworkCache.swift */; };
+		35607A72B5775E272EC9E8EC /* NowPlayingFixtures.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0951D663EC20F21B5550206 /* NowPlayingFixtures.swift */; };
+		C2A85840A2A59256F6071B06 /* NowPlayingPanelController.swift in Sources */ = {isa = PBXBuildFile; fileRef = F74EE7ED039EE81F51D4484E /* NowPlayingPanelController.swift */; };
+		9C80B660A334D297F2BAB30D /* NowPlayingStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 405EF4D5702BE22A03B00E30 /* NowPlayingStore.swift */; };
+		705A3D9BD9885C5B30927DF0 /* DockNowPlayingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 522A0903D0E02557094C1E1A /* DockNowPlayingView.swift */; };
+		86330F991430DFA54B26BCD5 /* NowPlayingHoverDashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39D04B5B0FE8FA7113B5CF62 /* NowPlayingHoverDashboardView.swift */; };
+		80C9DE16FA5C757783E32CD6 /* NowPlayingSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 873E46CCDA6AB96335641941 /* NowPlayingSettingsView.swift */; };
+		51A3A590FBE74E43FCB4FC71 /* NowPlayingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A1441054C3837F47C0909E0 /* NowPlayingTests.swift */; };
+		FE7993F6AB42250DE83CD3FE /* NowPlayingUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BAD5DA5C123329E620D53F0B /* NowPlayingUITests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -139,6 +258,101 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		D5B000000000000000000099 /* DSSegmentedControl.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DockMagic/DesignSystem/Components/DSSegmentedControl.swift"; sourceTree = SOURCE_ROOT; };
+		2F9FBEF70F4399F046A64B04 /* NowPlayingArtworkView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DockMagic/Views/Shared/NowPlayingArtworkView.swift"; sourceTree = SOURCE_ROOT; };
+		DFF35F4A8C00ECD7531445F5 /* DSIdentityContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DockMagic/DesignSystem/Components/DSIdentityContainer.swift"; sourceTree = SOURCE_ROOT; };
+		1AD74614EC9356816CC1E30E /* DashboardExportActions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DockMagic/Views/Shared/DashboardExportActions.swift"; sourceTree = SOURCE_ROOT; };
+		34CCFF8F56B23C493933F7D8 /* ProviderDailyUsageBars.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DockMagic/Views/Shared/ProviderDailyUsageBars.swift"; sourceTree = SOURCE_ROOT; };
+		F13A80A0100537D33BDCE2C8 /* DSSettingsCompositions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DockMagic/DesignSystem/Components/DSSettingsCompositions.swift"; sourceTree = SOURCE_ROOT; };
+		4AC79045B26B2873B3DC549E /* DashboardSharePresenter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DockMagic/Views/Shared/DashboardSharePresenter.swift"; sourceTree = SOURCE_ROOT; };
+		52287AA73050BB6058E6958B /* DockHoverDashboardRoot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DockMagic/Views/Shared/DockHoverDashboardRoot.swift"; sourceTree = SOURCE_ROOT; };
+		BA9271E7C9C57511D496152A /* MaiaUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DockMagicUITests/MaiaUITests.swift"; sourceTree = SOURCE_ROOT; };
+		3F8089C4FD5FEBBF3E5C65E9 /* MaiaDesignSystemTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DockMagicTests/MaiaDesignSystemTests.swift"; sourceTree = SOURCE_ROOT; };
+		32AEF4E2DB2E314046FBCFE3 /* DSComponentGallery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DockMagic/DesignSystem/Components/DSComponentGallery.swift"; sourceTree = SOURCE_ROOT; };
+		B48BB68A5316EF6844DC8C0F /* DSPlanBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DockMagic/Views/Shared/DSPlanBadge.swift"; sourceTree = SOURCE_ROOT; };
+		FC6CC32FE7E906C95F697E50 /* DashboardHistoryViewport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DockMagic/Views/Shared/DashboardHistoryViewport.swift"; sourceTree = SOURCE_ROOT; };
+		C5946CE991FC164529DE24E1 /* AIUsageCards.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DockMagic/Views/Shared/AIUsageCards.swift"; sourceTree = SOURCE_ROOT; };
+		710BD665EC178408D05A1FEA /* DashboardChrome.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DockMagic/Views/Shared/DashboardChrome.swift"; sourceTree = SOURCE_ROOT; };
+		FA7B5E0F54840BEBCF8F75A0 /* DSSlider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DockMagic/DesignSystem/Components/DSSlider.swift"; sourceTree = SOURCE_ROOT; };
+		497DD60ADA6C5F6ED761EA72 /* DSContent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DockMagic/DesignSystem/Components/DSContent.swift"; sourceTree = SOURCE_ROOT; };
+		AB531370E218A459F34DAF80 /* DSDataState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DockMagic/DesignSystem/Foundation/DSDataState.swift"; sourceTree = SOURCE_ROOT; };
+		BC231BFD3837D678613C0809 /* DSSelect.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DockMagic/DesignSystem/Components/DSSelect.swift"; sourceTree = SOURCE_ROOT; };
+		1FB2118F966A5C3070FAEDCB /* DSOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DockMagic/DesignSystem/Components/DSOverlay.swift"; sourceTree = SOURCE_ROOT; };
+		6831DCB18639B3F805CE7ABF /* DSFormControls.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DockMagic/DesignSystem/Components/DSFormControls.swift"; sourceTree = SOURCE_ROOT; };
+		ECBFD15D98998781838F907D /* MaiaFonts */ = {isa = PBXFileReference; lastKnownFileType = folder; path = "DockMagic/Resources/MaiaFonts"; sourceTree = SOURCE_ROOT; };
+		03E96D0F18BE6AB71E0D8906 /* DSIcon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DockMagic/DesignSystem/Components/DSIcon.swift"; sourceTree = SOURCE_ROOT; };
+		B137976053E0A5250B6E1D1A /* DSIconName.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DockMagic/DesignSystem/Foundation/DSIconName.swift"; sourceTree = SOURCE_ROOT; };
+		AEA79F9CDF2523D02995207C /* DSFonts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DockMagic/DesignSystem/Foundation/DSFonts.swift"; sourceTree = SOURCE_ROOT; };
+		E7B000000000000000000022 /* GrokBuildAuthenticationController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DockMagic/Services/GrokBuildAuthenticationController.swift"; sourceTree = SOURCE_ROOT; };
+		E7B000000000000000000021 /* GrokBuildAuthenticationSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DockMagic/Views/Settings/GrokBuildAuthenticationSection.swift"; sourceTree = SOURCE_ROOT; };
+		CA160000000000000000B014 /* CalendarSyncTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarSyncTests.swift; sourceTree = "<group>"; };
+		256F2F9835965F59B81EFF3F /* AugmentIntegrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AugmentIntegrationTests.swift; sourceTree = "<group>"; };
+		FA583EEA3E1B1B19EF067CE4 /* AugmentUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AugmentUITests.swift; sourceTree = "<group>"; };
+		CA160000000000000000B013 /* CalendarUITestProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarUITestProvider.swift; sourceTree = "<group>"; };
+		FEC3C765A363BDB4C22D92C9 /* AugmentFixtures.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AugmentFixtures.swift; sourceTree = "<group>"; };
+		E7B000000000000000000018 /* GrokPresentationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GrokPresentationTests.swift; sourceTree = "<group>"; };
+		E7B000000000000000000019 /* GrokUIFixtures.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DockMagic/Support/GrokUIFixtures.swift"; sourceTree = SOURCE_ROOT; };
+		E7B000000000000000000020 /* GrokUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DockMagicUITests/GrokUITests.swift"; sourceTree = SOURCE_ROOT; };
+		CA160000000000000000B012 /* CalendarItemEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarItemEditorView.swift; sourceTree = "<group>"; };
+		CA160000000000000000B011 /* CalendarEditorWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarEditorWindowController.swift; sourceTree = "<group>"; };
+		CA160000000000000000B010 /* EventKitCalendarWriter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventKitCalendarWriter.swift; sourceTree = "<group>"; };
+		CA160000000000000000B009 /* CalendarEditing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarEditing.swift; sourceTree = "<group>"; };
+		9C3D24171D1A7ECECA61FA6F /* AugmentStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AugmentStoreTests.swift; sourceTree = "<group>"; };
+		A5E1292BC2383EE14C3A7529 /* AugmentAnalyticsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AugmentAnalyticsTests.swift; sourceTree = "<group>"; };
+		D2486EEC4B09BE3A5DC8E3DF /* AugmentSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AugmentSettingsView.swift; sourceTree = "<group>"; };
+		565BBE7951F2C599AD510358 /* AugmentHoverDashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AugmentHoverDashboardView.swift; sourceTree = "<group>"; };
+		215AF5AC0D6DFAA0CCCD2CB5 /* DockAugmentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DockAugmentView.swift; sourceTree = "<group>"; };
+		9AE2F2EE17FD76B12E0C839C /* AugmentUsageStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AugmentUsageStore.swift; sourceTree = "<group>"; };
+		55D00EF34870BB6956ED7042 /* AugmentHistoryCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AugmentHistoryCache.swift; sourceTree = "<group>"; };
+		197428DE2FAE9BF43323A224 /* AugmentCredentialVault.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AugmentCredentialVault.swift; sourceTree = "<group>"; };
+		913591A465E369AE47433D66 /* AugmentAnalyticsClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AugmentAnalyticsClient.swift; sourceTree = "<group>"; };
+		2DC392E8389699A165E16D7E /* AugmentPresentation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AugmentPresentation.swift; sourceTree = "<group>"; };
+		BE623AAA48EBA3CC0FA44BE9 /* AugmentUsage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AugmentUsage.swift; sourceTree = "<group>"; };
+		E7B000000000000000000012 /* GrokBuildSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DockMagic/Models/GrokBuildSettings.swift"; sourceTree = SOURCE_ROOT; };
+		E7B000000000000000000013 /* GrokIntegrationController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DockMagic/Support/GrokIntegrationController.swift"; sourceTree = SOURCE_ROOT; };
+		E7B000000000000000000014 /* GrokBuildPresentation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DockMagic/Views/Hover/GrokBuildPresentation.swift"; sourceTree = SOURCE_ROOT; };
+		E7B000000000000000000015 /* GrokBuildHoverDashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DockMagic/Views/Hover/GrokBuildHoverDashboardView.swift"; sourceTree = SOURCE_ROOT; };
+		E7B000000000000000000016 /* GrokBuildSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DockMagic/Views/Settings/GrokBuildSettingsView.swift"; sourceTree = SOURCE_ROOT; };
+		E7B000000000000000000017 /* DockGrokBuildView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DockMagic/Views/Dock/DockGrokBuildView.swift"; sourceTree = SOURCE_ROOT; };
+		B1B90000000000000000002C /* AIUsageHistoryChart.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DockMagic/Views/Shared/AIUsageHistoryChart.swift"; sourceTree = SOURCE_ROOT; };
+		B1B90000000000000000002B /* BinanceUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BinanceUITests.swift; sourceTree = "<group>"; };
+		B1B90000000000000000002A /* BinanceRenderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BinanceRenderTests.swift; sourceTree = "<group>"; };
+		B1B900000000000000000029 /* BinanceFeatureTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BinanceFeatureTests.swift; sourceTree = "<group>"; };
+		B1B900000000000000000028 /* BinanceFixtures.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BinanceFixtures.swift; sourceTree = "<group>"; };
+		B1B900000000000000000009 /* BinanceSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BinanceSettingsView.swift; sourceTree = "<group>"; };
+		B1B900000000000000000008 /* BinanceDashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BinanceDashboardView.swift; sourceTree = "<group>"; };
+		B1B900000000000000000007 /* BinancePriceChartView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BinancePriceChartView.swift; sourceTree = "<group>"; };
+		B1B900000000000000000006 /* DockBinanceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DockBinanceView.swift; sourceTree = "<group>"; };
+		B1B900000000000000000005 /* BinanceMarketStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BinanceMarketStore.swift; sourceTree = "<group>"; };
+		B1B900000000000000000004 /* BinanceMarketCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BinanceMarketCache.swift; sourceTree = "<group>"; };
+		B1B900000000000000000003 /* BinanceMarketStreamClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BinanceMarketStreamClient.swift; sourceTree = "<group>"; };
+		B1B900000000000000000002 /* BinanceMarketDataClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BinanceMarketDataClient.swift; sourceTree = "<group>"; };
+		B1B900000000000000000001 /* BinanceMarketModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BinanceMarketModels.swift; sourceTree = "<group>"; };
+		CA160000000000000000B008 /* CalendarUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarUITests.swift; sourceTree = "<group>"; };
+		CA160000000000000000B007 /* CalendarFeatureTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarFeatureTests.swift; sourceTree = "<group>"; };
+		CA160000000000000000B006 /* CalendarSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarSettingsView.swift; sourceTree = "<group>"; };
+		CA160000000000000000B005 /* CalendarHoverDashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarHoverDashboardView.swift; sourceTree = "<group>"; };
+		CA160000000000000000B004 /* DockCalendarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DockCalendarView.swift; sourceTree = "<group>"; };
+		CA160000000000000000B003 /* CalendarStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarStore.swift; sourceTree = "<group>"; };
+		CA160000000000000000B002 /* EventKitCalendarProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventKitCalendarProvider.swift; sourceTree = "<group>"; };
+		CA160000000000000000B001 /* CalendarAgenda.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarAgenda.swift; sourceTree = "<group>"; };
+		E7B000000000000000000010 /* GrokBuildActivityLedger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GrokBuildActivityLedger.swift; sourceTree = "<group>"; };
+		E7B000000000000000000011 /* GrokBuildDerivedTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GrokBuildDerivedTests.swift; sourceTree = "<group>"; };
+		E7B00000000000000000000F /* GrokBuildProcessLifecycleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GrokBuildProcessLifecycleTests.swift; sourceTree = "<group>"; };
+		E7B000000000000000000009 /* GrokBuildObservation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GrokBuildObservation.swift; sourceTree = "<group>"; };
+		E7B00000000000000000000A /* GrokBuildHistoryCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GrokBuildHistoryCache.swift; sourceTree = "<group>"; };
+		E7B00000000000000000000B /* GrokBuildLocalUsageProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GrokBuildLocalUsageProvider.swift; sourceTree = "<group>"; };
+		E7B00000000000000000000C /* GrokBuildFileEventMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GrokBuildFileEventMonitor.swift; sourceTree = "<group>"; };
+		E7B00000000000000000000D /* GrokBuildUsageStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GrokBuildUsageStore.swift; sourceTree = "<group>"; };
+		E7B00000000000000000000E /* GrokBuildIntegrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GrokBuildIntegrationTests.swift; sourceTree = "<group>"; };
+		E7B000000000000000000001 /* GrokBuildUsage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GrokBuildUsage.swift; sourceTree = "<group>"; };
+		E7B000000000000000000002 /* GrokBuildUsageParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GrokBuildUsageParser.swift; sourceTree = "<group>"; };
+		E7B000000000000000000003 /* GrokBuildHistoryAggregator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GrokBuildHistoryAggregator.swift; sourceTree = "<group>"; };
+		E7B000000000000000000004 /* GrokBuildSessionDiscovery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GrokBuildSessionDiscovery.swift; sourceTree = "<group>"; };
+		E7B000000000000000000005 /* GrokBuildProcessRunner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GrokBuildProcessRunner.swift; sourceTree = "<group>"; };
+		E7B000000000000000000006 /* GrokBuildCLIProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GrokBuildCLIProvider.swift; sourceTree = "<group>"; };
+		E7B000000000000000000007 /* GrokBuildFoundationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GrokBuildFoundationTests.swift; sourceTree = "<group>"; };
+		E7B000000000000000000008 /* GrokBuildLiveProbeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GrokBuildLiveProbeTests.swift; sourceTree = "<group>"; };
 		C9B000000000000000000001 /* AntigravityUsage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AntigravityUsage.swift; sourceTree = "<group>"; };
 		C9B000000000000000000002 /* AntigravityCLIUsageProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AntigravityCLIUsageProvider.swift; sourceTree = "<group>"; };
 		C9B000000000000000000003 /* AntigravityStatusLineBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AntigravityStatusLineBridge.swift; sourceTree = "<group>"; };
@@ -253,7 +467,31 @@
 		C8B000000000000000000002 /* ClaudeCodeSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeCodeSettingsView.swift; sourceTree = "<group>"; };
 		25B6738E8A8D32551895BEDE /* AntigravitySettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AntigravitySettingsView.swift; sourceTree = "<group>"; };
 		C8B000000000000000000003 /* ClaudeCodeUsageConnectionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeCodeUsageConnectionTests.swift; sourceTree = "<group>"; };
-		C8B000000000000000000004 /* THIRD_PARTY_NOTICES.md */ = {isa = PBXFileReference; lastKnownFileType = text; path = ../THIRD_PARTY_NOTICES.md; sourceTree = "<group>"; };
+		C8B000000000000000000004 /* ThirdPartyNotices.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = DockMagic/Resources/ThirdPartyNotices.txt; sourceTree = "<group>"; };
+		9F71ABB3E00FACDB6A197AC1 /* OpenCodeUsage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenCodeUsage.swift; sourceTree = "<group>"; };
+		9A7C7F13185F4C6A1AF99E1C /* OpenCodePresentation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenCodePresentation.swift; sourceTree = "<group>"; };
+		498D2B9F1CA35547EF2E6C24 /* OpenCodeHistoryReader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenCodeHistoryReader.swift; sourceTree = "<group>"; };
+		285CEB13D5B05F09CF979CA6 /* OpenCodeHistoryCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenCodeHistoryCache.swift; sourceTree = "<group>"; };
+		A2C02188610D75C9F2358447 /* OpenCodeUsageStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenCodeUsageStore.swift; sourceTree = "<group>"; };
+		E31379BC6A22D044D03AD75A /* DockOpenCodeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DockOpenCodeView.swift; sourceTree = "<group>"; };
+		2DED490EB3CBEBC44656003E /* OpenCodeHoverDashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenCodeHoverDashboardView.swift; sourceTree = "<group>"; };
+		7601003927F97DEB4F70E205 /* OpenCodeSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenCodeSettingsView.swift; sourceTree = "<group>"; };
+		5E27E49C95F59E531491A99D /* OpenCodeHistoryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenCodeHistoryTests.swift; sourceTree = "<group>"; };
+		3B590AE588FF9A7D00575621 /* OpenCodeStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenCodeStoreTests.swift; sourceTree = "<group>"; };
+		88999821FEBCD3D47469A5E4 /* OpenCodeIntegrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenCodeIntegrationTests.swift; sourceTree = "<group>"; };
+		783EB5EBEF27DFA8D47B9A8B /* OpenCodeUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenCodeUITests.swift; sourceTree = "<group>"; };
+		FB27573D42A3E95F5A99EAE2 /* NowPlaying.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NowPlaying.swift; sourceTree = "<group>"; };
+		EFA9CFF734B71D9B8A5249BF /* NowPlayingProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NowPlayingProvider.swift; sourceTree = "<group>"; };
+		E8A1A600EBE963EB6EFD9570 /* AppleEventsPlaybackClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleEventsPlaybackClient.swift; sourceTree = "<group>"; };
+		6905A0B91C42FA6E6A576058 /* NowPlayingArtworkCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NowPlayingArtworkCache.swift; sourceTree = "<group>"; };
+		D0951D663EC20F21B5550206 /* NowPlayingFixtures.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NowPlayingFixtures.swift; sourceTree = "<group>"; };
+		F74EE7ED039EE81F51D4484E /* NowPlayingPanelController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NowPlayingPanelController.swift; sourceTree = "<group>"; };
+		405EF4D5702BE22A03B00E30 /* NowPlayingStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NowPlayingStore.swift; sourceTree = "<group>"; };
+		522A0903D0E02557094C1E1A /* DockNowPlayingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DockNowPlayingView.swift; sourceTree = "<group>"; };
+		39D04B5B0FE8FA7113B5CF62 /* NowPlayingHoverDashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NowPlayingHoverDashboardView.swift; sourceTree = "<group>"; };
+		873E46CCDA6AB96335641941 /* NowPlayingSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NowPlayingSettingsView.swift; sourceTree = "<group>"; };
+		8A1441054C3837F47C0909E0 /* NowPlayingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NowPlayingTests.swift; sourceTree = "<group>"; };
+		BAD5DA5C123329E620D53F0B /* NowPlayingUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NowPlayingUITests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -286,7 +524,7 @@
 		03AB4D64301BB7F7006D74C0 = {
 			isa = PBXGroup;
 			children = (
-				C8B000000000000000000004 /* THIRD_PARTY_NOTICES.md */,
+				C8B000000000000000000004 /* ThirdPartyNotices.txt */,
 				03AB4D6F301BB7F7006D74C0 /* DockMagic */,
 				03AB4D83301BB7FA006D74C0 /* DockMagicTests */,
 				03AB4D8D301BB7FA006D74C0 /* DockMagicUITests */,
@@ -333,7 +571,23 @@
 		03AB4D83301BB7FA006D74C0 /* DockMagicTests */ = {
 			isa = PBXGroup;
 			children = (
+				3F8089C4FD5FEBBF3E5C65E9 /* MaiaDesignSystemTests.swift */,
+				256F2F9835965F59B81EFF3F /* AugmentIntegrationTests.swift */,
+				9C3D24171D1A7ECECA61FA6F /* AugmentStoreTests.swift */,
+				A5E1292BC2383EE14C3A7529 /* AugmentAnalyticsTests.swift */,
+				B1B90000000000000000002A /* BinanceRenderTests.swift */,
+				8A1441054C3837F47C0909E0 /* NowPlayingTests.swift */,
+				B1B900000000000000000029 /* BinanceFeatureTests.swift */,
+				88999821FEBCD3D47469A5E4 /* OpenCodeIntegrationTests.swift */,
+				3B590AE588FF9A7D00575621 /* OpenCodeStoreTests.swift */,
+				5E27E49C95F59E531491A99D /* OpenCodeHistoryTests.swift */,
 				C9B000000000000000000008 /* AntigravityFeatureTests.swift */,
+				E7B000000000000000000007 /* GrokBuildFoundationTests.swift */,
+				E7B000000000000000000008 /* GrokBuildLiveProbeTests.swift */,
+				E7B00000000000000000000E /* GrokBuildIntegrationTests.swift */,
+				E7B00000000000000000000F /* GrokBuildProcessLifecycleTests.swift */,
+				E7B000000000000000000018 /* GrokPresentationTests.swift */,
+				E7B000000000000000000011 /* GrokBuildDerivedTests.swift */,
 				C8B000000000000000000003 /* ClaudeCodeUsageConnectionTests.swift */,
 				C7B000000000000000000002 /* SoftwareUpdateControllerTests.swift */,
 				C4B000000000000000000003 /* TokenUsageStreakStoreTests.swift */,
@@ -343,6 +597,8 @@
 				A90200000000000000000006 /* DockHoverDelayTests.swift */,
 				D0C100000000000000000011 /* SystemMetricsFeatureTests.swift */,
 				E0B000000000000000000005 /* BatteryFeatureTests.swift */,
+				CA160000000000000000B007 /* CalendarFeatureTests.swift */,
+				CA160000000000000000B014 /* CalendarSyncTests.swift */,
 				F0B000000000000000000007 /* GitHubFeatureTests.swift */,
 				F1B000000000000000000002 /* LaunchAtLoginControllerTests.swift */,
 				A1B000000000000000000008 /* SearchConsoleFeatureTests.swift */,
@@ -353,8 +609,15 @@
 		03AB4D8D301BB7FA006D74C0 /* DockMagicUITests */ = {
 			isa = PBXGroup;
 			children = (
+				BA9271E7C9C57511D496152A /* MaiaUITests.swift */,
+				FA583EEA3E1B1B19EF067CE4 /* AugmentUITests.swift */,
+				B1B90000000000000000002B /* BinanceUITests.swift */,
+				BAD5DA5C123329E620D53F0B /* NowPlayingUITests.swift */,
+				783EB5EBEF27DFA8D47B9A8B /* OpenCodeUITests.swift */,
 				03AB4D8E301BB7FA006D74C0 /* DockMagicUITests.swift */,
+				E7B000000000000000000020 /* GrokUITests.swift */,
 				03AB4D90301BB7FA006D74C0 /* DockMagicUITestsLaunchTests.swift */,
+				CA160000000000000000B008 /* CalendarUITests.swift */,
 			);
 			path = DockMagicUITests;
 			sourceTree = "<group>";
@@ -370,7 +633,25 @@
 		D0C200000000000000000002 /* Models */ = {
 			isa = PBXGroup;
 			children = (
+				2DC392E8389699A165E16D7E /* AugmentPresentation.swift */,
+				BE623AAA48EBA3CC0FA44BE9 /* AugmentUsage.swift */,
+				FB27573D42A3E95F5A99EAE2 /* NowPlaying.swift */,
+				B1B900000000000000000001 /* BinanceMarketModels.swift */,
+				9A7C7F13185F4C6A1AF99E1C /* OpenCodePresentation.swift */,
+				9F71ABB3E00FACDB6A197AC1 /* OpenCodeUsage.swift */,
 				C9B000000000000000000001 /* AntigravityUsage.swift */,
+				E7B000000000000000000012 /* GrokBuildSettings.swift */,
+				E7B000000000000000000013 /* GrokIntegrationController.swift */,
+				E7B000000000000000000019 /* GrokUIFixtures.swift */,
+				E7B000000000000000000014 /* GrokBuildPresentation.swift */,
+				E7B000000000000000000015 /* GrokBuildHoverDashboardView.swift */,
+				E7B000000000000000000016 /* GrokBuildSettingsView.swift */,
+				E7B000000000000000000022 /* GrokBuildAuthenticationController.swift */,
+				E7B000000000000000000021 /* GrokBuildAuthenticationSection.swift */,
+				E7B000000000000000000017 /* DockGrokBuildView.swift */,
+				E7B000000000000000000001 /* GrokBuildUsage.swift */,
+				E7B000000000000000000009 /* GrokBuildObservation.swift */,
+				E7B000000000000000000010 /* GrokBuildActivityLedger.swift */,
 				C6B000000000000000000001 /* DeveloperToolInstallation.swift */,
 				C5B000000000000000000001 /* ServiceStatusSnapshot.swift */,
 				C4B000000000000000000001 /* TokenUsageStreakRecord.swift */,
@@ -378,6 +659,8 @@
 				A1B000000000000000000001 /* SearchConsoleModels.swift */,
 				E0B000000000000000000001 /* BatteryMetricsSnapshot.swift */,
 				D7B000000000000000000001 /* DockConfiguration.swift */,
+				CA160000000000000000B001 /* CalendarAgenda.swift */,
+				CA160000000000000000B009 /* CalendarEditing.swift */,
 				F0B000000000000000000001 /* GitHubRepositorySnapshot.swift */,
 				D7B000000000000000000002 /* CodexRateLimitSnapshot.swift */,
 				DAB000000000000000000001 /* NetworkMetricsSnapshot.swift */,
@@ -392,7 +675,29 @@
 		D0C200000000000000000003 /* Services */ = {
 			isa = PBXGroup;
 			children = (
+				FEC3C765A363BDB4C22D92C9 /* AugmentFixtures.swift */,
+				55D00EF34870BB6956ED7042 /* AugmentHistoryCache.swift */,
+				197428DE2FAE9BF43323A224 /* AugmentCredentialVault.swift */,
+				913591A465E369AE47433D66 /* AugmentAnalyticsClient.swift */,
+				F74EE7ED039EE81F51D4484E /* NowPlayingPanelController.swift */,
+				D0951D663EC20F21B5550206 /* NowPlayingFixtures.swift */,
+				6905A0B91C42FA6E6A576058 /* NowPlayingArtworkCache.swift */,
+				E8A1A600EBE963EB6EFD9570 /* AppleEventsPlaybackClient.swift */,
+				EFA9CFF734B71D9B8A5249BF /* NowPlayingProvider.swift */,
+				B1B900000000000000000004 /* BinanceMarketCache.swift */,
+				B1B900000000000000000003 /* BinanceMarketStreamClient.swift */,
+				B1B900000000000000000002 /* BinanceMarketDataClient.swift */,
+				285CEB13D5B05F09CF979CA6 /* OpenCodeHistoryCache.swift */,
+				498D2B9F1CA35547EF2E6C24 /* OpenCodeHistoryReader.swift */,
 				C9B000000000000000000002 /* AntigravityCLIUsageProvider.swift */,
+				E7B000000000000000000002 /* GrokBuildUsageParser.swift */,
+				E7B000000000000000000003 /* GrokBuildHistoryAggregator.swift */,
+				E7B000000000000000000004 /* GrokBuildSessionDiscovery.swift */,
+				E7B000000000000000000005 /* GrokBuildProcessRunner.swift */,
+				E7B000000000000000000006 /* GrokBuildCLIProvider.swift */,
+				E7B00000000000000000000A /* GrokBuildHistoryCache.swift */,
+				E7B00000000000000000000B /* GrokBuildLocalUsageProvider.swift */,
+				E7B00000000000000000000C /* GrokBuildFileEventMonitor.swift */,
 				C9B000000000000000000003 /* AntigravityStatusLineBridge.swift */,
 				C9B000000000000000000004 /* AntigravityStatusLineReader.swift */,
 				C8B000000000000000000001 /* ClaudeCodeUsageConnection.swift */,
@@ -418,6 +723,10 @@
 				DAB000000000000000000004 /* StorageMetricsSampler.swift */,
 				D0C100000000000000000009 /* ProcessMetricsSampler.swift */,
 				D0C100000000000000000002 /* SystemMetricsSampler.swift */,
+				CA160000000000000000B002 /* EventKitCalendarProvider.swift */,
+				CA160000000000000000B013 /* CalendarUITestProvider.swift */,
+				CA160000000000000000B011 /* CalendarEditorWindowController.swift */,
+				CA160000000000000000B010 /* EventKitCalendarWriter.swift */,
 				D9B000000000000000000002 /* OpenMeteoWeatherProvider.swift */,
 			);
 			path = Services;
@@ -426,11 +735,17 @@
 		D0C200000000000000000004 /* Stores */ = {
 			isa = PBXGroup;
 			children = (
+				9AE2F2EE17FD76B12E0C839C /* AugmentUsageStore.swift */,
+				405EF4D5702BE22A03B00E30 /* NowPlayingStore.swift */,
+				B1B900000000000000000005 /* BinanceMarketStore.swift */,
+				A2C02188610D75C9F2358447 /* OpenCodeUsageStore.swift */,
 				C9B000000000000000000005 /* AntigravityUsageStore.swift */,
+				E7B00000000000000000000D /* GrokBuildUsageStore.swift */,
 				C6B000000000000000000003 /* DeveloperToolInstallationStore.swift */,
 				C5B000000000000000000003 /* ServiceStatusStore.swift */,
 				C4B000000000000000000002 /* TokenUsageStreakStore.swift */,
 				B4B000000000000000000001 /* ClockStore.swift */,
+				CA160000000000000000B003 /* CalendarStore.swift */,
 				A1B000000000000000000005 /* SearchConsoleStore.swift */,
 				E0B000000000000000000003 /* BatteryMetricsStore.swift */,
 				D8B000000000000000000002 /* ClaudeCodeUsageStore.swift */,
@@ -459,8 +774,13 @@
 		D0C200000000000000000006 /* Dock */ = {
 			isa = PBXGroup;
 			children = (
+				215AF5AC0D6DFAA0CCCD2CB5 /* DockAugmentView.swift */,
+				522A0903D0E02557094C1E1A /* DockNowPlayingView.swift */,
+				B1B900000000000000000006 /* DockBinanceView.swift */,
+				E31379BC6A22D044D03AD75A /* DockOpenCodeView.swift */,
 				C9B000000000000000000006 /* DockAntigravityView.swift */,
 				B4B000000000000000000002 /* DockClockView.swift */,
+				CA160000000000000000B004 /* DockCalendarView.swift */,
 				A1B000000000000000000006 /* DockSearchConsoleView.swift */,
 				E0B000000000000000000004 /* DockBatteryView.swift */,
 				F0B000000000000000000002 /* DockGitHubView.swift */,
@@ -475,9 +795,15 @@
 		D0C200000000000000000008 /* Settings */ = {
 			isa = PBXGroup;
 			children = (
+				D2486EEC4B09BE3A5DC8E3DF /* AugmentSettingsView.swift */,
+				873E46CCDA6AB96335641941 /* NowPlayingSettingsView.swift */,
+				B1B900000000000000000009 /* BinanceSettingsView.swift */,
+				7601003927F97DEB4F70E205 /* OpenCodeSettingsView.swift */,
 				C8B000000000000000000002 /* ClaudeCodeSettingsView.swift */,
 				25B6738E8A8D32551895BEDE /* AntigravitySettingsView.swift */,
 				B4B000000000000000000003 /* ClockSettingsView.swift */,
+				CA160000000000000000B006 /* CalendarSettingsView.swift */,
+				CA160000000000000000B012 /* CalendarItemEditorView.swift */,
 				A1B000000000000000000007 /* SearchConsoleSettingsView.swift */,
 				F0B000000000000000000003 /* GitHubSettingsView.swift */,
 				DAB000000000000000000009 /* NetworkHistoryChart.swift */,
@@ -489,9 +815,15 @@
 		C3C000000000000000000001 /* Hover */ = {
 			isa = PBXGroup;
 			children = (
+				565BBE7951F2C599AD510358 /* AugmentHoverDashboardView.swift */,
+				39D04B5B0FE8FA7113B5CF62 /* NowPlayingHoverDashboardView.swift */,
+				B1B900000000000000000008 /* BinanceDashboardView.swift */,
+				B1B900000000000000000007 /* BinancePriceChartView.swift */,
+				2DED490EB3CBEBC44656003E /* OpenCodeHoverDashboardView.swift */,
 				C9B000000000000000000007 /* AntigravityHoverDashboardView.swift */,
 				C5B000000000000000000004 /* ServiceStatusHeaderView.swift */,
 				E1B000000000000000000001 /* WeatherHoverDashboardView.swift */,
+				CA160000000000000000B005 /* CalendarHoverDashboardView.swift */,
 				B83100000000000000000002 /* DashboardNativeHistoryViewport.swift */,
 				C3B000000000000000000002 /* CodexHoverDashboardView.swift */,
 				C3B000000000000000000005 /* CodexDailyTokenDetailView.swift */,
@@ -515,6 +847,9 @@
 		D5C000000000000000000002 /* Foundation */ = {
 			isa = PBXGroup;
 			children = (
+				AB531370E218A459F34DAF80 /* DSDataState.swift */,
+				B137976053E0A5250B6E1D1A /* DSIconName.swift */,
+				AEA79F9CDF2523D02995207C /* DSFonts.swift */,
 				D5B000000000000000000001 /* DesignTokens.swift */,
 				D5B000000000000000000002 /* DesignTheme.swift */,
 			);
@@ -524,6 +859,27 @@
 		D5C000000000000000000003 /* Components */ = {
 			isa = PBXGroup;
 			children = (
+				2F9FBEF70F4399F046A64B04 /* NowPlayingArtworkView.swift */,
+				DFF35F4A8C00ECD7531445F5 /* DSIdentityContainer.swift */,
+				1AD74614EC9356816CC1E30E /* DashboardExportActions.swift */,
+				B1B90000000000000000002C /* AIUsageHistoryChart.swift */,
+				34CCFF8F56B23C493933F7D8 /* ProviderDailyUsageBars.swift */,
+				F13A80A0100537D33BDCE2C8 /* DSSettingsCompositions.swift */,
+				4AC79045B26B2873B3DC549E /* DashboardSharePresenter.swift */,
+				52287AA73050BB6058E6958B /* DockHoverDashboardRoot.swift */,
+				32AEF4E2DB2E314046FBCFE3 /* DSComponentGallery.swift */,
+				B48BB68A5316EF6844DC8C0F /* DSPlanBadge.swift */,
+				FC6CC32FE7E906C95F697E50 /* DashboardHistoryViewport.swift */,
+				C5946CE991FC164529DE24E1 /* AIUsageCards.swift */,
+				710BD665EC178408D05A1FEA /* DashboardChrome.swift */,
+				FA7B5E0F54840BEBCF8F75A0 /* DSSlider.swift */,
+				497DD60ADA6C5F6ED761EA72 /* DSContent.swift */,
+				BC231BFD3837D678613C0809 /* DSSelect.swift */,
+				D5B000000000000000000099 /* DSSegmentedControl.swift */,
+				1FB2118F966A5C3070FAEDCB /* DSOverlay.swift */,
+				6831DCB18639B3F805CE7ABF /* DSFormControls.swift */,
+				ECBFD15D98998781838F907D /* MaiaFonts */,
+				03E96D0F18BE6AB71E0D8906 /* DSIcon.swift */,
 				D5B000000000000000000003 /* DSSurface.swift */,
 				D5B000000000000000000004 /* DSControls.swift */,
 				D5B000000000000000000005 /* DSComponents.swift */,
@@ -534,6 +890,7 @@
 		D5C000000000000000000004 /* Support */ = {
 			isa = PBXGroup;
 			children = (
+				B1B900000000000000000028 /* BinanceFixtures.swift */,
 				D5B000000000000000000006 /* ProjectTheme.swift */,
 				D7B000000000000000000007 /* SettingsWindowRouter.swift */,
 			);
@@ -652,7 +1009,8 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				C8A000000000000000000005 /* THIRD_PARTY_NOTICES.md in Resources */,
+				C31225CF140415DB95E41039 /* MaiaFonts in Resources */,
+				C8A000000000000000000005 /* ThirdPartyNotices.txt in Resources */,
 				03AB4D7A301BB7FA006D74C0 /* Preview Assets.xcassets in Resources */,
 				03AB4D77301BB7FA006D74C0 /* Assets.xcassets in Resources */,
 			);
@@ -679,7 +1037,81 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				8DB3677BF6ACF22F38230AD1 /* NowPlayingArtworkView.swift in Sources */,
+				632CCEEEFEB705FB0C1AC987 /* DSIdentityContainer.swift in Sources */,
+				ABFFBCDFC20FA003112A227D /* DashboardExportActions.swift in Sources */,
+				A6D7DD769C80DEE3E32060DE /* ProviderDailyUsageBars.swift in Sources */,
+				641B574227F6AED0224EA560 /* DSSettingsCompositions.swift in Sources */,
+				ECF3C685FCFB0C56F8A8C0B2 /* DashboardSharePresenter.swift in Sources */,
+				72F8E34B9D8AB071DA8E1315 /* DockHoverDashboardRoot.swift in Sources */,
+				80683D46D5912E27C314A17E /* DSComponentGallery.swift in Sources */,
+				B596992BFBD176E855353E8A /* DSPlanBadge.swift in Sources */,
+				A45318BB883D1ACC819E724B /* DashboardHistoryViewport.swift in Sources */,
+				E0CCBAA4199581239B9DAF05 /* AIUsageCards.swift in Sources */,
+				4A9B8A62C3B4BC6128DF83D3 /* DashboardChrome.swift in Sources */,
+				E533B71D261D7A645E831CE5 /* DSSlider.swift in Sources */,
+				E8C014C8D5149DE4768EBCCC /* DSContent.swift in Sources */,
+				C805CF5B075B1FA26AA3AC17 /* DSDataState.swift in Sources */,
+				724FF22CE16E6AB0A73B85C1 /* DSSelect.swift in Sources */,
+				D5A000000000000000000099 /* DSSegmentedControl.swift in Sources */,
+				673C8A96B46B0E5FDDA518F2 /* DSOverlay.swift in Sources */,
+				69C7BAD5E25E416F208EFC92 /* DSFormControls.swift in Sources */,
+				E66833DB8A4D3F3576076F6C /* DSIcon.swift in Sources */,
+				4FA556DAEE77217D8D651483 /* DSIconName.swift in Sources */,
+				32ABF263BC116779A41DFF65 /* DSFonts.swift in Sources */,
+				516B32A59647D48D918984C6 /* AugmentFixtures.swift in Sources */,
+				45FB7CDFF2D4FF72E84EED2D /* AugmentSettingsView.swift in Sources */,
+				B54C9D5809CBBF5D9EF49802 /* AugmentHoverDashboardView.swift in Sources */,
+				B8B69E05E3A6F4898F022FA0 /* DockAugmentView.swift in Sources */,
+				950ABAAC51A7BF0947B38383 /* AugmentUsageStore.swift in Sources */,
+				C28C19707B6A0C633904E5D6 /* AugmentHistoryCache.swift in Sources */,
+				2A2B6F907B0EAAEC2F692E64 /* AugmentCredentialVault.swift in Sources */,
+				5FA499CEF72D21648711BBFC /* AugmentAnalyticsClient.swift in Sources */,
+				D6AA1E99D35A1989D430871B /* AugmentPresentation.swift in Sources */,
+				E711F37F4A923990D6D7FBED /* AugmentUsage.swift in Sources */,
+				B1A90000000000000000002C /* AIUsageHistoryChart.swift in Sources */,
+				B1A900000000000000000028 /* BinanceFixtures.swift in Sources */,
+				80C9DE16FA5C757783E32CD6 /* NowPlayingSettingsView.swift in Sources */,
+				86330F991430DFA54B26BCD5 /* NowPlayingHoverDashboardView.swift in Sources */,
+				705A3D9BD9885C5B30927DF0 /* DockNowPlayingView.swift in Sources */,
+				9C80B660A334D297F2BAB30D /* NowPlayingStore.swift in Sources */,
+				C2A85840A2A59256F6071B06 /* NowPlayingPanelController.swift in Sources */,
+				35607A72B5775E272EC9E8EC /* NowPlayingFixtures.swift in Sources */,
+				21750A2CA8118A3EF864D4A9 /* NowPlayingArtworkCache.swift in Sources */,
+				BE9FC9D7B01411744FED80DC /* AppleEventsPlaybackClient.swift in Sources */,
+				A5FFE1BB5083C9A7C3E08B9D /* NowPlayingProvider.swift in Sources */,
+				5277526C2644CCF97431A9BB /* NowPlaying.swift in Sources */,
+				B1A900000000000000000009 /* BinanceSettingsView.swift in Sources */,
+				B1A900000000000000000008 /* BinanceDashboardView.swift in Sources */,
+				B1A900000000000000000007 /* BinancePriceChartView.swift in Sources */,
+				B1A900000000000000000006 /* DockBinanceView.swift in Sources */,
+				B1A900000000000000000005 /* BinanceMarketStore.swift in Sources */,
+				B1A900000000000000000004 /* BinanceMarketCache.swift in Sources */,
+				B1A900000000000000000003 /* BinanceMarketStreamClient.swift in Sources */,
+				B1A900000000000000000002 /* BinanceMarketDataClient.swift in Sources */,
+				B1A900000000000000000001 /* BinanceMarketModels.swift in Sources */,
 				C9A000000000000000000001 /* AntigravityUsage.swift in Sources */,
+				E7A000000000000000000012 /* GrokBuildSettings.swift in Sources */,
+				E7A000000000000000000013 /* GrokIntegrationController.swift in Sources */,
+				E7A000000000000000000019 /* GrokUIFixtures.swift in Sources */,
+				E7A000000000000000000014 /* GrokBuildPresentation.swift in Sources */,
+				E7A000000000000000000015 /* GrokBuildHoverDashboardView.swift in Sources */,
+				E7A000000000000000000016 /* GrokBuildSettingsView.swift in Sources */,
+				E7A000000000000000000022 /* GrokBuildAuthenticationController.swift in Sources */,
+				E7A000000000000000000021 /* GrokBuildAuthenticationSection.swift in Sources */,
+				E7A000000000000000000017 /* DockGrokBuildView.swift in Sources */,
+				E7A000000000000000000001 /* GrokBuildUsage.swift in Sources */,
+				E7A000000000000000000002 /* GrokBuildUsageParser.swift in Sources */,
+				E7A000000000000000000003 /* GrokBuildHistoryAggregator.swift in Sources */,
+				E7A000000000000000000004 /* GrokBuildSessionDiscovery.swift in Sources */,
+				E7A000000000000000000005 /* GrokBuildProcessRunner.swift in Sources */,
+				E7A000000000000000000006 /* GrokBuildCLIProvider.swift in Sources */,
+				E7A000000000000000000009 /* GrokBuildObservation.swift in Sources */,
+				E7A000000000000000000010 /* GrokBuildActivityLedger.swift in Sources */,
+				E7A00000000000000000000A /* GrokBuildHistoryCache.swift in Sources */,
+				E7A00000000000000000000B /* GrokBuildLocalUsageProvider.swift in Sources */,
+				E7A00000000000000000000C /* GrokBuildFileEventMonitor.swift in Sources */,
+				E7A00000000000000000000D /* GrokBuildUsageStore.swift in Sources */,
 				C9A000000000000000000002 /* AntigravityCLIUsageProvider.swift in Sources */,
 				C9A000000000000000000003 /* AntigravityStatusLineBridge.swift in Sources */,
 				C9A000000000000000000004 /* AntigravityStatusLineReader.swift in Sources */,
@@ -709,8 +1141,12 @@
 				C3A000000000000000000004 /* CodexDashboardCaptureService.swift in Sources */,
 				B2A000000000000000000001 /* DockIconRenderingRules.swift in Sources */,
 				B4A000000000000000000001 /* ClockStore.swift in Sources */,
+				CA160000000000000000A003 /* CalendarStore.swift in Sources */,
 				B4A000000000000000000002 /* DockClockView.swift in Sources */,
+				CA160000000000000000A004 /* DockCalendarView.swift in Sources */,
 				B4A000000000000000000003 /* ClockSettingsView.swift in Sources */,
+				CA160000000000000000A006 /* CalendarSettingsView.swift in Sources */,
+				CA160000000000000000A012 /* CalendarItemEditorView.swift in Sources */,
 				A1A000000000000000000001 /* SearchConsoleModels.swift in Sources */,
 				A1A000000000000000000002 /* SearchConsoleConfigurationRecord.swift in Sources */,
 				A1A000000000000000000004 /* SearchConsoleAPIClient.swift in Sources */,
@@ -718,9 +1154,14 @@
 				A1A000000000000000000006 /* DockSearchConsoleView.swift in Sources */,
 				A1A000000000000000000007 /* SearchConsoleSettingsView.swift in Sources */,
 				E1A000000000000000000001 /* WeatherHoverDashboardView.swift in Sources */,
+				CA160000000000000000A005 /* CalendarHoverDashboardView.swift in Sources */,
 				03AB4D71301BB7F7006D74C0 /* DockMagicApp.swift in Sources */,
 				D0C000000000000000000001 /* SystemMetricsSnapshot.swift in Sources */,
 				D0C000000000000000000002 /* SystemMetricsSampler.swift in Sources */,
+				CA160000000000000000A002 /* EventKitCalendarProvider.swift in Sources */,
+				CA160000000000000000A013 /* CalendarUITestProvider.swift in Sources */,
+				CA160000000000000000A011 /* CalendarEditorWindowController.swift in Sources */,
+				CA160000000000000000A010 /* EventKitCalendarWriter.swift in Sources */,
 				D0C000000000000000000003 /* SystemMetricsStore.swift in Sources */,
 				D0C000000000000000000004 /* DockTileController.swift in Sources */,
 				D0C000000000000000000005 /* DockMetricsView.swift in Sources */,
@@ -735,6 +1176,16 @@
 				D5A000000000000000000005 /* DSComponents.swift in Sources */,
 				D5A000000000000000000006 /* ProjectTheme.swift in Sources */,
 				D7A000000000000000000001 /* DockConfiguration.swift in Sources */,
+				CD9FA6103F4ADCDB6ED06B2A /* OpenCodeSettingsView.swift in Sources */,
+				2AA4BD9FC632E17894288183 /* OpenCodeHoverDashboardView.swift in Sources */,
+				31A73A226A6F75E83B3D2013 /* DockOpenCodeView.swift in Sources */,
+				002B400A81D152CCD26871B1 /* OpenCodeUsageStore.swift in Sources */,
+				69F3EB868CEC30DE6CA1DB0C /* OpenCodeHistoryCache.swift in Sources */,
+				091D621570727E401C08DE53 /* OpenCodeHistoryReader.swift in Sources */,
+				32233786F118B1DDB06FEBDA /* OpenCodePresentation.swift in Sources */,
+				845AE7332747CFA16A0A3C0F /* OpenCodeUsage.swift in Sources */,
+				CA160000000000000000A001 /* CalendarAgenda.swift in Sources */,
+				CA160000000000000000A009 /* CalendarEditing.swift in Sources */,
 				D7A000000000000000000002 /* CodexRateLimitSnapshot.swift in Sources */,
 				D7A000000000000000000003 /* CodexRateLimitProvider.swift in Sources */,
 				B91100000000000000000001 /* ProcessPipe.swift in Sources */,
@@ -778,16 +1229,34 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				25E4BD0520DB34C277E10DF4 /* MaiaDesignSystemTests.swift in Sources */,
+				A8CBA009563DBC28BDC03AF3 /* AugmentIntegrationTests.swift in Sources */,
+				53F6AC5AB7FFB636C8363E8A /* AugmentStoreTests.swift in Sources */,
+				E7C7764B0289BD21024EA16E /* AugmentAnalyticsTests.swift in Sources */,
+				B1A90000000000000000002A /* BinanceRenderTests.swift in Sources */,
+				51A3A590FBE74E43FCB4FC71 /* NowPlayingTests.swift in Sources */,
+				B1A900000000000000000029 /* BinanceFeatureTests.swift in Sources */,
 				C9A000000000000000000008 /* AntigravityFeatureTests.swift in Sources */,
+				E7A000000000000000000007 /* GrokBuildFoundationTests.swift in Sources */,
+				E7A000000000000000000008 /* GrokBuildLiveProbeTests.swift in Sources */,
+				E7A00000000000000000000E /* GrokBuildIntegrationTests.swift in Sources */,
+				E7A00000000000000000000F /* GrokBuildProcessLifecycleTests.swift in Sources */,
+				E7A000000000000000000018 /* GrokPresentationTests.swift in Sources */,
+				E7A000000000000000000011 /* GrokBuildDerivedTests.swift in Sources */,
 				C8A000000000000000000004 /* ClaudeCodeUsageConnectionTests.swift in Sources */,
 				C7A000000000000000000002 /* SoftwareUpdateControllerTests.swift in Sources */,
 				C4A000000000000000000003 /* TokenUsageStreakStoreTests.swift in Sources */,
 				03AB4D85301BB7FA006D74C0 /* DockMagicTests.swift in Sources */,
+				62F7FB56D1C81C25236742D0 /* OpenCodeIntegrationTests.swift in Sources */,
+				C5DAA0DDD6A84294C6C1B1EE /* OpenCodeStoreTests.swift in Sources */,
+				F0E1497D849EC7EBEE0E5325 /* OpenCodeHistoryTests.swift in Sources */,
 				A90200000000000000000003 /* StartupRecoveryTests.swift in Sources */,
 				B91100000000000000000003 /* ProcessResourceTests.swift in Sources */,
 				A90200000000000000000005 /* DockHoverDelayTests.swift in Sources */,
 				D0C000000000000000000011 /* SystemMetricsFeatureTests.swift in Sources */,
 				E0A000000000000000000005 /* BatteryFeatureTests.swift in Sources */,
+				CA160000000000000000A007 /* CalendarFeatureTests.swift in Sources */,
+				CA160000000000000000A014 /* CalendarSyncTests.swift in Sources */,
 				F0A000000000000000000007 /* GitHubFeatureTests.swift in Sources */,
 				F1A000000000000000000002 /* LaunchAtLoginControllerTests.swift in Sources */,
 				A1A000000000000000000008 /* SearchConsoleFeatureTests.swift in Sources */,
@@ -798,8 +1267,15 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				4E7EC4E6E0E400FEEAE92B54 /* MaiaUITests.swift in Sources */,
+				CFEC173B1B4A69C7144E1E4E /* AugmentUITests.swift in Sources */,
+				B1A90000000000000000002B /* BinanceUITests.swift in Sources */,
+				FE7993F6AB42250DE83CD3FE /* NowPlayingUITests.swift in Sources */,
 				03AB4D8F301BB7FA006D74C0 /* DockMagicUITests.swift in Sources */,
+				E7A000000000000000000020 /* GrokUITests.swift in Sources */,
+				ED09378213FB1043C6A0569B /* OpenCodeUITests.swift in Sources */,
 				03AB4D91301BB7FA006D74C0 /* DockMagicUITestsLaunchTests.swift in Sources */,
+				CA160000000000000000A008 /* CalendarUITests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

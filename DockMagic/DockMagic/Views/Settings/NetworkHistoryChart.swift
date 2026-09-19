@@ -75,10 +75,7 @@ struct NetworkHistoryChart: View {
                     .padding(DSSpacing.standard)
                     .background(theme.opaqueSurfaceInset.opacity(0.92))
                     .clipShape(
-                        RoundedRectangle(
-                            cornerRadius: DSRadius.control,
-                            style: .continuous
-                        )
+                        Capsule(style: .circular)
                     )
                     .allowsHitTesting(false)
             }

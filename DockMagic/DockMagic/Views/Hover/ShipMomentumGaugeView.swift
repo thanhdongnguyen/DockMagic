@@ -6,6 +6,7 @@ struct ShipMomentumGauge: View {
     let score: Int?
     let rank: CodexShipRank?
     let accent: Color
+    let valueForeground: Color?
     let animationTime: TimeInterval?
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -20,11 +21,13 @@ struct ShipMomentumGauge: View {
         score: Int?,
         rank: CodexShipRank?,
         accent: Color,
+        valueForeground: Color? = nil,
         animationTime: TimeInterval? = nil
     ) {
         self.score = score
         self.rank = rank
         self.accent = accent
+        self.valueForeground = valueForeground
         self.animationTime = animationTime
     }
 
@@ -215,8 +218,8 @@ struct ShipMomentumGauge: View {
             )
 
             Text(score.map(String.init) ?? "—")
-                .font(.system(size: 15, weight: .bold, design: .rounded))
-                .foregroundStyle(theme.textPrimary)
+                .dsFont(size: 15, weight: .bold)
+                .foregroundStyle(score == nil ? theme.textPrimary : (valueForeground ?? theme.textPrimary))
                 .monospacedDigit()
                 .padding(.horizontal, 4)
                 .background(theme.opaqueSurfaceInset)

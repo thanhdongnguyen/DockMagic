@@ -1,0 +1,321 @@
+[
+  {
+    "check": "catalog",
+    "url": "https://data-api.binance.vision/api/v3/exchangeInfo?permissions=SPOT&symbolStatus=TRADING&showPermissionSets=false",
+    "checked_at_utc": "2026-09-16T09:28:59.757074+00:00",
+    "http_status": 200,
+    "weight_headers": {
+      "x-mbx-used-weight": "20",
+      "x-mbx-used-weight-1m": "20"
+    },
+    "symbols_count": 1370,
+    "usdt_symbols_count": 491,
+    "rate_limits": [
+      {
+        "rateLimitType": "REQUEST_WEIGHT",
+        "interval": "MINUTE",
+        "intervalNum": 1,
+        "limit": 6000
+      },
+      {
+        "rateLimitType": "ORDERS",
+        "interval": "SECOND",
+        "intervalNum": 10,
+        "limit": 100
+      },
+      {
+        "rateLimitType": "ORDERS",
+        "interval": "DAY",
+        "intervalNum": 1,
+        "limit": 200000
+      },
+      {
+        "rateLimitType": "RAW_REQUESTS",
+        "interval": "MINUTE",
+        "intervalNum": 5,
+        "limit": 300000
+      }
+    ],
+    "btc_metadata": {
+      "symbol": "BTCUSDT",
+      "status": "TRADING",
+      "baseAsset": "BTC",
+      "baseAssetPrecision": 8,
+      "quoteAsset": "USDT",
+      "quotePrecision": 8,
+      "quoteAssetPrecision": 8,
+      "baseCommissionPrecision": 8,
+      "quoteCommissionPrecision": 8,
+      "orderTypes": [
+        "LIMIT",
+        "LIMIT_MAKER",
+        "MARKET",
+        "STOP_LOSS",
+        "STOP_LOSS_LIMIT",
+        "TAKE_PROFIT",
+        "TAKE_PROFIT_LIMIT"
+      ],
+      "icebergAllowed": true,
+      "ocoAllowed": true,
+      "otoAllowed": true,
+      "opoAllowed": true,
+      "quoteOrderQtyMarketAllowed": true,
+      "allowTrailingStop": true,
+      "cancelReplaceAllowed": true,
+      "amendAllowed": true,
+      "pegInstructionsAllowed": true,
+      "isSpotTradingAllowed": true,
+      "isMarginTradingAllowed": true,
+      "filters": [
+        {
+          "filterType": "PRICE_FILTER",
+          "minPrice": "0.01000000",
+          "maxPrice": "1000000.00000000",
+          "tickSize": "0.01000000"
+        },
+        {
+          "filterType": "LOT_SIZE",
+          "minQty": "0.00001000",
+          "maxQty": "9000.00000000",
+          "stepSize": "0.00001000"
+        },
+        {
+          "filterType": "ICEBERG_PARTS",
+          "limit": 100
+        },
+        {
+          "filterType": "MARKET_LOT_SIZE",
+          "minQty": "0.00000000",
+          "maxQty": "147.36605758",
+          "stepSize": "0.00000000"
+        },
+        {
+          "filterType": "TRAILING_DELTA",
+          "minTrailingAboveDelta": 10,
+          "maxTrailingAboveDelta": 2000,
+          "minTrailingBelowDelta": 10,
+          "maxTrailingBelowDelta": 2000
+        },
+        {
+          "filterType": "PERCENT_PRICE_BY_SIDE",
+          "bidMultiplierUp": "1.2",
+          "bidMultiplierDown": "0.5",
+          "askMultiplierUp": "2",
+          "askMultiplierDown": "0.8",
+          "avgPriceMins": 5
+        },
+        {
+          "filterType": "NOTIONAL",
+          "minNotional": "5.00000000",
+          "applyMinToMarket": true,
+          "maxNotional": "9000000.00000000",
+          "applyMaxToMarket": false,
+          "avgPriceMins": 5
+        },
+        {
+          "filterType": "MAX_NUM_ORDERS",
+          "maxNumOrders": 200
+        },
+        {
+          "filterType": "MAX_NUM_ORDER_LISTS",
+          "maxNumOrderLists": 20
+        },
+        {
+          "filterType": "MAX_NUM_ALGO_ORDERS",
+          "maxNumAlgoOrders": 5
+        },
+        {
+          "filterType": "MAX_NUM_ORDER_AMENDS",
+          "maxNumOrderAmends": 10
+        }
+      ],
+      "permissions": [],
+      "permissionSets": [],
+      "defaultSelfTradePreventionMode": "EXPIRE_MAKER",
+      "allowedSelfTradePreventionModes": [
+        "EXPIRE_TAKER",
+        "EXPIRE_MAKER",
+        "EXPIRE_BOTH",
+        "DECREMENT",
+        "TRANSFER"
+      ]
+    }
+  },
+  {
+    "check": "tickers",
+    "url": "https://data-api.binance.vision/api/v3/ticker/24hr?symbols=%5B%22BTCUSDT%22%2C%22ETHUSDT%22%2C%22SOLUSDT%22%5D",
+    "checked_at_utc": "2026-09-16T09:28:59.757657+00:00",
+    "http_status": 200,
+    "weight_headers": {
+      "x-mbx-used-weight": "24",
+      "x-mbx-used-weight-1m": "24"
+    },
+    "symbols": [
+      "BTCUSDT",
+      "ETHUSDT",
+      "SOLUSDT"
+    ],
+    "fields": [
+      "symbol",
+      "priceChange",
+      "priceChangePercent",
+      "weightedAvgPrice",
+      "prevClosePrice",
+      "lastPrice",
+      "lastQty",
+      "bidPrice",
+      "bidQty",
+      "askPrice",
+      "askQty",
+      "openPrice",
+      "highPrice",
+      "lowPrice",
+      "volume",
+      "quoteVolume",
+      "openTime",
+      "closeTime",
+      "firstId",
+      "lastId",
+      "count"
+    ]
+  },
+  {
+    "check": "btc_1h",
+    "url": "https://data-api.binance.vision/api/v3/klines?symbol=BTCUSDT&interval=1m&limit=61",
+    "checked_at_utc": "2026-09-16T09:28:59.757969+00:00",
+    "http_status": 200,
+    "weight_headers": {
+      "x-mbx-used-weight": "22",
+      "x-mbx-used-weight-1m": "22"
+    },
+    "count": 61,
+    "row_width": 12,
+    "first_open_time": 1789547280000,
+    "last_open_time": 1789550880000,
+    "unique_sorted": true,
+    "first_row": [
+      1789547280000,
+      "75429.22000000",
+      "75450.00000000",
+      "75406.54000000",
+      "75447.45000000",
+      "15.76862000",
+      1789547339999,
+      "1189507.00662230",
+      2054,
+      "13.01100000",
+      "981485.64202620",
+      "0"
+    ],
+    "last_row": [
+      1789550880000,
+      "75872.35000000",
+      "75872.36000000",
+      "75854.00000000",
+      "75855.22000000",
+      "2.91488000",
+      1789550939999,
+      "221126.37898820",
+      1215,
+      "0.57880000",
+      "43907.73709820",
+      "0"
+    ],
+    "ohlc_valid": true
+  },
+  {
+    "check": "eth_24h",
+    "url": "https://data-api.binance.vision/api/v3/klines?symbol=ETHUSDT&interval=5m&limit=289",
+    "checked_at_utc": "2026-09-16T09:29:00.359386+00:00",
+    "http_status": 200,
+    "weight_headers": {
+      "x-mbx-used-weight": "28",
+      "x-mbx-used-weight-1m": "28"
+    },
+    "count": 289,
+    "row_width": 12,
+    "first_open_time": 1789464300000,
+    "last_open_time": 1789550700000,
+    "unique_sorted": true,
+    "first_row": [
+      1789464300000,
+      "2474.31000000",
+      "2475.41000000",
+      "2473.60000000",
+      "2475.40000000",
+      "375.43740000",
+      1789464599999,
+      "928964.44642400",
+      3995,
+      "219.71100000",
+      "543628.71262700",
+      "0"
+    ],
+    "last_row": [
+      1789550700000,
+      "2404.28000000",
+      "2404.80000000",
+      "2401.92000000",
+      "2403.59000000",
+      "749.25410000",
+      1789550999999,
+      "1800775.47838400",
+      5315,
+      "279.50280000",
+      "671828.91215700",
+      "0"
+    ],
+    "ohlc_valid": true
+  },
+  {
+    "check": "sol_7d",
+    "url": "https://data-api.binance.vision/api/v3/klines?symbol=SOLUSDT&interval=1h&limit=169",
+    "checked_at_utc": "2026-09-16T09:29:00.360162+00:00",
+    "http_status": 200,
+    "weight_headers": {
+      "x-mbx-used-weight": "26",
+      "x-mbx-used-weight-1m": "26"
+    },
+    "count": 169,
+    "row_width": 12,
+    "first_open_time": 1788944400000,
+    "last_open_time": 1789549200000,
+    "unique_sorted": true,
+    "first_row": [
+      1788944400000,
+      "104.83000000",
+      "104.86000000",
+      "103.46000000",
+      "103.50000000",
+      "95137.09200000",
+      1788947999999,
+      "9887217.37431000",
+      37040,
+      "43350.23300000",
+      "4505855.20247000",
+      "0"
+    ],
+    "last_row": [
+      1789549200000,
+      "97.02000000",
+      "97.30000000",
+      "97.02000000",
+      "97.18000000",
+      "55679.24700000",
+      1789552799999,
+      "5410579.75365000",
+      8912,
+      "26499.98500000",
+      "2575067.43242000",
+      "0"
+    ],
+    "ohlc_valid": true
+  },
+  {
+    "check": "invalid_symbol",
+    "url": "https://data-api.binance.vision/api/v3/klines?symbol=NOT_A_SYMBOL&interval=1m&limit=1",
+    "checked_at_utc": "2026-09-16T09:29:01.741069+00:00",
+    "http_status": 400,
+    "error_body": "{\"code\":-1121,\"msg\":\"Invalid symbol.\"}"
+  }
+]

@@ -4,19 +4,11 @@ struct ClockDisplayStylePicker: View {
     @Binding var selection: DockClockDisplayStyle
 
     var body: some View {
-        Picker("Clock style", selection: $selection) {
-            ForEach(DockClockDisplayStyle.allCases) { style in
-                Text(style.title)
-                    .tag(style)
-                    .accessibilityIdentifier(
-                        "settings.clock.styleOption.\(style.rawValue)"
-                    )
-            }
-        }
-        .labelsHidden()
-        .pickerStyle(.segmented)
-        .accessibilityLabel("Clock style")
-        .accessibilityValue(selection.title)
+        DSSegmentedControl(title: "Clock style", selection: $selection,
+            options: DockClockDisplayStyle.allCases.map {
+                .init(value: $0, title: $0.title,
+                      accessibilityIdentifier: "settings.clock.styleOption.\($0.rawValue)")
+            }, size: .small)
         .accessibilityIdentifier("settings.clock.style")
     }
 }
@@ -114,7 +106,7 @@ struct ClockSettingsView: View {
                         isOn: followsSystemTimeZone
                     )
                     .labelsHidden()
-                    .toggleStyle(.switch)
+                    .toggleStyle(DSSwitchStyle())
                     .accessibilityIdentifier(
                         "settings.clock.followSystemTimeZone"
                     )
@@ -128,14 +120,10 @@ struct ClockSettingsView: View {
                         detail: "Choose a city-based IANA time zone.",
                         systemImage: "mappin.and.ellipse"
                     ) {
-                        Picker("Clock location", selection: timeZoneIdentifier) {
-                            ForEach(ClockTimeZoneCatalog.options) { option in
-                                Text(option.title)
-                                    .tag(option.id)
-                            }
-                        }
+                        DSSelect(title: "Clock location", selection: timeZoneIdentifier,
+                                 options: ClockTimeZoneCatalog.options.map { .init(value: $0.id, title: $0.title) }, searchable: true)
                         .labelsHidden()
-                        .pickerStyle(.menu)
+
                         .frame(width: 280)
                         .accessibilityLabel("Clock location")
                         .accessibilityValue(locationTitle)
@@ -182,9 +170,9 @@ private struct ClockPreviewValue: View {
 
     var body: some View {
         HStack(spacing: DSSpacing.standard) {
-            Image(systemName: systemImage)
+            DSIcon(systemName: systemImage)
                 .symbolRenderingMode(.monochrome)
-                .font(.system(size: 14, weight: .semibold))
+                .dsFont(size: 14, weight: .semibold)
                 .foregroundStyle(theme.textSecondary)
                 .frame(width: 20)
                 .accessibilityHidden(true)

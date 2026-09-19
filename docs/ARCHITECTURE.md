@@ -66,7 +66,7 @@ Settings uses a native `NavigationSplitView`:
 | `ClaudeCodeHoverDashboardView` | Renders quota rows, next reset, snapshot freshness, and all availability states without reading private session data |
 | `AntigravityUsageStore` | Polls official model-pool quota, ingests optional status-line observations, owns freshness, and derives bounded partial daily usage |
 | `AntigravityCLIUsageProvider` | Resolves `agy`, launches the fixed documented `/usage` command, and schema-gates structured quota buckets without parsing prose |
-| `AntigravityConnectionSettingsView` | Presents missing-CLI, signed-out, checking, connected, stale, and failed states, hosts the unmodified interactive `agy` session for browser sign-in, and keeps fixed-command sign-out non-interactive |
+| `AntigravityConnectionSettingsView` | Presents missing-CLI, signed-out, connected, stale, and failed outcomes while automatic checking stays background-only; hosts the unmodified interactive `agy` session for browser sign-in and keeps fixed-command sign-out non-interactive |
 | `AntigravityStatusLineBridge` / `AntigravityStatusLineReader` | Preserve the prior command, write/read only allowlisted private snapshots, and hash raw session identifiers |
 | `AntigravityHoverDashboardView` | Renders all quota pools plus clearly labelled partial local context, activity, and streak observations |
 | `DockTileController` | Renders the canonical high-resolution application icon, publishes minute-boundary Clock animation frames, and calls `NSDockTile.display()` |
@@ -671,3 +671,18 @@ observing pixels produced by the system Dock compositor or manually testing
 VoiceOver before release. An XCUI runner on macOS requires a valid Apple
 Development signing identity. If AppleSystemPolicy kills an unsigned runner
 before test bootstrap, that must not be reported as a product-test failure.
+
+### OpenCode local history
+
+`OpenCodeHistoryReader` → `OpenCodeUsageSnapshot` → `OpenCodeUsageStore` supplies
+Dock, Settings and the hover dashboard from one selected read-only SQLite source.
+A metadata-only, versioned source/timezone cache and generation cancellation keep
+refreshes idempotent. OpenCode selects shared activity modules through its typed
+manifest; it does not use a quota state or require the CLI/server. See
+[OPENCODE_USAGE.md](OPENCODE_USAGE.md) for schemas, coverage, lifecycle and QA.
+
+### Augment organization analytics
+
+`AugmentUsageStore` coordinates the injectable cost-analytics client, dedicated Keychain vault and normalized overview cache. DAY requests contain no user filter/grouping. RESOURCE requests are separate, optional model queries; compute stays in overview costs. Tokens use Int64; USD uses Decimal. UTC ranges end at yesterday by product policy. Dock defaults to same-day IN/OUT; dashboard selects 7/30/90 days. Connection generation prevents late responses after rotation/disconnect; refresh is coalesced and visibility-limited at six hours. No new entitlement, CLI or browser session is involved. See [the provider dossier](AUGMENT_API_RESEARCH.md) and [verification notes](AUGMENT_USAGE.md).
+
+`AIUsageHistoryChart` takes dated optional Decimal values, timezone, unit formatter, partial state and a caller-supplied data color. `AIUsageTokenHistoryChart` is the provider-neutral adapter for the legacy integer token buckets; Claude's `ProviderDailyUsageBars` is now a data/empty-state adapter over the same renderer. Missing/zero/currency remain distinct. OpenCode and Augment pass their persisted appearance color through contrast resolution to the shared chart, while Claude supplies its clay usage color. Augment's explicit manifest enables only identity, official status link, daily usage/detail and model breakdown.

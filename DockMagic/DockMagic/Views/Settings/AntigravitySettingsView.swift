@@ -1,5 +1,6 @@
 import AppKit
 import Observation
+import OSLog
 import SwiftTerm
 import SwiftUI
 
@@ -21,6 +22,15 @@ struct AntigravityConnectionSettingsView: View {
         case refresh
     }
 
+    enum ActionPresentation: Equatable {
+        case install
+        case signIn
+        case authenticated
+        case stale
+        case failed
+        case hidden
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: DSSpacing.large) {
             connectionRow
@@ -38,22 +48,14 @@ struct AntigravityConnectionSettingsView: View {
                     sessionID: terminalSessionID,
                     executableURL: executableURL
                 )
+                .id(terminalSessionID)
                 .frame(height: showsTerminal ? nil : 0)
                 .clipped()
                 .allowsHitTesting(showsTerminal)
                 .accessibilityHidden(!showsTerminal)
             }
         }
-        .padding(DSSpacing.xLarge)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .dsSurface(
-            RoundedRectangle(
-                cornerRadius: DSRadius.largePanel,
-                style: .continuous
-            ),
-            kind: .raised,
-            elevation: .primary
-        )
+        .dsCard()
     }
 
     private var connectionRow: some View {
@@ -63,6 +65,7 @@ struct AntigravityConnectionSettingsView: View {
                 .foregroundStyle(theme.textPrimary)
                 .lineLimit(1)
                 .layoutPriority(1)
+                .accessibilityLabel(connectionTitleAccessibilityLabel)
 
             Spacer(minLength: DSSpacing.section)
 
@@ -81,8 +84,8 @@ struct AntigravityConnectionSettingsView: View {
                     .controlSize(.small)
                     .accessibilityHidden(true)
             } else if let systemImage = presentation.systemImage {
-                Image(systemName: systemImage)
-                    .font(.system(size: 14, weight: .semibold))
+                DSIcon(systemName: systemImage)
+                    .dsFont(size: 14, weight: .semibold)
                     .foregroundStyle(
                         presentation.role == .neutral
                             ? theme.textSecondary
@@ -111,20 +114,20 @@ struct AntigravityConnectionSettingsView: View {
 
     @ViewBuilder
     private var actions: some View {
-        switch store.connectionState {
-        case .cliMissing:
+        switch actionPresentation {
+        case .install:
             Button("Install agy", action: installCLI)
-                .buttonStyle(DSButtonStyle(kind: .primary))
+                .buttonStyle(DSButtonStyle(emphasis: .primary))
                 .disabled(installationState == .installing)
                 .accessibilityIdentifier("settings.antigravity.install")
-        case .signedOut:
+        case .signIn:
             Button("Sign in with Antigravity") {
                 startSignIn()
             }
-            .buttonStyle(DSButtonStyle(kind: .primary))
+            .buttonStyle(DSButtonStyle(emphasis: .primary))
             .focused($focusedAction, equals: .signIn)
             .accessibilityIdentifier("settings.antigravity.signIn")
-        case .connected:
+        case .authenticated:
             HStack(spacing: DSSpacing.small) {
                 refreshButton
                 moreActions
@@ -132,18 +135,47 @@ struct AntigravityConnectionSettingsView: View {
         case .stale:
             HStack(spacing: DSSpacing.small) {
                 Button("Retry") { Task { await store.refresh() } }
-                    .buttonStyle(DSButtonStyle(kind: .primary))
+                    .buttonStyle(DSButtonStyle(emphasis: .primary))
                     .disabled(store.isRefreshing)
                     .accessibilityIdentifier("settings.antigravity.retry")
                 moreActions
             }
         case .failed:
             Button("Retry") { Task { await store.refresh() } }
-                .buttonStyle(DSButtonStyle(kind: .primary))
+                .buttonStyle(DSButtonStyle(emphasis: .primary))
                 .disabled(store.isRefreshing)
                 .accessibilityIdentifier("settings.antigravity.retry")
-        case .checking, .signingIn, .signingOut:
+        case .hidden:
             EmptyView()
+        }
+    }
+
+    private var actionPresentation: ActionPresentation {
+        Self.actionPresentation(
+            for: store.connectionState,
+            hasAuthenticatedContext: store.hasAuthenticatedConnectionContext
+        )
+    }
+
+    static func actionPresentation(
+        for state: AntigravityConnectionState,
+        hasAuthenticatedContext: Bool
+    ) -> ActionPresentation {
+        switch state {
+        case .cliMissing:
+            .install
+        case .checking:
+            hasAuthenticatedContext ? .authenticated : .signIn
+        case .signedOut:
+            .signIn
+        case .signingIn, .signingOut:
+            .hidden
+        case .connected:
+            .authenticated
+        case .stale:
+            .stale
+        case .failed:
+            .failed
         }
     }
 
@@ -151,7 +183,7 @@ struct AntigravityConnectionSettingsView: View {
         Button {
             Task { await store.refresh() }
         } label: {
-            Image(systemName: "arrow.clockwise")
+            DSIcon(systemName: "arrow.clockwise")
         }
         .buttonStyle(DSIconButtonStyle(visualSize: 28, hitSize: 36))
         .disabled(store.isRefreshing)
@@ -162,9 +194,9 @@ struct AntigravityConnectionSettingsView: View {
     }
 
     private var moreActions: some View {
-        Menu {
+        DSMenu {
             if terminalSessionID != nil {
-                Button(showsTerminal ? "Hide authentication log" : "Show authentication log") {
+                DSMenuButton(showsTerminal ? "Hide authentication log" : "Show authentication log") {
                     showsTerminal.toggle()
                 }
                 .accessibilityIdentifier("settings.antigravity.showAuthLog")
@@ -172,29 +204,26 @@ struct AntigravityConnectionSettingsView: View {
                 Divider()
             }
 
-            Button(role: .destructive) {
+            DSMenuButton(role: .destructive) {
                 startSignOut()
             } label: {
-                Label("Sign Out", systemImage: "rectangle.portrait.and.arrow.right")
+                DSLabel("Sign Out", systemImage: "rectangle.portrait.and.arrow.right")
             }
             .accessibilityIdentifier("settings.antigravity.signOut")
         } label: {
-            Image(systemName: "ellipsis")
-                .font(.system(size: 12, weight: .semibold))
+            DSIcon(systemName: "ellipsis")
+                .dsFont(size: 12, weight: .semibold)
                 .foregroundStyle(theme.textPrimary)
                 .frame(width: 28, height: 28)
                 .background(
                     theme.opaqueSurfaceChrome,
-                    in: RoundedRectangle(
-                        cornerRadius: DSRadius.control,
-                        style: .continuous
-                    )
+                    in: Capsule(style: .circular)
                 )
                 .frame(width: 36, height: 36)
                 .contentShape(Rectangle())
         }
-        .menuStyle(.borderlessButton)
-        .menuIndicator(.hidden)
+
+
         .fixedSize()
         .help("More Antigravity connection actions")
         .accessibilityLabel("More Antigravity connection actions")
@@ -224,13 +253,17 @@ struct AntigravityConnectionSettingsView: View {
                 controller: terminalController
             ) { exitCode in
                 Task { @MainActor in
+                    guard terminalSessionID == sessionID else { return }
                     if ignoresNextTerminalExit {
                         ignoresNextTerminalExit = false
                         return
                     }
-                    guard exitCode == 0 else { return }
                     showsTerminal = false
-                    await store.signInProcessDidFinish()
+                    if exitCode == 0 {
+                        await store.signInProcessDidFinish()
+                    } else {
+                        await store.cancelAuthentication()
+                    }
                     updateFocusAfterAuthentication()
                 }
             }
@@ -239,6 +272,7 @@ struct AntigravityConnectionSettingsView: View {
             HStack(spacing: DSSpacing.small) {
                 Button("Cancel") {
                     stopTerminal()
+                    terminalSessionID = nil
                     Task {
                         await store.cancelAuthentication()
                         updateFocusAfterAuthentication()
@@ -261,7 +295,7 @@ struct AntigravityConnectionSettingsView: View {
                         updateFocusAfterAuthentication()
                     }
                 }
-                .buttonStyle(DSButtonStyle(kind: .primary))
+                .buttonStyle(DSButtonStyle(emphasis: .primary))
                 .accessibilityIdentifier("settings.antigravity.checkAuth")
             }
         }
@@ -372,11 +406,25 @@ struct AntigravityConnectionSettingsView: View {
     }
 
     private var showsConnectionSummary: Bool {
-        switch store.connectionState {
-        case .cliMissing, .signedOut:
+        Self.displaysConnectionSummary(for: store.connectionState)
+    }
+
+    static func displaysConnectionSummary(
+        for state: AntigravityConnectionState
+    ) -> Bool {
+        switch state {
+        case .cliMissing, .checking, .signedOut:
             false
-        case .checking, .signingIn, .signingOut, .connected, .stale, .failed:
+        case .signingIn, .signingOut, .connected, .stale, .failed:
             true
+        }
+    }
+
+    private var connectionTitleAccessibilityLabel: String {
+        if case .checking = store.connectionState {
+            "Antigravity connection, checking in background"
+        } else {
+            "Antigravity connection"
         }
     }
 
@@ -438,7 +486,7 @@ private struct AntigravityTerminalSurface: View {
     private var terminalTitleBar: some View {
         ZStack {
             Text("Antigravity authentication")
-                .font(.system(size: 13, weight: .medium))
+                .dsFont(size: 13, weight: .medium)
                 .foregroundStyle(theme.terminalSecondary)
                 .lineLimit(1)
                 .accessibilityIdentifier(
@@ -453,22 +501,16 @@ private struct AntigravityTerminalSurface: View {
                 Spacer(minLength: DSSpacing.standard)
 
                 Text("agy CLI")
-                    .font(.system(size: 12, weight: .medium))
+                    .dsFont(size: 12, weight: .medium)
                     .foregroundStyle(theme.terminalForeground)
                     .padding(.horizontal, DSSpacing.standard)
                     .frame(height: 28)
                     .background(
                         theme.terminalBackground,
-                        in: RoundedRectangle(
-                            cornerRadius: DSRadius.control,
-                            style: .continuous
-                        )
+                        in: Capsule(style: .circular)
                     )
                     .overlay {
-                        RoundedRectangle(
-                            cornerRadius: DSRadius.control,
-                            style: .continuous
-                        )
+                        Capsule(style: .circular)
                         .strokeBorder(theme.terminalOutline, lineWidth: 1)
                     }
                     .accessibilityLabel("agy CLI authentication session")
@@ -495,8 +537,8 @@ private struct AntigravityTerminalTrafficLights: View {
     }
 
     private func light(color: SwiftUI.Color) -> some View {
-        Image(systemName: "circle.fill")
-            .font(.system(size: 12, weight: .regular))
+        DSIcon(systemName: "circle.fill")
+            .dsFont(size: 12, weight: .regular)
             .foregroundStyle(color)
     }
 }
@@ -565,6 +607,8 @@ private struct AntigravityTerminalView: NSViewRepresentable {
             execName: "agy",
             currentDirectory: authenticationCurrentDirectory
         )
+        Logger(subsystem: "com.hypevibe.DockMagic", category: "AntigravityAuthentication")
+            .notice("Sign-in PTY started: executableExists=\(FileManager.default.isExecutableFile(atPath: executableURL.path), privacy: .public), running=\(view.process.running, privacy: .public)")
         controller.attach(view)
         DispatchQueue.main.async {
             view.window?.makeFirstResponder(view)

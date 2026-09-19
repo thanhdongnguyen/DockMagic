@@ -6,6 +6,8 @@ struct CodexDailyTokenDetailView: View {
     let detail: CodexDailyTokenDetail?
     let loadState: CodexDailyTokenDetailLoadState
     var providerName: String = "Codex"
+    var dataColor: Color? = nil
+    var dataForeground: Color? = nil
     let onBack: @MainActor () -> Void
 
     @Environment(\.designTheme) private var theme
@@ -31,7 +33,7 @@ struct CodexDailyTokenDetailView: View {
     private var header: some View {
         ZStack {
             Text(Self.fullDateLabel(accountBucket.startDate))
-                .font(.system(size: 14, weight: .bold))
+                .dsFont(size: 14, weight: .bold)
                 .foregroundStyle(theme.textPrimary)
                 .monospacedDigit()
                 .lineLimit(1)
@@ -40,20 +42,20 @@ struct CodexDailyTokenDetailView: View {
             HStack {
                 Button(action: onBack) {
                     HStack(spacing: 4) {
-                        Image(systemName: "chevron.left")
+                        DSIcon(systemName: "chevron.left")
                             .symbolRenderingMode(.monochrome)
-                            .font(.system(size: 10, weight: .bold))
+                            .dsFont(size: 10, weight: .bold)
                             .accessibilityHidden(true)
 
                         Text("Daily tokens")
-                            .font(.system(size: 10.5, weight: .semibold))
+                            .dsFont(size: 10.5, weight: .semibold)
                     }
                     .foregroundStyle(theme.textSecondary)
                     .padding(.horizontal, 5)
                     .frame(height: 26)
                     .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(DSContentButtonStyle())
                 .help("Back to Daily tokens")
                 .accessibilityLabel("Back to Daily tokens")
                 .accessibilityIdentifier("\(providerID).dailyDetail.back")
@@ -67,8 +69,8 @@ struct CodexDailyTokenDetailView: View {
     private var summary: some View {
         HStack {
             Text(Self.tokenLabel(accountBucket.tokens))
-                .font(.system(size: 25, weight: .bold, design: .rounded))
-                .foregroundStyle(theme.textPrimary)
+                .dsFont(size: 25, weight: .bold)
+                .foregroundStyle(dataForeground ?? theme.textPrimary)
                 .monospacedDigit()
 
             Spacer(minLength: 0)
@@ -81,7 +83,7 @@ struct CodexDailyTokenDetailView: View {
 
     private var hourlySection: some View {
         ZStack {
-            CodexHourlyTokenUsageChart(buckets: hourlyBuckets)
+            CodexHourlyTokenUsageChart(buckets: hourlyBuckets, dataColor: dataColor)
                 .opacity(isLoading ? 0.32 : 1)
 
             if isLoading {
@@ -90,19 +92,19 @@ struct CodexDailyTokenDetailView: View {
                         .controlSize(.small)
 
                     Text("Scanning selected day…")
-                        .font(.system(size: 9, weight: .semibold))
+                        .dsFont(size: 9, weight: .semibold)
                         .foregroundStyle(theme.textSecondary)
                 }
                 .accessibilityElement(children: .combine)
                 .accessibilityLabel("Loading token detail")
             } else if let detailErrorMessage {
                 VStack(spacing: 5) {
-                    Image(systemName: "exclamationmark.triangle")
+                    DSIcon(systemName: "exclamationmark.triangle")
                         .symbolRenderingMode(.monochrome)
                         .foregroundStyle(theme.warningForeground)
                         .accessibilityHidden(true)
                     Text(detailErrorMessage)
-                        .font(.system(size: 9, weight: .semibold))
+                        .dsFont(size: 9, weight: .semibold)
                         .foregroundStyle(theme.textSecondary)
                         .multilineTextAlignment(.center)
                         .lineLimit(3)
@@ -118,7 +120,7 @@ struct CodexDailyTokenDetailView: View {
     private var tokenBreakdown: some View {
         VStack(alignment: .leading, spacing: 5) {
             Text("Token breakdown")
-                .font(.system(size: 10.5, weight: .bold))
+                .dsFont(size: 10.5, weight: .bold)
                 .foregroundStyle(theme.textPrimary)
 
             HStack(alignment: .firstTextBaseline, spacing: 10) {
@@ -175,12 +177,12 @@ struct CodexDailyTokenDetailView: View {
         VStack(alignment: .leading, spacing: 5) {
             HStack(alignment: .firstTextBaseline, spacing: 4) {
                 Text("Models")
-                    .font(.system(size: 10.5, weight: .bold))
+                    .dsFont(size: 10.5, weight: .bold)
                     .foregroundStyle(theme.textPrimary)
 
                 if !models.isEmpty {
                     Text("\(models.count)")
-                        .font(.system(size: 8, weight: .semibold))
+                        .dsFont(size: 8, weight: .semibold)
                         .foregroundStyle(theme.textTertiary)
                         .monospacedDigit()
                 }
@@ -188,13 +190,13 @@ struct CodexDailyTokenDetailView: View {
                 Spacer(minLength: 0)
 
                 Text("Tokens · cached input")
-                    .font(.system(size: 8, weight: .semibold))
+                    .dsFont(size: 8, weight: .semibold)
                     .foregroundStyle(theme.textTertiary)
             }
 
             if models.isEmpty {
                 Text(modelsEmptyMessage)
-                    .font(.system(size: 9, weight: .medium))
+                    .dsFont(size: 9, weight: .medium)
                     .foregroundStyle(theme.textSecondary)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .multilineTextAlignment(.center)
@@ -216,11 +218,11 @@ struct CodexDailyTokenDetailView: View {
     private func metric(title: String, value: String) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 4) {
             Text(title)
-                .font(.system(size: 9, weight: .semibold))
+                .dsFont(size: 9, weight: .semibold)
                 .foregroundStyle(theme.textSecondary)
 
             Text(value)
-                .font(.system(size: 12, weight: .bold, design: .rounded))
+                .dsFont(size: 12, weight: .bold)
                 .foregroundStyle(theme.textPrimary)
                 .monospacedDigit()
         }
@@ -229,10 +231,10 @@ struct CodexDailyTokenDetailView: View {
     private func compactMetric(title: String, value: String) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 3) {
             Text(title)
-                .font(.system(size: 8, weight: .semibold))
+                .dsFont(size: 8, weight: .semibold)
                 .foregroundStyle(theme.textSecondary)
             Text(value)
-                .font(.system(size: 9, weight: .bold, design: .rounded))
+                .dsFont(size: 9, weight: .bold)
                 .foregroundStyle(theme.textPrimary)
                 .monospacedDigit()
         }
@@ -243,7 +245,7 @@ struct CodexDailyTokenDetailView: View {
         VStack(spacing: 4) {
             HStack(alignment: .firstTextBaseline, spacing: 6) {
                 Text(model.model)
-                    .font(.system(size: 9.5, weight: .semibold))
+                    .dsFont(size: 9.5, weight: .semibold)
                     .foregroundStyle(theme.textPrimary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.75)
@@ -251,12 +253,12 @@ struct CodexDailyTokenDetailView: View {
                 Spacer(minLength: 4)
 
                 Text(Self.tokenLabel(model.usage.totalTokens))
-                    .font(.system(size: 9, weight: .bold, design: .rounded))
+                    .dsFont(size: 9, weight: .bold)
                     .foregroundStyle(theme.textPrimary)
                     .monospacedDigit()
 
                 Text(Self.cachedPercentLabel(model.usage))
-                    .font(.system(size: 8, weight: .semibold))
+                    .dsFont(size: 8, weight: .semibold)
                     .foregroundStyle(theme.textSecondary)
                     .monospacedDigit()
                     .frame(width: 55, alignment: .trailing)
@@ -266,7 +268,7 @@ struct CodexDailyTokenDetailView: View {
                 ZStack(alignment: .leading) {
                     Capsule().fill(theme.opaqueSurfaceInset)
                     Capsule()
-                        .fill(theme.action)
+                        .fill(dataColor ?? theme.action)
                         .frame(
                             width: geometry.size.width
                                 * modelFraction(model.usage.totalTokens)
@@ -400,8 +402,11 @@ struct CodexDailyTokenDetailView: View {
     }
 }
 
-private struct CodexHourlyTokenUsageChart: View {
+struct CodexHourlyTokenUsageChart: View {
     let buckets: [CodexHourlyTokenUsageBucket]
+    var unavailableBucketIDs: Set<Date> = []
+    var usesObservedHourAxis = false
+    var dataColor: Color? = nil
 
     @Environment(\.designTheme) private var theme
     @State private var selectedBucketID: Date?
@@ -409,8 +414,11 @@ private struct CodexHourlyTokenUsageChart: View {
 
     private let plotHeight: CGFloat = 78
 
-    init(buckets: [CodexHourlyTokenUsageBucket]) {
+    init(buckets: [CodexHourlyTokenUsageBucket], unavailableBucketIDs: Set<Date> = [], usesObservedHourAxis: Bool = false, dataColor: Color? = nil) {
+        self.unavailableBucketIDs = unavailableBucketIDs
+        self.usesObservedHourAxis = usesObservedHourAxis
         self.buckets = buckets
+        self.dataColor = dataColor
         _selectedBucketID = State(
             initialValue: buckets.max {
                 $0.usage.totalTokens < $1.usage.totalTokens
@@ -422,18 +430,18 @@ private struct CodexHourlyTokenUsageChart: View {
         VStack(alignment: .leading, spacing: 5) {
             HStack(alignment: .firstTextBaseline, spacing: 6) {
                 Text("Hourly usage")
-                    .font(.system(size: 10.5, weight: .bold))
+                    .dsFont(size: 10.5, weight: .bold)
                     .foregroundStyle(theme.textPrimary)
 
                 Spacer(minLength: 4)
 
                 if let activeBucket, activeBucket.usage.totalTokens > 0 {
                     Text(Self.hourLabel(activeBucket.startDate))
-                        .font(.system(size: 8.5, weight: .semibold))
+                        .dsFont(size: 8.5, weight: .semibold)
                         .foregroundStyle(theme.textSecondary)
 
                     Text(Self.tokenLabel(activeBucket.usage.totalTokens))
-                        .font(.system(size: 10.5, weight: .bold, design: .rounded))
+                        .dsFont(size: 10.5, weight: .bold)
                         .foregroundStyle(theme.textPrimary)
                         .monospacedDigit()
                 }
@@ -460,7 +468,7 @@ private struct CodexHourlyTokenUsageChart: View {
             Spacer()
             Text("0")
         }
-        .font(.system(size: 7, weight: .medium))
+        .dsFont(size: 7, weight: .medium)
         .foregroundStyle(theme.textTertiary)
         .monospacedDigit()
         .frame(width: 27, height: plotHeight, alignment: .trailing)
@@ -488,6 +496,13 @@ private struct CodexHourlyTokenUsageChart: View {
 
     private var xAxis: some View {
         HStack(spacing: 0) {
+            if usesObservedHourAxis, !buckets.isEmpty {
+                ForEach(0..<5) { index in
+                    if index > 0 { Spacer() }
+                    let bucket = buckets[(buckets.count - 1) * index / 4]
+                    Text(bucket.startDate.formatted(.dateTime.hour(.twoDigits(amPM: .omitted))))
+                }
+            } else {
             Text("00")
             Spacer()
             Text("06")
@@ -497,8 +512,9 @@ private struct CodexHourlyTokenUsageChart: View {
             Text("18")
             Spacer()
             Text("23")
+            }
         }
-        .font(.system(size: 7.5, weight: .medium))
+        .dsFont(size: 7.5, weight: .medium)
         .foregroundStyle(theme.textTertiary)
         .monospacedDigit()
     }
@@ -514,9 +530,11 @@ private struct CodexHourlyTokenUsageChart: View {
             ZStack(alignment: .bottom) {
                 Color.clear
 
-                if height > 0 {
+                if unavailableBucketIDs.contains(bucket.id) {
+                    Text("—").dsFont(size: 7).foregroundStyle(theme.textTertiary)
+                } else if height > 0 {
                     RoundedRectangle(cornerRadius: 2, style: .continuous)
-                        .fill(theme.action)
+                        .fill(dataColor ?? theme.action)
                         .opacity(isActive ? 1 : 0.68)
                         .frame(height: height)
                         .overlay {
@@ -536,7 +554,7 @@ private struct CodexHourlyTokenUsageChart: View {
             .frame(maxWidth: .infinity, minHeight: plotHeight)
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(DSContentButtonStyle())
         .onHover { isHovering in
             if isHovering {
                 hoveredBucketID = bucket.id
@@ -546,10 +564,10 @@ private struct CodexHourlyTokenUsageChart: View {
         }
         .help(
             "\(Self.hourLabel(bucket.startDate)): "
-                + "\(bucket.usage.totalTokens.formatted()) tokens"
+                + (unavailableBucketIDs.contains(bucket.id) ? "Not observed" : "\(bucket.usage.totalTokens.formatted()) tokens")
         )
         .accessibilityLabel(Self.hourLabel(bucket.startDate))
-        .accessibilityValue("\(bucket.usage.totalTokens.formatted()) tokens")
+        .accessibilityValue(unavailableBucketIDs.contains(bucket.id) ? "Not observed" : "\(bucket.usage.totalTokens.formatted()) tokens")
     }
 
     private var activeBucket: CodexHourlyTokenUsageBucket? {
@@ -560,7 +578,7 @@ private struct CodexHourlyTokenUsageChart: View {
     private var axisMaximum: Int64 {
         let peak = buckets.map(\.usage.totalTokens).max() ?? 0
         guard peak > 0 else { return 1 }
-        return max(1, Int64((Double(peak) * 1.1).rounded(.up)))
+        return max(1, Int64(min(Double(Int64.max / 2), (Double(peak) * 1.1).rounded(.up))))
     }
 
     private func barHeight(_ tokens: Int64) -> CGFloat {

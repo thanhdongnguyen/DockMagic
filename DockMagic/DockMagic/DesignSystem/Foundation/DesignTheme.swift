@@ -6,12 +6,18 @@ struct DesignTheme {
     let action: Color
     let actionForeground: Color
     let onAction: Color
+    /// Codex quantitative content only; never a control or status accent.
+    let codexActivity: Color
+    let codexActivityForeground: Color
     let information: Color
     let informationForeground: Color
     let onInformation: Color
     let processing: Color
     let processingForeground: Color
     let onProcessing: Color
+    /// Verified streak-day content only; never chrome, focus, or status.
+    let streakActive: Color
+    let onStreakActive: Color
     let dockTrack: Color
     let dockBackgroundRaised: Color
     let dockBackgroundInset: Color
@@ -23,6 +29,7 @@ struct DesignTheme {
     let danger: Color
     let dangerForeground: Color
     let onDanger: Color
+    let inputOutline: Color
     let focus: Color
     let textPrimary: Color
     let textSecondary: Color
@@ -51,6 +58,10 @@ struct DesignTheme {
     let terminalClose: Color
     let terminalMinimize: Color
     let terminalZoom: Color
+
+    /// Quantitative price series, confined to market chart renderers.
+    /// Uses the Neutral series role; never used to tint market chrome.
+    var marketPriceSeries: Color { actionForeground }
 
     func surface(for kind: DSSurfaceKind) -> Color {
         switch kind {

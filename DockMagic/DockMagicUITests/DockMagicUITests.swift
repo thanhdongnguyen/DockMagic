@@ -15,7 +15,7 @@ final class DockMagicUITests: XCTestCase {
             .removePersistentDomain(forName: automaticDefaultsSuite)
     }
 
-    func testLaunchPresentsGlassSettingsWithRequestedSidebar() {
+    func testLaunchPresentsMaiaSettingsWithRequestedSidebar() {
         let app = launchApp()
         let settings = app.windows["DockMagic Settings"]
 
@@ -70,7 +70,7 @@ final class DockMagicUITests: XCTestCase {
         )
 
         attachScreenshot(
-            named: "Settings — General — System Glass Chrome",
+            named: "Settings — General — System Maia Chrome",
             in: app
         )
     }
@@ -174,10 +174,10 @@ final class DockMagicUITests: XCTestCase {
             "Clock must not expose an actionable hover-dashboard toggle."
         )
 
-        var stylePicker = app.radioGroups["settings.clock.style"].firstMatch
+        var stylePicker = app.descendants(matching: .any)["settings.clock.style"].firstMatch
         XCTAssertTrue(stylePicker.waitForExistence(timeout: 3))
         XCTAssertEqual(stylePicker.value as? String, "Digital")
-        guard let splitFlap = waitForHittableRadioButton(
+        guard let splitFlap = waitForHittableSelectionButton(
             identifiedBy: "settings.clock.styleOption.splitFlap",
             in: app,
             timeout: 3
@@ -185,7 +185,7 @@ final class DockMagicUITests: XCTestCase {
             return XCTFail("Missing Split-flap Clock style in General.")
         }
         splitFlap.click()
-        stylePicker = app.radioGroups["settings.clock.style"].firstMatch
+        stylePicker = app.descendants(matching: .any)["settings.clock.style"].firstMatch
         XCTAssertEqual(stylePicker.value as? String, "Split-flap")
 
         openSidebarDestination(named: "Clock", in: app)
@@ -199,7 +199,7 @@ final class DockMagicUITests: XCTestCase {
         XCTAssertTrue(
             app.descendants(matching: .any)["settings.clock.noDashboard"].exists
         )
-        stylePicker = app.radioGroups["settings.clock.style"].firstMatch
+        stylePicker = app.descendants(matching: .any)["settings.clock.style"].firstMatch
         XCTAssertEqual(stylePicker.value as? String, "Split-flap")
 
         let followToggle = app.descendants(matching: .any)[
@@ -278,7 +278,7 @@ final class DockMagicUITests: XCTestCase {
                 .exists
         )
         attachScreenshot(
-            named: "Settings — Network — System Glass Chrome",
+            named: "Settings — Network — System Maia Chrome",
             in: app
         )
 
@@ -320,7 +320,7 @@ final class DockMagicUITests: XCTestCase {
         XCTAssertFalse(app.staticTexts["Location & privacy"].exists)
         XCTAssertFalse(app.staticTexts["Location access"].exists)
         attachScreenshot(
-            named: "Settings — Weather — System Glass Chrome",
+            named: "Settings — Weather — System Maia Chrome",
             in: app
         )
 
@@ -432,7 +432,7 @@ final class DockMagicUITests: XCTestCase {
                 .waitForExistence(timeout: 3)
         )
         XCTAssertTrue(app.staticTexts["Claude Code connection"].exists)
-        XCTAssertTrue(
+        XCTAssertFalse(
             app.descendants(matching: .any)[
                 "settings.claudeCode.connectionStatus"
             ].exists
@@ -691,17 +691,18 @@ final class DockMagicUITests: XCTestCase {
             app.debugDescription
         )
         XCTAssertEqual(featurePicker.value as? String, "CPU & RAM")
-        XCTAssertEqual(
-            featurePicker.label,
-            "Active Dock feature with CPU & RAM icon"
+        XCTAssertTrue(
+            featurePicker.label.contains("Active Dock feature"),
+            "The picker must keep its accessible purpose after adopting the shared feature identity."
         )
         XCTAssertGreaterThanOrEqual(featurePicker.frame.width, 280)
         XCTAssertTrue(
             featurePicker.isHittable,
             "The active Dock feature picker must receive pointer clicks."
         )
+        app.terminate()
 
-        for (index, title) in [
+        for title in [
             "DockMagic",
             "CPU & RAM",
             "Network",
@@ -712,15 +713,72 @@ final class DockMagicUITests: XCTestCase {
             "GitHub",
             "Codex",
             "Claude Code",
+            "OpenCode",
             "Antigravity",
             "Search Console",
             "CPU & RAM"
-        ].enumerated() {
+        ] {
+            let app = launchApp(openActiveFeaturePicker: true)
+            XCTAssertTrue(
+                app.windows["DockMagic Settings"].waitForExistence(timeout: 5)
+            )
             selectFeature(
                 title,
                 in: app,
-                normalizedX: index.isMultiple(of: 2) ? 0.1 : 0.9
+                pickerInitiallyPresented: true
             )
+            app.terminate()
+        }
+    }
+
+    func testActiveDockFeaturePickerShowsSharedFeatureIdentities() {
+        for appearance in ["dark", "light"] {
+            let app = launchApp(
+                appearance: appearance,
+                activeFeature: "codex",
+                openActiveFeaturePicker: true
+            )
+            XCTAssertTrue(
+                app.windows["DockMagic Settings"].waitForExistence(timeout: 5)
+            )
+
+            let search = app.textFields["Search Active Dock feature"]
+            XCTAssertTrue(
+                search.waitForExistence(timeout: 3),
+                app.debugDescription
+            )
+            for rawValue in [
+                "dockMagic",
+                "systemMetrics",
+                "network",
+                "storage",
+                "weather",
+                "clock",
+                "calendar",
+                "nowPlaying",
+                "batteries",
+                "github",
+                "codex",
+                "claudeCode",
+                "antigravity",
+                "openCode",
+                "augment",
+                "binance",
+                "searchConsole"
+            ] {
+                XCTAssertTrue(
+                    app.descendants(matching: .any)[
+                        "settings.activeFeatureOption.\(rawValue)"
+                    ].exists,
+                    "Missing \(appearance) Active Dock option for \(rawValue)."
+                )
+            }
+
+            attachScreenshot(
+                named: "Settings — Active Dock Feature — Shared Identities — \(appearance.capitalized)",
+                in: app
+            )
+            app.terminate()
         }
     }
 
@@ -795,7 +853,7 @@ final class DockMagicUITests: XCTestCase {
             ].exists
         )
 
-        let moreActions = app.buttons["settings.claudeCode.moreActions"]
+        let moreActions = app.descendants(matching: .any)["settings.claudeCode.moreActions"]
         XCTAssertTrue(moreActions.waitForExistence(timeout: 3))
         moreActions.click()
 
@@ -810,6 +868,70 @@ final class DockMagicUITests: XCTestCase {
             named: "Settings — Claude Code — Compact Connected Row",
             in: app
         )
+    }
+
+    func testClaudeSignOutReturnsToNamedConnectionRow() {
+        for appearance in ["light", "dark"] {
+            let app = launchApp(appearance: appearance, activeFeature: "claudeCode", claudeConnected: true)
+            openSidebarDestination(named: "Claude Code", in: app)
+            let more = app.descendants(matching: .any)["settings.claudeCode.moreActions"]
+            XCTAssertTrue(more.waitForExistence(timeout: 5))
+            more.click()
+            let signOut = app.descendants(matching: .any)["settings.claudeCode.signOut"]
+            XCTAssertTrue(signOut.waitForExistence(timeout: 3))
+            signOut.click()
+            XCTAssertTrue(app.buttons["settings.claudeCode.signIn"].waitForExistence(timeout: 6))
+            XCTAssertTrue(app.staticTexts["Claude Code connection"].exists)
+            XCTAssertFalse(app.descendants(matching: .any)["settings.claudeCode.loginTerminal"].exists)
+            attachScreenshot(named: "Claude signed out — \(appearance)", in: app)
+            app.terminate()
+        }
+    }
+
+    func testClaudeCancelThenSignInStartsANewProcess() throws {
+        let marker = FileManager.default.temporaryDirectory.appendingPathComponent("claude-login-starts-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: marker) }
+        let executable = try makeClaudeLoginFixtureExecutable(launchCounterURL: marker)
+        let app = launchApp(activeFeature: "claudeCode", claudeExecutablePath: executable.path)
+        openSidebarDestination(named: "Claude Code", in: app)
+        for expectedCount in 1...2 {
+            let signIn = app.buttons["settings.claudeCode.signIn"]
+            XCTAssertTrue(signIn.waitForExistence(timeout: 5))
+            signIn.click()
+            let started = expectation(for: NSPredicate { _, _ in
+                let text = (try? String(contentsOf: marker)) ?? ""
+                return text.split(separator: "\n").count == expectedCount
+            }, evaluatedWith: nil)
+            wait(for: [started], timeout: 5)
+            XCTAssertTrue(FileManager.default.isExecutableFile(atPath: executable.path), app.debugDescription)
+            let cancel = app.buttons["settings.claudeCode.cancelSignIn"]
+            XCTAssertTrue(cancel.waitForExistence(timeout: 3))
+            cancel.click()
+        }
+        XCTAssertTrue(app.buttons["settings.claudeCode.signIn"].waitForExistence(timeout: 5))
+    }
+
+    func testAntigravityCancelThenSignInStartsANewProcess() throws {
+        let marker = FileManager.default.temporaryDirectory.appendingPathComponent("agy-login-starts-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: marker) }
+        let executable = try makeAntigravityLoginFixtureExecutable(launchCounterURL: marker)
+        let app = launchApp(activeFeature: "antigravity", antigravitySignedOut: true, antigravityExecutablePath: executable.path)
+        openSidebarDestination(named: "Antigravity", in: app)
+        for expectedCount in 1...2 {
+            let signIn = app.buttons["settings.antigravity.signIn"]
+            XCTAssertTrue(signIn.waitForExistence(timeout: 5))
+            signIn.click()
+            let started = expectation(for: NSPredicate { _, _ in
+                let text = (try? String(contentsOf: marker)) ?? ""
+                return text.split(separator: "\n").count == expectedCount
+            }, evaluatedWith: nil)
+            wait(for: [started], timeout: 5)
+            XCTAssertTrue(FileManager.default.isExecutableFile(atPath: executable.path), app.debugDescription)
+            let cancel = app.buttons["settings.antigravity.cancelAuth"]
+            XCTAssertTrue(cancel.waitForExistence(timeout: 3))
+            cancel.click()
+        }
+        XCTAssertTrue(app.buttons["settings.antigravity.signIn"].waitForExistence(timeout: 5))
     }
 
     func testClaudeSignInTerminalUsesDarkNativeChrome() throws {
@@ -878,7 +1000,7 @@ final class DockMagicUITests: XCTestCase {
         XCTAssertTrue(refresh.waitForExistence(timeout: 5))
         XCTAssertTrue(refresh.isHittable)
 
-        let moreActions = app.buttons["settings.claudeCode.moreActions"]
+        let moreActions = app.descendants(matching: .any)["settings.claudeCode.moreActions"]
         XCTAssertTrue(moreActions.waitForExistence(timeout: 3))
         XCTAssertTrue(moreActions.isHittable)
         moreActions.click()
@@ -1031,7 +1153,7 @@ final class DockMagicUITests: XCTestCase {
         )
         wait(for: [connected], timeout: 5)
 
-        let moreActions = app.buttons["settings.antigravity.moreActions"]
+        let moreActions = app.descendants(matching: .any)["settings.antigravity.moreActions"]
         XCTAssertTrue(moreActions.waitForExistence(timeout: 3))
         XCTAssertTrue(moreActions.isHittable)
         moreActions.click()
@@ -1499,7 +1621,8 @@ final class DockMagicUITests: XCTestCase {
         antigravitySignedOut: Bool = false,
         antigravityConnected: Bool = false,
         antigravityBridgeInstalled: Bool = false,
-        antigravityExecutablePath: String? = nil
+        antigravityExecutablePath: String? = nil,
+        openActiveFeaturePicker: Bool = false
     ) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchEnvironment["DockMagicUITesting"] = "1"
@@ -1568,6 +1691,11 @@ final class DockMagicUITests: XCTestCase {
                 "DockMagicUITestAntigravityExecutablePath"
             ] = antigravityExecutablePath
         }
+        if openActiveFeaturePicker {
+            app.launchEnvironment[
+                "DockMagicUITestOpenActiveFeaturePicker"
+            ] = "1"
+        }
         if let githubRepositoryURL {
             app.launchArguments += [
                 "-DockMagicGitHubRepositoryURL",
@@ -1578,7 +1706,7 @@ final class DockMagicUITests: XCTestCase {
         return app
     }
 
-    private func makeClaudeLoginFixtureExecutable() throws -> URL {
+    private func makeClaudeLoginFixtureExecutable(launchCounterURL: URL? = nil) throws -> URL {
         let directoryURL = FileManager.default.temporaryDirectory
             .appendingPathComponent(
                 "DockMagic-Claude-Terminal-\(UUID().uuidString)",
@@ -1589,8 +1717,12 @@ final class DockMagicUITests: XCTestCase {
             withIntermediateDirectories: true
         )
         let executableURL = directoryURL.appendingPathComponent("claude")
+        let counterCommand = launchCounterURL.map {
+            "printf 'started\\n' >> '" + $0.path.replacingOccurrences(of: "'", with: "'\\''") + "'"
+        } ?? ""
         let script = """
         #!/bin/zsh
+        \(counterCommand)
         trap 'exit 0' INT TERM
         printf '\\033[1;35mClaude Code\\033[0m\\r\\n'
         printf 'Opening browser to sign in…\\r\\n'
@@ -1611,7 +1743,7 @@ final class DockMagicUITests: XCTestCase {
         return executableURL
     }
 
-    private func makeAntigravityLoginFixtureExecutable() throws -> URL {
+    private func makeAntigravityLoginFixtureExecutable(launchCounterURL: URL? = nil) throws -> URL {
         let directoryURL = FileManager.default.temporaryDirectory
             .appendingPathComponent(
                 "DockMagic-Antigravity-Terminal-\(UUID().uuidString)",
@@ -1622,8 +1754,12 @@ final class DockMagicUITests: XCTestCase {
             withIntermediateDirectories: true
         )
         let executableURL = directoryURL.appendingPathComponent("agy")
+        let counterCommand = launchCounterURL.map {
+            "printf 'started\\n' >> '" + $0.path.replacingOccurrences(of: "'", with: "'\\''") + "'"
+        } ?? ""
         let script = """
         #!/bin/zsh
+        \(counterCommand)
         trap 'exit 0' INT TERM
         printf '\\033[1;36mAntigravity CLI\\033[0m\\r\\n'
         printf 'Paste your Antigravity code and press Return > '
@@ -1676,14 +1812,14 @@ final class DockMagicUITests: XCTestCase {
     }
 
     private func appearancePicker(in app: XCUIApplication) -> XCUIElement {
-        app.radioGroups["settings.appearancePicker"].firstMatch
+        app.descendants(matching: .any)["settings.appearancePicker"].firstMatch
     }
 
     private func appearanceOption(
         _ rawValue: String,
         in app: XCUIApplication
     ) -> XCUIElement {
-        app.radioButtons[
+        app.buttons[
             "settings.appearanceOption.\(rawValue)"
         ].firstMatch
     }
@@ -1731,14 +1867,14 @@ final class DockMagicUITests: XCTestCase {
             detailScrollView.scroll(byDeltaX: 0, deltaY: 1_000)
         }
 
-        let picker = app.radioGroups["settings.displayStyle"].firstMatch
+        let picker = app.descendants(matching: .any)["settings.displayStyle"].firstMatch
         XCTAssertTrue(
             picker.waitForExistence(timeout: 3),
             "Missing Dock display configuration for \(feature)."
         )
 
         let optionIdentifier = "settings.displayStyleOption.\(style.rawValue)"
-        let option = waitForHittableRadioButton(
+        let option = waitForHittableSelectionButton(
             identifiedBy: optionIdentifier,
             in: app,
             timeout: 1
@@ -1764,14 +1900,14 @@ final class DockMagicUITests: XCTestCase {
         )
     }
 
-    private func waitForHittableRadioButton(
+    private func waitForHittableSelectionButton(
         identifiedBy identifier: String,
         in app: XCUIApplication,
         timeout: TimeInterval
     ) -> XCUIElement? {
         let deadline = Date().addingTimeInterval(timeout)
         repeat {
-            let matches = app.radioButtons.matching(
+            let matches = app.buttons.matching(
                 NSPredicate(format: "identifier == %@", identifier)
             ).allElementsBoundByIndex
             if let option = matches.first(where: { $0.exists && $0.isHittable }) {
@@ -1785,15 +1921,18 @@ final class DockMagicUITests: XCTestCase {
     private func selectFeature(
         _ title: String,
         in app: XCUIApplication,
-        normalizedX: CGFloat = 0.5
+        normalizedX: CGFloat = 0.5,
+        pickerInitiallyPresented: Bool = false
     ) {
         // SwiftUI rebuilds the General detail after the active feature changes.
         // Re-query the control so XCUI does not retain a stale element handle.
         let featurePicker = hittableActiveFeaturePicker(in: app)
         XCTAssertTrue(featurePicker.waitForExistence(timeout: 3))
-        featurePicker.coordinate(
-            withNormalizedOffset: CGVector(dx: normalizedX, dy: 0.5)
-        ).click()
+        if !pickerInitiallyPresented {
+            featurePicker.coordinate(
+                withNormalizedOffset: CGVector(dx: normalizedX, dy: 0.5)
+            ).click()
+        }
         let rawValues = [
             "DockMagic": "dockMagic",
             "CPU & RAM": "systemMetrics",
@@ -1805,6 +1944,7 @@ final class DockMagicUITests: XCTestCase {
             "GitHub": "github",
             "Codex": "codex",
             "Claude Code": "claudeCode",
+            "OpenCode": "openCode",
             "Antigravity": "antigravity",
             "Search Console": "searchConsole"
         ]
@@ -1815,57 +1955,25 @@ final class DockMagicUITests: XCTestCase {
         let option = app.descendants(matching: .any)[
             "settings.activeFeatureOption.\(rawValue)"
         ].firstMatch
-        if option.waitForExistence(timeout: 0.5), option.isHittable {
-            option.click()
-        } else {
-            // On macOS 14, SwiftUI renders this NSPopover in a transient
-            // accessibility window that XCUI does not attach to the target
-            // application's element tree. Its layout is intentionally fixed:
-            // 44-point rows, 4-point gaps, and 8-point vertical padding.
-            let orderedTitles = [
-                "DockMagic",
-                "CPU & RAM",
-                "Network",
-                "Storage",
-                "Weather",
-                "Clock",
-                "Batteries",
-                "GitHub",
-                "Codex",
-                "Claude Code",
-                "Antigravity",
-                "Search Console"
-            ]
-            guard let rowIndex = orderedTitles.firstIndex(of: title) else {
-                XCTFail("Missing popover row mapping: \(title)")
-                return
-            }
-            let rowsBelow = orderedTitles.count - rowIndex - 1
-            let rowCenterOffset = -64 - CGFloat(rowsBelow * 48)
-            let settingsWindow = app.windows["DockMagic Settings"].firstMatch
-            settingsWindow.coordinate(
-                withNormalizedOffset: CGVector(dx: 0, dy: 0)
-            )
-                .withOffset(
-                    CGVector(
-                        dx: featurePicker.frame.midX
-                            - settingsWindow.frame.minX,
-                        dy: featurePicker.frame.midY + rowCenterOffset
-                            - settingsWindow.frame.minY
-                    )
-                )
-                .click()
+        if !option.isHittable {
+            let search = app.textFields["Search Active Dock feature"]
+            XCTAssertTrue(search.waitForExistence(timeout: 3), app.debugDescription)
+            search.click()
+            search.typeText(title)
         }
+        XCTAssertTrue(option.waitForExistence(timeout: 3), app.debugDescription)
+        option.click()
 
         if title == "Weather" || title == "Batteries" || title == "GitHub"
             || title == "Codex" || title == "Claude Code"
-            || title == "Antigravity"
+            || title == "OpenCode" || title == "Antigravity"
             || title == "Search Console" {
             let destination = switch title {
             case "Weather": "weather"
             case "Batteries": "batteries"
             case "Codex": "codex"
             case "Claude Code": "claudeCode"
+            case "OpenCode": "openCode"
             case "Antigravity": "antigravity"
             case "Search Console": "searchConsole"
             default: "github"
@@ -2010,7 +2118,7 @@ final class DockMagicUITests: XCTestCase {
         expectedValue: String,
         in app: XCUIApplication
     ) {
-        var pickerElement = app.radioGroups[
+        var pickerElement = app.descendants(matching: .any)[
             "settings.searchConsole.\(picker)"
         ].firstMatch
         XCTAssertTrue(
@@ -2018,39 +2126,14 @@ final class DockMagicUITests: XCTestCase {
             "Missing Search Console picker: \(picker)"
         )
 
-        let optionOrder: [String]
-        switch picker {
-        case "primaryMetric":
-            optionOrder = ["clicks", "impressions"]
-        case "timeRange":
-            optionOrder = [
-                "last24Hours", "last7Days", "last28Days", "last3Months"
-            ]
-        case "displayMode":
-            optionOrder = ["chart", "numbers", "focus"]
-        default:
-            XCTFail("Unknown Search Console picker: \(picker)")
-            return
-        }
-        guard let optionIndex = optionOrder.firstIndex(of: option) else {
-            XCTFail("Unknown Search Console option: \(option)")
-            return
-        }
+        let button = app.buttons["settings.searchConsole.\(picker).\(option)"]
+        XCTAssertTrue(button.waitForExistence(timeout: 3), app.debugDescription)
+        button.click()
 
-        // SwiftUI's segmented-control children occasionally disappear from
-        // the macOS accessibility snapshot after a refresh. Click the actual
-        // segment center through the stable radio-group frame instead.
-        pickerElement.coordinate(
-            withNormalizedOffset: CGVector(
-                dx: (CGFloat(optionIndex) + 0.5) / CGFloat(optionOrder.count),
-                dy: 0.5
-            )
-        ).click()
-
-        pickerElement = app.radioGroups[
+        pickerElement = app.descendants(matching: .any)[
             "settings.searchConsole.\(picker)"
         ].firstMatch
-        let updated = app.radioGroups[
+        let updated = app.descendants(matching: .any)[
             "settings.searchConsole.\(picker)"
         ].firstMatch
         XCTAssertTrue(updated.waitForExistence(timeout: 3))

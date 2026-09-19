@@ -8,6 +8,7 @@ final class SearchConsoleConfigurationRecord {
     var timeRangeRawValue: String
     var displayModeRawValue: String
     var activeCredentialIdentifier: String?
+    var rendererColorsData: Data?
     var updatedAt: Date
 
     // Kept for a lightweight migration from the original one-key schema.
@@ -54,7 +55,7 @@ final class SearchConsoleConfigurationRecord {
         credential: SearchConsoleCredentialRecord?
     ) -> SearchConsoleConfiguration {
         let account = credential?.serviceAccount
-        return SearchConsoleConfiguration(
+        var configuration = SearchConsoleConfiguration(
             metadata: account?.metadata,
             selectedProperty: credential?.selectedProperty ?? "",
             primaryMetric: SearchConsoleMetric(rawValue: primaryMetricRawValue) ?? .clicks,
@@ -62,9 +63,15 @@ final class SearchConsoleConfigurationRecord {
             displayMode: SearchConsoleDisplayMode(rawValue: displayModeRawValue) ?? .focus,
             credentialIdentifier: credential?.identifier
         )
+        if let data = rendererColorsData, let colors = try? JSONDecoder().decode([DockColor].self, from: data), colors.count == 2 {
+            configuration.clicksColor = colors[0]
+            configuration.impressionsColor = colors[1]
+        }
+        return configuration
     }
 
     func updatePreferences(from configuration: SearchConsoleConfiguration) {
+        rendererColorsData = try? JSONEncoder().encode([configuration.clicksColor, configuration.impressionsColor])
         primaryMetricRawValue = configuration.primaryMetric.rawValue
         timeRangeRawValue = configuration.timeRange.rawValue
         displayModeRawValue = configuration.displayMode.rawValue

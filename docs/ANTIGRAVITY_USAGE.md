@@ -64,7 +64,10 @@ unobserved days remain unavailable rather than becoming zero.
 ## Surface map
 
 - Settings: a Claude Code-style authentication card for CLI installation,
-  signed-out, checking, connected, stale, and failed states; an embedded
+  signed-out, connected, stale, and failed states; automatic connection checks
+  run in the background without a visible `Checking` summary while retaining
+  the applicable **Sign in** action or authenticated **Refresh** and
+  **Sign Out** actions. An embedded
   official `agy` session where the user can type or paste an Antigravity code
   with standard terminal input. The terminal uses an 80-column, 18-row viewport
   and the authentication card grows with its content instead of clipping the
@@ -77,6 +80,9 @@ unobserved days remain unavailable rather than becoming zero.
   applicable), matching the Claude Code connection card. An already-installed
   DockMagic-owned bridge remains observable; visiting Settings never changes
   its configuration.
+  Every sign-in attempt creates a new terminal process. Cancelled/replaced
+  terminal callbacks are ignored, and an unsuccessful terminal exit restores
+  the prior connection state so the user can retry.
 - Dock: up to two provider-reported quota pools. A single bucket uses the
   balanced single-ring layout. Unknown or missing buckets are not zero.
 - Hover: identity, plan/freshness, all reported quota rows, a partial 30-day
@@ -130,8 +136,9 @@ as stale with the scoped error. A supported field that is missing from the
 current account remains unavailable; it never becomes zero.
 
 The store coalesces refreshes but runs a fresh quota probe after sign-in if the
-pending refresh was metadata-only or cancelled. Stopping an in-flight check
-does not leave an indefinite `Checking` label: it exposes `Retry`. The store
+pending refresh was metadata-only or cancelled. Automatic checks remain
+background-only; a refresh preserves the last settled connection presentation,
+and an interrupted initial check exposes `Retry`. The store
 cancels child processes on stop, refreshes after wake/network recovery, and
 keeps optional session telemetry independent from quota success.
 Activity-card freshness uses the last successful local token delta. A later
@@ -234,6 +241,10 @@ prompts, answers, or credentials.
   missing-CLI/signed-out authentication states.
 - Integration tests: feature/hover registration, preference persistence, and a
   pixel-difference check between Antigravity Chart and Numbers renderers.
+- The Antigravity hover dashboard and its activity export reuse the approved
+  Codex blue data roles for quota progress, token values/history, Ship momentum,
+  Daily intensity, and Top models. Controls, status, warnings, and chrome retain
+  their semantic colors.
 - Quota-only Share test: a signed-in snapshot without local token observations
   displays a single activity-layout export menu. Its opaque 1200×1200
   availability image retains badge/chart/Ship zones with explicit missing-data

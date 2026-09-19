@@ -4,6 +4,7 @@ struct DockWeatherView: View {
     let state: WeatherState
     let animatesChanges: Bool
 
+    @Environment(\.designTheme) private var theme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorSchemeContrast) private var contrast
 
@@ -14,32 +15,13 @@ struct DockWeatherView: View {
                 cornerRadius: side * 0.22,
                 style: .continuous
             )
-            let palette = WeatherPalette(state: state)
 
             ZStack {
-                shape.fill(
-                    LinearGradient(
-                        colors: palette.background,
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-
-                weatherGlow(palette: palette, side: side)
-                    .clipShape(shape)
-
-                LinearGradient(
-                    colors: [.clear, .black.opacity(0.28)],
-                    startPoint: .center,
-                    endPoint: .bottom
-                )
-                .clipShape(shape)
-                .accessibilityHidden(true)
-
-                weatherContent(side: side, palette: palette)
+                shape.fill(theme.dockBackgroundRaised)
+                weatherContent(side: side)
 
                 shape.strokeBorder(
-                    .white.opacity(contrast == .increased ? 0.9 : 0.5),
+                    theme.dockOutline.opacity(contrast == .increased ? 1 : 0.8),
                     lineWidth: contrast == .increased
                         ? max(1.5, side * 0.018)
                         : max(1, side * 0.012)
@@ -58,61 +40,45 @@ struct DockWeatherView: View {
 
     @ViewBuilder
     private func weatherContent(
-        side: CGFloat,
-        palette: WeatherPalette
+        side: CGFloat
     ) -> some View {
         if let snapshot = state.snapshot {
             VStack(spacing: -side * 0.015) {
-                Image(systemName: snapshot.condition.symbolName(isDaylight: snapshot.isDaylight))
+                DSIcon(systemName: snapshot.condition.symbolName(isDaylight: snapshot.isDaylight))
                     .symbolRenderingMode(.hierarchical)
-                    .font(.system(size: max(10, side * 0.29), weight: .semibold))
-                    .foregroundStyle(palette.symbol)
+                    .dsFont(size: max(10, side * 0.29), weight: .semibold)
+                    .foregroundStyle(theme.dockForeground)
                     .frame(height: side * 0.37)
-                    .shadow(color: .black.opacity(0.20), radius: side * 0.025, y: side * 0.012)
 
                 Text(Self.temperatureLabel(snapshot.temperatureCelsius))
-                    .font(.system(size: max(11, side * 0.30), weight: .bold, design: .rounded))
+                    .dsFont(size: max(11, side * 0.30), weight: .bold)
                     .monospacedDigit()
                     .minimumScaleFactor(0.7)
                     .lineLimit(1)
-                    .foregroundStyle(.white)
-                    .shadow(color: .black.opacity(0.30), radius: side * 0.025, y: side * 0.012)
+                    .foregroundStyle(theme.dockForeground)
 
                 if side >= 78, snapshot.highCelsius != nil || snapshot.lowCelsius != nil {
                     Text(highLowLabel(snapshot))
-                        .font(.system(size: max(8, side * 0.085), weight: .semibold, design: .rounded))
+                        .dsFont(size: max(8, side * 0.085), weight: .semibold)
                         .monospacedDigit()
                         .lineLimit(1)
-                        .foregroundStyle(.white.opacity(0.86))
+                        .foregroundStyle(theme.textSecondary)
                 }
             }
             .padding(.horizontal, side * 0.09)
             .padding(.top, side * 0.05)
         } else {
             VStack(spacing: side * 0.04) {
-                Image(systemName: placeholderSymbol)
+                DSIcon(systemName: placeholderSymbol)
                     .symbolRenderingMode(.hierarchical)
-                    .font(.system(size: max(11, side * 0.30), weight: .semibold))
-                    .foregroundStyle(palette.symbol)
+                    .dsFont(size: max(11, side * 0.30), weight: .semibold)
+                    .foregroundStyle(theme.dockForeground)
 
                 Text(placeholderTemperature)
-                    .font(.system(size: max(10, side * 0.26), weight: .bold, design: .rounded))
-                    .foregroundStyle(.white.opacity(0.92))
+                    .dsFont(size: max(10, side * 0.26), weight: .bold)
+                    .foregroundStyle(theme.dockForeground)
             }
         }
-    }
-
-    private func weatherGlow(
-        palette: WeatherPalette,
-        side: CGFloat
-    ) -> some View {
-        RadialGradient(
-            colors: [palette.glow, .clear],
-            center: UnitPoint(x: 0.08, y: 0.04),
-            startRadius: 0,
-            endRadius: side * 0.78
-        )
-            .accessibilityHidden(true)
     }
 
     private var placeholderSymbol: String {
@@ -177,11 +143,13 @@ struct DockWeatherView: View {
     }
 
     private static func temperatureLabel(_ celsius: Double) -> String {
+        guard celsius.isFinite else { return "—°" }
         let value = usesFahrenheit ? celsius * 9 / 5 + 32 : celsius
         return "\(Int(value.rounded()))°"
     }
 
     private static func accessibleTemperature(_ celsius: Double) -> String {
+        guard celsius.isFinite else { return "Temperature unavailable" }
         let value = usesFahrenheit ? celsius * 9 / 5 + 32 : celsius
         let unit = usesFahrenheit ? "degrees Fahrenheit" : "degrees Celsius"
         return "\(Int(value.rounded())) \(unit)"
@@ -196,79 +164,5 @@ struct DockWeatherView: View {
             return nil
         }
         return DSMotion.metricChange
-    }
-}
-
-private struct WeatherPalette {
-    let background: [Color]
-    let glow: Color
-    let symbol: Color
-
-    init(state: WeatherState) {
-        guard let snapshot = state.snapshot else {
-            background = [
-                Color(red: 0.18, green: 0.29, blue: 0.42),
-                Color(red: 0.07, green: 0.12, blue: 0.21)
-            ]
-            glow = .white.opacity(0.18)
-            symbol = .white.opacity(0.84)
-            return
-        }
-
-        let isNight = snapshot.isDaylight == false
-        if isNight {
-            background = [
-                Color(red: 0.15, green: 0.20, blue: 0.45),
-                Color(red: 0.035, green: 0.055, blue: 0.16)
-            ]
-            glow = Color(red: 0.60, green: 0.72, blue: 1).opacity(0.28)
-            symbol = Color(red: 0.87, green: 0.91, blue: 1)
-            return
-        }
-
-        switch snapshot.condition {
-        case .clear, .mostlyClear, .hot:
-            background = [
-                Color(red: 0.16, green: 0.65, blue: 0.96),
-                Color(red: 0.02, green: 0.35, blue: 0.76)
-            ]
-            glow = Color(red: 1, green: 0.85, blue: 0.34).opacity(0.78)
-            symbol = Color(red: 1, green: 0.91, blue: 0.45)
-        case .partlyCloudy:
-            background = [
-                Color(red: 0.26, green: 0.64, blue: 0.89),
-                Color(red: 0.15, green: 0.38, blue: 0.67)
-            ]
-            glow = Color(red: 1, green: 0.86, blue: 0.46).opacity(0.62)
-            symbol = .white
-        case .cloudy, .fog, .wind, .cold, .unknown:
-            background = [
-                Color(red: 0.40, green: 0.53, blue: 0.66),
-                Color(red: 0.18, green: 0.29, blue: 0.43)
-            ]
-            glow = .white.opacity(0.32)
-            symbol = Color(red: 0.92, green: 0.96, blue: 1)
-        case .drizzle, .rain, .sleet:
-            background = [
-                Color(red: 0.22, green: 0.47, blue: 0.68),
-                Color(red: 0.07, green: 0.20, blue: 0.35)
-            ]
-            glow = Color(red: 0.55, green: 0.83, blue: 1).opacity(0.40)
-            symbol = Color(red: 0.72, green: 0.89, blue: 1)
-        case .snow:
-            background = [
-                Color(red: 0.51, green: 0.69, blue: 0.83),
-                Color(red: 0.22, green: 0.38, blue: 0.55)
-            ]
-            glow = .white.opacity(0.66)
-            symbol = .white
-        case .thunderstorm:
-            background = [
-                Color(red: 0.24, green: 0.25, blue: 0.51),
-                Color(red: 0.065, green: 0.075, blue: 0.18)
-            ]
-            glow = Color(red: 0.66, green: 0.56, blue: 1).opacity(0.50)
-            symbol = Color(red: 1, green: 0.85, blue: 0.34)
-        }
     }
 }

@@ -1,0 +1,18 @@
+{
+  "code": "bbVKHJo",
+  "version": "b",
+  "values": {
+    "menuColor": "default",
+    "menuAccent": "subtle",
+    "radius": "medium",
+    "font": "geist",
+    "iconLibrary": "hugeicons",
+    "theme": "neutral",
+    "baseColor": "neutral",
+    "style": "maia",
+    "chartColor": "neutral",
+    "fontHeading": "inherit"
+  },
+  "derived": [],
+  "url": "https://ui.shadcn.com/create?preset=bbVKHJo"
+}

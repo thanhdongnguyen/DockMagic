@@ -1,5 +1,6 @@
 import AppKit
 import Observation
+import OSLog
 import SwiftTerm
 import SwiftUI
 
@@ -20,6 +21,17 @@ struct ClaudeCodeConnectionSettingsView: View {
         case refresh
     }
 
+    enum ActionPresentation: Equatable {
+        case install
+        case update
+        case signIn
+        case authenticated
+        case quotaUnavailable
+        case stale
+        case failed
+        case hidden
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: DSSpacing.large) {
             connectionRow
@@ -37,6 +49,7 @@ struct ClaudeCodeConnectionSettingsView: View {
                     sessionID: loginSessionID,
                     executableURL: executableURL
                 )
+                .id(loginSessionID)
                 .frame(height: showsTerminal ? 380 : 0)
                 .clipped()
                 .allowsHitTesting(showsTerminal)
@@ -52,35 +65,24 @@ struct ClaudeCodeConnectionSettingsView: View {
                 )
             }
         }
-        .padding(DSSpacing.xLarge)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .dsSurface(
-            RoundedRectangle(
-                cornerRadius: DSRadius.largePanel,
-                style: .continuous
-            ),
-            kind: .raised,
-            elevation: .primary
-        )
+        .dsCard()
     }
 
     private var connectionRow: some View {
         HStack(spacing: DSSpacing.standard) {
-            if case .signedOut = store.connectionState {
-                Spacer(minLength: 0)
-                actions
-            } else {
-                Text("Claude Code connection")
-                    .font(DSTypography.sectionTitle)
-                    .foregroundStyle(theme.textPrimary)
-                    .lineLimit(1)
-                    .layoutPriority(1)
+            Text("Claude Code connection")
+                .font(DSTypography.sectionTitle)
+                .foregroundStyle(theme.textPrimary)
+                .lineLimit(1)
+                .layoutPriority(1)
+                .accessibilityLabel(connectionTitleAccessibilityLabel)
 
-                Spacer(minLength: DSSpacing.section)
+            Spacer(minLength: DSSpacing.section)
 
+            if showsConnectionSummary {
                 connectionSummary
-                actions
             }
+            actions
         }
         .frame(maxWidth: .infinity, minHeight: 46, alignment: .leading)
     }
@@ -92,8 +94,8 @@ struct ClaudeCodeConnectionSettingsView: View {
                     .controlSize(.small)
                     .accessibilityHidden(true)
             } else if let systemImage = presentation.systemImage {
-                Image(systemName: systemImage)
-                    .font(.system(size: 14, weight: .semibold))
+                DSIcon(systemName: systemImage)
+                    .dsFont(size: 14, weight: .semibold)
                     .foregroundStyle(
                         presentation.role == .neutral
                             ? theme.textSecondary
@@ -122,32 +124,30 @@ struct ClaudeCodeConnectionSettingsView: View {
 
     @ViewBuilder
     private var actions: some View {
-        switch store.connectionState {
-        case .cliMissing:
+        switch actionPresentation {
+        case .install:
             Button("Install Claude CLI", action: installCLI)
-                .buttonStyle(DSButtonStyle(kind: .primary))
+                .buttonStyle(DSButtonStyle(emphasis: .primary))
                 .disabled(installationState == .installing)
                 .accessibilityIdentifier("settings.claudeCode.install")
-        case .cliOutdated:
+        case .update:
             Link(
                 "Update Claude CLI",
                 destination: URL(string: "https://code.claude.com/docs/en/setup")!
             )
-            .buttonStyle(DSButtonStyle(kind: .primary))
+            .buttonStyle(DSButtonStyle(emphasis: .primary))
             .accessibilityIdentifier("settings.claudeCode.updateCLI")
-        case .signedOut:
+        case .signIn:
             Button("Sign in with Claude", action: startSignIn)
-                .buttonStyle(DSButtonStyle(kind: .primary))
+                .buttonStyle(DSButtonStyle(emphasis: .primary))
                 .focused($focusedAction, equals: .signIn)
                 .accessibilityIdentifier("settings.claudeCode.signIn")
-        case .signingIn, .signingOut:
-            EmptyView()
-        case .connected:
+        case .authenticated:
             HStack(spacing: DSSpacing.small) {
                 Button {
                     Task { await store.refresh() }
                 } label: {
-                    Image(systemName: "arrow.clockwise")
+                    DSIcon(systemName: "arrow.clockwise")
                 }
                 .buttonStyle(DSIconButtonStyle(visualSize: 28, hitSize: 36))
                 .disabled(store.isRefreshing)
@@ -160,36 +160,73 @@ struct ClaudeCodeConnectionSettingsView: View {
             }
         case .quotaUnavailable:
             HStack(spacing: DSSpacing.small) {
-                Button("Sign in with Claude plan", action: startSignIn)
-                    .buttonStyle(DSButtonStyle(kind: .primary))
-                    .accessibilityIdentifier("settings.claudeCode.signInPlan")
+                if case let .quotaUnavailable(info, _) = store.connectionState,
+                   !info.isSubscriptionLogin {
+                    Button("Sign in with Claude plan", action: startSignIn)
+                        .buttonStyle(DSButtonStyle(emphasis: .primary))
+                        .accessibilityIdentifier("settings.claudeCode.signInPlan")
+                }
                 Button("Retry") { Task { await store.refresh() } }
                     .buttonStyle(DSButtonStyle())
+                    .disabled(store.isRefreshing)
                     .accessibilityIdentifier("settings.claudeCode.retry")
                 moreActions
             }
         case .stale:
             HStack(spacing: DSSpacing.small) {
                 Button("Retry") { Task { await store.refresh() } }
-                    .buttonStyle(DSButtonStyle(kind: .primary))
+                    .buttonStyle(DSButtonStyle(emphasis: .primary))
                     .disabled(store.isRefreshing)
                     .accessibilityIdentifier("settings.claudeCode.retry")
                 moreActions
             }
         case .failed:
             Button("Retry") { Task { await store.refresh() } }
-                .buttonStyle(DSButtonStyle(kind: .primary))
+                .buttonStyle(DSButtonStyle(emphasis: .primary))
                 .disabled(store.isRefreshing)
                 .accessibilityIdentifier("settings.claudeCode.retry")
-        case .checking, .signedInWaitingForQuota:
+        case .hidden:
             EmptyView()
         }
     }
 
+    private var actionPresentation: ActionPresentation {
+        Self.actionPresentation(
+            for: store.connectionState,
+            hasAuthenticatedContext: store.hasAuthenticatedConnectionContext
+        )
+    }
+
+    static func actionPresentation(
+        for state: ClaudeCodeConnectionState,
+        hasAuthenticatedContext: Bool
+    ) -> ActionPresentation {
+        switch state {
+        case .cliMissing:
+            .install
+        case .cliOutdated:
+            .update
+        case .checking:
+            hasAuthenticatedContext ? .authenticated : .signIn
+        case .signedOut:
+            .signIn
+        case .signingIn, .signingOut:
+            .hidden
+        case .signedInWaitingForQuota, .connected:
+            .authenticated
+        case .quotaUnavailable:
+            .quotaUnavailable
+        case .stale:
+            .stale
+        case .failed:
+            hasAuthenticatedContext ? .stale : .failed
+        }
+    }
+
     private var moreActions: some View {
-        Menu {
+        DSMenu {
             if loginSessionID != nil {
-                Button(showsTerminal ? "Hide sign-in log" : "Show sign-in log") {
+                DSMenuButton(showsTerminal ? "Hide sign-in log" : "Show sign-in log") {
                     showsTerminal.toggle()
                 }
                 .accessibilityIdentifier("settings.claudeCode.showLoginLog")
@@ -197,7 +234,9 @@ struct ClaudeCodeConnectionSettingsView: View {
                 Divider()
             }
 
-            Button(role: .destructive) {
+            DSMenuButton(role: .destructive) {
+                loginSessionID = nil
+                showsTerminal = false
                 Task {
                     await store.signOut()
                     if case .signedOut = store.connectionState {
@@ -205,26 +244,23 @@ struct ClaudeCodeConnectionSettingsView: View {
                     }
                 }
             } label: {
-                Label("Sign Out", systemImage: "rectangle.portrait.and.arrow.right")
+                DSLabel("Sign Out", systemImage: "rectangle.portrait.and.arrow.right")
             }
             .accessibilityIdentifier("settings.claudeCode.signOut")
         } label: {
-            Image(systemName: "ellipsis")
-                .font(.system(size: 12, weight: .semibold))
+            DSIcon(systemName: "ellipsis")
+                .dsFont(size: 12, weight: .semibold)
                 .foregroundStyle(theme.textPrimary)
                 .frame(width: 28, height: 28)
                 .background(
                     theme.opaqueSurfaceChrome,
-                    in: RoundedRectangle(
-                        cornerRadius: DSRadius.control,
-                        style: .continuous
-                    )
+                    in: Capsule(style: .circular)
                 )
                 .frame(width: 36, height: 36)
                 .contentShape(Rectangle())
         }
-        .menuStyle(.borderlessButton)
-        .menuIndicator(.hidden)
+
+
         .fixedSize()
         .help("More Claude connection actions")
         .accessibilityLabel("More Claude connection actions")
@@ -252,6 +288,7 @@ struct ClaudeCodeConnectionSettingsView: View {
                 controller: terminalController
             ) { _ in
                 Task { @MainActor in
+                    guard loginSessionID == sessionID else { return }
                     await store.loginProcessDidFinish()
                     if case .connected = store.connectionState {
                         showsTerminal = false
@@ -266,6 +303,7 @@ struct ClaudeCodeConnectionSettingsView: View {
             HStack(spacing: DSSpacing.small) {
                 Button("Cancel") {
                     terminalController.cancel()
+                    loginSessionID = nil
                     showsTerminal = false
                     Task {
                         await store.cancelSignIn()
@@ -379,6 +417,33 @@ struct ClaudeCodeConnectionSettingsView: View {
         }
     }
 
+    private var showsConnectionSummary: Bool {
+        Self.displaysConnectionSummary(for: store.connectionState)
+    }
+
+    static func displaysConnectionSummary(
+        for state: ClaudeCodeConnectionState
+    ) -> Bool {
+        switch state {
+        case .cliMissing, .checking, .signedOut:
+            false
+        case .cliOutdated, .signingIn, .signingOut,
+             .signedInWaitingForQuota, .connected, .quotaUnavailable, .stale, .failed:
+            true
+        }
+    }
+
+    private var connectionTitleAccessibilityLabel: String {
+        switch store.connectionState {
+        case .checking:
+            "Claude Code connection, checking in background"
+        case .signedInWaitingForQuota:
+            "Claude Code connection, loading quota in background"
+        default:
+            "Claude Code connection"
+        }
+    }
+
     private func relative(_ date: Date) -> String {
         let formatter = RelativeDateTimeFormatter()
         formatter.unitsStyle = .full
@@ -436,7 +501,7 @@ private struct ClaudeCodeLoginTerminalSurface: View {
     private var terminalTitleBar: some View {
         ZStack {
             Text("Claude sign-in")
-                .font(.system(size: 13, weight: .medium))
+                .dsFont(size: 13, weight: .medium)
                 .foregroundStyle(theme.terminalSecondary)
                 .lineLimit(1)
                 .accessibilityIdentifier("settings.claudeCode.terminal.title")
@@ -449,22 +514,16 @@ private struct ClaudeCodeLoginTerminalSurface: View {
                 Spacer(minLength: DSSpacing.standard)
 
                 Text("Claude CLI")
-                    .font(.system(size: 12, weight: .medium))
+                    .dsFont(size: 12, weight: .medium)
                     .foregroundStyle(theme.terminalForeground)
                     .padding(.horizontal, DSSpacing.standard)
                     .frame(height: 28)
                     .background(
                         theme.terminalBackground,
-                        in: RoundedRectangle(
-                            cornerRadius: DSRadius.control,
-                            style: .continuous
-                        )
+                        in: Capsule(style: .circular)
                     )
                     .overlay {
-                        RoundedRectangle(
-                            cornerRadius: DSRadius.control,
-                            style: .continuous
-                        )
+                        Capsule(style: .circular)
                         .strokeBorder(theme.terminalOutline, lineWidth: 1)
                     }
                     .accessibilityLabel("Claude CLI login session")
@@ -491,8 +550,8 @@ private struct ClaudeCodeTerminalTrafficLights: View {
     }
 
     private func light(color: SwiftUI.Color) -> some View {
-        Image(systemName: "circle.fill")
-            .font(.system(size: 12, weight: .regular))
+        DSIcon(systemName: "circle.fill")
+            .dsFont(size: 12, weight: .regular)
             .foregroundStyle(color)
     }
 }
@@ -558,6 +617,8 @@ private struct ClaudeCodeLoginTerminalView: NSViewRepresentable {
             execName: "claude",
             currentDirectory: loginCurrentDirectory
         )
+        Logger(subsystem: "com.hypevibe.DockMagic", category: "ClaudeAuthentication")
+            .notice("Sign-in PTY started: executableExists=\(FileManager.default.isExecutableFile(atPath: executableURL.path), privacy: .public), running=\(view.process.running, privacy: .public)")
         controller.attach(view)
         DispatchQueue.main.async {
             view.window?.makeFirstResponder(view)
@@ -626,6 +687,8 @@ private struct ClaudeCodeLoginTerminalView: NSViewRepresentable {
         func setTerminalTitle(source: LocalProcessTerminalView, title: String) {}
         func hostCurrentDirectoryUpdate(source: TerminalView, directory: String?) {}
         func processTerminated(source: TerminalView, exitCode: Int32?) {
+            Logger(subsystem: "com.hypevibe.DockMagic", category: "ClaudeAuthentication")
+                .notice("Sign-in PTY exited: \(exitCode ?? -1, privacy: .public)")
             onExit(exitCode)
         }
     }

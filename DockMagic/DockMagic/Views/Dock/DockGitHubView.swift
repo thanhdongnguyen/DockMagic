@@ -43,8 +43,8 @@ private struct GitHubLineChartTile: View {
                 }
 
                 if errorDescription != nil {
-                    Image(systemName: "exclamationmark.triangle.fill")
-                        .font(.system(size: max(8, side * 0.11), weight: .bold))
+                    DSIcon(systemName: "exclamationmark.triangle.fill")
+                        .dsFont(size: max(8, side * 0.11), weight: .bold)
                         .foregroundStyle(theme.dangerForeground)
                         .padding(max(3, side * 0.032))
                         .background(Circle().fill(theme.dockBackgroundInset.opacity(0.94)))
@@ -147,11 +147,7 @@ private struct GitHubLineChartTile: View {
         area.closeSubpath()
         context.fill(
             area,
-            with: .linearGradient(
-                Gradient(colors: [color.opacity(0.26), color.opacity(0.02)]),
-                startPoint: CGPoint(x: plot.midX, y: plot.minY),
-                endPoint: CGPoint(x: plot.midX, y: plot.maxY)
-            )
+            with: .color(color.opacity(0.12))
         )
 
         var line = Path()
@@ -187,12 +183,12 @@ private struct GitHubLineChartTile: View {
 
     private func legend(side: CGFloat) -> some View {
         HStack(spacing: side * 0.08) {
-            Image(systemName: "star.fill")
+            DSIcon(systemName: "star.fill")
                 .foregroundStyle(appearance.starColor.color)
-            Image(systemName: "arrow.triangle.branch")
+            DSIcon(systemName: "arrow.triangle.branch")
                 .foregroundStyle(appearance.forkColor.color)
         }
-        .font(.system(size: max(7, side * 0.085), weight: .bold))
+        .dsFont(size: max(7, side * 0.085), weight: .bold)
         .padding(.horizontal, side * 0.065)
         .padding(.vertical, side * 0.032)
         .background(Capsule().fill(theme.dockBackgroundInset.opacity(0.78)))
@@ -202,12 +198,12 @@ private struct GitHubLineChartTile: View {
 
     private func emptyState(side: CGFloat) -> some View {
         VStack(spacing: side * 0.06) {
-            Image(systemName: "point.3.connected.trianglepath.dotted")
-                .font(.system(size: max(12, side * 0.28), weight: .medium))
+            DSIcon(systemName: "point.3.connected.trianglepath.dotted")
+                .dsFont(size: max(12, side * 0.28), weight: .medium)
                 .foregroundStyle(theme.dockOutline.opacity(0.78))
 
             Text("—")
-                .font(.system(size: max(10, side * 0.18), weight: .bold, design: .rounded))
+                .dsFont(size: max(10, side * 0.18), weight: .bold)
                 .foregroundStyle(theme.dockOutline)
         }
     }
@@ -252,8 +248,8 @@ private struct GitHubNumericTile: View {
             .padding(.horizontal, side * 0.03)
             .overlay(alignment: .topTrailing) {
                 if errorDescription != nil {
-                    Image(systemName: "exclamationmark.triangle.fill")
-                        .font(.system(size: max(7, side * 0.09), weight: .bold))
+                    DSIcon(systemName: "exclamationmark.triangle.fill")
+                        .dsFont(size: max(7, side * 0.09), weight: .bold)
                         .foregroundStyle(theme.dangerForeground)
                         .accessibilityHidden(true)
                 }
@@ -274,13 +270,13 @@ private struct GitHubNumericTile: View {
         side: CGFloat
     ) -> some View {
         HStack(spacing: side * 0.045) {
-            Image(systemName: systemImage)
-                .font(.system(size: max(9, side * 0.18), weight: .bold))
+            DSIcon(systemName: systemImage)
+                .dsFont(size: max(9, side * 0.18), weight: .bold)
                 .foregroundStyle(color)
                 .frame(width: side * 0.20)
 
             Text(value)
-                .font(.system(size: max(12, side * 0.28), weight: .bold, design: .rounded))
+                .dsFont(size: max(12, side * 0.28), weight: .bold)
                 .monospacedDigit()
                 .minimumScaleFactor(0.55)
                 .allowsTightening(true)

@@ -62,6 +62,27 @@ final class DockHoverDelayTests: XCTestCase {
     }
 
     @MainActor
+    func testDockClickCancelsPendingAndClosesVisibleDashboard() async throws {
+        let model = makeModel(feature: .binance)
+        let controller = DockHoverPanelController(showDelay: .milliseconds(100))
+        let coordinator = DockHoverCoordinator(appModel: model,
+            permissionController: DockHoverPermissionController(), panelController: controller)
+        defer { coordinator.stop() }
+        let anchor = try makeAnchor()
+
+        controller.scheduleShow(anchor: anchor, appModel: model)
+        coordinator.dockIconClicked()
+        try await Task.sleep(for: .milliseconds(200))
+        XCTAssertFalse(controller.isVisible, "Click before the hover deadline must cancel presentation.")
+
+        controller.scheduleShow(anchor: anchor, appModel: model)
+        try await Task.sleep(for: .milliseconds(200))
+        XCTAssertTrue(controller.isVisible)
+        coordinator.dockIconClicked()
+        XCTAssertFalse(controller.isVisible, "Settings must open without a hover panel above it.")
+    }
+
+    @MainActor
     func testDisablingHoverBeforeDeadlinePreventsPresentation() async throws {
         let model = makeModel(feature: .claudeCode)
         let controller = DockHoverPanelController(showDelay: .milliseconds(100))
@@ -84,6 +105,8 @@ final class DockHoverDelayTests: XCTestCase {
         addTeardownBlock { defaults.removePersistentDomain(forName: suite) }
         return DockAppModel(
             preferences: preferences,
+            binanceStore: BinanceMarketStore(provider: BinanceFixtureProvider(),
+                stream: BinanceFixtureStream(), cache: BinanceMarketCache(url: nil)),
             streakStore: TokenUsageStreakStore(
                 modelContainer: TokenUsageStreakStore.inMemoryContainer()))
     }

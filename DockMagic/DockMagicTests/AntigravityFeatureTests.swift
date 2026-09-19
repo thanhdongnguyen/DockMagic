@@ -252,6 +252,74 @@ final class AntigravityFeatureTests: XCTestCase {
     }
 
     @MainActor
+    func testBackgroundQuotaRefreshKeepsConnectedPresentation() async throws {
+        let quota = try AntigravityUsageResponseParser.parse(
+            output: Self.usageJSON,
+            fetchedAt: Date(timeIntervalSince1970: 1_800_000_000)
+        )
+        let provider = PausingSecondAntigravityProvider(snapshot: quota)
+        let cacheDirectory = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: cacheDirectory) }
+        let store = AntigravityUsageStore(
+            provider: provider,
+            locator: FixedAntigravityLocator(),
+            bridge: FakeAntigravityBridge(
+                sessionsDirectoryURL: cacheDirectory.appendingPathComponent(
+                    "sessions", isDirectory: true
+                )
+            ),
+            streakTracker: FakeAntigravityStreakTracker(),
+            cacheURL: cacheDirectory.appendingPathComponent("cache.json"),
+            readSessions: { [] },
+            pollingInterval: .seconds(60)
+        )
+        await store.refresh()
+        let settledState = store.connectionState
+
+        let refresh = Task { await store.refresh() }
+        await provider.waitUntilSecondCallStarted()
+
+        XCTAssertEqual(store.connectionState, settledState)
+        XCTAssertTrue(store.isRefreshing)
+
+        await provider.resumeSecondCall()
+        await refresh.value
+    }
+
+    @MainActor
+    func testSettingsHidesOnlyAutomaticAntigravityCheck() {
+        XCTAssertFalse(
+            AntigravityConnectionSettingsView.displaysConnectionSummary(
+                for: .checking
+            )
+        )
+        XCTAssertTrue(
+            AntigravityConnectionSettingsView.displaysConnectionSummary(
+                for: .signingIn
+            )
+        )
+        XCTAssertTrue(
+            AntigravityConnectionSettingsView.displaysConnectionSummary(
+                for: .signingOut
+            )
+        )
+        XCTAssertEqual(
+            AntigravityConnectionSettingsView.actionPresentation(
+                for: .checking,
+                hasAuthenticatedContext: false
+            ),
+            .signIn
+        )
+        XCTAssertEqual(
+            AntigravityConnectionSettingsView.actionPresentation(
+                for: .checking,
+                hasAuthenticatedContext: true
+            ),
+            .authenticated
+        )
+    }
+
+    @MainActor
     func testStoreShowsSigningOutUntilLogoutIsVerified() async throws {
         let cacheDirectory = temporaryDirectory()
         defer { try? FileManager.default.removeItem(at: cacheDirectory) }
@@ -1063,6 +1131,38 @@ private actor CancellableAntigravityProvider: AntigravityQuotaProviding {
 
     func waitUntilStarted() async {
         while !firstCallStarted { await Task.yield() }
+    }
+}
+
+private actor PausingSecondAntigravityProvider: AntigravityQuotaProviding {
+    let snapshot: AntigravityQuotaSnapshot
+    private var callCount = 0
+    private var secondCallStarted = false
+    private var secondCallContinuation: CheckedContinuation<Void, Never>?
+
+    init(snapshot: AntigravityQuotaSnapshot) {
+        self.snapshot = snapshot
+    }
+
+    func fetchQuota(executableURL: URL) async throws
+        -> AntigravityQuotaSnapshot {
+        callCount += 1
+        if callCount == 2 {
+            secondCallStarted = true
+            await withCheckedContinuation {
+                secondCallContinuation = $0
+            }
+        }
+        return snapshot
+    }
+
+    func waitUntilSecondCallStarted() async {
+        while !secondCallStarted { await Task.yield() }
+    }
+
+    func resumeSecondCall() {
+        secondCallContinuation?.resume()
+        secondCallContinuation = nil
     }
 }
 

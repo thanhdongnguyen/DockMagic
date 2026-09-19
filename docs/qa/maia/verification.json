@@ -1,0 +1,71 @@
+{
+  "date": "2026-09-17",
+  "platform": "macOS / Xcode 15.4 / Swift 5.10",
+  "broadUnitRun": {
+    "total": 616,
+    "passed": 599,
+    "skippedOptIn": 10,
+    "expectedHarnessFailures": 2,
+    "failed": 5,
+    "note": "Clock grayscale expectation corrected and separately retested; other four reproduced on pre-migration snapshot."
+  },
+  "maiaFocusedRun": {
+    "total": 83,
+    "passed": 80,
+    "skippedOptIn": 1,
+    "expectedHarnessFailures": 2,
+    "failed": 0,
+    "includesPopupActionCorrection": true
+  },
+  "nativeResources": {
+    "verifiedFiles": 220,
+    "colorAssetsWithLightDarkAlpha": 31,
+    "hugeicons": 106,
+    "geistWeights": 4,
+    "registryComponents": 63
+  },
+  "designLint": {
+    "version": "0.4.0",
+    "errors": 0,
+    "warnings": 20,
+    "warningRule": "orphaned-tokens"
+  },
+  "uiAutomation": {
+    "status": "blockedBeforeTests",
+    "error": "Timed out while enabling automation mode",
+    "nativeOrca": "Main-window entry, Command-Z, Tab, primary, AXPress cancel, Escape and default Return verified; child-popover keyboard, physical Dock and VoiceOver remain unverified."
+  },
+  "expectedHarnessFailures": [
+    "MaiaDesignSystemTests/testNativeEditorPreservesVietnameseCompositionPasteAndUndo",
+    "MaiaDesignSystemTests/testSystemEditorComparisonPreservesVietnameseCompositionPasteAndUndo"
+  ],
+  "baselineFailures": [
+    "DockMagicTests/testAppModelRunsSelectedFeatureAndBackgroundStreakCollection",
+    "DockMagicTests/testSelectingClaudeCodeInstallsCLIBeforeDockMagicBridge",
+    "StartupRecoveryTests/testClaudeAutomaticallyRecoversWhenLocalSnapshotBecomesReadable",
+    "StartupRecoveryTests/testClaudeExternalFailureRearmsAnExistingLongPollingDelay"
+  ],
+  "clockCorrectionRetest": {
+    "passed": 1,
+    "failed": 0
+  },
+  "finalGeometryRetest": {
+    "passed": 2,
+    "failed": 0,
+    "coverage": "All 18 Settings in System/Light/Dark plus production gallery Light/Dark"
+  },
+  "buildAndRun": {
+    "script": "./script/build_and_run.sh --verify",
+    "configuration": "Debug",
+    "result": "passed",
+    "processObserved": 65987,
+    "isolatedDefaultsSuite": "DockMagic.Maia.QA",
+    "gallery": true,
+    "afterPopupActionCorrection": true
+  },
+  "codeSignature": {
+    "command": "codesign --verify --deep --strict",
+    "result": "passed",
+    "scope": "local Debug bundle; not a notarized distribution release"
+  }
+}

@@ -12,6 +12,7 @@ struct GitHubSettingsView: View {
     let resetAppearance: () -> Void
     let connectRepository: (String) async -> Void
 
+    @FocusState private var repositoryFocused: Bool
     @Environment(\.designTheme) private var theme
     @State private var repositoryURL: String
 
@@ -102,9 +103,10 @@ struct GitHubSettingsView: View {
             title: "Repository",
             detail: "Paste a GitHub repository link. DockMagic reads repository metadata only."
         ) {
+            DSField(title: "Repository URL") {
             HStack(spacing: DSSpacing.standard) {
-                Image(systemName: "link")
-                    .font(.system(size: 14, weight: .semibold))
+                DSIcon(systemName: "link")
+                    .dsFont(size: 14, weight: .semibold)
                     .foregroundStyle(theme.textSecondary)
                     .accessibilityHidden(true)
 
@@ -113,6 +115,7 @@ struct GitHubSettingsView: View {
                     text: $repositoryURL
                 )
                 .textFieldStyle(.plain)
+                .focused($repositoryFocused)
                 .font(DSTypography.body)
                 .accessibilityLabel("GitHub repository URL")
                 .accessibilityIdentifier("settings.github.repositoryURL")
@@ -121,31 +124,25 @@ struct GitHubSettingsView: View {
                     Button {
                         repositoryURL = ""
                     } label: {
-                        Image(systemName: "xmark.circle.fill")
+                        DSIcon(systemName: "xmark.circle.fill")
                             .foregroundStyle(theme.textTertiary)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(DSContentButtonStyle())
                     .accessibilityLabel("Clear repository URL")
                     .accessibilityIdentifier("settings.github.repositoryClear")
                 }
             }
-            .padding(.horizontal, DSSpacing.standard)
-            .frame(minHeight: 38)
-            .dsSurface(
-                RoundedRectangle(
-                    cornerRadius: DSRadius.control,
-                    style: .continuous
-                ),
-                kind: .inset,
-                role: repositoryFieldRole
-            )
+            .modifier(DSInputChrome(isFocused: repositoryFocused))
+            .environment(\.dsFieldInvalid, repositoryFieldRole == .danger)
+
+            }
 
             Button {
                 Task { await connectRepository(repositoryURL) }
             } label: {
-                Label("Apply Repository", systemImage: "link.badge.plus")
+                DSLabel("Apply Repository", systemImage: "link.badge.plus")
             }
-            .buttonStyle(DSButtonStyle(kind: .primary))
+            .buttonStyle(DSButtonStyle(emphasis: .primary))
             .disabled(repositoryReference == nil || store.isRefreshing)
             .accessibilityIdentifier("settings.github.repositoryConnect")
         }
@@ -159,25 +156,12 @@ struct GitHubSettingsView: View {
             title: "Dock display",
             detail: "Use a compact trend view or make the latest star and fork counts the focus."
         ) {
-            Picker("GitHub Dock display style", selection: displayStyle) {
-                Label("Line chart", systemImage: "chart.xyaxis.line")
-                    .tag(DockDisplayStyle.chart)
-                    .accessibilityIdentifier(
-                        "settings.github.displayStyleOption.chart"
-                    )
-
-                Label("Numbers", systemImage: "number")
-                    .tag(DockDisplayStyle.numeric)
-                    .accessibilityIdentifier(
-                        "settings.github.displayStyleOption.numeric"
-                    )
-            }
-            .labelsHidden()
-            .pickerStyle(.segmented)
-            .accessibilityLabel("GitHub Dock display style")
-            .accessibilityValue(
-                appearance.displayStyle == .chart ? "Line chart" : "Numbers"
-            )
+            DSSegmentedControl(title: "GitHub Dock display style", selection: displayStyle, options: [
+                .init(value: .chart, title: "Line chart", icon: .chart,
+                      accessibilityIdentifier: "settings.github.displayStyleOption.chart"),
+                .init(value: .numeric, title: "Numbers", icon: DSIconName.fromLegacySymbol("number"),
+                      accessibilityIdentifier: "settings.github.displayStyleOption.numeric")
+            ])
             .accessibilityIdentifier("settings.github.displayStyle")
         }
     }
@@ -211,7 +195,7 @@ struct GitHubSettingsView: View {
                 Spacer()
 
                 Button(action: resetAppearance) {
-                    Label("Reset Defaults", systemImage: "arrow.counterclockwise")
+                    DSLabel("Reset Defaults", systemImage: "arrow.counterclockwise")
                 }
                 .buttonStyle(DSButtonStyle())
                 .accessibilityIdentifier("settings.github.appearanceReset")
@@ -227,8 +211,8 @@ struct GitHubSettingsView: View {
         identifier: String
     ) -> some View {
         HStack(spacing: DSSpacing.standard) {
-            Image(systemName: systemImage)
-                .font(.system(size: 13, weight: .semibold))
+            DSIcon(systemName: systemImage)
+                .dsFont(size: 13, weight: .semibold)
                 .foregroundStyle(color.wrappedValue)
                 .frame(width: 18)
                 .accessibilityHidden(true)
@@ -324,8 +308,8 @@ private struct GitHubPreviewMetric: View {
 
     var body: some View {
         HStack(spacing: DSSpacing.standard) {
-            Image(systemName: systemImage)
-                .font(.system(size: 12, weight: .bold))
+            DSIcon(systemName: systemImage)
+                .dsFont(size: 12, weight: .bold)
                 .foregroundStyle(color)
                 .frame(width: 16)
                 .accessibilityHidden(true)

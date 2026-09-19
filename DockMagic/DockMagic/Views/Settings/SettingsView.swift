@@ -8,11 +8,17 @@ enum SettingsDestination: String, CaseIterable, Identifiable {
     case storage
     case weather
     case clock
+    case calendar
+    case nowPlaying
     case batteries
     case github
     case codex
     case claudeCode
     case antigravity
+    case openCode
+    case grokBuild
+    case augment
+    case binance
     case searchConsole
 
     init(activeFeature: DockFeature) {
@@ -27,6 +33,10 @@ enum SettingsDestination: String, CaseIterable, Identifiable {
             self = .storage
         case .weather:
             self = .weather
+        case .calendar:
+            self = .calendar
+        case .nowPlaying:
+            self = .nowPlaying
         case .clock:
             self = .clock
         case .batteries:
@@ -37,8 +47,16 @@ enum SettingsDestination: String, CaseIterable, Identifiable {
             self = .codex
         case .claudeCode:
             self = .claudeCode
+        case .augment:
+            self = .augment
+        case .grokBuild:
+            self = GrokBuildFeatureGate.experimentalEnabled ? .grokBuild : .general
+        case .openCode:
+            self = .openCode
         case .antigravity:
             self = .antigravity
+        case .binance:
+            self = .binance
         case .searchConsole:
             self = .searchConsole
         }
@@ -58,6 +76,10 @@ enum SettingsDestination: String, CaseIterable, Identifiable {
             "Storage"
         case .weather:
             "Weather"
+        case .calendar:
+            "Calendar"
+        case .nowPlaying:
+            "Now Playing"
         case .clock:
             "Clock"
         case .batteries:
@@ -68,8 +90,16 @@ enum SettingsDestination: String, CaseIterable, Identifiable {
             "Codex"
         case .claudeCode:
             "Claude Code"
+        case .augment:
+            "Augment"
+        case .grokBuild:
+            "Grok Build (Experimental)"
+        case .openCode:
+            "OpenCode"
         case .antigravity:
             "Antigravity"
+        case .binance:
+            "Binance"
         case .searchConsole:
             "Search Console"
         }
@@ -87,6 +117,10 @@ enum SettingsDestination: String, CaseIterable, Identifiable {
             "Monitor usage on the startup disk."
         case .weather:
             "Show current conditions supplied by Open-Meteo."
+        case .calendar:
+            "Your calendars, reminders, and daily agenda."
+        case .nowPlaying:
+            "Artwork and music controls for Spotify and Apple Music."
         case .clock:
             "Show local time or the time at another location."
         case .batteries:
@@ -97,8 +131,16 @@ enum SettingsDestination: String, CaseIterable, Identifiable {
             "Show Codex rate limits and aggregate token usage."
         case .claudeCode:
             "Show remaining 5-hour and weekly Claude Code limits."
+        case .augment:
+            "Organization token history and reported USD usage."
+        case .grokBuild:
+            "Test local Grok tokens and activity. Quota remains unavailable."
+        case .openCode:
+            "Show local OpenCode tokens, history, and activity."
         case .antigravity:
             "Show official model-pool quota from Antigravity."
+        case .binance:
+            "Live Spot prices and individual coin charts."
         case .searchConsole:
             "A focused view of your Google Search performance."
         }
@@ -116,6 +158,10 @@ enum SettingsDestination: String, CaseIterable, Identifiable {
             "internaldrive.fill"
         case .weather:
             "cloud.sun.fill"
+        case .calendar:
+            "calendar"
+        case .nowPlaying:
+            "music.note"
         case .clock:
             "clock.fill"
         case .batteries:
@@ -126,8 +172,16 @@ enum SettingsDestination: String, CaseIterable, Identifiable {
             "sparkles"
         case .claudeCode:
             "chevron.left.forwardslash.chevron.right"
+        case .augment:
+            "chart.bar"
+        case .grokBuild:
+            "g.circle"
+        case .openCode:
+            "terminal"
         case .antigravity:
             "sparkle"
+        case .binance:
+            "chart.xyaxis.line"
         case .searchConsole:
             "magnifyingglass"
         }
@@ -145,6 +199,10 @@ enum SettingsDestination: String, CaseIterable, Identifiable {
             .storage
         case .weather:
             .weather
+        case .calendar:
+            .calendar
+        case .nowPlaying:
+            .nowPlaying
         case .clock:
             .clock
         case .batteries:
@@ -155,8 +213,16 @@ enum SettingsDestination: String, CaseIterable, Identifiable {
             .codex
         case .claudeCode:
             .claudeCode
+        case .augment:
+            .augment
+        case .grokBuild:
+            .grokBuild
+        case .openCode:
+            .openCode
         case .antigravity:
             .antigravity
+        case .binance:
+            .binance
         case .searchConsole:
             .searchConsole
         }
@@ -238,6 +304,8 @@ struct SettingsView: View {
             case .weather:
                 appModel.weatherStore.refreshLocationAuthorizationStatus()
                 refreshWeather()
+            case .calendar:
+                break // CalendarSettingsView owns its monitoring interest.
             case .clock:
                 appModel.clockStore.start()
             case .batteries:
@@ -245,7 +313,7 @@ struct SettingsView: View {
             case .searchConsole:
                 appModel.searchConsoleStore.start()
             case .general, .systemMetrics, .network, .storage, .codex,
-                 .claudeCode, .antigravity, .github:
+                 .claudeCode, .antigravity, .grokBuild, .openCode, .augment, .github, .binance, .nowPlaying:
                 if newDestination == .general {
                     launchAtLoginController.refresh()
                 }
@@ -322,7 +390,7 @@ struct SettingsView: View {
                     sidebarSection(
                         title: "AI Features",
                         identifier: "aiFeatures",
-                        items: [.codex, .claudeCode, .antigravity]
+                        items: [.codex, .claudeCode, .antigravity, .openCode, .augment] + (GrokBuildFeatureGate.experimentalEnabled ? [.grokBuild] : [])
                     )
 
                     sidebarSection(
@@ -334,8 +402,11 @@ struct SettingsView: View {
                             .storage,
                             .weather,
                             .clock,
+                            .calendar,
+                            .nowPlaying,
                             .batteries,
                             .github,
+                            .binance,
                             .searchConsole
                         ]
                     )
@@ -355,7 +426,7 @@ struct SettingsView: View {
                 }
 
                 HStack(spacing: DSSpacing.compact) {
-                    Image(systemName: appearanceMode.systemImage)
+                    DSIcon(systemName: appearanceMode.systemImage)
                         .accessibilityHidden(true)
                     Text("\(appearanceMode.title) appearance")
                 }
@@ -365,9 +436,8 @@ struct SettingsView: View {
                 .padding(.vertical, DSSpacing.small)
                 .frame(maxWidth: .infinity, minHeight: 32, alignment: .leading)
                 .dsSurface(
-                    Capsule(),
-                    kind: .chrome,
-                    elevation: .secondary
+                    Capsule(style: .circular),
+                    kind: .chrome
                 )
                 .accessibilityIdentifier("settings.appearanceBadge")
             }
@@ -444,7 +514,7 @@ struct SettingsView: View {
 
                 if item.feature == appModel.preferences.activeFeature {
                     Circle()
-                        .fill(theme.processingForeground)
+                        .fill(theme.action)
                         .frame(width: 7, height: 7)
                         .accessibilityHidden(true)
                 }
@@ -477,7 +547,7 @@ struct SettingsView: View {
                 )
             )
         }
-        .buttonStyle(.plain)
+        .buttonStyle(DSContentButtonStyle())
         .accessibilityElement(children: .combine)
         .accessibilityLabel(item.title)
         .accessibilityValue(
@@ -501,15 +571,15 @@ struct SettingsView: View {
                 )
                 .fill(theme.sidebarIconFill)
 
-                Image(systemName: item.systemImage)
-                    .font(.system(size: 13, weight: .semibold))
+                DSIcon(systemName: item.systemImage)
+                    .dsFont(size: 13, weight: .semibold)
                     .foregroundStyle(theme.onSidebarIcon)
             }
             .frame(width: 22, height: 22)
             .accessibilityHidden(true)
         } else {
-            Image(systemName: item.systemImage)
-                .font(.system(size: 13, weight: .semibold))
+            DSIcon(systemName: item.systemImage)
+                .dsFont(size: 13, weight: .semibold)
                 .foregroundStyle(theme.textSecondary)
                 .frame(width: 22, height: 22)
                 .background(
@@ -584,6 +654,12 @@ struct SettingsView: View {
             storageContent
         case .weather:
             weatherContent
+        case .binance:
+            BinanceSettingsView(store: appModel.binanceStore, isActive: appModel.preferences.activeFeature == .binance)
+        case .calendar:
+            CalendarSettingsView(store: appModel.calendarStore, isActive: appModel.preferences.activeFeature == .calendar)
+        case .nowPlaying:
+            NowPlayingSettingsView(store: appModel.nowPlayingStore, isActive: appModel.preferences.activeFeature == .nowPlaying, onOpen: { appModel.openNowPlaying?() })
         case .clock:
             clockContent
         case .batteries:
@@ -594,6 +670,14 @@ struct SettingsView: View {
             codexContent
         case .claudeCode:
             claudeCodeContent
+        case .augment:
+            AugmentSettingsView(store: appModel.augmentStore, preferences: appModel.preferences)
+        case .grokBuild:
+            if GrokBuildFeatureGate.experimentalEnabled {
+                GrokBuildSettingsView(store: appModel.grokBuildStore, preferences: appModel.preferences)
+            }
+        case .openCode:
+            OpenCodeSettingsView(store: appModel.openCodeStore, preferences: appModel.preferences)
         case .antigravity:
             antigravityContent
         case .searchConsole:
@@ -607,19 +691,11 @@ struct SettingsView: View {
                 title: "Appearance",
                 detail: appearanceMode.detail
             ) {
-                Picker("Appearance", selection: appearanceBinding) {
-                    ForEach(DSAppearanceMode.settingsCases) { mode in
-                        Label(mode.title, systemImage: mode.systemImage)
-                            .tag(mode)
-                            .accessibilityIdentifier(
-                                "settings.appearanceOption.\(mode.rawValue)"
-                            )
-                    }
-                }
-                .labelsHidden()
-                .pickerStyle(.segmented)
-                .accessibilityLabel("Appearance")
-                .accessibilityValue(appearanceMode.title)
+                DSSegmentedControl(title: "Appearance", selection: appearanceBinding,
+                    options: DSAppearanceMode.settingsCases.map {
+                        .init(value: $0, title: $0.title, icon: DSIconName.fromLegacySymbol($0.systemImage),
+                              accessibilityIdentifier: "settings.appearanceOption.\($0.rawValue)")
+                    })
                 .accessibilityIdentifier("settings.appearancePicker")
             }
 
@@ -638,7 +714,7 @@ struct SettingsView: View {
                             isOn: launchAtLoginBinding
                         )
                         .labelsHidden()
-                        .toggleStyle(.switch)
+                        .toggleStyle(DSSwitchStyle())
                         .accessibilityIdentifier(
                             "settings.launchAtLogin.toggle"
                         )
@@ -699,7 +775,7 @@ struct SettingsView: View {
 
             DSSettingsSection(
                 title: "Dock hover dashboard",
-                detail: "Available for CPU & RAM, Weather, Codex, Claude Code, and Antigravity. Clock and other Dock-only features never open a hover dashboard."
+                detail: "Available for supported dashboards, including Now Playing, Calendar, Weather, CPU & RAM and AI features. Dock-only features never open a hover dashboard."
             ) {
                 VStack(spacing: DSSpacing.standard) {
                     DSSettingsRow(
@@ -713,7 +789,7 @@ struct SettingsView: View {
                             isOn: dockHoverEnabledBinding
                         )
                         .labelsHidden()
-                        .toggleStyle(.switch)
+                        .toggleStyle(DSSwitchStyle())
                         .disabled(
                             !appModel.preferences.activeFeature.hasHoverDashboard
                         )
@@ -726,7 +802,7 @@ struct SettingsView: View {
 
                         HStack(alignment: .top, spacing: DSSpacing.medium) {
                             DSIconPlate(
-                                systemImage: dockHoverPermissionSystemImage,
+                                dockHoverPermissionIcon,
                                 role: dockHoverPermissionRole
                             )
 
@@ -785,7 +861,7 @@ struct SettingsView: View {
                             isOn: automaticallyChecksForUpdatesBinding
                         )
                         .labelsHidden()
-                        .toggleStyle(.switch)
+                        .toggleStyle(DSSwitchStyle())
                         .accessibilityValue(
                             softwareUpdateController
                                 .automaticallyChecksForUpdates
@@ -816,7 +892,7 @@ struct SettingsView: View {
                             isOn: automaticallyDownloadsUpdatesBinding
                         )
                         .labelsHidden()
-                        .toggleStyle(.switch)
+                        .toggleStyle(DSSwitchStyle())
                         .accessibilityValue(
                             softwareUpdateController
                                 .automaticallyDownloadsUpdates
@@ -888,7 +964,7 @@ struct SettingsView: View {
             Button("Allow Accessibility…") {
                 dockHoverPermissionController?.requestAccess()
             }
-            .buttonStyle(DSButtonStyle(kind: .primary))
+            .buttonStyle(DSButtonStyle(emphasis: .primary))
             .disabled(dockHoverPermissionController == nil)
             .accessibilityIdentifier("settings.dockHover.allow")
         case .awaitingUserAction:
@@ -896,7 +972,7 @@ struct SettingsView: View {
                 Button("Open System Settings") {
                     dockHoverPermissionController?.openAccessibilitySettings()
                 }
-                .buttonStyle(DSButtonStyle(kind: .primary))
+                .buttonStyle(DSButtonStyle(emphasis: .primary))
 
                 Button("Check Again") {
                     dockHoverPermissionController?.refresh()
@@ -1203,8 +1279,8 @@ struct SettingsView: View {
     private var batteryDeviceList: some View {
         if appModel.batteryStore.current.devices.isEmpty {
             VStack(alignment: .leading, spacing: DSSpacing.small) {
-                Image(systemName: "battery.0percent")
-                    .font(.system(size: 28, weight: .medium))
+                DSIcon(systemName: "battery.0percent")
+                    .dsFont(size: 28, weight: .medium)
                     .foregroundStyle(theme.textTertiary)
 
                 Text("No battery devices detected")
@@ -1457,6 +1533,12 @@ struct SettingsView: View {
             set: { feature in
                 appModel.activateFeature(feature)
                 switch feature {
+                case .nowPlaying:
+                    navigate(to: .nowPlaying)
+                case .binance:
+                    navigate(to: .binance)
+                case .calendar:
+                    navigate(to: .calendar)
                 case .weather:
                     navigate(to: .weather)
                     appModel.weatherStore.refreshLocationAuthorizationStatus()
@@ -1473,6 +1555,12 @@ struct SettingsView: View {
                     navigate(to: .codex)
                 case .claudeCode:
                     navigate(to: .claudeCode)
+                case .augment:
+                    navigate(to: .augment)
+                case .grokBuild:
+                    if GrokBuildFeatureGate.experimentalEnabled { navigate(to: .grokBuild) }
+                case .openCode:
+                    navigate(to: .openCode)
                 case .antigravity:
                     navigate(to: .antigravity)
                 case .dockMagic, .systemMetrics, .network, .storage, .clock:
@@ -1513,7 +1601,7 @@ struct SettingsView: View {
                 size: 32
             )
         }
-        .buttonStyle(.plain)
+        .buttonStyle(DSContentButtonStyle())
         .disabled(!presentation.allowsAction)
         .help("\(presentation.title). \(presentation.detail)")
         .accessibilityIdentifier(
@@ -1652,16 +1740,16 @@ struct SettingsView: View {
         }
     }
 
-    private var dockHoverPermissionSystemImage: String {
+    private var dockHoverPermissionIcon: DSIconName {
         switch dockHoverPermissionState {
         case .disabled:
-            "eye.slash"
+            .eyeOff
         case .needsPermission:
-            "accessibility"
+            .accessibility
         case .awaitingUserAction:
-            "clock.badge.questionmark"
+            .clock
         case .authorized:
-            "checkmark.shield.fill"
+            .shield
         }
     }
 
@@ -2010,8 +2098,8 @@ private struct SoftwareUpdateFooterButton: View {
     var body: some View {
         Button(action: action) {
             HStack(spacing: DSSpacing.compact) {
-                Image(systemName: "arrow.down.circle")
-                    .font(.system(size: 14, weight: .medium))
+                DSIcon(systemName: "arrow.down.circle")
+                    .dsFont(size: 14, weight: .medium)
                     .foregroundStyle(theme.textSecondary)
                     .frame(width: 18)
                     .accessibilityHidden(true)
@@ -2029,8 +2117,8 @@ private struct SoftwareUpdateFooterButton: View {
                     .foregroundStyle(theme.textSecondary)
                     .lineLimit(1)
 
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 9, weight: .semibold))
+                DSIcon(systemName: "chevron.right")
+                    .dsFont(size: 9, weight: .semibold)
                     .foregroundStyle(theme.textTertiary)
                     .accessibilityHidden(true)
             }
@@ -2041,12 +2129,11 @@ private struct SoftwareUpdateFooterButton: View {
                     cornerRadius: DSRadius.row,
                     style: .continuous
                 ),
-                kind: .chrome,
-                elevation: .secondary
+                kind: .chrome
             )
             .dsInteractiveRow(isFocused: isFocused)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(DSContentButtonStyle())
         .focused($isFocused)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Update available, version \(version)")
@@ -2066,19 +2153,12 @@ private struct SettingsHeaderView: View {
                 .scaledToFill()
                 .frame(width: 44, height: 44)
                 .clipShape(
-                    RoundedRectangle(
-                        cornerRadius: DSRadius.control,
-                        style: .continuous
-                    )
+                    Capsule(style: .circular)
                 )
                 .overlay {
-                    RoundedRectangle(
-                        cornerRadius: DSRadius.control,
-                        style: .continuous
-                    )
+                    Capsule(style: .circular)
                     .strokeBorder(theme.outline, lineWidth: 1)
                 }
-                .shadow(color: theme.shadow, radius: 4, y: 2)
                 .accessibilityHidden(true)
 
             Text("Settings")
@@ -2105,15 +2185,12 @@ private struct BatteryDeviceStatusRow: View {
             )
             .frame(width: 64, height: 64)
             .dsSurface(
-                RoundedRectangle(
-                    cornerRadius: DSRadius.control,
-                    style: .continuous
-                ),
+                Capsule(style: .circular),
                 kind: .inset
             )
 
             Text(device.name)
-                .font(.system(size: 16, weight: .semibold))
+                .dsFont(size: 16, weight: .semibold)
                 .foregroundStyle(theme.textPrimary)
                 .lineLimit(1)
 
@@ -2121,7 +2198,7 @@ private struct BatteryDeviceStatusRow: View {
 
             VStack(alignment: .trailing, spacing: 3) {
                 Text("\(device.percentage)%")
-                    .font(.system(size: 20, weight: .bold, design: .rounded))
+                    .dsFont(size: 20, weight: .bold)
                     .monospacedDigit()
                     .foregroundStyle(
                         BatteryLevelStyle.foreground(
@@ -2131,7 +2208,7 @@ private struct BatteryDeviceStatusRow: View {
                     )
 
                 Text(device.detail)
-                    .font(.system(size: 14, weight: .medium))
+                    .dsFont(size: 14, weight: .medium)
                     .foregroundStyle(theme.textSecondary)
                     .lineLimit(1)
             }
@@ -2148,164 +2225,32 @@ private struct BatteryDeviceStatusRow: View {
 private struct ActiveDockFeaturePicker: View {
     @Binding var selection: DockFeature
 
-    @State private var isChoosingFeature = false
-    @Environment(\.designTheme) private var theme
-
     var body: some View {
-        Button {
-            isChoosingFeature.toggle()
-        } label: {
-            selectedFeatureField
-        }
-        .buttonStyle(.plain)
-        .contentShape(
-            RoundedRectangle(
-                cornerRadius: DSRadius.control,
-                style: .continuous
-            )
-        )
-        .popover(isPresented: $isChoosingFeature, arrowEdge: .bottom) {
-            featureOptions
-        }
-        .accessibilityLabel(
-            "Active Dock feature with \(selection.title) icon"
-        )
-        .accessibilityValue(selection.title)
-        .accessibilityIdentifier("settings.activeFeaturePicker")
-        .frame(width: 280, height: 48)
-        .fixedSize()
+        DSSelect(title: "Active Dock feature", selection: $selection,
+            options: DockFeature.availableCases.map {
+                .init(value: $0, title: $0.title,
+                      detail: $0.detail, accessibilityIdentifier: "settings.activeFeatureOption.\($0.rawValue)")
+            }, searchable: true, popupWidth: 300,
+            optionIdentity: { feature in
+                AnyView(DockFeatureIcon(feature: feature, size: 22))
+            }, initiallyPresented: initiallyPresentsForUITesting) {
+                DSSelectionSummary(title: selection.title, detail: selection.detail) {
+                    DockFeatureIcon(feature: selection, size: 24)
+                }
+            }
+            .labelsHidden()
+            .accessibilityIdentifier("settings.activeFeaturePicker")
+            .frame(width: 280, height: 48)
     }
 
-    private var featureOptions: some View {
-        VStack(spacing: DSSpacing.xSmall) {
-            ForEach(DockFeature.allCases) { feature in
-                ActiveDockFeatureOption(
-                    feature: feature,
-                    isSelected: selection == feature
-                ) {
-                    selection = feature
-                    isChoosingFeature = false
-                }
-            }
-        }
-        .padding(DSSpacing.small)
-        .background(theme.opaqueSurfaceRaised)
-    }
-
-    private var selectedFeatureField: some View {
-        HStack(spacing: DSSpacing.medium) {
-            ZStack {
-                RoundedRectangle(
-                    cornerRadius: DSRadius.keycap,
-                    style: .continuous
-                )
-                .fill(theme.selectionFill)
-
-                RoundedRectangle(
-                    cornerRadius: DSRadius.keycap,
-                    style: .continuous
-                )
-                .strokeBorder(theme.selectionOutline, lineWidth: 1)
-
-                DockFeatureIcon(feature: selection, size: 24)
-            }
-            .frame(width: 34, height: 34)
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(selection.title)
-                    .font(DSTypography.bodyEmphasis)
-                    .foregroundStyle(theme.textPrimary)
-                    .lineLimit(1)
-
-                Text(selection.detail)
-                    .font(DSTypography.caption)
-                    .foregroundStyle(theme.textSecondary)
-                    .lineLimit(1)
-            }
-
-            Spacer(minLength: DSSpacing.small)
-
-            Image(systemName: "chevron.up.chevron.down")
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(theme.textSecondary)
-        }
-        .padding(.horizontal, DSSpacing.medium)
-        .frame(width: 280, height: 48)
-        .background(
-            theme.opaqueSurfaceRaised,
-            in: RoundedRectangle(
-                cornerRadius: DSRadius.control,
-                style: .continuous
-            )
-        )
-        .overlay {
-            RoundedRectangle(
-                cornerRadius: DSRadius.control,
-                style: .continuous
-            )
-            .strokeBorder(theme.outline, lineWidth: 1)
-            .allowsHitTesting(false)
-        }
-        .shadow(color: theme.shadow.opacity(0.34), radius: 3, y: 1)
-    }
-}
-
-private struct ActiveDockFeatureOption: View {
-    let feature: DockFeature
-    let isSelected: Bool
-    let action: () -> Void
-
-    @Environment(\.designTheme) private var theme
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: DSSpacing.standard) {
-                DockFeatureIcon(feature: feature, size: 22)
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(feature.title)
-                        .font(DSTypography.bodyEmphasis)
-                        .foregroundStyle(theme.textPrimary)
-
-                    Text(feature.detail)
-                        .font(DSTypography.caption)
-                        .foregroundStyle(theme.textSecondary)
-                        .lineLimit(1)
-                }
-
-                Spacer(minLength: DSSpacing.small)
-
-                if isSelected {
-                    Image(systemName: "checkmark")
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundStyle(theme.action)
-                        .accessibilityHidden(true)
-                }
-            }
-            .padding(.horizontal, DSSpacing.standard)
-            .frame(width: 280, height: 44, alignment: .leading)
-            .background {
-                if isSelected {
-                    RoundedRectangle(
-                        cornerRadius: DSRadius.control,
-                        style: .continuous
-                    )
-                    .fill(theme.selectionFill)
-                }
-            }
-            .contentShape(
-                RoundedRectangle(
-                    cornerRadius: DSRadius.control,
-                    style: .continuous
-                )
-            )
-        }
-        .buttonStyle(.plain)
-        .accessibilityIdentifier(
-            "settings.activeFeatureOption.\(feature.rawValue)"
-        )
-        .accessibilityLabel(feature.title)
-        .accessibilityValue(isSelected ? "Selected" : "")
+    private var initiallyPresentsForUITesting: Bool {
+        #if DEBUG
+        ProcessInfo.processInfo.environment[
+            "DockMagicUITestOpenActiveFeaturePicker"
+        ] == "1"
+        #else
+        false
+        #endif
     }
 }
 
@@ -2334,6 +2279,12 @@ private struct DockFeatureIcon: View {
             case .claudeCode:
                 PreservedVectorAssetImage(assetName: "ClaudeCodeLogo")
                     .scaledToFit()
+            case .augment:
+                PreservedVectorAssetImage(assetName: "AugmentLogo").scaledToFit()
+            case .grokBuild:
+                GrokBuildIdentityMark()
+            case .openCode:
+                PreservedVectorAssetImage(assetName: "OpenCodeLogo").scaledToFit()
             case .antigravity:
                 PreservedVectorAssetImage(assetName: "AntigravityLogo")
                     .scaledToFit()
@@ -2360,15 +2311,15 @@ private struct DockFeatureIcon: View {
                         .interpolation(.high)
                         .scaledToFit()
                 } else {
-                    Image(systemName: featureSystemImage)
-                        .symbolRenderingMode(.multicolor)
-                        .font(.system(size: size * 0.58, weight: .semibold))
+                    DSIcon(systemName: featureSystemImage)
+                        .symbolRenderingMode(.monochrome)
+                        .dsFont(size: size * 0.58, weight: .semibold)
                         .frame(width: size, height: size)
                 }
             case .batteries:
-                Image(systemName: featureSystemImage)
-                    .font(.system(size: size * 0.58, weight: .semibold))
-                    .foregroundStyle(BatteryLevelStyle.healthy)
+                DSIcon(systemName: featureSystemImage)
+                    .dsFont(size: size * 0.58, weight: .semibold)
+                    .foregroundStyle(theme.textPrimary)
                     .frame(width: size, height: size)
                     .background(
                         RoundedRectangle(
@@ -2377,10 +2328,18 @@ private struct DockFeatureIcon: View {
                         )
                         .fill(theme.surfaceChrome)
                     )
+            case .binance:
+                BinanceBrandIcon(size: size)
+            case .calendar, .nowPlaying:
+                DSIcon(systemName: featureSystemImage)
+                    .symbolRenderingMode(.monochrome)
+                    .dsFont(size: size * 0.58, weight: .semibold)
+                    .foregroundStyle(theme.textPrimary)
+                    .frame(width: size, height: size)
             case .systemMetrics, .network, .storage, .clock:
-                Image(systemName: featureSystemImage)
-                    .font(.system(size: size * 0.58, weight: .semibold))
-                    .foregroundStyle(theme.processingForeground)
+                DSIcon(systemName: featureSystemImage)
+                    .dsFont(size: size * 0.58, weight: .semibold)
+                    .foregroundStyle(theme.textPrimary)
                     .frame(width: size, height: size)
                     .background(
                         RoundedRectangle(
@@ -2419,6 +2378,10 @@ private struct DockFeatureIcon: View {
             "internaldrive.fill"
         case .weather:
             "cloud.sun.fill"
+        case .calendar:
+            "calendar"
+        case .nowPlaying:
+            "music.note"
         case .clock:
             "clock.fill"
         case .batteries:
@@ -2429,8 +2392,16 @@ private struct DockFeatureIcon: View {
             "sparkles"
         case .claudeCode:
             "chevron.left.forwardslash.chevron.right"
+        case .augment:
+            "chart.bar"
+        case .grokBuild:
+            "g.circle"
+        case .openCode:
+            "terminal"
         case .antigravity:
             "sparkle"
+        case .binance:
+            "chart.xyaxis.line"
         case .searchConsole:
             "magnifyingglass"
         }
@@ -2484,19 +2455,11 @@ struct DockDisplayStyleEditor: View {
             title: "Dock display",
             detail: "Choose whether \(featureTitle) uses progress rings or direct numeric values in the Dock."
         ) {
-            Picker("Dock display style", selection: $selection) {
-                ForEach(DockDisplayStyle.allCases) { style in
-                    Label(style.title, systemImage: style.systemImage)
-                        .tag(style)
-                        .accessibilityIdentifier(
-                            "settings.displayStyleOption.\(style.rawValue)"
-                        )
-                }
-            }
-            .labelsHidden()
-            .pickerStyle(.segmented)
-            .accessibilityLabel("\(featureTitle) Dock display style")
-            .accessibilityValue(selection.title)
+            DSSegmentedControl(title: "\(featureTitle) Dock display style", selection: $selection,
+                options: DockDisplayStyle.allCases.map {
+                    .init(value: $0, title: $0.title, icon: DSIconName.fromLegacySymbol($0.systemImage),
+                          accessibilityIdentifier: "settings.displayStyleOption.\($0.rawValue)")
+                })
             .accessibilityIdentifier("settings.displayStyle")
         }
     }
@@ -2558,7 +2521,7 @@ struct RingAppearanceEditor: View {
             HStack {
                 Spacer()
                 Button(action: reset) {
-                    Label("Reset Defaults", systemImage: "arrow.counterclockwise")
+                    DSLabel("Reset Defaults", systemImage: "arrow.counterclockwise")
                 }
                     .buttonStyle(DSButtonStyle())
                     .accessibilityIdentifier("settings.rings.reset")
@@ -2605,7 +2568,7 @@ struct RingAppearanceEditor: View {
 
             Spacer(minLength: DSSpacing.standard)
 
-            Slider(value: value, in: range)
+            DSSlider(value: value, in: range)
                 .frame(maxWidth: DSLayout.sliderMaximumWidth)
                 .accessibilityLabel(title)
                 .accessibilityValue(
@@ -2666,7 +2629,7 @@ private struct NetworkAppearanceEditor: View {
             HStack {
                 Spacer()
                 Button(action: reset) {
-                    Label("Reset Defaults", systemImage: "arrow.counterclockwise")
+                    DSLabel("Reset Defaults", systemImage: "arrow.counterclockwise")
                 }
                     .buttonStyle(DSButtonStyle())
                     .accessibilityIdentifier("settings.network.reset")
@@ -2744,7 +2707,7 @@ private struct SingleRingAppearanceEditor: View {
 
                     Spacer(minLength: DSSpacing.standard)
 
-                    Slider(
+                    DSSlider(
                         value: width,
                         in: DockSingleRingAppearance.minimumWidth
                             ... DockSingleRingAppearance.maximumWidth
@@ -2768,7 +2731,7 @@ private struct SingleRingAppearanceEditor: View {
             HStack {
                 Spacer()
                 Button(action: reset) {
-                    Label("Reset Defaults", systemImage: "arrow.counterclockwise")
+                    DSLabel("Reset Defaults", systemImage: "arrow.counterclockwise")
                 }
                     .buttonStyle(DSButtonStyle())
                     .accessibilityIdentifier("settings.storage.reset")
@@ -2787,8 +2750,8 @@ private struct PreviewTextMetric: View {
 
     var body: some View {
         HStack(spacing: DSSpacing.standard) {
-            Image(systemName: systemImage)
-                .font(.system(size: 12, weight: .semibold))
+            DSIcon(systemName: systemImage)
+                .dsFont(size: 12, weight: .semibold)
                 .foregroundStyle(color)
                 .frame(width: 12)
                 .accessibilityHidden(true)
@@ -2869,8 +2832,8 @@ private struct WeatherPreviewValue: View {
 
     var body: some View {
         HStack(spacing: DSSpacing.standard) {
-            Image(systemName: systemImage)
-                .font(.system(size: 12, weight: .semibold))
+            DSIcon(systemName: systemImage)
+                .dsFont(size: 12, weight: .semibold)
                 .foregroundStyle(theme.informationForeground)
                 .frame(width: 18)
                 .accessibilityHidden(true)

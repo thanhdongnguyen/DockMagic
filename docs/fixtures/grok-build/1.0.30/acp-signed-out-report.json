@@ -1,0 +1,11 @@
+{
+  "accountKind": "unsigned-isolated-home",
+  "cliVersion": "1.0.30",
+  "durationSeconds": 1.9571896249981364,
+  "observedAt": "2026-09-16T08:59:00Z",
+  "passed": true,
+  "probe": "initialize-and-billing-signed-out",
+  "expectedError": "authenticationRequired",
+  "releaseVerified": false,
+  "remainingReview": ["signed-in-billing", "startup-side-effects", "detached-descendant-cleanup"]
+}

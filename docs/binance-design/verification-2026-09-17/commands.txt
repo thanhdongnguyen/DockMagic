@@ -1,0 +1,42 @@
+Xcode 15.4 / Swift 5.10; macOS arm64; Debug; standard project signing.
+
+Common xcodebuild arguments:
+  -quiet -project DockMagic/DockMagic.xcodeproj -scheme DockMagic
+  -configuration Debug -destination platform=macOS,arch=arm64
+  -derivedDataPath /tmp/dockmagic-binance-ui-derived
+  -clonedSourcePackagesDirPath /tmp/binance-ui-packages
+  -onlyUsePackageVersionsFromResolvedFile -parallel-testing-enabled NO
+
+Focused run /tmp/binance-ui-verified.xcresult:
+  -only-testing:DockMagicTests/BinanceFeatureTests
+  -only-testing:DockMagicTests/BinanceRenderTests
+  -only-testing:DockMagicTests/DockHoverDelayTests
+  -skip-testing:DockMagicTests/BinanceRenderTests/testOptInLiveMarketPanelAndInstalledDockCapture
+  -only-testing:DockMagicUITests/BinanceUITests test
+
+Live/regression /tmp/binance-ui-live-and-regression.xcresult:
+  /tmp/dockmagic-binance-enable-live-qa opt-in marker present for this run only
+  -only-testing:DockMagicTests/BinanceRenderTests/testAppearanceSettingsAndSharedButtonsRenderMatrix
+  -only-testing:DockMagicTests/BinanceRenderTests/testOptInLiveMarketPanelAndInstalledDockCapture
+  -only-testing:DockMagicTests/DockMagicTests/testSigmaAppearanceAndAccessibilityVariantsRenderDistinctSettings
+  -only-testing:DockMagicTests/DockMagicTests/testClaudeConnectionSettingsRenderAcrossAppearanceMatrix
+  -only-testing:DockMagicTests/DockMagicTests/testDockReopenRoutesToSingletonSettingsWindow
+  -only-testing:DockMagicUITests/BinanceUITests/testSearchAddPinRemoveAndSharedSettings test
+
+Picker regression after correcting the macOS AX numeric-value assertion:
+  /tmp/binance-ui-picker-flow.xcresult
+  -only-testing:DockMagicUITests/BinanceUITests/testSearchAddPinRemoveAndSharedSettings test
+
+Build/run verification:
+  DOCKMAGIC_DERIVED_DATA_PATH=/private/tmp/dockmagic-binance-ui-derived
+  DOCKMAGIC_SOURCE_PACKAGES_PATH=/private/tmp/binance-ui-packages
+  DockMagicUITesting=1 DockMagicUITestDefaultsSuite=DockMagicBinanceUIReview20260917
+  ./script/build_and_run.sh --verify
+
+The review suite contains BTC/USDT, ETH/USDT and SOL/USDT, with ETH pinned.
+No Binance fixture key is forwarded for build/run: Binance uses real public APIs.
+Other providers use the existing UITesting composition; main preferences are untouched.
+The script stops only the app matching the isolated build path.
+
+Use canonical /private/tmp paths for script verification. The first run built and launched
+correctly but its exact process-path comparison did not match the /tmp symlink alias.

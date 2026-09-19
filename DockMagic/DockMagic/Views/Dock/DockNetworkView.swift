@@ -18,15 +18,15 @@ struct DockNetworkView: View {
                 if samples.allSatisfy({
                     $0.downloadBytesPerSecond == 0 && $0.uploadBytesPerSecond == 0
                 }) {
-                    Image(systemName: "arrow.up.arrow.down")
-                        .font(.system(size: max(8, side * 0.13), weight: .bold))
+                    DSIcon(systemName: "arrow.up.arrow.down")
+                        .dsFont(size: max(8, side * 0.13), weight: .bold)
                         .foregroundStyle(theme.dockOutline.opacity(0.82))
                         .accessibilityHidden(true)
                 }
 
                 if errorDescription != nil {
-                    Image(systemName: "exclamationmark.triangle.fill")
-                        .font(.system(size: max(8, side * 0.12), weight: .bold))
+                    DSIcon(systemName: "exclamationmark.triangle.fill")
+                        .dsFont(size: max(8, side * 0.12), weight: .bold)
                         .foregroundStyle(theme.danger)
                         .padding(max(3, side * 0.035))
                         .background {

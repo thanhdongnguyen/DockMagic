@@ -1,140 +1,127 @@
-# DockMagic Design System
+# DockMagic Maia Design System
 
-## 1. Contract
+Normative component and appearance contract. Start with [Design.md](../Design.md)
+and [RULES.md](../RULES.md). [MAIA_COMPONENT_CATALOG.md](MAIA_COMPONENT_CATALOG.md)
+maps the pinned 63 web primitives to native implementations or explicit deferrals.
+See [MAIA_QA.md](MAIA_QA.md) for evidence, not assumed parity.
 
-The design system separates its foundation from product decisions:
+## Architecture
 
-```text
-DesignSystem
-  ├─ typography, spacing, radius, motion
-  ├─ semantic roles, surfaces, controls, status/settings components
-  └─ has no knowledge of RGB/hex values or specific features
+- Foundation: `DesignTheme`, `ProjectTheme`, `DSFonts`, `DSTypography`, `DSIconName`,
+  geometry, motion, appearance and accessibility. OKLCH conversion happens here.
+- Primitive: source-owned native components under `DesignSystem/Components`.
+- Composition: shared Settings and dashboard modules under `Views/Shared`.
+- Features own data, formatting, capability, persistence and actions. Components
+  receive bindings/presentation models, never network clients, stores or defaults.
 
-ProjectTheme
-  ├─ maps semantic roles to DS… Color Set assets
-  └─ provides opaque fallbacks for Reduce Transparency
+## Appearance and resources
 
-DockMagicThemeRoot
-  └─ installs the selected theme, tint, and appearance at the scene/AppKit host boundary
-```
+System/Light/Dark persist as before. `DockMagicThemeRoot` installs Geist, neutral
+tint, controls and a complete palette at every scene, popup and offscreen-render
+boundary. All surfaces are opaque. No glass, gradients or tinted cards.
 
-The normative color-usage contract is defined in
-[COLOR_DESIGN_SYSTEM.md](COLOR_DESIGN_SYSTEM.md). It limits normal UI to a
-neutral family plus one action accent, permits semantic color only when it
-carries state, and prohibits product gradients. This document defines the
-broader component and appearance architecture; the color contract wins if a
-legacy example conflicts with it.
+Codex and Antigravity pass `codexActivity` into the shared quota, chart,
+momentum, intensity and model components. `codexActivityForeground` is the
+accessible small data text variant on inset surfaces. Optional `accentForeground` on
+`CodexShipMomentumCard` and `valueForeground` on `ShipMomentumGauge` separate
+data text from fills while preserving neutral defaults for other callers.
+The same data accent continues into supported daily detail and activity export;
+controls and status keep their existing semantic roles.
 
-The AI hover dashboard module and composition contract is defined in
-[AI_DASHBOARD_DESIGN_SYSTEM.md](AI_DASHBOARD_DESIGN_SYSTEM.md).
+Geist Regular/Medium/SemiBold/Bold are bundled and registered before UI. The
+font cascade falls back per missing glyph (including ₫). HugeIcons Free Stroke
+Rounded 4.3.3 template vectors are bundled, typed and checksum-pinned. Native
+menus, file/permission/Share panels and terminal transcript typography are the
+only platform/content exceptions; brand artwork retains authored colors.
 
-Feature views do not create one-off materials, shadows, focus rings, or status
-colors. Dock ring and chart colors are preferences owned by the product model
-because users can change them; a renderer receives only the corresponding
-appearance model as input.
+## Component API
 
-## 2. Appearance
+- `DSButtonStyle(emphasis:intent:size:)`: primary/secondary/outline/ghost/link;
+  normal/destructive; 24/32/36/40 pt variants with minimum 36 pt hit area. Loading
+  composes an accessible spinner and disables repeated action. No `kind:` adapter.
+- `DSField`: visible label, helper/error and AX linkage. Native TextField and
+  SecureField keep editing, IME, selection, clipboard and undo. `DSInputStyle`
+  and `DSInputChrome` share 36 pt capsule geometry; textarea radius is 14.
+- `DSSwitchStyle`, `DSCheckboxStyle`, `DSRadioGroup`, `DSSlider`: native activation
+  and accessibility with shared state styling. Sliders retain native tracking.
+- `DSSegmentedControl(title:selection:options:size:)` owns all short single-choice
+  controls, including chart type, appearance, metric and range (UI-014). It uses
+  Maia inset/raised surfaces, neutral focus, selected AX state and arrow navigation
+  that skips disabled options. Value controls explicitly opt into editing focus,
+  so Tab traversal does not depend on the system preference for ordinary buttons;
+  disabled choices cannot receive focus. See Apple
+  [focus interactions](https://developer.apple.com/documentation/swiftui/view/focusable(_:interactions:)).
+  Features never rebuild segment chrome.
+- `DSSelect` accepts typed selection/options, disabled options, details/icons,
+  optional search, a custom option-identity builder and a rich trigger builder;
+  focus, arrow navigation and Escape
+  are shared. All app-owned dropdowns use this path, including Active Dock Feature,
+  Search Console properties and Now Playing sources. Active Dock Feature passes
+  the shared `DockFeatureIcon`, keeping every popup row identical to its Settings
+  sidebar identity (UI-016).
+- `DSMenu`, `dsPopover`, `dsDialog`, `dsAlert`: native presentation, shared Maia
+  content, window-scoped interaction leases, Escape, default/cancel actions and
+  focus restoration. The AppKit boundary handles presentation/focus only.
+- `DSContentButtonStyle`: content/navigation activation with shared pressed, disabled and focus states; `DSSelectionSummary` supplies the named 48 pt rich-select trigger.
+- `DSDialogButton` and `DSMenuButton` own action plus dismissal. Use them inside the shared popup builders; dismissal must not rely on a PrimitiveButtonStyle, which AXPress can bypass.
+- `DSCard` / `dsCard`: header/content/footer slots, 24 pt regular or 16 pt compact padding,
+  18 pt radius. Description/actions belong in the shared header composition.
+- `DSDataState`: loading, available, empty, unavailable, stale, partial, failed
+  with lastValue. Nil/NaN/infinity never become zero. `DSProgress` accepts optional
+  values; feature presentation supplies scope, units and freshness.
 
-DockMagic persists three color-scheme options: **System, Light, and Dark**.
-`DockMagicThemeRoot` applies the color scheme, semantic tint, and surface
-contract to both the Settings scene and the Dock `NSHostingView`. Liquid Glass
-is the default chrome for all three modes and applies only to navigation and
-chrome; primary content remains opaque. On macOS 14 with Xcode 15.4, glass uses
-a material fallback. Native `glassEffect` is only an availability-gated path
-for newer toolchains and macOS versions, and it has not been verified in the
-current environment.
+## Settings and dashboard composition
 
-Named assets must meet contrast requirements on opaque Light and Dark surfaces.
-Dock-specific tracks, backgrounds, and outlines also require a real compositor
-pass before release.
+Settings content starts at 1160 × 620 pt; sidebar 268, detail maximum 900, padding
+52 horizontal/34 vertical. All 18 destinations share typography, controls,
+sections, rows and production preview. Renderer color sections use the shared
+palette, keep existing arbitrary saved colors visible and include Reset Defaults.
 
-## 3. Semantic roles
+`DockHoverChrome` owns the common panel/elevation and the shared no-arrow
+placement: the card keeps its dimensions and shifts into the former 10 pt
+pointer space toward the Dock. Shared quota, momentum,
+intensity, top-model cards, history viewport and plan badge live outside provider
+views. `AIUsageDailyIntensityCard` owns the reusable 30-day intensity grid,
+unknown-day marks, tooltip and timezone-aware labels. `AIUsageHistoryChart` owns
+daily AI axes, bars, scrolling, hover, keyboard
+focus, missing/partial state and accessibility. Provider adapters only normalize
+their source values and formatting. The caller supplies the bounded data color:
+Codex blue, Claude clay, or the contrast-resolved OpenCode/Augment appearance
+color. Chart frames, legends and tooltips share chrome; data algorithms remain
+specific to system history, market candles, activity, quota and calendar data.
+Media and brand content remain within identity/artwork bounds.
 
-- Action: `action`, `onAction`.
-- Accent foreground: `…Foreground` roles are used for text and icons on
-  content; bright base action and status colors are used for fills.
-- Status: `information`, `processing`, `warning`, `danger`, and the
-  corresponding on-color roles.
-- Text: `textPrimary`, `textSecondary`, `textTertiary`.
-- Structure: `focus`, `outline`, `outlineStrong`, `shadow`, `selectionFill`,
-  `selectionOutline`.
-- Surface: `surface`, `surfaceRaised`, `surfaceInset`, `surfaceChrome`, and four
-  opaque fallbacks.
-- Dock chrome: `dockTrack`, `dockBackgroundRaised`, `dockBackgroundInset`,
-  `dockOutline`, `dockForeground`.
+`StreakContinuityStrip` has separate personal-streak and organization-activity
+presentations. The organization variant shares geometry and day-state rendering
+without showing personal badges or claiming realtime/user-level continuity.
+All active day nodes are rendered by the shared `StreakDayNode` with
+`DesignTheme.streakActive` and `onStreakActive`, including the compact strip,
+celebration and badge-detail Recent activity. The green is confined to verified
+day content; badge artwork, inactive/unknown/pending states and chrome retain
+their existing roles.
 
-Status always uses a semantic role. CPU, RAM, Network, Storage, Codex, and
-Claude Code renderer colors must not be reused as status colors because they
-are personal choices and may not carry a consistent meaning outside the
-renderer. The Weather condition palette is part of the renderer, while
-freshness and error badges still use the semantic `warning` and `danger` roles.
+Capability eligibility comes before composition. Account quota, local activity,
+account authentication and data freshness are independent. Unsupported fields
+are absent or explicitly unavailable. Stale/error states may retain last valid
+data with a qualifier; never manufacture provider parity.
 
-Semantic roles are not permission to show every hue simultaneously. Normal
-chrome is neutral plus `action`; information, processing, warning, and danger
-replace the local accent only when a real state requires them. See the color
-budget and bounded exceptions in `COLOR_DESIGN_SYSTEM.md`.
+Dock click opens Settings immediately. Hover waits one continuous second and
+only opens a supported dashboard. Popup leases include nested child windows,
+prevent automatic hiding, restore key window/focus, and release monitors on close.
+Repeated hover events do not replace the root of a live interacting dashboard.
 
-## 4. Foundation tokens
+## Dock and exports
 
-| Group | Contract |
-| --- | --- |
-| Radius | 8 / 12 / 16 / 24 pt, dynamic capsules, and concentric radii |
-| Spacing | 4 / 8 / 12 / 16 / 24 / 32 pt |
-| Typography | title 32, headline 20, panel 16, body/section 14, metadata 12, caption 11, metric 24 pt |
-| Motion | 0.12–0.16 s feedback, 0.32 s metric changes, and bounded 0.24–0.36 s Clock digit transitions; respects Reduce Motion |
-| Rows | content/action rows at least 46 pt; compact sidebar rows at least 30 pt; full-row content shapes and independent focus/selection |
-
-The surface hierarchy is `shell → panel → raised → inset → chrome`. Nested
-cards do not create their own shadows; the outer floating host owns the larger
-elevation.
-
-## 5. Settings composition
-
-- Primary window: `1160 × 620` content plus native title-bar/capture chrome, yielding
-  an initial outer size of approximately `1160 × 724`.
-- Native `NavigationSplitView`, fixed `268` pt sidebar.
-- Detail content is capped at `900` pt with `52` pt horizontal and `34` pt
-  vertical padding.
-- Destinations: General, CPU & RAM, Network, Storage, Weather, Batteries, Codex,
-  Claude Code, Antigravity, and About.
-- Detail content uses `DSSettingsSection`, `DSStatusCard`, and native `Picker`,
-  `ColorPicker`, `Slider`, `LabeledContent`, and `Button` controls.
-- The preview uses the production Dock renderer; there is no separate simulated
-  renderer.
-- Controls change preferences immediately. If the feature is active, the Dock
-  updates immediately.
-- General includes an appearance picker; the footer reflects the current mode.
-
-## 6. Dock composition
-
-- Tile geometry is always proportional to its side length and does not depend
-  on the Settings preview size.
-- `DockTileView` centers each tile at 824/1024 of the icon canvas width and
-  height, matching the visible footprint of standard macOS icons. This inset
-  applies once to all features and Settings previews without lowering raster
-  resolution.
-- Outer and inner rings have feature-specific default colors but share the same
-  clamping model.
-- Storage uses one ring. Network uses two series that diverge around a baseline,
-  share a scale, and do not reuse the ring metaphor.
-- Weather does not use a ring: a solid semantic background, condition symbol,
-  and temperature establish reading order. H/L appears only when the tile is
-  large enough to preserve the 32/48 pt layouts. Existing gradients are legacy
-  migration debt and are not precedent for new renderer work.
-- Tracks, backgrounds, and outlines use semantic assets.
-- Progress is not communicated by color alone: the renderer provides complete
-  accessibility labels and values.
-- Loading, stale, and unavailable states have appropriate symbols and text
-  semantics.
-- Antigravity uses the same shared ring/number primitives as Codex and Claude
-  Code. Each reported model pool remains a distinct value; unknown or absent
-  pools are never rendered as zero.
-- Animation is enabled in previews but disabled in the AppKit Dock host.
+Dock geometry stays proportional and previews use production renderers. Ring,
+network, weather, calendar and market content retain their data semantics.
+Neutral frame/track/outline and Geist apply everywhere; persisted renderer colors
+remain unchanged. Export uses Geist and the same semantic colors, with the
+existing eligibility/layout policy below.
 
 ### Activity card image export
 
 - Codex, Claude Code, and Antigravity export a purpose-built activity card;
-  popup insets, the Dock pointer, window shadows, capture menus, and the full
+  popup insets, window shadows, capture menus, and the full
   dashboard layout are excluded.
 - The 300 × 300 pt SwiftUI card is rasterized directly at 4× before encoding
   into an opaque 1200 × 1200 PNG. Enlarging a cached screen-resolution bitmap
@@ -163,33 +150,15 @@ elevation.
   but is not selected in Antigravity's export manifest. Neither layout
   substitutes quota for token activity.
 
-## 7. Accessibility
+## Accessibility and future work
 
-- Reduce Transparency replaces material with the matching opaque role.
-- Increased Contrast strengthens outlines and focus indicators when supported
-  by the component.
-- Reduce Motion removes nonessential animation.
-- Icon-only controls must have a label, help text, and stable identifier.
-- Decorative backgrounds, preview ornaments, and active dots are hidden from
-  the AX tree.
-- A sidebar row is a single accessibility element with a stable identifier and
-  an `Active` value when its feature is being displayed.
-- The native menu `Picker` guarantees exactly one active feature and preserves
-  keyboard and AX single-selection semantics.
-- Do not place an identifier too high in a container when SwiftUI might
-  propagate it to multiple descendants.
+Text targets 4.5:1 and focus/meaningful boundaries 3:1 after compositing. Increased
+Contrast strengthens outlines; Reduce Transparency retains opaque surfaces;
+Reduce Motion removes transforms. Selection, disabled, validation and stale
+state have non-color cues. Native single-selection, file, Share and permissions
+retain their platform semantics. See Design.md for documented preset adaptations.
 
-## 8. Checklist for new UI
-
-1. Choose the owner and semantic role before writing the layout.
-2. Use existing tokens and components. When something is missing, add a shared
-   primitive with the appropriate hover, pressed, focus, disabled, and error
-   states.
-3. Apply the color budget: neutral plus one accent in normal UI, semantic color
-   only for real state, monochrome interface icons, and no product gradients.
-4. Test Light, Dark, and Liquid appearances; Increased Contrast; Reduce
-   Transparency; Reduce Motion; pointer and keyboard input; and long content.
-5. Check AX uniqueness and hittability, not just existence.
-6. Render the Dock at 32/48/64/128 pt and inspect a Settings runtime screenshot.
-7. Before release, observe the real system Dock at multiple sizes and positions;
-   snapshots and the AX tree do not prove the compositor's final output.
+Before adding a component: reuse → inspect pinned catalog → add native primitive
+and named variant → production gallery fixtures/state tests → integrate feature.
+Do not add unused web-library equivalents. Verify Vietnamese/long strings,
+keyboard/focus/AX, data edge cases, minimum sizes and all appearance variants.

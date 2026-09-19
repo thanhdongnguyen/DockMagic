@@ -1,0 +1,124 @@
+{
+  "schemaVersion": 1,
+  "completedAt": "2026-09-16T15:49:35Z",
+  "scope": "Debug experimental local UI; synthetic providers, no live billing",
+  "productionEnabled": false,
+  "billingStartupSafetyVerified": false,
+  "liveAccountVerifiedByThisRun": false,
+  "releaseVerified": false,
+  "foundation": {
+    "selected": 102, "passed": 96, "skippedOptInLiveProbes": 6, "failed": 0,
+    "completedAt": "2026-09-16T15:37:36Z",
+    "log": "/private/tmp/dockmagic-grok-foundation-navigation-regression.log"
+  },
+  "appHosted": {
+    "passed": 38,
+    "failed": 0,
+    "scope": ["GrokPresentationTests", "GrokBuildDerivedTests", "TokenUsageStreakStoreTests", "four DockMagic routing and momentum regressions"],
+    "excludedSourceFile": "CalendarSyncTests.swift",
+    "exclusionReason": "Unrelated Calendar tests were changing concurrently; this is not a full-app regression pass.",
+    "resultBundle": "/private/tmp/dockmagic-grok-ui-build.acevBnKZ/Logs/Test/Test-DockMagic-2026.09.16_21-37-21-+0700.xcresult"
+  },
+  "appHostedNavigationRegression": {
+    "passed": 16,
+    "failed": 0,
+    "scope": ["GrokPresentationTests", "TokenUsageStreakStoreTests"],
+    "includes": ["Legacy Escape behavior unchanged", "Native appearance matrix", "Preferences and composition lifecycle"],
+    "resultBundle": "/private/tmp/dockmagic-grok-ui-build.acevBnKZ/Logs/Test/Test-DockMagic-2026.09.16_22-39-59-+0700.xcresult",
+    "caveat": "App-hosted subset passed; the same run had two UI failures. Counts overlap other runs and are not unique tests. CalendarSyncTests.swift was excluded."
+  },
+  "visual": {
+    "source": "Native NSHostingView captures with synthetic local usage matching the observed 35987-token sample",
+    "states": ["light", "dark", "increased contrast", "reduce transparency", "reduce motion", "grayscale simulation"],
+    "surfaces": ["Settings", "Dock 32/48/64/128 pt", "quota unavailable Dock", "hover overview viewport", "unknown-today badge detail viewport"],
+    "reviewed": true,
+    "grayscaleMethod": "Core Image desaturation of the complete native capture, followed by pixel channel checks; system accessibility preferences were not changed",
+    "capturedAtLocal": "2026-09-16 22:42",
+    "resultBundle": "/private/tmp/dockmagic-grok-ui-build.acevBnKZ/Logs/Test/Test-DockMagic-2026.09.16_22-39-59-+0700.xcresult",
+    "evidenceDirectory": "/private/tmp/dockmagic-grok-final-native.hjgPHC",
+    "reviewScope": "Visible native viewports and static states, not full scrolling, keyboard focus, live billing or VoiceOver. Full-desktop UI-test screenshots remain local and are not sanitized fixtures.",
+    "sha256": {
+      "light.png": "979f592a41a95b2ad2a2c1b1a994b758d8f938e8e1d70cac98c4165b18a0465a",
+      "dark.png": "ee560dadce585629858155aadebfa7a40a804591916ddb920ac3545d052818e3",
+      "contrast.png": "164ad054c6121b5d24cc7cf8f1ffdc2b47009cfb2c2a6d56a0b85f0376903f1d",
+      "opaque.png": "ee560dadce585629858155aadebfa7a40a804591916ddb920ac3545d052818e3",
+      "motion.png": "38f8eebc6f2ad89bb32e9a2b498f5c7c08c344be8e1db8581be93d4614c78b74",
+      "grayscale.png": "934b33151dcff646fa8ece8399f6f1cecf73a1f49cd012de1e44f8127e3b79c6",
+      "settings-light.png": "13e674c6136ce45170a743f69eb4f41f0347fab42e9cf65253d5f435085a2d1b",
+      "settings-dark.png": "6895a150d56d68d11b8478e945dd9b30d162301673534e1d1dd2b31d347cb5d6",
+      "settings-contrast.png": "eecb853b1b2663ddfa28ffab31d632879af662ba94006717e346fb761c5545e1",
+      "settings-opaque.png": "6895a150d56d68d11b8478e945dd9b30d162301673534e1d1dd2b31d347cb5d6",
+      "settings-motion.png": "13e674c6136ce45170a743f69eb4f41f0347fab42e9cf65253d5f435085a2d1b",
+      "settings-grayscale.png": "ef9d387086db1e2e35cfbec976f14da78df4f9c71d7ea4a75dbf146db49f74b9"
+    }
+  },
+  "interactive": {
+    "recordedAt": "2026-09-16T15:49:35Z",
+    "harness": "GrokUITests with Debug-only GrokUIFixtures and unique defaults suites",
+    "appBundleID": "com.hypevibe.GrokUITest.DockMagic",
+    "runnerBundleID": "com.hypevibe.GrokUITest.DockMagicUITests.xctrunner",
+    "buildForTestingPassed": true,
+    "productionIdentifiersChanged": false,
+    "grokUsesRealCLIHomeOrCredentials": false,
+    "latest": {
+      "selected": 6,
+      "passed": 6,
+      "failed": 0,
+      "resultBundle": "/private/tmp/dockmagic-grok-ui-six-final.xcresult",
+      "passedCases": [
+        "testFlagOffDoesNotExposeGrok",
+        "testNewActivityCelebrationIsNotReplayed",
+        "testSettingsQuotaSeparationAndBadgeBackEscape",
+        "testUnknownAndFailureAreNotZeroOrSignedOut",
+        "testDisablingIntegrationCancelsLoading",
+        "testFailedRefreshRetainsStaleObservedTokensWithoutQuotaFallback"
+      ],
+      "concurrentUIRunnerObserved": false,
+      "interpretation": "Six synthetic UI cases pass on the final test build. Preflight and postflight found no other UI runner; this is not continuous desktop-exclusivity monitoring. No live billing, credentials or real Grok home were used."
+    },
+    "earlierAttempts": [
+      {
+        "resultBundle": "/private/tmp/dockmagic-grok-interactive-exclusive.xcresult",
+        "selected": 4, "passed": 1, "failed": 3,
+        "finding": "Another runner started after preflight. Not an exclusive-desktop pass despite the artifact filename; product and harness defects were subsequently diagnosed separately."
+      },
+      {
+        "resultBundle": "/private/tmp/dockmagic-grok-ui-build.acevBnKZ/Logs/Test/Test-DockMagic-2026.09.16_21-54-36-+0700.xcresult",
+        "selected": 4, "passed": 1, "failed": 3,
+        "finding": "Corrected test-only AXLabel versus AXValue assertion. Also observed other UI runners and a disabled application accessibility tree; that does not prove a system menu was open."
+      },
+      {
+        "resultBundle": "/private/tmp/dockmagic-grok-ui-build.acevBnKZ/Logs/Test/Test-DockMagic-2026.09.16_22-01-35-+0700.xcresult",
+        "selected": 1, "passed": 0, "failed": 1,
+        "finding": "Focused empty/error rerun could not discover the preview quota node while another UI runner was active. This alone does not prove the visible preview was lost."
+      },
+      {
+        "resultBundle": "/private/tmp/dockmagic-grok-ui-navigation-suite.xcresult",
+        "selected": 4, "passed": 4, "failed": 0,
+        "finding": "Inline preview, concrete AX container, Grok-only button trait, opt-in Escape shortcut and viewport-aware test scrolling verified."
+      },
+      {
+        "resultBundle": "/private/tmp/dockmagic-grok-ui-build.acevBnKZ/Logs/Test/Test-DockMagic-2026.09.16_22-39-59-+0700.xcresult",
+        "selected": 6, "passed": 4, "failed": 2,
+        "finding": "UI subset: new cancellation and stale-retention tests passed. Settings failure queried another NowPlayingQA app; celebration was observed but AX scrolling outlasted its lifetime before click."
+      },
+      {
+        "resultBundle": "/private/tmp/dockmagic-grok-ui-build.acevBnKZ/Logs/Test/Test-DockMagic-2026.09.16_22-45-52-+0700.xcresult",
+        "selected": 2, "passed": 2, "failed": 0,
+        "finding": "Focused Settings and celebration rerun passed, including Done dismissal. Once-only notification is tested separately from persistent badge navigation; transient-banner click is not certified. Production timing unchanged."
+      }
+    ],
+    "visualSpotCheck": "Native matrix reviewed separately. XCTest verifies scoped Settings/preview routes, cancellation, stale/unknown/error states and once-only notification; it does not certify all accessibility flows, the actual Dock hover route or live billing.",
+    "ownedAppAndRunnerAbsentAfterRun": true,
+    "packageVersions": { "Sparkle": "2.10.0", "SwiftTerm": "1.18.0", "swift-argument-parser": "1.7.2" },
+    "packagePinsChangedByThisWork": false
+  },
+  "remaining": [
+    "Safe official billing startup and real authenticated quota evidence",
+    "Connected official terminal authentication controller and live auth lifecycle",
+    "Actual Dock interaction, full chart/roadmap scrolling, file-picker and keyboard focus, transient-banner click, and VoiceOver",
+    "Broader real resume/fork/delayed-fold and multi-model observations",
+    "Long-term activity retention stress verification",
+    "Final brand asset, standard build/run recheck, full regression and Developer ID/Hardened Runtime packaged verification"
+  ]
+}

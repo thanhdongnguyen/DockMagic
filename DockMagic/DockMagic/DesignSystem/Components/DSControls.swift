@@ -1,160 +1,83 @@
 import SwiftUI
 
-struct DSButtonStyle: ButtonStyle {
-    var kind: DSButtonKind = .neutral
+enum DSButtonEmphasis: String, CaseIterable { case primary, secondary, outline, ghost, link }
+enum DSControlIntent { case normal, destructive }
+enum DSControlSize: String, CaseIterable {
+    case extraSmall, small, regular, large
+    var height: CGFloat { switch self { case .extraSmall: 24; case .small: 32; case .regular: 36; case .large: 40 } }
+    var padding: CGFloat { switch self { case .extraSmall: 8; case .small: 10; case .regular: 12; case .large: 16 } }
+}
 
-    @Environment(\.designTheme) private var theme
-    @Environment(\.dsAccessibilityOverrides) private var accessibilityOverrides
-    @Environment(\.colorSchemeContrast) private var contrast
-    @Environment(\.isEnabled) private var isEnabled
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+struct DSButtonStyle: ButtonStyle {
+    var emphasis: DSButtonEmphasis = .outline
+    var intent: DSControlIntent = .normal
+    var size: DSControlSize = .regular
+    var surface: DSTypography.Surface = .settings
 
     func makeBody(configuration: Configuration) -> some View {
-        let shape = RoundedRectangle(
-            cornerRadius: DSRadius.control,
-            style: .continuous
-        )
-        let pressed = configuration.isPressed && isEnabled
+        DSButtonBody(configuration: configuration, emphasis: emphasis, intent: intent, size: size)
+    }
+}
 
+private struct DSButtonBody: View {
+    let configuration: ButtonStyleConfiguration
+    let emphasis: DSButtonEmphasis
+    let intent: DSControlIntent
+    let size: DSControlSize
+    var iconSide: CGFloat? = nil
+    @State private var hovering = false
+    @Environment(\.designTheme) private var theme
+    @Environment(\.isEnabled) private var enabled
+    @Environment(\.isFocused) private var focused
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dsAccessibilityOverrides) private var overrides
+    @Environment(\.colorSchemeContrast) private var contrast
+
+    private var foreground: Color {
+        if intent == .destructive { return emphasis == .primary ? theme.onDanger : theme.dangerForeground }
+        return emphasis == .primary ? theme.onAction : theme.textPrimary
+    }
+    private var fill: Color {
+        if emphasis == .primary { return intent == .destructive ? theme.danger : theme.action }
+        if emphasis == .secondary || (hovering && enabled && emphasis != .link) { return theme.surfaceInset }
+        return emphasis == .outline ? theme.surfaceRaised : .clear
+    }
+    var body: some View {
+        let shape = Capsule(style: .circular)
+        let increasesContrast = overrides.increaseContrast ?? (contrast == .increased)
         configuration.label
             .font(DSTypography.bodyEmphasis)
             .foregroundStyle(foreground)
-            .padding(.horizontal, 14)
-            .padding(.vertical, 8)
-            .frame(minHeight: 36)
-            .background {
-                ZStack {
-                    shape.fill(fill)
-                    shape.strokeBorder(
-                        effectivelyIncreasesContrast
-                            ? theme.outlineStrong
-                            : theme.outline,
-                        lineWidth: effectivelyIncreasesContrast ? 1.5 : 1
-                    )
-
-                    shape
-                        .inset(by: 1)
-                        .strokeBorder(
-                            LinearGradient(
-                                colors: [
-                                    Color.white.opacity(
-                                        kind == .neutral ? 0.28 : 0.22
-                                    ),
-                                    Color.clear
-                                ],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            ),
-                            lineWidth: 1
-                        )
+            .padding(.horizontal, iconSide == nil ? size.padding : 0)
+            .frame(minWidth: iconSide, minHeight: size.height)
+            .background(shape.fill(fill))
+            .overlay {
+                if emphasis == .outline {
+                    shape.strokeBorder(increasesContrast ? theme.outlineStrong : theme.outline, lineWidth: 1)
                 }
-                .allowsHitTesting(false)
-                .accessibilityHidden(true)
             }
-            .shadow(
-                color: pressed ? .clear : theme.shadow.opacity(0.42),
-                radius: kind == .neutral ? 2 : 4,
-                x: 0,
-                y: kind == .neutral ? 1 : 2
-            )
-            .contentShape(shape)
-            .buttonBorderShape(.roundedRectangle(radius: DSRadius.control))
-            .scaleEffect(pressed && !reduceMotion ? 0.98 : 1)
-            .brightness(pressed ? -0.05 : 0)
-            .opacity(isEnabled ? 1 : 0.42)
-            .animation(
-                reduceMotion ? nil : DSMotion.buttonPress,
-                value: configuration.isPressed
-            )
-    }
-
-    private var fill: Color {
-        switch kind {
-        case .neutral:
-            theme.opaqueSurfaceRaised
-        case .primary:
-            theme.action
-        case .destructive:
-            theme.danger
-        }
-    }
-
-    private var foreground: Color {
-        switch kind {
-        case .neutral:
-            theme.textPrimary
-        case .primary:
-            theme.onAction
-        case .destructive:
-            theme.onDanger
-        }
-    }
-
-    private var effectivelyIncreasesContrast: Bool {
-        accessibilityOverrides.increaseContrast ?? (contrast == .increased)
+            .overlay {
+                if focused && enabled { shape.stroke(theme.focus, lineWidth: 3).padding(-2) }
+            }
+            .offset(y: configuration.isPressed && enabled && !(overrides.reduceMotion ?? reduceMotion) ? 1 : 0)
+            .opacity(enabled ? 1 : 0.5)
+            .frame(minHeight: 36)
+            .contentShape(Rectangle())
+            .onHover { hovering = $0 }
+            .animation((overrides.reduceMotion ?? reduceMotion) ? nil : .easeOut(duration: 0.15), value: hovering)
     }
 }
 
 struct DSIconButtonStyle: ButtonStyle {
-    var kind: DSButtonKind = .neutral
-    var visualSize: CGFloat = 26
+    var emphasis: DSButtonEmphasis = .ghost
+    var intent: DSControlIntent = .normal
+    var visualSize: CGFloat = 32
     var hitSize: CGFloat = 36
 
-    @Environment(\.designTheme) private var theme
-    @Environment(\.isEnabled) private var isEnabled
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
     func makeBody(configuration: Configuration) -> some View {
-        let radius = max(7, visualSize * 0.32)
-        let shape = RoundedRectangle(cornerRadius: radius, style: .continuous)
-        let pressed = configuration.isPressed && isEnabled
-
-        configuration.label
-            .font(.system(size: 12, weight: .semibold))
-            .foregroundStyle(foreground)
-            .frame(width: visualSize, height: visualSize)
-            .background {
-                ZStack {
-                    shape.fill(fill)
-                }
-                .allowsHitTesting(false)
-                .accessibilityHidden(true)
-            }
-            .frame(
-                width: max(hitSize, visualSize),
-                height: max(hitSize, visualSize)
-            )
-            .contentShape(Rectangle())
-            .scaleEffect(pressed && !reduceMotion ? 0.94 : 1)
-            .opacity(isEnabled ? 1 : 0.38)
-            .animation(
-                reduceMotion ? nil : DSMotion.buttonPress,
-                value: configuration.isPressed
-            )
+        DSButtonBody(configuration: configuration, emphasis: emphasis, intent: intent,
+                     size: .small, iconSide: max(36, hitSize, visualSize))
     }
-
-    private var fill: Color {
-        switch kind {
-        case .neutral:
-            theme.opaqueSurfaceChrome
-        case .primary:
-            theme.action
-        case .destructive:
-            theme.danger
-        }
-    }
-
-    private var foreground: Color {
-        switch kind {
-        case .neutral:
-            theme.textPrimary
-        case .primary:
-            theme.onAction
-        case .destructive:
-            theme.onDanger
-        }
-    }
-
 }
 
 struct DSColorSwatchOption: Identifiable {
@@ -176,6 +99,7 @@ struct DSColorPalettePicker: View {
     let options: [DSColorSwatchOption]
     let accessibilityLabel: String
     let identifier: String
+    var currentColorTitle = "Current custom color"
 
     @FocusState private var focusedOptionID: String?
     @Environment(\.designTheme) private var theme
@@ -202,7 +126,7 @@ struct DSColorPalettePicker: View {
         return [
             DSColorSwatchOption(
                 id: "current",
-                title: "Current custom color",
+                title: currentColorTitle,
                 color: selection.wrappedValue,
                 hex: selectionHex
             )
@@ -240,8 +164,8 @@ struct DSColorPalettePicker: View {
                     }
 
                 if selected {
-                    Image(systemName: "checkmark")
-                        .font(.system(size: 10, weight: .bold))
+                    DSIcon(systemName: "checkmark")
+                        .dsFont(size: 10, weight: .bold)
                         .foregroundStyle(checkmarkColor(for: option.hex))
                         .accessibilityHidden(true)
                 }
@@ -317,7 +241,7 @@ private struct DSColorSwatchButtonStyle: ButtonStyle {
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .scaleEffect(configuration.isPressed ? 0.92 : 1)
+            .scaleEffect(configuration.isPressed && !reduceMotion ? 0.92 : 1)
             .brightness(configuration.isPressed ? -0.06 : 0)
             .shadow(
                 color: isSelected ? Color.black.opacity(0.18) : .clear,
@@ -408,5 +332,31 @@ extension View {
                 isEnabled: isEnabled
             )
         )
+    }
+}
+
+/// Transparent variant for data marks, calendar/media content and navigation rows.
+/// The content owns its geometry/selection; this style supplies shared interaction.
+struct DSContentButtonStyle: ButtonStyle {
+    var showsFocusRing = true
+    var dimsWhenDisabled = true
+    @Environment(\.designTheme) private var theme
+    @Environment(\.isEnabled) private var enabled
+    @Environment(\.isFocused) private var focused
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .opacity(
+                enabled
+                    ? (configuration.isPressed ? 0.72 : 1)
+                    : (dimsWhenDisabled ? 0.5 : 1)
+            )
+            .contentShape(Rectangle())
+            .overlay {
+                if showsFocusRing && focused && enabled {
+                    RoundedRectangle(cornerRadius: DSRadius.medium)
+                        .stroke(theme.focus, lineWidth: 3).padding(-2)
+                        .allowsHitTesting(false).accessibilityHidden(true)
+                }
+            }
     }
 }

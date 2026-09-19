@@ -16,6 +16,15 @@ struct SearchConsoleSettingsView: View {
             if store.configuration.isConnected {
                 connectedStrip
                 livePreview
+                DSSettingsSection(title: "Renderer colors", detail: "Colors apply to Dock data and its preview.") {
+                    DSRendererColorRow(title: "Clicks", selection: Binding(
+                        get: { store.configuration.clicksColor }, set: { store.setRendererColor($0, for: .clicks) }),
+                        identifier: "settings.searchConsole.clicksColor")
+                    DSRendererColorRow(title: "Impressions", selection: Binding(
+                        get: { store.configuration.impressionsColor }, set: { store.setRendererColor($0, for: .impressions) }),
+                        identifier: "settings.searchConsole.impressionsColor")
+                    HStack { Spacer(); Button("Reset Defaults", action: store.resetRendererColors) }
+                }
                 dataSource
                 preliminaryNotice
             } else {
@@ -28,21 +37,21 @@ struct SearchConsoleSettingsView: View {
             allowsMultipleSelection: false,
             onCompletion: importJSON
         )
-        .sheet(isPresented: $showsManageSheet) {
+        .dsDialog(isPresented: $showsManageSheet) {
             SearchConsoleConnectionSheet(
                 store: store,
                 dismiss: { showsManageSheet = false }
             )
             .environment(\.designTheme, theme)
         }
-        .alert(
+        .dsAlert(
             "Service account could not be connected",
             isPresented: Binding(
                 get: { importError != nil },
                 set: { if !$0 { importError = nil } }
             )
         ) {
-            Button("OK", role: .cancel) { importError = nil }
+            DSDialogButton("OK", role: .cancel) { importError = nil }
         } message: {
             Text(importError ?? "Unknown error")
         }
@@ -56,9 +65,8 @@ struct SearchConsoleSettingsView: View {
     private var connectedStrip: some View {
         HStack(spacing: DSSpacing.medium) {
             Circle()
-                .fill(Color(red: 0.32, green: 0.82, blue: 0.46))
+                .fill(theme.processingForeground)
                 .frame(width: 8, height: 8)
-                .shadow(color: theme.processingForeground.opacity(0.45), radius: 4)
 
             Text(store.configuration.selectedProperty)
                 .font(DSTypography.body)
@@ -90,8 +98,7 @@ struct SearchConsoleSettingsView: View {
         .frame(height: 45)
         .dsSurface(
             RoundedRectangle(cornerRadius: DSRadius.panel, style: .continuous),
-            kind: .chrome,
-            elevation: .secondary
+            kind: .chrome
         )
     }
 
@@ -146,7 +153,7 @@ struct SearchConsoleSettingsView: View {
                         Button {
                             Task { await store.refresh() }
                         } label: {
-                            Image(systemName: "arrow.clockwise")
+                            DSIcon(systemName: "arrow.clockwise")
                         }
                         .buttonStyle(DSIconButtonStyle(visualSize: 25, hitSize: 32))
                         .disabled(store.isRefreshing)
@@ -157,12 +164,7 @@ struct SearchConsoleSettingsView: View {
                 .frame(maxWidth: .infinity)
             }
         }
-        .padding(DSSpacing.xLarge)
-        .dsSurface(
-            RoundedRectangle(cornerRadius: DSRadius.largePanel, style: .continuous),
-            kind: .raised,
-            elevation: .primary
-        )
+        .dsCard()
     }
 
     private var dataSource: some View {
@@ -180,7 +182,7 @@ struct SearchConsoleSettingsView: View {
             dataRow(
                 title: "JSON keys",
                 value: "\(store.credentials.count) saved",
-                valueColor: Color(red: 0.32, green: 0.82, blue: 0.46)
+                valueColor: theme.processingForeground
             )
             DSDivider()
             dataRow(
@@ -195,17 +197,12 @@ struct SearchConsoleSettingsView: View {
                 valueColor: theme.textSecondary
             )
         }
-        .padding(DSSpacing.xLarge)
-        .dsSurface(
-            RoundedRectangle(cornerRadius: DSRadius.largePanel, style: .continuous),
-            kind: .raised,
-            elevation: .primary
-        )
+        .dsCard()
     }
 
     private var preliminaryNotice: some View {
         HStack(alignment: .top, spacing: DSSpacing.small) {
-            Image(systemName: "info.circle.fill")
+            DSIcon(systemName: "info.circle.fill")
                 .foregroundStyle(theme.actionForeground)
             Text("Recent data may be preliminary and subject to change as Google finalizes results.")
                 .font(DSTypography.metadata)
@@ -221,8 +218,8 @@ struct SearchConsoleSettingsView: View {
                 ZStack {
                     RoundedRectangle(cornerRadius: DSRadius.panel, style: .continuous)
                         .fill(theme.action.opacity(0.18))
-                    Image(systemName: "chart.xyaxis.line")
-                        .font(.system(size: 30, weight: .semibold))
+                    DSIcon(systemName: "chart.xyaxis.line")
+                        .dsFont(size: 30, weight: .semibold)
                         .foregroundStyle(theme.actionForeground)
                 }
                 .frame(width: 62, height: 62)
@@ -239,18 +236,13 @@ struct SearchConsoleSettingsView: View {
                 Spacer(minLength: DSSpacing.large)
 
                 Button("Add JSON Key…") { importsJSON = true }
-                    .buttonStyle(DSButtonStyle(kind: .primary))
+                    .buttonStyle(DSButtonStyle(emphasis: .primary))
                     .accessibilityIdentifier("settings.searchConsole.import")
             }
 
             SearchConsoleSetupSteps()
         }
-        .padding(DSSpacing.xLarge)
-        .dsSurface(
-            RoundedRectangle(cornerRadius: DSRadius.largePanel, style: .continuous),
-            kind: .raised,
-            elevation: .primary
-        )
+        .dsCard()
     }
 
     private func controlRow<Content: View>(
@@ -267,9 +259,8 @@ struct SearchConsoleSettingsView: View {
         .frame(minHeight: 54)
         .padding(.horizontal, DSSpacing.large)
         .dsSurface(
-            RoundedRectangle(cornerRadius: DSRadius.control, style: .continuous),
-            kind: .inset,
-            elevation: .secondary
+            Capsule(style: .circular),
+            kind: .inset
         )
     }
 
@@ -280,22 +271,11 @@ struct SearchConsoleSettingsView: View {
         title: KeyPath<Value, String>,
         set: @escaping @MainActor @Sendable (Value) -> Void
     ) -> some View where Value.AllCases: RandomAccessCollection {
-        Picker(
-            id,
-            selection: Binding(get: { selection }, set: set)
-        ) {
-            ForEach(values) { value in
-                Text(value[keyPath: title])
-                    .tag(value)
-                    .accessibilityIdentifier(
-                        "settings.searchConsole.\(id).\(String(describing: value))"
-                    )
-            }
-        }
-        .labelsHidden()
-        .pickerStyle(.segmented)
-        .accessibilityLabel(id)
-        .accessibilityValue(selection[keyPath: title])
+        DSSegmentedControl(title: id, selection: Binding(get: { selection }, set: set),
+            options: values.map {
+                .init(value: $0, title: $0[keyPath: title],
+                      accessibilityIdentifier: "settings.searchConsole.\(id).\(String(describing: $0))")
+            })
         .accessibilityIdentifier("settings.searchConsole.\(id)")
     }
 
@@ -359,18 +339,18 @@ private struct SearchConsoleConnectionSheet: View {
                 allowsMultipleSelection: false,
                 onCompletion: importJSON
             )
-            .alert(
+            .dsAlert(
                 "Remove JSON key?",
                 isPresented: removalAlertIsPresented,
                 presenting: credentialPendingRemoval,
                 actions: removalAlertActions,
                 message: removalAlertMessage
             )
-            .alert(
+            .dsAlert(
                 "Service account could not be connected",
                 isPresented: operationAlertIsPresented
             ) {
-                Button("OK", role: .cancel) { operationError = nil }
+                DSDialogButton("OK", role: .cancel) { operationError = nil }
             } message: {
                 Text(operationError ?? "Unknown error")
             }
@@ -410,7 +390,7 @@ private struct SearchConsoleConnectionSheet: View {
             }
             Spacer()
             Button(action: dismiss) {
-                Image(systemName: "xmark")
+                DSIcon(systemName: "xmark")
             }
             .buttonStyle(DSIconButtonStyle(visualSize: 28, hitSize: 36))
             .keyboardShortcut(.cancelAction)
@@ -437,7 +417,7 @@ private struct SearchConsoleConnectionSheet: View {
                 }
                 Spacer()
                 Button("Add JSON Key…") { importsJSON = true }
-                    .buttonStyle(DSButtonStyle(kind: .primary))
+                    .buttonStyle(DSButtonStyle(emphasis: .primary))
                     .accessibilityIdentifier("settings.searchConsole.sheetImport")
             }
 
@@ -447,15 +427,7 @@ private struct SearchConsoleConnectionSheet: View {
                 credentialList
             }
         }
-        .padding(DSSpacing.xLarge)
-        .dsSurface(
-            RoundedRectangle(
-                cornerRadius: DSRadius.largePanel,
-                style: .continuous
-            ),
-            kind: .raised,
-            elevation: .primary
-        )
+        .dsCard()
     }
 
     private var credentialList: some View {
@@ -480,15 +452,7 @@ private struct SearchConsoleConnectionSheet: View {
             }
             SearchConsoleSetupSteps()
         }
-        .padding(DSSpacing.xLarge)
-        .dsSurface(
-            RoundedRectangle(
-                cornerRadius: DSRadius.largePanel,
-                style: .continuous
-            ),
-            kind: .raised,
-            elevation: .secondary
-        )
+        .dsCard()
         .accessibilityIdentifier("settings.searchConsole.setupGuide")
     }
 
@@ -515,10 +479,10 @@ private struct SearchConsoleConnectionSheet: View {
     private func removalAlertActions(
         _ credential: SearchConsoleCredential
     ) -> some View {
-        Button("Remove", role: .destructive) {
+        DSDialogButton("Remove", role: .destructive) {
             remove(credential)
         }
-        Button("Cancel", role: .cancel) {
+        DSDialogButton("Cancel", role: .cancel) {
             credentialPendingRemoval = nil
         }
     }
@@ -559,8 +523,8 @@ private struct SearchConsoleConnectionSheet: View {
 
     private var emptyCredentialState: some View {
         HStack(spacing: DSSpacing.medium) {
-            Image(systemName: "key.horizontal")
-                .font(.system(size: 20, weight: .medium))
+            DSIcon(systemName: "key.horizontal")
+                .dsFont(size: 20, weight: .medium)
                 .foregroundStyle(theme.textTertiary)
             VStack(alignment: .leading, spacing: DSSpacing.xSmall) {
                 Text("No JSON keys yet")
@@ -574,9 +538,8 @@ private struct SearchConsoleConnectionSheet: View {
         }
         .padding(DSSpacing.large)
         .dsSurface(
-            RoundedRectangle(cornerRadius: DSRadius.control, style: .continuous),
-            kind: .inset,
-            elevation: .secondary
+            Capsule(style: .circular),
+            kind: .inset
         )
     }
 
@@ -586,17 +549,14 @@ private struct SearchConsoleConnectionSheet: View {
         VStack(alignment: .leading, spacing: DSSpacing.medium) {
             HStack(spacing: DSSpacing.medium) {
                 ZStack {
-                    RoundedRectangle(
-                        cornerRadius: DSRadius.control,
-                        style: .continuous
-                    )
+                    Capsule(style: .circular)
                     .fill(
                         credential.isActive
                             ? theme.action.opacity(0.18)
                             : theme.surfaceRaised
                     )
-                    Image(systemName: "key.horizontal.fill")
-                        .font(.system(size: 16, weight: .semibold))
+                    DSIcon(systemName: "key.horizontal.fill")
+                        .dsFont(size: 16, weight: .semibold)
                         .foregroundStyle(
                             credential.isActive
                                 ? theme.actionForeground
@@ -612,7 +572,7 @@ private struct SearchConsoleConnectionSheet: View {
                             .foregroundStyle(theme.textPrimary)
                             .lineLimit(1)
                         if credential.isActive {
-                            Label("Active", systemImage: "checkmark.circle.fill")
+                            DSLabel("Active", systemImage: "checkmark.circle.fill")
                                 .font(DSTypography.metadata)
                                 .foregroundStyle(theme.processingForeground)
                         }
@@ -638,7 +598,7 @@ private struct SearchConsoleConnectionSheet: View {
                 Button {
                     credentialPendingRemoval = credential
                 } label: {
-                    Image(systemName: "trash")
+                    DSIcon(systemName: "trash")
                 }
                 .buttonStyle(DSIconButtonStyle(visualSize: 26, hitSize: 34))
                 .accessibilityLabel("Remove \(credential.clientEmail)")
@@ -665,8 +625,7 @@ private struct SearchConsoleConnectionSheet: View {
         .padding(DSSpacing.large)
         .dsSurface(
             RoundedRectangle(cornerRadius: DSRadius.panel, style: .continuous),
-            kind: credential.isActive ? .chrome : .inset,
-            elevation: credential.isActive ? .primary : .secondary
+            kind: credential.isActive ? .chrome : .inset
         )
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier(
@@ -680,97 +639,18 @@ private struct SearchConsolePropertyPicker: View {
     let selectedProperty: String
     let select: (String) -> Void
 
-    @State private var isChoosingProperty = false
-    @Environment(\.designTheme) private var theme
-
     var body: some View {
-        Button {
-            isChoosingProperty.toggle()
-        } label: {
-            selectionField
-        }
-        .buttonStyle(.plain)
-        .contentShape(
-            RoundedRectangle(
-                cornerRadius: DSRadius.control,
-                style: .continuous
-            )
-        )
-        .disabled(sites.isEmpty)
-        .popover(isPresented: $isChoosingProperty, arrowEdge: .bottom) {
-            propertyOptions
-        }
-        .accessibilityLabel("Search Console property")
-        .accessibilityValue(selectedProperty)
-        .accessibilityIdentifier("settings.searchConsole.property")
-        .help(
-            sites.isEmpty
-                ? "Loading accessible Search Console properties…"
-                : "Choose the Search Console property used by this key"
-        )
-    }
-
-    private var selectionField: some View {
-        HStack(spacing: DSSpacing.medium) {
-            Text(selectedProperty.isEmpty ? "No property available" : selectedProperty)
-                .font(DSTypography.bodyEmphasis)
-                .foregroundStyle(
-                    selectedProperty.isEmpty
-                        ? theme.textTertiary
-                        : theme.textPrimary
-                )
-                .lineLimit(1)
-                .truncationMode(.middle)
-
-            Spacer(minLength: DSSpacing.small)
-
-            Image(systemName: "chevron.up.chevron.down")
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(theme.textSecondary)
-                .accessibilityHidden(true)
-        }
-        .padding(.horizontal, DSSpacing.medium)
-        .frame(width: 360, height: 42)
-        .dsSurface(
-            RoundedRectangle(
-                cornerRadius: DSRadius.control,
-                style: .continuous
-            ),
-            kind: .inset,
-            elevation: .secondary
-        )
-    }
-
-    private var propertyOptions: some View {
-        VStack(alignment: .leading, spacing: DSSpacing.small) {
-            VStack(alignment: .leading, spacing: DSSpacing.xSmall) {
-                Text("Search Console property")
-                    .font(DSTypography.sectionTitle)
-                    .foregroundStyle(theme.textPrimary)
-                Text("Choose the property whose clicks and impressions appear in the Dock.")
-                    .font(DSTypography.metadata)
-                    .foregroundStyle(theme.textSecondary)
-            }
-            .padding(.horizontal, DSSpacing.small)
-            .padding(.top, DSSpacing.small)
-
-            ForEach(sites) { site in
-                DSActionRow(
-                    title: site.siteURL,
-                    systemImage: "globe",
-                    detail: permissionTitle(for: site.permissionLevel),
-                    isSelected: site.siteURL == selectedProperty,
-                    accessibilityIdentifier:
-                        "settings.searchConsole.property.option.\(site.siteURL)"
-                ) {
-                    select(site.siteURL)
-                    isChoosingProperty = false
-                }
-            }
-        }
-        .padding(DSSpacing.small)
-        .frame(width: 430)
-        .background(theme.opaqueSurfaceRaised)
+        DSSelect(title: "Search Console property",
+            selection: Binding(get: { selectedProperty }, set: select),
+            options: sites.map {
+                .init(value: $0.siteURL, title: $0.siteURL, icon: DSIconName.fromLegacySymbol("globe"),
+                      detail: permissionTitle(for: $0.permissionLevel),
+                      accessibilityIdentifier: "settings.searchConsole.property.option.\($0.siteURL)")
+            }, searchable: true, popupWidth: 430, placeholder: "No property available")
+            .labelsHidden().frame(width: 360)
+            .disabled(sites.isEmpty)
+            .accessibilityIdentifier("settings.searchConsole.property")
+            .help(sites.isEmpty ? "Loading accessible Search Console properties…" : "Choose the Search Console property used by this key")
     }
 
     private func permissionTitle(for permissionLevel: String) -> String {
@@ -832,7 +712,7 @@ private struct SearchConsoleSetupSteps: View {
             Label {
                 Text("Search Console collects data automatically—no tracking script is required. New data usually appears after 2–3 days, and a new property can take up to a week.")
             } icon: {
-                Image(systemName: "info.circle")
+                DSIcon(systemName: "info.circle")
                     .accessibilityHidden(true)
             }
             .font(DSTypography.metadata)

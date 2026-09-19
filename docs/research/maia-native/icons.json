@@ -1,0 +1,717 @@
+{
+  "package": "@hugeicons/core-free-icons",
+  "version": "4.3.3",
+  "sha1": "7260fa4a5581f500f539ff93d428c192be382d69",
+  "icons": {
+    "check": {
+      "source": "Tick02Icon",
+      "legacySymbols": [
+        "checkmark"
+      ]
+    },
+    "checkCircle": {
+      "source": "CheckmarkCircle02Icon",
+      "legacySymbols": [
+        "checkmark.circle",
+        "checkmark.circle.fill"
+      ]
+    },
+    "accessibility": {
+      "source": "UniversalAccessIcon",
+      "legacySymbols": [
+        "accessibility"
+      ]
+    },
+    "chevronDown": {
+      "source": "ArrowDown01Icon",
+      "legacySymbols": [
+        "chevron.down"
+      ]
+    },
+    "chevronUp": {
+      "source": "ArrowUp01Icon",
+      "legacySymbols": [
+        "chevron.up"
+      ]
+    },
+    "chevronLeft": {
+      "source": "ArrowLeft01Icon",
+      "legacySymbols": [
+        "chevron.left"
+      ]
+    },
+    "chevronRight": {
+      "source": "ArrowRight01Icon",
+      "legacySymbols": [
+        "chevron.right"
+      ]
+    },
+    "chevronsVertical": {
+      "source": "ArrowUpDownIcon",
+      "legacySymbols": [
+        "chevron.up.chevron.down"
+      ]
+    },
+    "arrowUp": {
+      "source": "ArrowUp02Icon",
+      "legacySymbols": [
+        "arrow.up"
+      ]
+    },
+    "arrowDown": {
+      "source": "ArrowDown02Icon",
+      "legacySymbols": [
+        "arrow.down"
+      ]
+    },
+    "arrowUpRight": {
+      "source": "ArrowUpRight01Icon",
+      "legacySymbols": [
+        "arrow.up.right"
+      ]
+    },
+    "transfer": {
+      "source": "ArrowDataTransferVerticalIcon",
+      "legacySymbols": [
+        "arrow.up.arrow.down"
+      ]
+    },
+    "refresh": {
+      "source": "RefreshIcon",
+      "legacySymbols": [
+        "arrow.clockwise",
+        "arrow.triangle.2.circlepath",
+        "arrow.trianglehead.2.clockwise.rotate.90"
+      ]
+    },
+    "undo": {
+      "source": "Undo03Icon",
+      "legacySymbols": [
+        "arrow.counterclockwise"
+      ]
+    },
+    "download": {
+      "source": "Download04Icon",
+      "legacySymbols": [
+        "arrow.down.circle",
+        "arrow.down.circle.fill"
+      ]
+    },
+    "upload": {
+      "source": "Upload04Icon",
+      "legacySymbols": [
+        "arrow.up.circle"
+      ]
+    },
+    "branch": {
+      "source": "GitBranchIcon",
+      "legacySymbols": [
+        "arrow.triangle.branch"
+      ]
+    },
+    "git": {
+      "source": "GitMergeIcon",
+      "legacySymbols": [
+        "point.3.connected.trianglepath.dotted"
+      ]
+    },
+    "battery": {
+      "source": "BatteryFullIcon",
+      "legacySymbols": [
+        "battery.100percent",
+        "battery.75percent",
+        "battery.50percent",
+        "battery.25percent"
+      ]
+    },
+    "batteryEmpty": {
+      "source": "BatteryEmptyIcon",
+      "legacySymbols": [
+        "battery.0percent"
+      ]
+    },
+    "bolt": {
+      "source": "FlashIcon",
+      "legacySymbols": [
+        "bolt",
+        "bolt.fill",
+        "bolt.horizontal.circle"
+      ]
+    },
+    "calendar": {
+      "source": "Calendar03Icon",
+      "legacySymbols": [
+        "calendar",
+        "calendar.badge.clock"
+      ]
+    },
+    "chart": {
+      "source": "ChartHistogramIcon",
+      "legacySymbols": [
+        "chart.bar",
+        "chart.bar.xaxis"
+      ]
+    },
+    "chartLine": {
+      "source": "ChartLineData01Icon",
+      "legacySymbols": [
+        "chart.xyaxis.line"
+      ]
+    },
+    "chartPie": {
+      "source": "PieChart01Icon",
+      "legacySymbols": [
+        "chart.pie"
+      ]
+    },
+    "clock": {
+      "source": "Clock01Icon",
+      "legacySymbols": [
+        "clock",
+        "clock.fill",
+        "clock.badge.exclamationmark",
+        "clock.badge.questionmark"
+      ]
+    },
+    "history": {
+      "source": "TransactionHistoryIcon",
+      "legacySymbols": [
+        "clock.arrow.circlepath"
+      ]
+    },
+    "cloudSun": {
+      "source": "SunCloud01Icon",
+      "legacySymbols": [
+        "cloud.sun",
+        "cloud.sun.fill"
+      ]
+    },
+    "cloud": {
+      "source": "CloudIcon",
+      "legacySymbols": [
+        "cloud",
+        "cloud.fill"
+      ]
+    },
+    "cloudMoon": {
+      "source": "MoonCloudIcon",
+      "legacySymbols": [
+        "cloud.moon.fill"
+      ]
+    },
+    "rain": {
+      "source": "CloudRainIcon",
+      "legacySymbols": [
+        "cloud.rain.fill"
+      ]
+    },
+    "drizzle": {
+      "source": "CloudLittleRainIcon",
+      "legacySymbols": [
+        "cloud.drizzle.fill"
+      ]
+    },
+    "snow": {
+      "source": "CloudSnowIcon",
+      "legacySymbols": [
+        "cloud.snow.fill"
+      ]
+    },
+    "sleet": {
+      "source": "CloudMidSnowIcon",
+      "legacySymbols": [
+        "cloud.sleet.fill"
+      ]
+    },
+    "storm": {
+      "source": "CloudAngledRainIcon",
+      "legacySymbols": [
+        "cloud.bolt.rain.fill"
+      ]
+    },
+    "fog": {
+      "source": "CloudFogIcon",
+      "legacySymbols": [
+        "cloud.fog.fill"
+      ]
+    },
+    "sun": {
+      "source": "Sun03Icon",
+      "legacySymbols": [
+        "sun.max",
+        "sun.max.fill",
+        "sun.horizon.fill"
+      ]
+    },
+    "moon": {
+      "source": "Moon02Icon",
+      "legacySymbols": [
+        "moon",
+        "moon.fill",
+        "moon.stars.fill"
+      ]
+    },
+    "cpu": {
+      "source": "CpuIcon",
+      "legacySymbols": [
+        "cpu"
+      ]
+    },
+    "crown": {
+      "source": "CrownIcon",
+      "legacySymbols": [
+        "crown.fill"
+      ]
+    },
+    "copy": {
+      "source": "Copy01Icon",
+      "legacySymbols": [
+        "doc.on.doc"
+      ]
+    },
+    "dock": {
+      "source": "DashboardSquare01Icon",
+      "legacySymbols": [
+        "dock.rectangle"
+      ]
+    },
+    "drop": {
+      "source": "DropletIcon",
+      "legacySymbols": [
+        "drop",
+        "drop.fill"
+      ]
+    },
+    "more": {
+      "source": "MoreHorizontalIcon",
+      "legacySymbols": [
+        "ellipsis",
+        "ellipsis.circle",
+        "ellipsis.circle.fill"
+      ]
+    },
+    "alert": {
+      "source": "Alert02Icon",
+      "legacySymbols": [
+        "exclamationmark.triangle",
+        "exclamationmark.triangle.fill",
+        "exclamationmark.circle",
+        "exclamationmark.circle.fill",
+        "xmark.octagon.fill",
+        "calendar.badge.exclamationmark"
+      ]
+    },
+    "drive": {
+      "source": "HardDriveIcon",
+      "legacySymbols": [
+        "internaldrive",
+        "internaldrive.fill",
+        "externaldrive",
+        "externaldrive.fill"
+      ]
+    },
+    "gauge": {
+      "source": "DashboardSpeed02Icon",
+      "legacySymbols": [
+        "gauge.with.dots.needle.0percent",
+        "gauge.with.dots.needle.50percent",
+        "gauge.with.dots.needle.100percent",
+        "gauge.with.dots.needle.33percent"
+      ]
+    },
+    "settings": {
+      "source": "Settings01Icon",
+      "legacySymbols": [
+        "gearshape",
+        "gearshape.fill"
+      ]
+    },
+    "globe": {
+      "source": "Globe02Icon",
+      "legacySymbols": [
+        "globe"
+      ]
+    },
+    "hexagon": {
+      "source": "HexagonIcon",
+      "legacySymbols": [
+        "hexagon"
+      ]
+    },
+    "hourglass": {
+      "source": "HourglassIcon",
+      "legacySymbols": [
+        "hourglass"
+      ]
+    },
+    "humidity": {
+      "source": "HumidityIcon",
+      "legacySymbols": [
+        "humidity"
+      ]
+    },
+    "info": {
+      "source": "InformationCircleIcon",
+      "legacySymbols": [
+        "info.circle",
+        "info.circle.fill"
+      ]
+    },
+    "key": {
+      "source": "Key01Icon",
+      "legacySymbols": [
+        "key.horizontal",
+        "key.horizontal.fill"
+      ]
+    },
+    "link": {
+      "source": "Link01Icon",
+      "legacySymbols": [
+        "link",
+        "link.badge.plus"
+      ]
+    },
+    "location": {
+      "source": "Location01Icon",
+      "legacySymbols": [
+        "location",
+        "location.fill",
+        "mappin.and.ellipse"
+      ]
+    },
+    "lock": {
+      "source": "LockKeyIcon",
+      "legacySymbols": [
+        "lock",
+        "lock.fill"
+      ]
+    },
+    "search": {
+      "source": "Search01Icon",
+      "legacySymbols": [
+        "magnifyingglass"
+      ]
+    },
+    "memory": {
+      "source": "RamMemoryIcon",
+      "legacySymbols": [
+        "memorychip"
+      ]
+    },
+    "minus": {
+      "source": "MinusSignCircleIcon",
+      "legacySymbols": [
+        "minus.circle"
+      ]
+    },
+    "music": {
+      "source": "MusicNote03Icon",
+      "legacySymbols": [
+        "music.note"
+      ]
+    },
+    "network": {
+      "source": "NetworkIcon",
+      "legacySymbols": [
+        "network"
+      ]
+    },
+    "number": {
+      "source": "HashtagIcon",
+      "legacySymbols": [
+        "number",
+        "textformat.123"
+      ]
+    },
+    "image": {
+      "source": "Image01Icon",
+      "legacySymbols": [
+        "photo"
+      ]
+    },
+    "plus": {
+      "source": "Add01Icon",
+      "legacySymbols": [
+        "plus",
+        "plus.circle",
+        "plus.circle.fill"
+      ]
+    },
+    "power": {
+      "source": "PowerServiceIcon",
+      "legacySymbols": [
+        "power"
+      ]
+    },
+    "logout": {
+      "source": "Logout01Icon",
+      "legacySymbols": [
+        "rectangle.portrait.and.arrow.right"
+      ]
+    },
+    "sparkles": {
+      "source": "AiSparklesIcon",
+      "legacySymbols": [
+        "sparkle",
+        "sparkles"
+      ]
+    },
+    "share": {
+      "source": "Share08Icon",
+      "legacySymbols": [
+        "square.and.arrow.up"
+      ]
+    },
+    "star": {
+      "source": "StarIcon",
+      "legacySymbols": [
+        "star",
+        "star.fill"
+      ]
+    },
+    "temperature": {
+      "source": "ThermometerIcon",
+      "legacySymbols": [
+        "thermometer.medium"
+      ]
+    },
+    "trash": {
+      "source": "Delete02Icon",
+      "legacySymbols": [
+        "trash"
+      ]
+    },
+    "video": {
+      "source": "Video01Icon",
+      "legacySymbols": [
+        "video"
+      ]
+    },
+    "activity": {
+      "source": "Activity01Icon",
+      "legacySymbols": [
+        "waveform.path.ecg"
+      ]
+    },
+    "wind": {
+      "source": "WindPowerIcon",
+      "legacySymbols": [
+        "wind"
+      ]
+    },
+    "close": {
+      "source": "Cancel01Icon",
+      "legacySymbols": [
+        "xmark"
+      ]
+    },
+    "closeCircle": {
+      "source": "CancelCircleIcon",
+      "legacySymbols": [
+        "xmark.circle",
+        "xmark.circle.fill"
+      ]
+    },
+    "play": {
+      "source": "PlayIcon",
+      "legacySymbols": [
+        "play",
+        "play.fill",
+        "play.circle.fill"
+      ]
+    },
+    "pause": {
+      "source": "PauseIcon",
+      "legacySymbols": [
+        "pause",
+        "pause.fill",
+        "pause.circle.fill"
+      ]
+    },
+    "volume": {
+      "source": "VolumeHighIcon",
+      "legacySymbols": [
+        "speaker.wave.2.fill",
+        "speaker.wave.3.fill"
+      ]
+    },
+    "volumeOff": {
+      "source": "VolumeMute02Icon",
+      "legacySymbols": [
+        "speaker.slash.fill"
+      ]
+    },
+    "skipForward": {
+      "source": "NextIcon",
+      "legacySymbols": [
+        "forward.end.fill"
+      ]
+    },
+    "skipBack": {
+      "source": "PreviousIcon",
+      "legacySymbols": [
+        "backward.end.fill"
+      ]
+    },
+    "headphones": {
+      "source": "HeadphonesIcon",
+      "legacySymbols": [
+        "headphones"
+      ]
+    },
+    "earbuds": {
+      "source": "Airpod01Icon",
+      "legacySymbols": [
+        "airpodspro",
+        "airpodspro.chargingcase.wireless.fill"
+      ]
+    },
+    "keyboard": {
+      "source": "KeyboardIcon",
+      "legacySymbols": [
+        "keyboard"
+      ]
+    },
+    "mouse": {
+      "source": "Mouse01Icon",
+      "legacySymbols": [
+        "computermouse.fill"
+      ]
+    },
+    "laptop": {
+      "source": "LaptopIcon",
+      "legacySymbols": [
+        "laptopcomputer"
+      ]
+    },
+    "trackpad": {
+      "source": "Touchpad01Icon",
+      "legacySymbols": [
+        "magictrackpad"
+      ]
+    },
+    "terminal": {
+      "source": "CommandLineIcon",
+      "legacySymbols": [
+        "terminal"
+      ]
+    },
+    "code": {
+      "source": "SourceCodeIcon",
+      "legacySymbols": [
+        "chevron.left.forwardslash.chevron.right"
+      ]
+    },
+    "grid": {
+      "source": "GridViewIcon",
+      "legacySymbols": [
+        "rectangle.split.2x2"
+      ]
+    },
+    "eyeOff": {
+      "source": "ViewOffIcon",
+      "legacySymbols": [
+        "eye.slash"
+      ]
+    },
+    "shield": {
+      "source": "Shield01Icon",
+      "legacySymbols": [
+        "checkmark.shield.fill"
+      ]
+    },
+    "help": {
+      "source": "HelpCircleIcon",
+      "legacySymbols": [
+        "questionmark.circle",
+        "questionmark"
+      ]
+    },
+    "tools": {
+      "source": "Wrench01Icon",
+      "legacySymbols": [
+        "wrench.and.screwdriver.fill"
+      ]
+    },
+    "circle": {
+      "source": "CircleIcon",
+      "legacySymbols": [
+        "circle",
+        "circle.fill",
+        "circle.dashed"
+      ]
+    },
+    "appearance": {
+      "source": "ContrastIcon",
+      "legacySymbols": [
+        "circle.lefthalf.filled"
+      ]
+    },
+    "app": {
+      "source": "AppStoreIcon",
+      "legacySymbols": [
+        "app.fill",
+        "g.circle"
+      ]
+    },
+    "target": {
+      "source": "Target01Icon",
+      "legacySymbols": [
+        "scope"
+      ]
+    },
+    "rewind": {
+      "source": "Backward01Icon",
+      "legacySymbols": [
+        "gobackward",
+        "gobackward.10",
+        "gobackward.15",
+        "gobackward.30",
+        "gobackward.5",
+        "gobackward.60"
+      ]
+    },
+    "forward": {
+      "source": "Forward01Icon",
+      "legacySymbols": [
+        "goforward",
+        "goforward.10",
+        "goforward.15",
+        "goforward.30",
+        "goforward.5",
+        "goforward.60"
+      ]
+    },
+    "pin": {
+      "source": "PinIcon",
+      "legacySymbols": [
+        "pin",
+        "pin.fill"
+      ]
+    },
+    "edit": {
+      "source": "PencilEdit02Icon",
+      "legacySymbols": [
+        "pencil"
+      ]
+    },
+    "flag": {
+      "source": "Flag01Icon",
+      "legacySymbols": [
+        "flag.fill"
+      ]
+    },
+    "userDisconnected": {
+      "source": "UserRemove01Icon",
+      "legacySymbols": [
+        "person.crop.circle.badge.xmark"
+      ]
+    },
+    "calendarRemoved": {
+      "source": "CalendarRemove01Icon",
+      "legacySymbols": [
+        "calendar.badge.minus"
+      ]
+    }
+  }
+}

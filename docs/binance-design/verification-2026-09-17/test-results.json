@@ -1,0 +1,226 @@
+{
+  "recordedAt": "2026-09-17T07:48:42.534016+00:00",
+  "toolchain": "Xcode 15.4 / Swift 5.10",
+  "configuration": "Debug, macOS arm64, standard project signing",
+  "interpretation": "Latest result per distinct test across focused runs; not a claim that all tests ran together in one green bundle. Earlier UI failures were test-side AX type/value queries and were corrected.",
+  "passed": 31,
+  "failed": 0,
+  "tests": [
+    {
+      "name": "BinanceFeatureTests/testAppearanceUpdatesDoNotReloadMarketOrInvalidateUnchangedDock()",
+      "status": "Success",
+      "duration": "3.2353450059890747",
+      "bundle": "/tmp/binance-ui-verified.xcresult"
+    },
+    {
+      "name": "BinanceFeatureTests/testCandleMergeCannotReopenOrReplaceNewerData()",
+      "status": "Success",
+      "duration": "0.0006080865859985352",
+      "bundle": "/tmp/binance-ui-verified.xcresult"
+    },
+    {
+      "name": "BinanceFeatureTests/testConfigurationSelectionOrderingAndNormalization()",
+      "status": "Success",
+      "duration": "0.0010429620742797852",
+      "bundle": "/tmp/binance-ui-verified.xcresult"
+    },
+    {
+      "name": "BinanceFeatureTests/testDecimalFormattingAndRangeContract()",
+      "status": "Success",
+      "duration": "0.0008109807968139648",
+      "bundle": "/tmp/binance-ui-verified.xcresult"
+    },
+    {
+      "name": "BinanceFeatureTests/testDemandUsesOneFeedAndReleasesInvisibleCharts()",
+      "status": "Success",
+      "duration": "1.8894809484481812",
+      "bundle": "/tmp/binance-ui-verified.xcresult"
+    },
+    {
+      "name": "BinanceFeatureTests/testHoverDelayKeyboardOptInAndCloseReleaseDemand()",
+      "status": "Success",
+      "duration": "1.6730390787124634",
+      "bundle": "/tmp/binance-ui-verified.xcresult"
+    },
+    {
+      "name": "BinanceFeatureTests/testHTTPRateLimitCooldownAndErrorClassification()",
+      "status": "Success",
+      "duration": "3.263511061668396",
+      "bundle": "/tmp/binance-ui-verified.xcresult"
+    },
+    {
+      "name": "BinanceFeatureTests/testLateRangeResponseAndNetworkFailurePreserveSelectedPair()",
+      "status": "Success",
+      "duration": "1.475214958190918",
+      "bundle": "/tmp/binance-ui-verified.xcresult"
+    },
+    {
+      "name": "BinanceFeatureTests/testLegacyPreferencesAndAppearanceRoundTripPreserveMarketConfiguration()",
+      "status": "Success",
+      "duration": "0.005182981491088867",
+      "bundle": "/tmp/binance-ui-verified.xcresult"
+    },
+    {
+      "name": "BinanceFeatureTests/testMovingPinnedPairKeepsSelectionAndQuoteIdentity()",
+      "status": "Success",
+      "duration": "0.21033895015716553",
+      "bundle": "/tmp/binance-ui-verified.xcresult"
+    },
+    {
+      "name": "BinanceFeatureTests/testRendererColorsMeetContrastWithoutChangingSavedColor()",
+      "status": "Success",
+      "duration": "0.0012470483779907227",
+      "bundle": "/tmp/binance-ui-verified.xcresult"
+    },
+    {
+      "name": "BinanceFeatureTests/testRESTAndStreamParsersValidateOHLCAndPreserveDecimals()",
+      "status": "Success",
+      "duration": "0.005915999412536621",
+      "bundle": "/tmp/binance-ui-verified.xcresult"
+    },
+    {
+      "name": "BinanceFeatureTests/testRetryAfterSupportsSecondsAndHTTPDate()",
+      "status": "Success",
+      "duration": "0.0012669563293457031",
+      "bundle": "/tmp/binance-ui-verified.xcresult"
+    },
+    {
+      "name": "BinanceFeatureTests/testSearchUsesPairsAndPreferredQuote()",
+      "status": "Success",
+      "duration": "0.0006769895553588867",
+      "bundle": "/tmp/binance-ui-verified.xcresult"
+    },
+    {
+      "name": "BinanceFeatureTests/testStorePinAddRemoveSearchAndPersistence()",
+      "status": "Success",
+      "duration": "1.2237550020217896",
+      "bundle": "/tmp/binance-ui-verified.xcresult"
+    },
+    {
+      "name": "BinanceRenderTests/testAppearanceSettingsAndSharedButtonsRenderMatrix()",
+      "status": "Success",
+      "duration": "48.22850799560547",
+      "bundle": "/tmp/binance-ui-live-and-regression.xcresult"
+    },
+    {
+      "name": "BinanceRenderTests/testCountsLoadingErrorStaleAndSmallScreen()",
+      "status": "Success",
+      "duration": "10.855437994003296",
+      "bundle": "/tmp/binance-ui-verified.xcresult"
+    },
+    {
+      "name": "BinanceRenderTests/testDashboardAndDockRenderMatrix()",
+      "status": "Success",
+      "duration": "3.628924012184143",
+      "bundle": "/tmp/binance-ui-verified.xcresult"
+    },
+    {
+      "name": "DockHoverDelayTests/testDashboardRequiresOneSecondDespiteRepeatedDockNotifications()",
+      "status": "Success",
+      "duration": "1.412898063659668",
+      "bundle": "/tmp/binance-ui-verified.xcresult"
+    },
+    {
+      "name": "DockHoverDelayTests/testDisablingHoverBeforeDeadlinePreventsPresentation()",
+      "status": "Success",
+      "duration": "0.27902209758758545",
+      "bundle": "/tmp/binance-ui-verified.xcresult"
+    },
+    {
+      "name": "DockHoverDelayTests/testDockClickCancelsPendingAndClosesVisibleDashboard()",
+      "status": "Success",
+      "duration": "0.45933496952056885",
+      "bundle": "/tmp/binance-ui-verified.xcresult"
+    },
+    {
+      "name": "DockHoverDelayTests/testLeavingBeforeDeadlineCancelsAndReentryStartsAFullDelay()",
+      "status": "Success",
+      "duration": "1.1496390104293823",
+      "bundle": "/tmp/binance-ui-verified.xcresult"
+    },
+    {
+      "name": "DockHoverDelayTests/testOpeningDockMenuCancelsPendingDashboard()",
+      "status": "Success",
+      "duration": "0.26587605476379395",
+      "bundle": "/tmp/binance-ui-verified.xcresult"
+    },
+    {
+      "name": "BinanceUITests/testColorPersistenceResetAndAccessibleControls()",
+      "status": "Success",
+      "duration": "108.74772191047668",
+      "bundle": "/tmp/binance-ui-verified.xcresult"
+    },
+    {
+      "name": "BinanceUITests/testSearchAddPinRemoveAndSharedSettings()",
+      "status": "Success",
+      "duration": "89.91303992271423",
+      "bundle": "/tmp/binance-ui-picker-flow.xcresult"
+    },
+    {
+      "name": "BinanceUITests/testSharedSettingsComponents()",
+      "status": "Success",
+      "duration": "44.31733596324921",
+      "bundle": "/tmp/binance-ui-verified.xcresult"
+    },
+    {
+      "name": "BinanceUITests/testTwentyPairsAndEmptySearch()",
+      "status": "Success",
+      "duration": "27.251040935516357",
+      "bundle": "/tmp/binance-ui-verified.xcresult"
+    },
+    {
+      "name": "BinanceRenderTests/testOptInLiveMarketPanelAndInstalledDockCapture()",
+      "status": "Success",
+      "duration": "3.170385003089905",
+      "bundle": "/tmp/binance-ui-live-and-regression.xcresult"
+    },
+    {
+      "name": "DockMagicTests/testClaudeConnectionSettingsRenderAcrossAppearanceMatrix()",
+      "status": "Success",
+      "duration": "12.93426501750946",
+      "bundle": "/tmp/binance-ui-live-and-regression.xcresult"
+    },
+    {
+      "name": "DockMagicTests/testDockReopenRoutesToSingletonSettingsWindow()",
+      "status": "Success",
+      "duration": "0.048480987548828125",
+      "bundle": "/tmp/binance-ui-live-and-regression.xcresult"
+    },
+    {
+      "name": "DockMagicTests/testSigmaAppearanceAndAccessibilityVariantsRenderDistinctSettings()",
+      "status": "Success",
+      "duration": "12.007392048835754",
+      "bundle": "/tmp/binance-ui-live-and-regression.xcresult"
+    }
+  ],
+  "runs": [
+    {
+      "bundle": "/tmp/binance-ui-verified.xcresult",
+      "passed": 26,
+      "failed": 1,
+      "failures": [
+        {
+          "name": "BinanceUITests.testSearchAddPinRemoveAndSharedSettings()",
+          "message": "XCTAssertEqual failed: (\"nil\") is not equal to (\"Optional(\"1\")\")"
+        }
+      ]
+    },
+    {
+      "bundle": "/tmp/binance-ui-live-and-regression.xcresult",
+      "passed": 5,
+      "failed": 1,
+      "failures": [
+        {
+          "name": "BinanceUITests.testSearchAddPinRemoveAndSharedSettings()",
+          "message": "XCTAssertEqual failed: (\"nil\") is not equal to (\"Optional(\"Candlestick\")\")"
+        }
+      ]
+    },
+    {
+      "bundle": "/tmp/binance-ui-picker-flow.xcresult",
+      "passed": 1,
+      "failed": 0,
+      "failures": []
+    }
+  ]
+}

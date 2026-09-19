@@ -1,0 +1,30 @@
+Signed app test run: 2026-09-16 21:27 +0700
+UI runner interrupted during launch contention; unit/integration results below.
+
+AugmentAnalyticsTests/testAuthErrorsDoNotRetryAndErrorBodiesAreNotExposed() | Success
+AugmentAnalyticsTests/testEmptyResponseIsNotZero() | Success
+AugmentAnalyticsTests/testExactTokenStringDecimalAndMissingArePreserved() | Success
+AugmentAnalyticsTests/testFailureOnSecondPageNeverPublishesPartialOverview() | Success
+AugmentAnalyticsTests/testMismatchedEffectiveRangeAndMissingCursorFail() | Success
+AugmentAnalyticsTests/testModelsExcludeComputeAndRankChosenMetric() | Success
+AugmentAnalyticsTests/testNumericInt64NullAndRetryAfterDate() | Success
+AugmentAnalyticsTests/testOverflowNegativeAndMalformedMoneyFail() | Success
+AugmentAnalyticsTests/testPaginationNeverDoubleCountsAndIncludesCursor() | Success
+AugmentAnalyticsTests/testRateLimitCooldownAlsoBlocksOtherQueriesUntilExpiry() | Success
+AugmentAnalyticsTests/testRateLimitRetriesAndStopsAfterThree() | Success
+AugmentAnalyticsTests/testRepeatedCursorAndDuplicateDaysFail() | Success
+AugmentAnalyticsTests/testUTCDoesNotFollowLocalMidnightAndRangeLengths() | Success
+AugmentIntegrationTests/testFeatureDefaultsManifestAndSameDayPresentation() | Success
+AugmentIntegrationTests/testProductionRendererAndDashboardAppearanceMatrix() | Success
+AugmentIntegrationTests/testSeparateKeychainItemRoundTripInSignedHost() | Success
+AugmentStoreTests/testClearCacheBlocksInflightWriter() | Success
+AugmentStoreTests/testDisconnectRejectsLateResponseAndClearsSecret() | Success
+AugmentStoreTests/testFailedReplacementKeepsOldTokenAndSnapshot() | Success
+AugmentStoreTests/testFailureRetainsSnapshotAndStopsAuthPolling() | Success
+AugmentStoreTests/testRefreshCoalescesAndCacheSurvivesRestart() | Success
+AugmentStoreTests/testResourceFailureDoesNotEraseOverview() | Success
+AugmentStoreTests/testResourceQueriesCoalesceAndEmptyProbeConnects() | Success
+AugmentStoreTests/testTokenRotationRejectsInflightOldOrganization() | Success
+AugmentStoreTests/testVisibilityTTLAndManualCooldown() | Success
+DockMagicTests/testCodexTokenHistoryChartCreatesScrollableViewportAndHoverTracking() | Success
+DockMagicUITests-Runner (93535) encountered an error | Failure

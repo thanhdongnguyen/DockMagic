@@ -5,12 +5,16 @@ enum TokenUsageProvider: String, Codable, CaseIterable, Sendable {
     case codex
     case claudeCode
     case antigravity
+    case grokBuild
+    case openCode
 
     init?(rawValue: String) {
         switch rawValue {
         case "codex": self = .codex
         case "claudeCode": self = .claudeCode
         case "antigravity": self = .antigravity
+        case "grokBuild": self = .grokBuild
+        case "openCode": self = .openCode
         default: return nil
         }
     }
@@ -130,21 +134,37 @@ struct TokenUsageCalendarDay: Equatable, Sendable {
 enum TokenUsageStreakCalculator {
     static let recentDayCount = 7
 
+    enum Coverage: Sendable {
+        /// Preserve the original provider behavior, including todayPending.
+        case legacy
+        /// Positive observations prove activity, not inactivity between them.
+        case observedOnly
+    }
+
     static func summary(
         from records: [TokenUsageStreakRecordValue],
         now: Date = .now,
-        calendar: Calendar = .current
+        calendar: Calendar = .current,
+        coverage: Coverage = .legacy
     ) -> TokenUsageStreakSummary {
         let activeDayIndices = Set(
             records.filter { $0.tokenCount > 0 }.map(\.dayIndex)
         )
+        return summary(activeDayIndices: activeDayIndices, now: now, calendar: calendar, coverage: coverage)
+    }
+
+    static func summary(
+        activeDayIndices: Set<Int>, now: Date = .now,
+        calendar: Calendar = .current, coverage: Coverage,
+        retainedBestDays: Int64 = 0
+    ) -> TokenUsageStreakSummary {
         let sortedDays = activeDayIndices.sorted()
         let today = TokenUsageCalendarDay.containing(
             now,
             calendar: calendar
         )
 
-        let currentEndpoint = activeDayIndices.contains(today.index)
+        let currentEndpoint = coverage == .observedOnly || activeDayIndices.contains(today.index)
             ? today.index
             : today.index - 1
         var currentDays: Int64 = 0
@@ -167,6 +187,9 @@ enum TokenUsageStreakCalculator {
             previousDay = dayIndex
         }
 
+        // A verified achievement survives retention and calendar changes.
+        // Existing providers keep the default zero and their original formula.
+        longestDays = max(longestDays, retainedBestDays)
         let earnedBadge = TokenUsageStreakMilestone.highestUnlocked(
             for: longestDays
         )
@@ -205,6 +228,8 @@ enum TokenUsageStreakCalculator {
                 let state: TokenUsageStreakDay.State
                 if activeDayIndices.contains(day.index) {
                     state = .active
+                } else if coverage == .observedOnly {
+                    state = .unknown
                 } else if day.index == today.index {
                     state = .todayPending
                 } else if let firstTrackedDay, day.index >= firstTrackedDay {

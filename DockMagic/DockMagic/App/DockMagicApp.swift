@@ -30,6 +30,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var effectiveAppearanceObservation: NSKeyValueObservation?
 
     override convenience init() {
+        DSFonts.register()
         self.init(
             appModel: Self.makeAppModel(),
             settingsWindowRouter: SettingsWindowRouter(),
@@ -121,15 +122,53 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             if antigravityConnected {
                 Task { await antigravityStore.refresh() }
             }
+            let binancePreferences = DockPreferencesStore(defaults: DockMagicRuntimeDefaults.current)
+            let binanceStore: BinanceMarketStore?
+#if DEBUG
+            if environment["DockMagicUITestBinanceFixtures"] == "1" {
+                if DockMagicRuntimeDefaults.current.data(forKey: DockPreferencesStore.binanceConfigurationKey) == nil {
+                    binancePreferences.binanceConfiguration = BinanceFixtureProvider.configuration(count: Int(environment["DockMagicUITestBinanceCount"] ?? "3") ?? 3)
+                }
+                binanceStore = BinanceMarketStore(configuration: binancePreferences.binanceConfiguration,
+                    provider: BinanceFixtureProvider(), stream: BinanceFixtureStream(), cache: BinanceMarketCache(url: nil),
+                    persist: { binancePreferences.binanceConfiguration = $0 })
+            } else { binanceStore = nil }
+#else
+            binanceStore = nil
+#endif
+            let augmentStore: AugmentUsageStore
+#if DEBUG
+            augmentStore = AugmentFixtureClient.store(mode: environment["DockMagicUITestAugment"] ?? "setup", defaults: DockMagicRuntimeDefaults.current)
+#else
+            augmentStore = AugmentUsageStore(vault: InMemoryAugmentCredentialVault())
+#endif
+            let calendarStore: CalendarStore
+            let nowPlayingStore: NowPlayingStore
+            let grokBuildStore: GrokBuildUsageStore?
+#if DEBUG
+            grokBuildStore = environment["DockMagicUITestGrok"].map {
+                GrokUIFixtures.store(mode: $0, preferences: binancePreferences)
+            }
+            nowPlayingStore = environment["DockMagicUITestNowPlaying"].map { NowPlayingFixtures.store(mode: $0) } ?? NowPlayingStore()
+            calendarStore = CalendarStore(provider: CalendarUITestProvider(
+                access: environment["DockMagicUITestCalendarAccess"],
+                remindersAccess: environment["DockMagicUITestRemindersAccess"]
+            ))
+#else
+            grokBuildStore = nil
+            nowPlayingStore = NowPlayingStore()
+            calendarStore = CalendarStore()
+#endif
             return DockAppModel(
-                preferences: DockPreferencesStore(
-                    defaults: DockMagicRuntimeDefaults.current
-                ),
+                preferences: binancePreferences,
+                binanceStore: binanceStore,
                 weatherStore: WeatherStore(
                     provider: DockMagicUITestWeatherProvider(),
                     authorizationProvider: DockMagicUITestWeatherAuthorizationProvider(),
                     cache: DockMagicUITestWeatherCache()
                 ),
+                calendarStore: calendarStore,
+                nowPlayingStore: nowPlayingStore,
                 batteryStore: BatteryMetricsStore(
                     sampler: DockMagicUITestBatterySampler(),
                     samplingInterval: .seconds(60)
@@ -156,6 +195,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     pollingInterval: .seconds(60)
                 ),
                 antigravityStore: antigravityStore,
+                augmentStore: augmentStore,
+                openCodeStore: OpenCodeUsageStore(
+                    cache: OpenCodeHistoryCache(directory: FileManager.default.temporaryDirectory.appendingPathComponent("dockmagic-ui-opencode-\(antigravityCacheSuffix)")),
+                    defaults: DockMagicRuntimeDefaults.current
+                ),
+                grokBuildStore: grokBuildStore,
                 developerToolInstallationStore:
                     DeveloperToolInstallationStore(
                         installer: developerToolInstaller
@@ -187,6 +232,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     ) {
         self.appModel = appModel
         self.settingsWindowRouter = settingsWindowRouter
+        appModel.openBinanceSettings = { [weak settingsWindowRouter] in
+            settingsWindowRouter?.showSettings(destination: .binance)
+        }
+        appModel.openAugmentSettings = { [weak settingsWindowRouter] in
+            settingsWindowRouter?.showSettings(destination: .augment)
+        }
+        appModel.openGrokBuildSettings = { [weak settingsWindowRouter] in
+            guard GrokBuildFeatureGate.experimentalEnabled else { return }
+            settingsWindowRouter?.showSettings(destination: .grokBuild)
+        }
+        appModel.openOpenCodeSettings = { [weak settingsWindowRouter] in
+            settingsWindowRouter?.showSettings(destination: .openCode)
+        }
         self.dockHoverPermissionController = dockHoverPermissionController
             ?? DockHoverPermissionController()
         self.softwareUpdateController = softwareUpdateController ?? .disabled()
@@ -226,6 +284,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             permissionController: dockHoverPermissionController
         )
         dockHoverCoordinator?.start()
+        appModel.openNowPlaying = { [weak self] in self?.dockHoverCoordinator?.openNowPlaying() }
+        appModel.openNowPlayingSettings = { [weak self] in _ = self?.settingsWindowRouter.showSettings(destination: .nowPlaying) }
+        dockFeatureMenuController.onMenuClose = { [weak self] in self?.dockHoverCoordinator?.dockMenuDidClose() }
     }
 
     func applicationDidBecomeActive(_ notification: Notification) {
@@ -247,6 +308,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         _ sender: NSApplication,
         hasVisibleWindows flag: Bool
     ) -> Bool {
+        dockHoverCoordinator?.dockIconClicked()
         let destination = SettingsDestination(
             activeFeature: appModel.preferences.activeFeature
         )
@@ -410,7 +472,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 }
 
 @MainActor
-private final class DockFeatureMenuController: NSObject {
+private final class DockFeatureMenuController: NSObject, NSMenuDelegate {
+    var onMenuClose: (() -> Void)?
+    func menuDidClose(_ menu: NSMenu) { onMenuClose?() }
     private let appModel: DockAppModel
 
     init(appModel: DockAppModel) {
@@ -420,7 +484,16 @@ private final class DockFeatureMenuController: NSObject {
 
     func makeMenu() -> NSMenu {
         let menu = NSMenu(title: "DockMagic")
+        menu.delegate = self
         menu.autoenablesItems = false
+
+        if appModel.preferences.activeFeature == .nowPlaying {
+            let item = NSMenuItem(title: "Open Now Playing", action: #selector(openNowPlaying(_:)), keyEquivalent: "")
+            item.target = self
+            item.identifier = NSUserInterfaceItemIdentifier("dockMenu.openNowPlaying")
+            menu.addItem(item)
+            menu.addItem(.separator())
+        }
 
         let switchFeatureItem = NSMenuItem(
             title: "Switch Feature",
@@ -440,7 +513,7 @@ private final class DockFeatureMenuController: NSObject {
         let submenu = NSMenu(title: "Switch Feature")
         submenu.autoenablesItems = false
 
-        for feature in DockFeature.allCases {
+        for feature in DockFeature.availableCases {
             let item = NSMenuItem(
                 title: feature.title,
                 action: action(for: feature),
@@ -470,6 +543,12 @@ private final class DockFeatureMenuController: NSObject {
             #selector(selectStorage(_:))
         case .weather:
             #selector(selectWeather(_:))
+        case .binance:
+            #selector(selectBinance(_:))
+        case .calendar:
+            #selector(selectCalendar(_:))
+        case .nowPlaying:
+            #selector(selectNowPlaying(_:))
         case .clock:
             #selector(selectClock(_:))
         case .batteries:
@@ -480,6 +559,12 @@ private final class DockFeatureMenuController: NSObject {
             #selector(selectCodex(_:))
         case .claudeCode:
             #selector(selectClaudeCode(_:))
+        case .augment:
+            #selector(selectAugment(_:))
+        case .grokBuild:
+            #selector(selectGrokBuild(_:))
+        case .openCode:
+            #selector(selectOpenCode(_:))
         case .antigravity:
             #selector(selectAntigravity(_:))
         case .searchConsole:
@@ -511,6 +596,15 @@ private final class DockFeatureMenuController: NSObject {
         select(.weather)
     }
 
+    @objc private func selectNowPlaying(_ sender: Any?) { select(.nowPlaying) }
+    @objc private func openNowPlaying(_ sender: Any?) { appModel.openNowPlaying?() }
+
+    @objc private func selectBinance(_ sender: Any?) { select(.binance) }
+
+    @objc private func selectCalendar(_ sender: Any?) {
+        select(.calendar)
+    }
+
     @objc private func selectClock(_ sender: Any?) {
         select(.clock)
     }
@@ -530,6 +624,14 @@ private final class DockFeatureMenuController: NSObject {
     @objc private func selectClaudeCode(_ sender: Any?) {
         select(.claudeCode)
     }
+
+    @objc private func selectAugment(_ sender: Any?) { select(.augment) }
+
+    @objc private func selectGrokBuild(_ sender: Any?) {
+        guard GrokBuildFeatureGate.experimentalEnabled else { return }
+        select(.grokBuild)
+    }
+    @objc private func selectOpenCode(_ sender: Any?) { select(.openCode) }
 
     @objc private func selectAntigravity(_ sender: Any?) {
         select(.antigravity)
@@ -795,11 +897,24 @@ private struct DockMagicUITestClaudeCodeProvider:
     }
 }
 
-private struct DockMagicUITestClaudeAuthProvider:
+private actor DockMagicUITestClaudeAuthProvider:
     ClaudeCodeAuthStatusProviding
 {
-    let loggedIn: Bool
+    private var loggedIn: Bool
     let loginMarkerURL: URL?
+
+    init(loggedIn: Bool, loginMarkerURL: URL?) {
+        self.loggedIn = loggedIn
+        self.loginMarkerURL = loginMarkerURL
+    }
+
+    func signOut(executableURL: URL) async throws {
+        try await Task.sleep(for: .seconds(1))
+        loggedIn = false
+        if let loginMarkerURL, FileManager.default.fileExists(atPath: loginMarkerURL.path) {
+            try FileManager.default.removeItem(at: loginMarkerURL)
+        }
+    }
 
     func status(executableURL: URL) async throws -> ClaudeCodeCLIStatus {
         let isLoggedIn = loggedIn || loginMarkerURL.map {
@@ -924,6 +1039,7 @@ struct DockMagicApp: App {
     }
 }
 
+@MainActor
 private struct SettingsSceneRoot: View {
     let appModel: DockAppModel
     let dockHoverPermissionController: DockHoverPermissionController
@@ -931,6 +1047,18 @@ private struct SettingsSceneRoot: View {
     let softwareUpdateController: SoftwareUpdateController
 
     var body: some View {
+#if DEBUG
+        if ProcessInfo.processInfo.environment["DockMagicMaiaGallery"] == "1" {
+            DSComponentGallery().defaultAppStorage(DockMagicRuntimeDefaults.current)
+        } else {
+            settings
+        }
+#else
+        settings
+#endif
+    }
+
+    private var settings: some View {
         DockMagicThemeRoot(
             content: SettingsView(
                 appModel: appModel,

@@ -1,0 +1,110 @@
+{
+  "schemaVersion": 1,
+  "localDate": "2026-09-17",
+  "timeZone": "Asia/Ho_Chi_Minh",
+  "scope": "Explicit CLI authentication controller and Settings workflow; not signed-in quota certification",
+  "productionEnabled": false,
+  "billingStartupSafetyVerified": false,
+  "releaseVerified": false,
+  "authenticationCommandVersions": ["1.0.30"],
+  "implemented": [
+    "User-triggered fixed grok login and grok login --device-auth commands",
+    "Fresh executable version verification before each account mutation",
+    "Configured executable and GROK_HOME shared by collection and authentication",
+    "SwiftTerm read-only output with no shell, stdin or terminal escape callbacks",
+    "Ephemeral stdout/stderr capped at 65536 bytes and cleared on every exit",
+    "Five-minute login timeout and owned-process-group cancellation",
+    "Cancel, navigation, configuration, disable, sleep and stop lifecycle wiring",
+    "Post-login quota confirmation distinct from successful command completion",
+    "Confirmed grok logout; unverified completion clears old quota but retains local history and badges",
+    "Retry isolation and cancellation during post-login quota confirmation"
+  ],
+  "foundation": {
+    "selected": 137,
+    "passed": 129,
+    "skippedOptIn": 8,
+    "failed": 0,
+    "log": "/private/tmp/dockmagic-grok-auth-foundation-final.log"
+  },
+  "installedCLIEntryPointAudit": {
+    "observedAt": "2026-09-17T03:35:38Z",
+    "test": "GrokBuildLiveProbeTests.testInstalledCLIAuthCommandsPreserveSyntheticHistoryAndWorktreeMarkers",
+    "passed": 1,
+    "failed": 0,
+    "cliVersion": "1.0.30",
+    "accountKind": "unsigned-isolated-home",
+    "commands": ["--version", "login --help", "login --device-auth --help", "logout"],
+    "historyAndStalePoolMarkersPreserved": true,
+    "loginExecuted": false,
+    "realHomeTouched": false,
+    "billingStarted": false,
+    "credentialsRead": false,
+    "log": "/private/tmp/dockmagic-grok-auth-live-entrypoints.log"
+  },
+  "appVerification": {
+    "status": "scoped-tests-and-standard-build-run-passed-with-documented-retries; live-quota-unverified",
+    "initialResultBundle": "/private/tmp/dockmagic-grok-auth-flow-verification.xcresult",
+    "initialFailure": "Device-code retry UI test did not observe the second running state after output-region removal. The test now resolves the settled viewport before retrying.",
+    "broadRerun": {
+      "selected": 82,
+      "passed": 81,
+      "failed": 1,
+      "resultBundle": "/private/tmp/dockmagic-grok-auth-flow-final-r3.xcresult",
+      "failure": "Device-code test was interrupted by an unrelated foreground Chrome window during scrolling; XCTest reported no Settings ScrollView.",
+      "isolatedRetryPassed": 1,
+      "isolatedRetryResultBundle": "/private/tmp/dockmagic-grok-auth-device-retry.xcresult"
+    },
+    "visualEvidenceCorrection": "cacheDisplay snapshots omitted SwiftTerm's CALayer background; the actual UI screenshot had a correct black terminal with readable text. Removed the unnecessary renderer workaround. The auth-only visual test now captures only its own composited window and checks the terminal background; final recheck passed.",
+    "finalAppearanceVerification": {
+      "passed": 1,
+      "failed": 0,
+      "variants": ["Light", "Dark", "Increased Contrast", "Reduce Transparency", "Reduce Motion", "grayscale"],
+      "resultBundle": "/private/tmp/dockmagic-grok-auth-composited-visual.xcresult",
+      "imagesInspected": true,
+      "scope": "Synthetic running device-code output, fixed shared terminal background, controls and status text. Grayscale is a postprocessed capture; Reduce Motion is a static capture, not animation timing proof."
+    },
+    "authInteractionRerun": {
+      "passed": 3,
+      "failed": 0,
+      "resultBundle": "/private/tmp/dockmagic-grok-auth-ui-final-r2.xcresult",
+      "scope": "Browser completion with quota unavailable and confirmed logout; timeout/retry; device-code cancel/retry and navigation cancellation. A separate appearance test in this run failed due to the documented snapshot-method issue."
+    },
+    "fixtureIsolation": true,
+    "unrelatedTestSourceExcluded": "CalendarSyncTests.swift",
+    "fullProjectTestSuite": false,
+    "newDeveloperIDReleasePackageVerified": false
+  },
+  "standardWorkflow": {
+    "command": "bash script/build_and_run.sh --verify",
+    "exitCode": 0,
+    "freshDebugBuildSucceeded": true,
+    "launchProcessVerified": true,
+    "bundleIdentifier": "com.hypevibe.GrokUITest.DockMagic",
+    "bundlePath": "/private/tmp/dockmagic-grok-ui-build.acevBnKZ/Build/Products/Debug/DockMagic.app",
+    "defaultsSuite": "DockMagicGrokRealLocalQA.20260917.jn69Gc3K",
+    "grokFixtureEnvironmentKeyAbsent": true,
+    "log": "/private/tmp/dockmagic-grok-auth-standard-workflow.log",
+    "finalRealSettingsVisualRecheck": "Not verified: native UI reader timed out twice after launch. Earlier real-local preview proof is retained separately, not claimed as a new visual result."
+  },
+  "sourceReview": {
+    "repositoryRevision": "482711333c7195dc16a272777f86086d615e2afb",
+    "authenticationGuide": "https://github.com/xai-org/grok-build/blob/482711333c7195dc16a272777f86086d615e2afb/crates/codegen/xai-grok-pager/docs/user-guide/02-authentication.md",
+    "finding": "Official login/logout dispatch separately from agent initialization; browser/device login needs no terminal input. This does not prove signed-in ACP startup safety."
+  },
+  "safety": {
+    "realAccountLoginOrLogoutPerformed": false,
+    "realCredentialsReadOrCopied": false,
+    "realACPStarted": false,
+    "modelPromptsSent": 0,
+    "systemAccessibilityOrTCCChanged": false,
+    "unsafeQuotaGateBypassed": false
+  },
+  "remaining": [
+    "Official safe billing startup path before a signed-in probe",
+    "Real browser/device authorization completion with user participation",
+    "Signed-in quota fixture and comparison with the reported account plan/window",
+    "Real signed-in logout and post-command account verification",
+    "Configured-home startup effects and real CLI detached-descendant audit",
+    "Actual sleep/wake/shutdown, full keyboard/VoiceOver and packaged-release verification"
+  ]
+}

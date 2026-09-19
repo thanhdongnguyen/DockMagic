@@ -1,0 +1,51 @@
+{
+  "agentStarted": false,
+  "auditCompleted": true,
+  "cliVersion": "1.0.30",
+  "credentialsRead": false,
+  "discoveredSessions": 1,
+  "excludedSessions": 0,
+  "fixtureOrigin": "real-local-normalized",
+  "forcedQuarantinedSessions": 0,
+  "forcedReadableRoots": 1,
+  "forcedRefreshVerified": true,
+  "forcedUnavailableSources": 0,
+  "forcedUsageCommands": 1,
+  "initialUsageCommands": 1,
+  "isPartial": true,
+  "observedAt": "2026-09-16T10:22:09Z",
+  "observedDays": 1,
+  "probe": "authorized-real-local-history",
+  "promptsSent": 0,
+  "quarantinedSessions": 0,
+  "readableRoots": 1,
+  "releaseVerified": false,
+  "repeatUsageCommands": 0,
+  "scanWasLimited": false,
+  "sessionRequestsSent": 0,
+  "sourceSetStable": true,
+  "timeZone": "Asia/Ho_Chi_Minh",
+  "tokensObservedInWindow": 35987,
+  "unavailableSources": 0,
+  "unknownDays": 29,
+  "reviewOutcome": "one-real-root-one-observed-day; cached-and-forced-refresh-idempotent",
+  "authStatusEvidence": "user-reported-login-only; billing not probed",
+  "normalizedFixtureSummary": {
+    "windowStartUTC": "2026-08-17T17:00:00Z",
+    "dayBucketCount": 30,
+    "unlistedDaysAreUnknown": true,
+    "observedBuckets": [
+      {
+        "startUTC": "2026-09-15T17:00:00Z",
+        "tokens": 35987,
+        "modelCoverageIsPartial": false
+      }
+    ],
+    "topModels": [
+      {
+        "model": "grok-4.6-build",
+        "tokens": 35987
+      }
+    ]
+  }
+}

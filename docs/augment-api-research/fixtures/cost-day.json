@@ -1,0 +1,46 @@
+{
+  "data_points": [
+    {
+      "start_date": "2026-09-14",
+      "end_date": "2026-09-14",
+      "cost_metrics": {
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "cache_read_tokens": 0,
+        "cache_write_tokens": 0,
+        "billed_amount_usd": "0",
+        "estimated_customer_cost_usd": "0",
+        "base_cost_usd": "0",
+        "surcharge_usd": "0",
+        "credits_consumed": "0"
+      },
+      "group_by_values": {}
+    },
+    {
+      "start_date": "2026-09-15",
+      "end_date": "2026-09-15",
+      "cost_metrics": {
+        "input_tokens": 1200000,
+        "output_tokens": 420000,
+        "cache_read_tokens": 830000,
+        "cache_write_tokens": 95000,
+        "billed_amount_usd": "12.40",
+        "estimated_customer_cost_usd": "12.40",
+        "base_cost_usd": "10.00",
+        "surcharge_usd": "2.40",
+        "credits_consumed": "620"
+      },
+      "group_by_values": {}
+    }
+  ],
+  "pagination": {
+    "has_more": false,
+    "next_cursor": ""
+  },
+  "metadata": {
+    "effective_start_date": "2026-09-13",
+    "effective_end_date": "2026-09-15",
+    "generated_at": "2026-09-16T02:15:00Z",
+    "returned_data_point_count": 2
+  }
+}

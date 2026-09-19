@@ -1,11 +1,12 @@
 import SwiftUI
 
+@MainActor
 struct DockSearchConsoleView: View {
     let state: SearchConsoleState
     let configuration: SearchConsoleConfiguration
 
-    static let clicksColor = Color(red: 0.20, green: 0.79, blue: 0.96)
-    static let impressionsColor = Color(red: 0.64, green: 0.36, blue: 1.00)
+    @Environment(\.designTheme) private var theme
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         Group {
@@ -37,7 +38,7 @@ struct DockSearchConsoleView: View {
 
             VStack(alignment: .center, spacing: 0) {
                 Text(SearchConsoleCountFormatting.compact(snapshot.total(for: primary)))
-                    .font(.system(size: side * 0.31, weight: .bold, design: .rounded))
+                    .dsFont(size: side * 0.31, weight: .bold)
                     .monospacedDigit()
                     .minimumScaleFactor(0.68)
                     .lineLimit(1)
@@ -45,9 +46,9 @@ struct DockSearchConsoleView: View {
                     .frame(maxWidth: .infinity, alignment: .center)
 
                 Text(primary.title.uppercased())
-                    .font(.system(size: side * 0.075, weight: .bold, design: .rounded))
+                    .dsFont(size: side * 0.075, weight: .bold)
                     .tracking(side * 0.004)
-                    .foregroundStyle(Color.white.opacity(0.62))
+                    .foregroundStyle(theme.textSecondary)
 
                 SearchConsoleSparkline(
                     values: snapshot.points.map { $0.value(for: secondary) },
@@ -62,9 +63,9 @@ struct DockSearchConsoleView: View {
                     Text(SearchConsoleCountFormatting.compact(snapshot.total(for: secondary)))
                         .foregroundStyle(color(for: secondary))
                     + Text(" \(secondary.title.lowercased())")
-                        .foregroundStyle(Color.white.opacity(0.58))
+                        .foregroundStyle(theme.textSecondary)
                 )
-                .font(.system(size: side * 0.075, weight: .semibold, design: .rounded))
+                .dsFont(size: side * 0.075, weight: .semibold)
                 .lineLimit(1)
                 .minimumScaleFactor(0.75)
                 .padding(.top, side * 0.025)
@@ -95,15 +96,15 @@ struct DockSearchConsoleView: View {
     ) -> some View {
         VStack(alignment: .leading, spacing: side * 0.012) {
             Text(SearchConsoleCountFormatting.compact(snapshot.total(for: metric)))
-                .font(.system(size: side * 0.24, weight: .bold, design: .rounded))
+                .dsFont(size: side * 0.24, weight: .bold)
                 .monospacedDigit()
                 .foregroundStyle(color(for: metric))
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
             Text(metric.title.uppercased())
-                .font(.system(size: side * 0.061, weight: .bold, design: .rounded))
+                .dsFont(size: side * 0.061, weight: .bold)
                 .tracking(side * 0.003)
-                .foregroundStyle(Color.white.opacity(0.58))
+                .foregroundStyle(theme.textSecondary)
         }
     }
 
@@ -113,13 +114,13 @@ struct DockSearchConsoleView: View {
                 ZStack {
                     SearchConsoleSparkline(
                         values: snapshot.points.map(\.impressions),
-                        color: Self.impressionsColor,
+                        color: color(for: .impressions),
                         lineWidth: side * 0.018,
                         showsFill: true
                     )
                     SearchConsoleSparkline(
                         values: snapshot.points.map(\.clicks),
-                        color: Self.clicksColor,
+                        color: color(for: .clicks),
                         lineWidth: side * 0.018
                     )
                 }
@@ -144,12 +145,12 @@ struct DockSearchConsoleView: View {
     ) -> some View {
         VStack(alignment: .leading, spacing: 1) {
             Text(SearchConsoleCountFormatting.compact(snapshot.total(for: metric)))
-                .font(.system(size: side * 0.115, weight: .bold, design: .rounded))
+                .dsFont(size: side * 0.115, weight: .bold)
                 .foregroundStyle(color(for: metric))
                 .lineLimit(1)
             Text(metric.title.uppercased())
-                .font(.system(size: side * 0.052, weight: .bold, design: .rounded))
-                .foregroundStyle(Color.white.opacity(0.52))
+                .dsFont(size: side * 0.052, weight: .bold)
+                .foregroundStyle(theme.textSecondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -157,12 +158,12 @@ struct DockSearchConsoleView: View {
     private var empty: some View {
         DockTileSurface { side in
             VStack(spacing: side * 0.075) {
-                Image(systemName: configuration.isConnected ? "arrow.triangle.2.circlepath" : "chart.xyaxis.line")
-                    .font(.system(size: side * 0.24, weight: .semibold))
-                    .foregroundStyle(Self.clicksColor)
+                DSIcon(systemName: configuration.isConnected ? "arrow.triangle.2.circlepath" : "chart.xyaxis.line")
+                    .dsFont(size: side * 0.24, weight: .semibold)
+                    .foregroundStyle(theme.textSecondary)
                 Text(configuration.isConnected ? "Loading" : "Connect")
-                    .font(.system(size: side * 0.095, weight: .bold, design: .rounded))
-                    .foregroundStyle(Color.white.opacity(0.65))
+                    .dsFont(size: side * 0.095, weight: .bold)
+                    .foregroundStyle(theme.textSecondary)
             }
         }
     }
@@ -170,16 +171,17 @@ struct DockSearchConsoleView: View {
     @ViewBuilder
     private func statusIcon(side: CGFloat) -> some View {
         if state.errorDescription != nil {
-            Image(systemName: "exclamationmark.triangle.fill")
-                .font(.system(size: side * 0.07, weight: .bold))
-                .foregroundStyle(Color.orange)
+            DSIcon(systemName: "exclamationmark.triangle.fill")
+                .dsFont(size: side * 0.07, weight: .bold)
+                .foregroundStyle(theme.warningForeground)
                 .padding(side * 0.075)
                 .accessibilityHidden(true)
         }
     }
 
     private func color(for metric: SearchConsoleMetric) -> Color {
-        metric == .clicks ? Self.clicksColor : Self.impressionsColor
+        let requested = metric == .clicks ? configuration.clicksColor : configuration.impressionsColor
+        return ProjectTheme.readableRendererColor(requested, on: theme.dockBackgroundRaised, colorScheme: colorScheme, minimumContrast: 4.5).color
     }
 
     private var accessibilityValue: String {
@@ -212,11 +214,7 @@ private struct SearchConsoleSparkline: View {
                 fill.closeSubpath()
                 context.fill(
                     fill,
-                    with: .linearGradient(
-                        Gradient(colors: [color.opacity(0.28), color.opacity(0.01)]),
-                        startPoint: CGPoint(x: size.width / 2, y: 0),
-                        endPoint: CGPoint(x: size.width / 2, y: size.height)
-                    )
+                    with: .color(color.opacity(0.12))
                 )
             }
 

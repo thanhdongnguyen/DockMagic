@@ -1,0 +1,29 @@
+{
+  "connection" : "Live",
+  "dockTileWidth" : 128,
+  "installedPixels" : 1024,
+  "pairs" : [
+    {
+      "candles" : "289",
+      "price" : "75,543.72",
+      "quote" : "USDT",
+      "symbol" : "BTCUSDT"
+    },
+    {
+      "candles" : "289",
+      "price" : "2,383.53",
+      "quote" : "USDT",
+      "symbol" : "ETHUSDT"
+    },
+    {
+      "candles" : "289",
+      "price" : "96.74",
+      "quote" : "USDT",
+      "symbol" : "SOLUSDT"
+    }
+  ],
+  "panelHeight" : 740,
+  "panelWidth" : 620,
+  "recordedAt" : "2026-09-16T14:52:15Z",
+  "source" : "live Binance REST and WebSocket"
+}

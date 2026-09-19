@@ -1,0 +1,33 @@
+{
+  "agentStarted": false,
+  "auditCompleted": true,
+  "cliVersion": "1.0.30",
+  "credentialsRead": false,
+  "discoveredSessions": 0,
+  "excludedSessions": 0,
+  "fixtureOrigin": "real-local-normalized",
+  "initialUsageCommands": 0,
+  "isPartial": true,
+  "observedAt": "2026-09-16T10:00:11Z",
+  "observedDays": 0,
+  "probe": "authorized-real-local-history",
+  "promptsSent": 0,
+  "quarantinedSessions": 0,
+  "readableRoots": 0,
+  "releaseVerified": false,
+  "repeatUsageCommands": 0,
+  "scanWasLimited": false,
+  "sessionRequestsSent": 0,
+  "sourceSetStable": true,
+  "timeZone": "Asia/Ho_Chi_Minh",
+  "tokensObservedInWindow": null,
+  "unavailableSources": 0,
+  "unknownDays": 30,
+  "reviewOutcome": "no-persisted-local-usage-yet",
+  "metadataFileCounts": {
+    "usageFiles": 0,
+    "summaryFiles": 1
+  },
+  "metadataCountsObservedAfterProbe": true,
+  "authStatusEvidence": "user-reported-login-only; billing not probed"
+}

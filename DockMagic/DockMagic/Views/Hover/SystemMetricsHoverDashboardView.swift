@@ -51,34 +51,34 @@ struct SystemMetricsHoverDashboardView: View {
 
     private var header: some View {
         HStack(spacing: 9) {
-            Image(systemName: "gauge.with.dots.needle.50percent")
+            DSIcon(systemName: "gauge.with.dots.needle.50percent")
                 .symbolRenderingMode(.monochrome)
-                .font(.system(size: 17, weight: .semibold))
+                .dsFont(size: 17, weight: .semibold)
                 .foregroundStyle(theme.textPrimary)
                 .accessibilityHidden(true)
 
             Text("CPU & RAM")
-                .font(.system(size: 17, weight: .bold))
+                .dsFont(size: 17, weight: .bold)
                 .foregroundStyle(theme.textPrimary)
 
             Spacer(minLength: 8)
 
-            DashboardMetricLabel(
+            DSMetricInline(
                 title: "CPU",
                 value: Self.percentageLabel(current.cpuUsage),
-                color: appearance.outerColor.color
+                seriesColor: appearance.outerColor.color
             )
-            DashboardMetricLabel(
+            DSMetricInline(
                 title: "RAM",
                 value: Self.percentageLabel(current.memoryUsage),
-                color: appearance.innerColor.color
+                seriesColor: appearance.innerColor.color
             )
 
             if let errorDescription = systemErrorDescription
                 ?? processErrorDescription {
-                Image(systemName: "exclamationmark.triangle.fill")
+                DSIcon(systemName: "exclamationmark.triangle.fill")
                     .symbolRenderingMode(.monochrome)
-                    .font(.system(size: 11, weight: .semibold))
+                    .dsFont(size: 11, weight: .semibold)
                     .foregroundStyle(theme.dangerForeground)
                     .help(errorDescription)
                     .accessibilityLabel("Last update error")
@@ -106,33 +106,6 @@ struct SystemMetricsHoverDashboardView: View {
     }
 }
 
-private struct DashboardMetricLabel: View {
-    let title: String
-    let value: String
-    let color: Color
-
-    @Environment(\.designTheme) private var theme
-
-    var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 5) {
-            Capsule()
-                .fill(color)
-                .frame(width: 13, height: 3)
-                .accessibilityHidden(true)
-
-            Text(title)
-                .font(.system(size: 9.5, weight: .semibold))
-                .foregroundStyle(theme.textSecondary)
-
-            Text(value)
-                .font(.system(size: 12, weight: .bold, design: .rounded))
-                .foregroundStyle(theme.textPrimary)
-                .monospacedDigit()
-        }
-        .accessibilityElement(children: .combine)
-    }
-}
-
 private struct ProcessRankingCard: View {
     let title: String
     let systemImage: String
@@ -146,20 +119,20 @@ private struct ProcessRankingCard: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 6) {
-                Image(systemName: systemImage)
+                DSIcon(systemName: systemImage)
                     .symbolRenderingMode(.monochrome)
-                    .font(.system(size: 10.5, weight: .semibold))
+                    .dsFont(size: 10.5, weight: .semibold)
                     .foregroundStyle(theme.textSecondary)
                     .accessibilityHidden(true)
 
                 Text(title)
-                    .font(.system(size: 11.5, weight: .bold))
+                    .dsFont(size: 11.5, weight: .bold)
                     .foregroundStyle(theme.textPrimary)
 
                 Spacer(minLength: 4)
 
                 Text("TOP 10")
-                    .font(.system(size: 8, weight: .bold))
+                    .dsFont(size: 8, weight: .bold)
                     .foregroundStyle(theme.textTertiary)
             }
             .padding(.horizontal, 9)
@@ -202,13 +175,13 @@ private struct ProcessRankingCard: View {
     private func processRow(index: Int, row: ProcessMetricRow) -> some View {
         HStack(spacing: 6) {
             Text("\(index + 1)")
-                .font(.system(size: 8.5, weight: .medium, design: .rounded))
+                .dsFont(size: 8.5, weight: .medium)
                 .foregroundStyle(theme.textTertiary)
                 .monospacedDigit()
                 .frame(width: 14, alignment: .trailing)
 
             Text(row.name)
-                .font(.system(size: 10, weight: .medium))
+                .dsFont(size: 10, weight: .medium)
                 .foregroundStyle(theme.textPrimary)
                 .lineLimit(1)
                 .truncationMode(.middle)
@@ -216,7 +189,7 @@ private struct ProcessRankingCard: View {
             Spacer(minLength: 4)
 
             Text(value(row))
-                .font(.system(size: 9.5, weight: .semibold, design: .rounded))
+                .dsFont(size: 9.5, weight: .semibold)
                 .foregroundStyle(theme.textSecondary)
                 .monospacedDigit()
                 .lineLimit(1)
@@ -232,34 +205,15 @@ private struct ProcessRankingCard: View {
     }
 
     private var loadingState: some View {
-        HStack(spacing: 7) {
-            ProgressView()
-                .controlSize(.small)
-            Text("Measuring CPU activity…")
-                .font(.system(size: 10, weight: .medium))
-                .foregroundStyle(theme.textSecondary)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .accessibilityElement(children: .combine)
+        DSLoadingState(title: "Measuring CPU activity…")
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private var emptyState: some View {
-        VStack(spacing: 6) {
-            Image(systemName: "chart.bar.xaxis")
-                .symbolRenderingMode(.monochrome)
-                .font(.system(size: 16, weight: .medium))
-                .foregroundStyle(theme.textTertiary)
-                .accessibilityHidden(true)
-            Text(emptyMessage)
-                .font(.system(size: 10, weight: .medium))
-                .foregroundStyle(theme.textSecondary)
-                .multilineTextAlignment(.center)
-                .lineLimit(2)
-        }
-        .padding(10)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .accessibilityElement(children: .combine)
+        DSEmptyState(title: emptyMessage, icon: .chart)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
+
 }
 
 private struct SystemMetricsHistoryCard: View {
@@ -269,24 +223,24 @@ private struct SystemMetricsHistoryCard: View {
     @Environment(\.designTheme) private var theme
 
     var body: some View {
-        VStack(spacing: 4) {
+        DSChartFrame {
             HStack(spacing: 8) {
                 Text("Realtime usage")
-                    .font(.system(size: 11.5, weight: .bold))
+                    .dsFont(size: 11.5, weight: .bold)
                     .foregroundStyle(theme.textPrimary)
 
                 Text("LAST 60 SECONDS")
-                    .font(.system(size: 8, weight: .bold))
+                    .dsFont(size: 8, weight: .bold)
                     .foregroundStyle(theme.textTertiary)
 
                 Spacer(minLength: 4)
 
-                ChartSeriesLegend(
+                DSChartLegend(
                     title: "CPU",
                     color: appearance.outerColor.color,
                     isDashed: false
                 )
-                ChartSeriesLegend(
+                DSChartLegend(
                     title: "RAM",
                     color: appearance.innerColor.color,
                     isDashed: true
@@ -311,37 +265,6 @@ private struct SystemMetricsHistoryCard: View {
             RoundedRectangle(cornerRadius: DSRadius.fixedSmall, style: .continuous)
                 .strokeBorder(theme.outline, lineWidth: 0.5)
         }
-    }
-}
-
-private struct ChartSeriesLegend: View {
-    let title: String
-    let color: Color
-    let isDashed: Bool
-
-    @Environment(\.designTheme) private var theme
-
-    var body: some View {
-        HStack(spacing: 4) {
-            Capsule()
-                .trim(from: isDashed ? 0 : 0, to: isDashed ? 0.42 : 1)
-                .stroke(color, style: StrokeStyle(lineWidth: 2, lineCap: .round))
-                .frame(width: 14, height: 4)
-                .overlay(alignment: .trailing) {
-                    if isDashed {
-                        Capsule()
-                            .fill(color)
-                            .frame(width: 5, height: 2)
-                    }
-                }
-                .accessibilityHidden(true)
-
-            Text(title)
-                .font(.system(size: 8.5, weight: .semibold))
-                .foregroundStyle(theme.textSecondary)
-        }
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(title), \(isDashed ? "dashed" : "solid") line")
     }
 }
 
@@ -403,7 +326,7 @@ struct SystemMetricsHistoryChart: View {
 
             if history.count < 2 {
                 Text("Collecting realtime history…")
-                    .font(.system(size: 9.5, weight: .medium))
+                    .dsFont(size: 9.5, weight: .medium)
                     .foregroundStyle(theme.textSecondary)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 6)

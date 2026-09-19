@@ -1,0 +1,91 @@
+{
+  "schemaVersion": 1,
+  "verifiedAt": "2026-09-16T17:39:38Z",
+  "localDate": "2026-09-17",
+  "scope": "Synthetic Release tests and static signature verification of an isolated arm64 app bundle",
+  "productionEnabled": false,
+  "runtimeVerifiedVersions": [],
+  "billingStartupSafetyVerified": false,
+  "releaseVerified": false,
+  "foundation": {
+    "configuration": "release",
+    "experimentalEnvironmentValue": "1",
+    "selected": 124,
+    "passed": 117,
+    "skipped": 7,
+    "failed": 0,
+    "skipReasons": ["Six opt-in CLI/account probes", "Separately exercised opt-in retention stress case"],
+    "releaseIgnoresExperimentalFlagAssertionPassed": true,
+    "log": "/private/tmp/dockmagic-grok-release-verification.LTuHDDhS/foundation-release.log"
+  },
+  "debugGateChecks": {
+    "test": "GrokBuildFoundationTests.testProductionRemainsDisabledWithoutRuntimeEvidence",
+    "flagEnabledPassed": true,
+    "flagDisabledPassed": true,
+    "countsOverlapReleaseAndPreviousRuns": true
+  },
+  "app": {
+    "xcodeVersion": "15.4 (15F31d)",
+    "configuration": "Release",
+    "architecture": "arm64",
+    "bundleIdentifier": "com.hypevibe.GrokReleaseVerification.DockMagic",
+    "bundlePath": "/private/tmp/dockmagic-grok-release-verification.LTuHDDhS/DerivedData/Build/Products/Release/DockMagic.app",
+    "buildExitCode": 0,
+    "distributionSigningBuildExitCode": 0,
+    "launched": false,
+    "standardDebugRunWorkflowUsed": false,
+    "archivedOrExported": false,
+    "dependencies": {"SwiftTerm": "1.18.0", "Sparkle": "2.10.0", "swift-argument-parser": "1.7.2"},
+    "buildLogs": [
+      "/private/tmp/dockmagic-grok-release-verification.LTuHDDhS/app-release-build.log",
+      "/private/tmp/dockmagic-grok-release-verification.LTuHDDhS/app-release-distribution-signing.log"
+    ],
+    "warnings": ["Existing actor-isolation warnings", "SwiftTerm bundle missing creator for mutated node warning"]
+  },
+  "signing": {
+    "initialBuildAction": {"getTaskAllow": true, "secureTimestampPresent": false},
+    "finalCommandLineOverrides": {"CODE_SIGN_INJECT_BASE_ENTITLEMENTS": "NO", "OTHER_CODE_SIGN_FLAGS": "--timestamp"},
+    "identityType": "Developer ID Application",
+    "certificateChainPresent": true,
+    "hardenedRuntime": true,
+    "codeDirectoryFlags": "0x10000(runtime)",
+    "secureTimestampPresent": true,
+    "getTaskAllow": false,
+    "cdhash": "a8037a2f0af9e6f3c07ef59a83f922a254301780",
+    "entitlements": [
+      "com.apple.security.automation.apple-events",
+      "com.apple.security.personal-information.calendars",
+      "com.apple.security.personal-information.location"
+    ],
+    "deepStrictVerificationExitCode": 0,
+    "nestedSparkleCodeValidated": true,
+    "verificationPerformedOutsideRestrictedShell": true
+  },
+  "gatekeeper": {
+    "assessmentExitCode": 3,
+    "result": "rejected",
+    "source": "Unnotarized Developer ID",
+    "notarizationSubmitted": false,
+    "staplingPerformed": false,
+    "bypassed": false
+  },
+  "safety": {
+    "realGrokCLIStarted": false,
+    "credentialsRead": false,
+    "accountAuthenticationActionPerformed": false,
+    "productionPreferencesChanged": false,
+    "systemAccessibilityOrTCCSettingsChanged": false,
+    "sharedProjectSigningSettingsChanged": false,
+    "sharedEntitlementsChanged": false,
+    "existingDebugQAAppStoppedOrReplaced": false,
+    "artifactPublished": false
+  },
+  "notVerifiedByThisRun": [
+    "Live quota and official terminal authentication lifecycle",
+    "Release app runtime, CLI launch, file access and lifecycle under Hardened Runtime",
+    "Actual Dock hover, complete keyboard/VoiceOver and live sleep/wake",
+    "Full app regression suite",
+    "Production bundle identifier and final archive/export or universal architectures",
+    "Notarization, stapling and Gatekeeper acceptance"
+  ]
+}

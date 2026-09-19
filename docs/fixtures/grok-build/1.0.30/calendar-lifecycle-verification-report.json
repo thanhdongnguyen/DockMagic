@@ -1,0 +1,83 @@
+{
+  "schemaVersion": 1,
+  "verifiedAt": "2026-09-16T16:07:04Z",
+  "scope": "Synthetic clock/calendar and private NotificationCenter; production local store and app composition",
+  "productionEnabled": false,
+  "billingStartupSafetyVerified": false,
+  "realCLIInvoked": false,
+  "credentialsRead": false,
+  "systemTimezoneChanged": false,
+  "realSleepWakeVerified": false,
+  "releaseVerified": false,
+  "foundation": {
+    "selected": 111,
+    "passed": 105,
+    "skippedOptInLiveProbes": 6,
+    "failed": 0,
+    "log": "/private/tmp/dockmagic-grok-calendar-foundation-window.log",
+    "command": "swift test --package-path /private/var/folders/hl/6s53t4gj48dfr03n0rnlzg7m0000gn/T/dockmagic-grok-tests.9mLESmow --jobs 2",
+    "newCases": [
+      "testCalendarProjectionMovesTodayAtMidnightWithoutCollectingOrRefreshingTimestamps",
+      "testCalendarProjectionPrunesDetailsButKeepsDurableBadgeAndSourceAge",
+      "testTimezoneRoundTripClearsPendingCelebrationAndDoesNotCallCLI",
+      "testCalendarProjectionDuringStartupDoesNotCompleteInitialImport",
+      "testCalendarProjectionOldHomeWriteCannotPublishIntoNewConfiguration",
+      "testCalendarProjectionWaitsForClaimWriteAndDoesNotDeliverAnOldTimezoneBanner",
+      "testCalendarProjectionWaitsForInFlightCollectionAndUsesCurrentDay",
+      "testCalendarProjectionWriteFailureCanRetryWithoutLosingData",
+      "testCalendarProjectionUses23And25HourDSTDays"
+    ]
+  },
+  "appHosted": {
+    "selected": 55,
+    "passed": 55,
+    "failed": 0,
+    "resultBundle": "/private/tmp/dockmagic-grok-calendar-final-apphost.xcresult",
+    "scope": [
+      "GrokBuildIntegrationTests",
+      "GrokPresentationTests/testCalendarNotificationsReprojectManualModeAndRespectSuspendStop",
+      "GrokPresentationTests/testAppCompositionFlagOffStartsNoCollection",
+      "GrokPresentationTests/testAppCompositionMonitorsOtherDockAndFollowsPathsEnableAndSleep",
+      "TokenUsageStreakStoreTests"
+    ],
+    "excludedSourceFile": "CalendarSyncTests.swift",
+    "fullAppRegression": false,
+    "overlap": "The 43 Grok integration cases also run in Foundation; counts are not unique across suites."
+  },
+  "diagnosis": {
+    "initialAttemptPassed": false,
+    "finding": "MainActor barrier spun while awaiting an already-completed celebration task whose handle was cleared by the outer waiter. Cleanup now occurs inside the task before completion.",
+    "sample": "/private/tmp/dockmagic-grok-calendar-wait.sample.txt",
+    "ownedStoppedPIDs": [44486, 44338],
+    "otherProcessesTerminated": false
+  },
+  "uiRegression": {
+    "selected": 6,
+    "passed": 6,
+    "failed": 0,
+    "resultBundle": "/private/tmp/dockmagic-grok-calendar-ui-regression.xcresult",
+    "completedAt": "2026-09-16T16:05:32Z",
+    "concurrentOtherUIRunnerObserved": true,
+    "scope": "Calendar lifecycle build before the final scan-reuse invalidation follow-up; no view code changed in this continuation. Final invalidation is covered by Foundation and app-hosted integration tests. Not exclusive-desktop evidence."
+  },
+  "invariants": [
+    "Calendar-only reproject does not acquire CLI, discovery or quota data",
+    "Collection/source timestamps remain separate from projection time",
+    "Unknown today stays missing rather than zero or inactive",
+    "UTC detailed retention is limited to the current 30-day projection window",
+    "Durable witnesses and earned badges survive detailed retention expiry",
+    "Pruning invalidates scan reuse so authorized refresh recovers a shifted window edge even with unchanged fingerprints",
+    "Initial import is not completed by a calendar-only operation",
+    "Timezone round trip does not replay pending or already-claimed celebrations",
+    "Cache mutation ordering preserves claims across collection, projection and home replacement"
+  ],
+  "remaining": [
+    "Safe official billing startup and authenticated quota evidence",
+    "Official terminal authentication controller and live auth lifecycle",
+    "Actual machine sleep/wake, Dock interaction and full accessibility",
+    "Broad real source attribution and long-term retention stress",
+    "Required renderer color customization and final identity asset",
+    "Full regression, standard launch and Developer ID/Hardened Runtime packaged verification"
+  ],
+  "ownedTestProcessesAbsentAfterRun": true
+}

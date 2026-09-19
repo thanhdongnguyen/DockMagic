@@ -4,11 +4,17 @@ import Observation
 @MainActor
 @Observable
 final class DockAppModel {
+    let binanceStore: BinanceMarketStore
+    @ObservationIgnored var openBinanceSettings: () -> Void = {}
     let preferences: DockPreferencesStore
     let metricsStore: SystemMetricsStore
     let networkStore: NetworkMetricsStore
     let storageStore: StorageMetricsStore
     let weatherStore: WeatherStore
+    let calendarStore: CalendarStore
+    let nowPlayingStore: NowPlayingStore
+    var openNowPlaying: (() -> Void)?
+    var openNowPlayingSettings: (() -> Void)?
     let clockStore: ClockStore
     let batteryStore: BatteryMetricsStore
     let githubStore: GitHubRepositoryStore
@@ -16,6 +22,13 @@ final class DockAppModel {
     let codexStore: CodexUsageStore
     let claudeCodeStore: ClaudeCodeUsageStore
     let antigravityStore: AntigravityUsageStore
+    let augmentStore: AugmentUsageStore
+    var openAugmentSettings: (() -> Void)?
+    let grokIntegration: GrokIntegrationController
+    var grokBuildStore: GrokBuildUsageStore { grokIntegration.store }
+    var openGrokBuildSettings: (() -> Void)?
+    let openCodeStore: OpenCodeUsageStore
+    var openOpenCodeSettings: (() -> Void)?
     let developerToolInstallationStore: DeveloperToolInstallationStore
     let serviceStatusStore: ServiceStatusStore
     let searchConsoleStore: SearchConsoleStore
@@ -31,28 +44,40 @@ final class DockAppModel {
 
     init(
         preferences: DockPreferencesStore? = nil,
+        binanceStore: BinanceMarketStore? = nil,
         metricsStore: SystemMetricsStore? = nil,
         networkStore: NetworkMetricsStore? = nil,
         storageStore: StorageMetricsStore? = nil,
         weatherStore: WeatherStore? = nil,
         clockStore: ClockStore? = nil,
+        calendarStore: CalendarStore? = nil,
+        nowPlayingStore: NowPlayingStore? = nil,
         batteryStore: BatteryMetricsStore? = nil,
         githubStore: GitHubRepositoryStore? = nil,
         streakStore: TokenUsageStreakStore? = nil,
         codexStore: CodexUsageStore? = nil,
         claudeCodeStore: ClaudeCodeUsageStore? = nil,
         antigravityStore: AntigravityUsageStore? = nil,
+        augmentStore: AugmentUsageStore? = nil,
+        openCodeStore: OpenCodeUsageStore? = nil,
+        grokBuildStore: GrokBuildUsageStore? = nil,
         developerToolInstallationStore: DeveloperToolInstallationStore? = nil,
         serviceStatusStore: ServiceStatusStore? = nil,
         searchConsoleStore: SearchConsoleStore? = nil
     ) {
         let preferences = preferences ?? DockPreferencesStore()
         self.preferences = preferences
+        self.grokIntegration = GrokIntegrationController(preferences: preferences, store: grokBuildStore)
+        self.binanceStore = binanceStore ?? BinanceMarketStore(configuration: preferences.binanceConfiguration, persist: { [weak preferences] in preferences?.binanceConfiguration = $0 })
+        self.augmentStore = augmentStore ?? AugmentUsageStore()
+        self.openCodeStore = openCodeStore ?? OpenCodeUsageStore()
         self.metricsStore = metricsStore ?? SystemMetricsStore()
         self.networkStore = networkStore ?? NetworkMetricsStore()
         self.storageStore = storageStore ?? StorageMetricsStore()
         self.weatherStore = weatherStore ?? WeatherStore()
         self.clockStore = clockStore ?? ClockStore()
+        self.calendarStore = calendarStore ?? CalendarStore()
+        self.nowPlayingStore = nowPlayingStore ?? NowPlayingStore()
         self.batteryStore = batteryStore ?? BatteryMetricsStore()
         self.githubStore = githubStore ?? GitHubRepositoryStore()
         let streakStore = streakStore ?? TokenUsageStreakStore()
@@ -102,8 +127,16 @@ final class DockAppModel {
                 appearance: preferences.storageAppearance,
                 errorDescription: storageStore.lastErrorDescription
             )
+        case .binance:
+            .binance(snapshot: binanceStore.dockSnapshot)
         case .weather:
             .weather(state: weatherStore.state)
+        case .calendar:
+            .calendar(date: calendarStore.currentDate, events: calendarStore.todayDockItems,
+                      configuration: calendarStore.configuration, access: calendarStore.dockAccess,
+                      isLoading: calendarStore.isLoading, hasError: calendarStore.dockHasError)
+        case .nowPlaying:
+            .nowPlaying(nowPlayingStore.dockPresentation)
         case .clock:
             .clock(
                 date: preferences.clockConfiguration.presentationDate(
@@ -134,6 +167,14 @@ final class DockAppModel {
                 appearance: preferences.claudeCodeAppearance,
                 serviceStatus: serviceStatusStore.claudeCodeState
             )
+        case .augment:
+            .augment(state: augmentStore.state, appearance: preferences.augmentAppearance)
+        case .grokBuild:
+            GrokBuildFeatureGate.experimentalEnabled
+                ? .grokBuild(local: grokBuildStore.local, settings: preferences.grokBuildSettings,
+                             appearance: preferences.grokBuildAppearance) : .dockMagic
+        case .openCode:
+            .openCode(state: openCodeStore.state, appearance: preferences.openCodeAppearance)
         case .antigravity:
             .antigravity(
                 state: antigravityStore.state,
@@ -153,6 +194,7 @@ final class DockAppModel {
         }
 
         isRunning = true
+        grokIntegration.start()
         serviceStatusStore.start()
         applyPreferences()
         observePreferences()
@@ -166,16 +208,22 @@ final class DockAppModel {
         }
         developerToolPreparationTasks.removeAll()
         developerToolInstallationStore.cancelInstallations()
+        binanceStore.stop()
         metricsStore.stop()
         networkStore.stop()
         storageStore.stop()
         weatherStore.stop()
         clockStore.stop()
+        calendarStore.stop()
+        nowPlayingStore.stop()
         batteryStore.stop()
         githubStore.stop()
         codexStore.stop()
         claudeCodeStore.stop()
         antigravityStore.stop()
+        augmentStore.stop()
+        openCodeStore.stop()
+        grokIntegration.stop()
         serviceStatusStore.stop()
         searchConsoleStore.stop()
     }
@@ -204,6 +252,10 @@ final class DockAppModel {
     }
 
     private func applyPreferences() {
+        nowPlayingStore.setInterest(.dock, active: preferences.activeFeature == .nowPlaying)
+        binanceStore.setSelected(preferences.activeFeature == .binance)
+        augmentStore.setSelected(preferences.activeFeature == .augment)
+        openCodeStore.setSelected(preferences.activeFeature == .openCode)
         codexStore.executableOverridePath = preferences.codexExecutablePath
         developerToolInstallationStore.refreshAvailability(
             codexOverridePath: preferences.codexExecutablePath
@@ -212,8 +264,10 @@ final class DockAppModel {
         githubStore.configure(
             repositoryURL: preferences.githubRepositoryURL
         )
+        if preferences.activeFeature == .calendar { calendarStore.start() }
+        else { calendarStore.stop() }
         switch preferences.activeFeature {
-        case .dockMagic:
+        case .dockMagic, .calendar, .augment, .openCode, .grokBuild, .binance, .nowPlaying:
             metricsStore.stop()
             networkStore.stop()
             storageStore.stop()
@@ -441,7 +495,10 @@ final class DockAppModel {
     /// request cannot delay Codex or Claude Code after login or reconnection.
     func refreshAfterInterruption() async {
         guard isRunning, !Task.isCancelled else { return }
+        binanceStore.refreshAfterInterruption()
         refreshActiveClockAfterResume()
+        if preferences.activeFeature == .calendar { calendarStore.reload() }
+        nowPlayingStore.reload()
         async let weather: Void = refreshActiveWeatherAfterResume()
         async let batteries: Void = refreshActiveBatteriesAfterResume()
         async let github: Void = refreshActiveGitHubAfterResume()
@@ -455,7 +512,8 @@ final class DockAppModel {
         async let claude: Void = claudeCodeStore.refreshAfterInterruption()
         async let antigravity: Void = antigravityStore
             .refreshAfterInterruption()
-        _ = await (codex, claude, antigravity)
+        async let grok: Void = grokIntegration.resume()
+        _ = await (codex, claude, antigravity, grok)
     }
 
     /// A sleeping or locked Mac can miss timer delivery for background work.

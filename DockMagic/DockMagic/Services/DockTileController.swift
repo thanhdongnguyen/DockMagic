@@ -186,8 +186,16 @@ final class DockTileController {
         clockTransition: DockClockTransition? = nil,
         serviceStatusTransition: DockServiceStatusTransition? = nil
     ) {
+        var renderedPresentation = currentPresentation
+        if case .binance(var snapshot) = currentPresentation {
+            // The export canvas stays 512 pt for Command-Tab. Price density
+            // follows AppKit's actual Dock tile size, not that export canvas.
+            let side = min(dockTile.size.width, dockTile.size.height)
+            snapshot.prefersCompactPrice = side > 0 && side * DockIconRenderingRules.contentFraction < 48
+            renderedPresentation = .binance(snapshot: snapshot)
+        }
         if let image = iconRenderer.render(
-            presentation: currentPresentation,
+            presentation: renderedPresentation,
             appearanceMode: currentAppearanceMode,
             clockTransition: clockTransition,
             serviceStatusTransition: serviceStatusTransition
@@ -311,7 +319,7 @@ final class DockTileController {
              let .claudeCode(_, _, serviceStatus):
             serviceStatus
         case .dockMagic, .systemMetrics, .network, .storage, .weather,
-             .clock, .batteries, .github, .antigravity, .searchConsole:
+             .clock, .calendar, .nowPlaying, .batteries, .github, .antigravity, .augment, .openCode, .grokBuild, .binance, .searchConsole:
             nil
         }
     }

@@ -8,14 +8,21 @@ enum DockFeature: String, CaseIterable, Codable, Identifiable, Sendable {
     case storage
     case weather
     case clock
+    case calendar
+    case nowPlaying
     case batteries
     case github
     case codex
     case claudeCode
     case antigravity
+    case openCode
+    case augment
+    case grokBuild
+    case binance
     case searchConsole
 
     static let storageKey = "DockMagicActiveFeature"
+    static var availableCases: [Self] { allCases.filter { $0 != .grokBuild || GrokBuildFeatureGate.experimentalEnabled } }
 
     var id: Self { self }
 
@@ -31,6 +38,10 @@ enum DockFeature: String, CaseIterable, Codable, Identifiable, Sendable {
             "Storage"
         case .weather:
             "Weather"
+        case .calendar:
+            "Calendar"
+        case .nowPlaying:
+            "Now Playing"
         case .clock:
             "Clock"
         case .batteries:
@@ -41,8 +52,16 @@ enum DockFeature: String, CaseIterable, Codable, Identifiable, Sendable {
             "Codex"
         case .claudeCode:
             "Claude Code"
+        case .grokBuild:
+            "Grok Build (Experimental)"
+        case .augment:
+            "Augment"
+        case .openCode:
+            "OpenCode"
         case .antigravity:
             "Antigravity"
+        case .binance:
+            "Binance"
         case .searchConsole:
             "Search Console"
         }
@@ -60,6 +79,10 @@ enum DockFeature: String, CaseIterable, Codable, Identifiable, Sendable {
             "Startup disk usage"
         case .weather:
             "Current conditions from Open-Meteo"
+        case .calendar:
+            "Your date and calendar agenda"
+        case .nowPlaying:
+            "Music artwork and playback controls"
         case .clock:
             "Local time or another location"
         case .batteries:
@@ -70,8 +93,16 @@ enum DockFeature: String, CaseIterable, Codable, Identifiable, Sendable {
             "Remaining usage limits"
         case .claudeCode:
             "Remaining usage limits"
+        case .grokBuild:
+            "Experimental local tokens; quota unavailable"
+        case .augment:
+            "Reported organization tokens and USD usage"
+        case .openCode:
+            "Local token history and daily activity"
         case .antigravity:
             "Model-pool quota and local agent activity"
+        case .binance:
+            "Live Spot prices and coin charts"
         case .searchConsole:
             "Google Search clicks and impressions"
         }
@@ -89,6 +120,10 @@ enum DockFeature: String, CaseIterable, Codable, Identifiable, Sendable {
             "internaldrive.fill"
         case .weather:
             "cloud.sun.fill"
+        case .calendar:
+            "calendar"
+        case .nowPlaying:
+            "music.note"
         case .clock:
             "clock.fill"
         case .batteries:
@@ -99,8 +134,16 @@ enum DockFeature: String, CaseIterable, Codable, Identifiable, Sendable {
             "sparkles"
         case .claudeCode:
             "chevron.left.forwardslash.chevron.right"
+        case .grokBuild:
+            "g.circle"
+        case .augment:
+            "chart.bar"
+        case .openCode:
+            "terminal"
         case .antigravity:
             "sparkle"
+        case .binance:
+            "chart.xyaxis.line"
         case .searchConsole:
             "magnifyingglass"
         }
@@ -108,7 +151,9 @@ enum DockFeature: String, CaseIterable, Codable, Identifiable, Sendable {
 
     var hasHoverDashboard: Bool {
         switch self {
-        case .systemMetrics, .weather, .codex, .claudeCode, .antigravity:
+        case .grokBuild:
+            GrokBuildFeatureGate.experimentalEnabled
+        case .binance, .systemMetrics, .weather, .calendar, .nowPlaying, .codex, .claudeCode, .antigravity, .openCode, .augment:
             true
         case .dockMagic, .network, .storage, .clock, .batteries,
              .github, .searchConsole:
@@ -353,6 +398,20 @@ struct DockColor: Codable, Equatable, Sendable {
     }
 }
 
+struct GrokBuildAppearance: Codable, Equatable, Sendable {
+    var tokenColor: DockColor
+    static let standard = Self(tokenColor: ProjectTheme.defaultUsageRingColor)
+
+    init(tokenColor: DockColor) { self.tokenColor = tokenColor }
+
+    private enum CodingKeys: String, CodingKey { case tokenColor }
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        let saved = try values.decodeIfPresent(DockColor.self, forKey: .tokenColor) ?? Self.standard.tokenColor
+        tokenColor = DockColor(red: saved.red, green: saved.green, blue: saved.blue, alpha: saved.alpha)
+    }
+}
+
 struct DockRingAppearance: Codable, Equatable, Sendable {
     static let minimumOuterWidth = 0.06
     static let maximumOuterWidth = 0.16
@@ -584,6 +643,7 @@ enum DockFeatureDefaults {
 }
 
 enum DockTilePresentation: Equatable, Sendable {
+    case nowPlaying(NowPlayingDockPresentation)
     case dockMagic
     case systemMetrics(
         snapshot: SystemMetricsSnapshot,
@@ -600,7 +660,9 @@ enum DockTilePresentation: Equatable, Sendable {
         appearance: DockSingleRingAppearance,
         errorDescription: String?
     )
+    case binance(snapshot: BinanceDockSnapshot)
     case weather(state: WeatherState)
+    case calendar(date: Date, events: [CalendarEvent], configuration: CalendarConfiguration, access: CalendarAccess, isLoading: Bool, hasError: Bool)
     case clock(date: Date, configuration: DockClockConfiguration)
     case batteries(snapshot: BatteryMetricsSnapshot, errorDescription: String?)
     case github(
@@ -620,6 +682,10 @@ enum DockTilePresentation: Equatable, Sendable {
             provider: .claudeCode
         )
     )
+    case augment(state: AugmentUsageState, appearance: AugmentDockAppearance)
+    case openCode(state: OpenCodeUsageState, appearance: OpenCodeDockAppearance)
+    case grokBuild(local: GrokBuildObservation<GrokBuildHistorySnapshot>, settings: GrokBuildSettings,
+                   appearance: GrokBuildAppearance = .standard)
     case antigravity(
         state: AntigravityUsageState,
         appearance: DockRingAppearance

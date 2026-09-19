@@ -1,0 +1,44 @@
+{
+  "provider": "Orca computer-use macOS 1.0.0",
+  "application": "isolated debug production gallery",
+  "observed": [
+    {
+      "action": "Type Unicode Vietnamese sample",
+      "before": "Tiếng Việt · 1.234 ₫",
+      "after": "Nguyễn Trường · 123 ₫"
+    },
+    {
+      "action": "Command-Z then Tab",
+      "after": "Tiếng Việt · 1.234 ₫",
+      "focus": "secure text field Token",
+      "bindingPersistsAfterFocusChange": true
+    },
+    {
+      "action": "Primary activation via AXPress",
+      "after": "lastAction = Primary"
+    },
+    {
+      "action": "Cancel activation via AXPress after DSDialogButton correction",
+      "after": "lastAction = Cancelled; sheet absent; previous text-field focus restored"
+    },
+    {
+      "action": "Escape in dialog",
+      "after": "sheet absent"
+    },
+    {
+      "action": "Return in dialog",
+      "after": "lastAction = Deleted; sheet absent"
+    }
+  ],
+  "unverified": [
+    "VoiceOver speech and full traversal",
+    "Actual Vietnamese input-method keystrokes (marked-text path is unit-tested)",
+    "Select/menu child-window keyboard navigation (provider window_not_focused)",
+    "Physical Dock hover/click and nested popup pointer traversal"
+  ],
+  "providerLimits": [
+    "XCTest runner cannot initialize automation mode",
+    "CUA app selection timed out",
+    "Orca child popover requests return parent AX tree and window_not_focused for keyboard; supports.surfaces.menus=false"
+  ]
+}

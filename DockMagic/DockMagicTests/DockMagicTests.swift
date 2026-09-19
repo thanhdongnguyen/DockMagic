@@ -5,6 +5,43 @@ import XCTest
 @testable import DockMagic
 
 final class DockMagicTests: XCTestCase {
+    @MainActor
+    func testMaiaNestedOverlayLeasesKeepEveryHoverPanelAliveAndRelease() async throws {
+        let model = makeAppModel()
+        defer { model.stop() }
+        model.preferences.activeFeature = .codex
+        model.preferences.isDockHoverDashboardEnabled = true
+        let screen = try XCTUnwrap(NSScreen.main)
+        let controller = DockHoverPanelController(showDelay: .zero)
+        defer { controller.hide() }
+        let anchor = DockHoverAnchor(iconFrame: CGRect(x: screen.frame.maxX - 100, y: screen.frame.minY, width: 64, height: 64), screen: screen, pointerEdge: .bottom)
+        controller.scheduleShow(anchor: anchor, appModel: model)
+        for _ in 0..<50 where !controller.isVisible { try await Task.sleep(for: .milliseconds(10)) }
+        XCTAssertTrue(controller.isVisible)
+        let panel = try XCTUnwrap(NSApp.windows.first { $0.identifier?.rawValue == "dockHover.panel" && $0.isVisible })
+        let child = NSWindow(contentRect: .zero, styleMask: .borderless, backing: .buffered, defer: false)
+        child.isReleasedWhenClosed = false
+        panel.addChildWindow(child, ordered: .above)
+        defer { panel.removeChildWindow(child); child.close() }
+        let first = UUID(), nested = UUID()
+        NotificationCenter.default.post(name: DSOverlayActivity.began, object: panel, userInfo: ["id": first])
+        NotificationCenter.default.post(name: DSOverlayActivity.began, object: child, userInfo: ["id": nested])
+        XCTAssertTrue(controller.isInteracting)
+        controller.scheduleHide()
+        controller.scheduleShow(anchor: anchor, appModel: model)
+        try await Task.sleep(for: .milliseconds(220))
+        XCTAssertTrue(controller.isVisible)
+        XCTAssertTrue(controller.isInteracting)
+        NotificationCenter.default.post(name: DSOverlayActivity.ended, object: panel, userInfo: ["id": first])
+        XCTAssertTrue(controller.isInteracting, "Nested popup still owns its lease")
+        NotificationCenter.default.post(name: DSOverlayActivity.ended, object: child, userInfo: ["id": nested])
+        XCTAssertFalse(controller.isInteracting)
+        controller.hide()
+        NotificationCenter.default.post(name: DSOverlayActivity.began, object: panel, userInfo: ["id": UUID()])
+        XCTAssertFalse(controller.isInteracting, "Closed hosts release notification monitors")
+        XCTAssertFalse(controller.isVisible)
+    }
+
     func testRendererColorPaletteContainsEveryFeatureDefault() {
         let options = ProjectTheme.rendererColorOptions
         let paletteHexes = Set(options.map(\.hex))
@@ -232,11 +269,17 @@ final class DockMagicTests: XCTestCase {
             .storage: .storage,
             .weather: .weather,
             .clock: .clock,
+            .calendar: .calendar,
+            .nowPlaying: .nowPlaying,
             .batteries: .batteries,
             .github: .github,
             .codex: .codex,
             .claudeCode: .claudeCode,
             .antigravity: .antigravity,
+            .openCode: .openCode,
+            .augment: .augment,
+            .grokBuild: GrokBuildFeatureGate.experimentalEnabled ? .grokBuild : .general,
+            .binance: .binance,
             .searchConsole: .searchConsole
         ]
 
@@ -294,7 +337,7 @@ final class DockMagicTests: XCTestCase {
         let featureSubmenu = try XCTUnwrap(switchFeatureItem.submenu)
         XCTAssertEqual(
             featureSubmenu.items.map(\.title),
-            DockFeature.allCases.map(\.title)
+            DockFeature.availableCases.map(\.title)
         )
         XCTAssertEqual(
             featureSubmenu.items.filter { $0.state == .on }.map(\.title),
@@ -374,11 +417,17 @@ final class DockMagicTests: XCTestCase {
                 .storage,
                 .weather,
                 .clock,
+                .calendar,
+                .nowPlaying,
                 .batteries,
                 .github,
                 .codex,
                 .claudeCode,
                 .antigravity,
+                .openCode,
+                .augment,
+                .grokBuild,
+                .binance,
                 .searchConsole
             ]
         )
@@ -398,7 +447,8 @@ final class DockMagicTests: XCTestCase {
     func testOnlyImplementedFeaturesExposeHoverDashboards() {
         XCTAssertEqual(
             DockFeature.allCases.filter(\.hasHoverDashboard),
-            [.systemMetrics, .weather, .codex, .claudeCode, .antigravity]
+            [.systemMetrics, .weather, .calendar, .nowPlaying, .codex, .claudeCode, .antigravity, .openCode, .augment]
+                + (GrokBuildFeatureGate.experimentalEnabled ? [.grokBuild] : []) + [.binance]
         )
     }
 
@@ -730,6 +780,41 @@ final class DockMagicTests: XCTestCase {
             DockHoverPanelPlacement.claudeCodePanelSize.height,
             740
         )
+    }
+
+    func testDockHoverCardLayoutRemovesArrowAndUsesItsFormerTip() throws {
+        let panelSize = CGSize(width: 440, height: 556)
+        let pointerExtent = DockHoverPanelPlacement.pointerExtent
+        let inset = DockHoverCardLayout.panelInset
+
+        XCTAssertEqual(
+            DockHoverCardLayout.size(
+                panelSize: panelSize,
+                pointerEdge: .bottom
+            ),
+            CGSize(width: 440 - inset * 2, height: 556 - pointerExtent - inset)
+        )
+        XCTAssertEqual(
+            DockHoverCardLayout.cardOffset(for: .bottom),
+            CGSize(width: inset, height: inset + pointerExtent)
+        )
+        XCTAssertEqual(
+            DockHoverCardLayout.cardOffset(for: .left),
+            CGSize(width: 0, height: inset)
+        )
+        XCTAssertEqual(
+            DockHoverCardLayout.cardOffset(for: .right),
+            CGSize(width: inset + pointerExtent, height: inset)
+        )
+
+        let projectDirectory = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let sourceURL = projectDirectory.appendingPathComponent(
+            "DockMagic/Views/Shared/DashboardChrome.swift"
+        )
+        let source = try String(contentsOf: sourceURL)
+        XCTAssertFalse(source.contains("DockHoverPointerShape"))
     }
 
     @MainActor
@@ -5690,7 +5775,7 @@ final class DockMagicTests: XCTestCase {
         )
     }
 
-    func testSigmaAppearanceModesAndFoundationContracts() {
+    func testMaiaAppearanceModesAndFoundationContracts() {
         XCTAssertEqual(
             DSAppearanceMode.allCases,
             [.system, .light, .dark]
@@ -5702,17 +5787,14 @@ final class DockMagicTests: XCTestCase {
         XCTAssertNil(DSAppearanceMode.system.preferredColorScheme)
         XCTAssertEqual(DSAppearanceMode.light.preferredColorScheme, .light)
         XCTAssertEqual(DSAppearanceMode.dark.preferredColorScheme, .dark)
-        XCTAssertTrue(DSAppearanceMode.system.usesGlassMaterials)
-        XCTAssertTrue(DSAppearanceMode.light.usesGlassMaterials)
-        XCTAssertTrue(DSAppearanceMode.dark.usesGlassMaterials)
+        XCTAssertFalse(DSAppearanceMode.system.usesGlassMaterials)
+        XCTAssertFalse(DSAppearanceMode.light.usesGlassMaterials)
+        XCTAssertFalse(DSAppearanceMode.dark.usesGlassMaterials)
         XCTAssertEqual(DockDisplayStyle.allCases, [.chart, .numeric])
         for style in DockDisplayStyle.allCases {
             XCTAssertNotNil(
-                NSImage(
-                    systemSymbolName: style.systemImage,
-                    accessibilityDescription: style.title
-                ),
-                "Dock display style \(style) must use an SF Symbol available on macOS."
+                DSIconName.fromLegacySymbol(style.systemImage),
+                "Dock display style \(style) must map to bundled HugeIcons."
             )
         }
 
@@ -5720,14 +5802,14 @@ final class DockMagicTests: XCTestCase {
         XCTAssertFalse(DSSurfaceKind.panel.isGlassEligible)
         XCTAssertFalse(DSSurfaceKind.raised.isGlassEligible)
         XCTAssertFalse(DSSurfaceKind.inset.isGlassEligible)
-        XCTAssertTrue(DSSurfaceKind.chrome.isGlassEligible)
+        XCTAssertFalse(DSSurfaceKind.chrome.isGlassEligible)
 
         XCTAssertEqual(
             DSRadius.concentric(
                 parentRadius: DSRadius.largePanel,
                 padding: DSSpacing.small
             ),
-            DSRadius.fixedLarge
+            DSRadius.large
         )
         XCTAssertEqual(
             DSRadius.concentric(parentRadius: 4, padding: 8),
@@ -5739,7 +5821,7 @@ final class DockMagicTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(DSLayout.minimumWindowHeight, 620)
     }
 
-    func testSigmaAppearancePreferencePersistsAndInvalidValuesFallBackSafely() {
+    func testMaiaAppearancePreferencePersistsAndInvalidValuesFallBackSafely() {
         let suiteName = "DockMagicTests.Appearance.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
         defer { defaults.removePersistentDomain(forName: suiteName) }
@@ -5764,17 +5846,19 @@ final class DockMagicTests: XCTestCase {
     }
 
     @MainActor
-    func testSigmaPublicPaletteAssetsMatchDocumentedValues() {
+    func testMaiaPublicPaletteAssetsMatchDocumentedValues() {
         let expected: [
             (name: String, light: String, dark: String, lightAlpha: CGFloat, darkAlpha: CGFloat)
         ] = [
-            ("DSAction", "#0088FF", "#0091FF", 1, 1),
-            ("DSDanger", "#FF383C", "#FF4245", 1, 1),
+            ("DSAction", "#171717", "#E5E5E5", 1, 1),
+            ("DSDanger", "#E7000B", "#FF6467", 1, 1),
             ("DSWarning", "#FF8D28", "#FF9230", 1, 1),
             ("DSInformation", "#00C0E8", "#3CD3FE", 1, 1),
             ("DSProcessing", "#00C8B3", "#00DAC3", 1, 1),
-            ("DSOpaqueSurface", "#F5F4F2", "#1F1E1E", 1, 1),
-            ("DSOpaqueSurfaceRaised", "#FFFFFF", "#1F1E1E", 1, 1)
+            ("DSStreakActive", "#43A66A", "#57C07E", 1, 1),
+            ("DSOnStreakActive", "#121212", "#121212", 1, 1),
+            ("DSOpaqueSurface", "#FFFFFF", "#0A0A0A", 1, 1),
+            ("DSOpaqueSurfaceRaised", "#FFFFFF", "#171717", 1, 1)
         ]
 
         for item in expected {
@@ -5794,7 +5878,7 @@ final class DockMagicTests: XCTestCase {
     }
 
     @MainActor
-    func testSigmaSemanticColorPairsMeetAccessibleContrastInLightAndDark() {
+    func testMaiaSemanticColorPairsMeetAccessibleContrastInLightAndDark() {
         let appearances: [(NSAppearance.Name, String)] = [
             (.aqua, "Light"),
             (.darkAqua, "Dark")
@@ -5819,6 +5903,7 @@ final class DockMagicTests: XCTestCase {
             ("DSOnAction", "DSAction"),
             ("DSOnInformation", "DSInformation"),
             ("DSOnProcessing", "DSProcessing"),
+            ("DSOnStreakActive", "DSStreakActive"),
             ("DSOnWarning", "DSWarning"),
             ("DSOnDanger", "DSDanger"),
             ("DSOnSidebarIcon", "DSSidebarIconFill")
@@ -7819,7 +7904,10 @@ final class DockMagicTests: XCTestCase {
             bitmap.colorAt(x: 360, y: 136)?.usingColorSpace(.deviceRGB)
         )
         XCTAssertGreaterThan(topOfArc.alphaComponent, 0.9)
-        XCTAssertGreaterThan(topOfArc.blueComponent - topOfArc.redComponent, 0.4)
+        let fill = ProjectTheme.resolvedColor(ProjectTheme.current.action, colorScheme: .dark)
+        XCTAssertEqual(topOfArc.redComponent, fill.red, accuracy: 0.03)
+        XCTAssertEqual(topOfArc.greenComponent, fill.green, accuracy: 0.03)
+        XCTAssertEqual(topOfArc.blueComponent, fill.blue, accuracy: 0.03)
         attachPNG(data, name: "Dashboard Export — Settled Ship Momentum 54")
     }
 
@@ -9125,7 +9213,7 @@ final class DockMagicTests: XCTestCase {
             ),
             tokenUsage: tokenUsage,
             streakSummary: TokenUsageStreakSummary.fixture(
-                currentDays: 7,
+                currentDays: 1,
                 bestDays: 28,
                 endingAt: now
             ),
@@ -9228,7 +9316,13 @@ final class DockMagicTests: XCTestCase {
             .deletingLastPathComponent()
         let sourcePaths = [
             "DockMagic/Views/Hover/ClaudeCodeHoverDashboardView.swift",
-            "DockMagic/Views/Hover/ShipMomentumGaugeView.swift"
+            "DockMagic/Views/Hover/ShipMomentumGaugeView.swift",
+            "DockMagic/Views/Shared/DashboardChrome.swift",
+            "DockMagic/Views/Shared/AIUsageCards.swift",
+            "DockMagic/Views/Shared/DashboardHistoryViewport.swift",
+            "DockMagic/Views/Shared/DSPlanBadge.swift",
+            "DockMagic/Views/Shared/DashboardExportActions.swift",
+            "DockMagic/Views/Shared/ProviderDailyUsageBars.swift"
         ]
         let source = try sourcePaths.map { path in
             try String(
@@ -9273,7 +9367,7 @@ final class DockMagicTests: XCTestCase {
         XCTAssertTrue(
             source.contains(#"\(providerID).activeWork.install"#)
         )
-        XCTAssertTrue(source.contains("CodexDailyIntensityCard("))
+        XCTAssertTrue(source.contains("AIUsageDailyIntensityCard("))
         XCTAssertTrue(source.contains("CodexTopModelsCard("))
         XCTAssertTrue(source.contains("private var usageInsights"))
         XCTAssertTrue(
@@ -9286,8 +9380,8 @@ final class DockMagicTests: XCTestCase {
         XCTAssertTrue(source.contains("case tokens = \"Tokens\""))
         XCTAssertTrue(source.contains("case cost = \"Cost\""))
         XCTAssertTrue(source.contains(#"dockHover.\(providerID)"#))
-        XCTAssertTrue(source.contains(#"\(providerID).capture.button"#))
-        XCTAssertTrue(source.contains(#"\(providerID).capture.menu"#))
+        XCTAssertTrue(source.contains("DSExportButton("))
+        XCTAssertTrue(source.contains("DSExportActions("))
         XCTAssertTrue(source.contains("Share…"))
         XCTAssertFalse(source.contains("\"Stale\""))
         XCTAssertFalse(source.contains("exclamationmark.triangle"))
@@ -9987,8 +10081,8 @@ final class DockMagicTests: XCTestCase {
         }
 
         let variants: [(String, Color, DSAppearanceMode, NSAppearance.Name)] = [
-            ("Codex Dark", ProjectTheme.current.action, .dark, .darkAqua),
-            ("Codex Light", ProjectTheme.current.action, .light, .aqua),
+            ("Codex Dark", ProjectTheme.current.codexActivity, .dark, .darkAqua),
+            ("Codex Light", ProjectTheme.current.codexActivity, .light, .aqua),
             (
                 "Claude Code Dark",
                 ProjectTheme.claudeCodeUsage,
@@ -10446,7 +10540,13 @@ final class DockMagicTests: XCTestCase {
         let sourcePaths = [
             "DockMagic/Views/Hover/CodexHoverDashboardView.swift",
             "DockMagic/Views/Hover/CodexDailyTokenDetailView.swift",
-            "DockMagic/Views/Hover/ShipMomentumGaugeView.swift"
+            "DockMagic/Views/Hover/ShipMomentumGaugeView.swift",
+            "DockMagic/Views/Shared/DashboardChrome.swift",
+            "DockMagic/Views/Shared/AIUsageCards.swift",
+            "DockMagic/Views/Shared/DashboardHistoryViewport.swift",
+            "DockMagic/Views/Shared/DSPlanBadge.swift",
+            "DockMagic/Views/Shared/DashboardExportActions.swift",
+            "DockMagic/Views/Shared/ProviderDailyUsageBars.swift"
         ]
         let source = try sourcePaths.map { path in
             try String(
@@ -10465,12 +10565,13 @@ final class DockMagicTests: XCTestCase {
             "appearance.innerColor",
             "DockRingAppearance",
             "import Charts",
-            "Cost",
-            "Pricing",
             "Updated just now",
             "\"Live\""
         ]
 
+        let codexSource = try String(contentsOf: projectDirectory.appendingPathComponent(sourcePaths[0]), encoding: .utf8)
+        XCTAssertFalse(codexSource.contains("Cost"))
+        XCTAssertFalse(codexSource.contains("Pricing"))
         for pattern in forbiddenPatterns {
             XCTAssertFalse(
                 source.contains(pattern),
@@ -10505,22 +10606,22 @@ final class DockMagicTests: XCTestCase {
         XCTAssertFalse(source.contains("Text(\"No local hourly data\")"))
         XCTAssertTrue(source.contains("Cached input"))
         XCTAssertTrue(source.contains("Hourly usage"))
-        XCTAssertTrue(source.contains(".buttonStyle(.plain)"))
+        XCTAssertTrue(source.contains("DSContentButtonStyle()"))
         XCTAssertTrue(source.contains("providerID).dailyDetail.back"))
         XCTAssertTrue(source.contains("hoverTooltip("))
         XCTAssertTrue(source.contains(".allowsHitTesting(false)"))
-        XCTAssertTrue(source.contains("square.and.arrow.up"))
+        XCTAssertTrue(source.contains("DSIcon(.share"))
         XCTAssertTrue(source.contains("Save 4× PNG"))
         XCTAssertTrue(source.contains("Copy image"))
         XCTAssertTrue(source.contains("Share…"))
-        XCTAssertTrue(source.contains("codex.capture.button"))
-        XCTAssertTrue(source.contains("codex.capture.menu"))
+        XCTAssertTrue(source.contains("DSExportButton("))
+        XCTAssertTrue(source.contains("DSExportActions("))
         XCTAssertTrue(
-            source.contains("hoveredCaptureAction = captureAction")
+            source.contains(".onMoveCommand")
         )
-        XCTAssertTrue(source.contains("hoveredCaptureAction ?? .save"))
+        XCTAssertTrue(source.contains("focused = .save"))
         XCTAssertTrue(
-            source.contains(".fill(theme.outlineStrong.opacity(0.18))")
+            source.contains("DSButtonStyle(emphasis: .ghost, size: .small)")
         )
         XCTAssertFalse(source.contains("isPrimary: true"))
         XCTAssertFalse(
@@ -10579,7 +10680,7 @@ final class DockMagicTests: XCTestCase {
         )
         let hostingView = NSHostingView(
             rootView: DockMagicThemeRoot(
-                content: CodexTokenHistoryChart(
+                content: AIUsageTokenHistoryChart(
                     buckets: buckets,
                     hoveredBucketID: binding,
                     plotHeight: 88,
@@ -10895,7 +10996,7 @@ final class DockMagicTests: XCTestCase {
                         .defaultAppStorage(appearanceDefaults),
                         appearanceMode: appearanceCase.mode
                     ),
-                    size: NSSize(width: 1_020, height: 740),
+                    size: NSSize(width: 1_160, height: 740),
                     appearanceName: appearanceCase.appKit,
                     name: "Settings — \(destination.title) — \(appearanceCase.label)",
                     attachmentLifetime: .deleteOnSuccess
@@ -10911,7 +11012,7 @@ final class DockMagicTests: XCTestCase {
                     .defaultAppStorage(appearanceDefaults),
                     appearanceMode: appearanceCase.mode
                 ),
-                size: NSSize(width: 1_020, height: 740),
+                size: NSSize(width: 1_160, height: 740),
                 appearanceName: appearanceCase.appKit,
                 name: "Settings — Weather Permission Denied — \(appearanceCase.label)",
                 attachmentLifetime: .deleteOnSuccess
@@ -11364,7 +11465,7 @@ final class DockMagicTests: XCTestCase {
                 reducedTransparency,
                 "Clock uses only opaque Dock surfaces, so Reduce Transparency must not remove information."
             )
-            XCTAssertNotEqual(light, grayscale)
+            XCTAssertNotEqual(light, grayscale, "Clock content preserves the user-selected renderer colors")
             lightRenders[style] = light
         }
 
@@ -11561,7 +11662,7 @@ final class DockMagicTests: XCTestCase {
         defer { appModel.stop() }
         appModel.preferences.activeFeature = .clock
         let defaults = makeAppearanceDefaults(.light)
-        let size = NSSize(width: 1_020, height: 740)
+        let size = NSSize(width: 1_160, height: 740)
 
         let generalName = "Settings — General — Clock Active"
         let general = try renderPNG(
@@ -11622,12 +11723,12 @@ final class DockMagicTests: XCTestCase {
     }
 
     @MainActor
-    func testSigmaAppearanceAndAccessibilityVariantsRenderDistinctSettings() throws {
+    func testMaiaAppearanceAndAccessibilityVariantsRenderDistinctSettings() throws {
         let appModel = makeAppModel()
         let softwareUpdateController = SoftwareUpdateController.uiTestFixture(
             availableVersion: "1.0.2"
         )
-        let size = NSSize(width: 1_020, height: 740)
+        let size = NSSize(width: 1_160, height: 740)
         let appearanceDefaults = makeAppearanceDefaults(.light)
 
         let light = try renderPNG(
@@ -11660,6 +11761,7 @@ final class DockMagicTests: XCTestCase {
             appearanceName: .darkAqua,
             name: "Settings — General — Dark"
         )
+        appearanceDefaults.set(DSAppearanceMode.light.rawValue, forKey: DSAppearanceMode.storageKey)
         let reducedTransparency = try renderPNG(
             of: DockMagicThemeRoot(
                 content: SettingsView(
@@ -11726,9 +11828,9 @@ final class DockMagicTests: XCTestCase {
         }
 
         XCTAssertNotEqual(light, dark)
-        XCTAssertNotEqual(light, reducedTransparency)
+        XCTAssertEqual(light, reducedTransparency, "Maia surfaces are opaque in both modes.")
         XCTAssertNotEqual(light, increasedContrast)
-        XCTAssertNotEqual(light, grayscale)
+        XCTAssertEqual(light, grayscale, "General chrome is neutral and retains all information in grayscale")
         assertPixelDifference(
             light,
             dark,
@@ -11737,21 +11839,9 @@ final class DockMagicTests: XCTestCase {
         )
         assertPixelDifference(
             light,
-            reducedTransparency,
-            minimumChangedFraction: 0.002,
-            label: "Light Glass versus Reduce Transparency"
-        )
-        assertPixelDifference(
-            light,
             increasedContrast,
             minimumChangedFraction: 0.001,
-            label: "Light Glass versus Increase Contrast"
-        )
-        assertPixelDifference(
-            light,
-            grayscale,
-            minimumChangedFraction: 0.001,
-            label: "Light versus Grayscale"
+            label: "Light versus Increase Contrast"
         )
     }
 
@@ -11859,7 +11949,7 @@ final class DockMagicTests: XCTestCase {
         }
         XCTAssertNotEqual(variants[0].1, variants[1].1)
         XCTAssertNotEqual(variants[0].1, variants[2].1)
-        XCTAssertNotEqual(variants[0].1, variants[3].1)
+        XCTAssertEqual(variants[0].1, variants[3].1, "Opaque Maia keeps the same surface with Reduce Transparency")
         XCTAssertNotEqual(variants[0].1, variants[4].1)
     }
 
@@ -12660,6 +12750,12 @@ final class DockMagicTests: XCTestCase {
         name: String,
         lifetime: XCTAttachment.Lifetime = .keepAlways
     ) {
+        if let directory = ProcessInfo.processInfo.environment["DockMagicMaiaRenderDirectory"] {
+            let folder = URL(fileURLWithPath: directory)
+            try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+            let filename = name.replacingOccurrences(of: "/", with: "-") + ".png"
+            try? data.write(to: folder.appendingPathComponent(filename))
+        }
         let attachment = XCTAttachment(
             data: data,
             uniformTypeIdentifier: "public.png"

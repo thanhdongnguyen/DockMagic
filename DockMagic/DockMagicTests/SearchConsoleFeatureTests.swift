@@ -6,6 +6,21 @@ import XCTest
 
 @MainActor
 final class SearchConsoleFeatureTests: XCTestCase {
+    func testRendererColorsPersistAndResetWithoutChangingConnection() throws {
+        let container = SearchConsoleStore.inMemoryContainer()
+        let store = SearchConsoleStore(modelContainer: container, api: SearchConsoleTestAPI())
+        let before = store.configuration
+        let color = DockColor(red: 0.23, green: 0.32, blue: 0.44)
+        store.setRendererColor(color, for: .clicks)
+        let reopened = SearchConsoleStore(modelContainer: container, api: SearchConsoleTestAPI())
+        XCTAssertEqual(reopened.configuration.clicksColor, color)
+        XCTAssertEqual(reopened.configuration.impressionsColor, before.impressionsColor)
+        XCTAssertEqual(reopened.configuration.credentialIdentifier, before.credentialIdentifier)
+        XCTAssertEqual(reopened.configuration.selectedProperty, before.selectedProperty)
+        reopened.resetRendererColors()
+        XCTAssertEqual(reopened.configuration, before)
+    }
+
     func testDefaultConfigurationMatchesAdaptiveFocusMockup() {
         let configuration = SearchConsoleConfiguration.defaultValue
         XCTAssertEqual(configuration.primaryMetric, .clicks)
