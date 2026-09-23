@@ -1,21 +1,35 @@
 import SwiftUI
 
+private struct DockTileShowsOuterBorderKey: EnvironmentKey {
+    static let defaultValue = true
+}
+
+extension EnvironmentValues {
+    var dockTileShowsOuterBorder: Bool {
+        get { self[DockTileShowsOuterBorderKey.self] }
+        set { self[DockTileShowsOuterBorderKey.self] = newValue }
+    }
+}
+
 struct DockTileView: View {
     let presentation: DockTilePresentation
     let animatesChanges: Bool
     let clockTransition: DockClockTransition?
     let serviceStatusTransition: DockServiceStatusTransition?
+    let showsOuterBorder: Bool
 
     init(
         presentation: DockTilePresentation,
         animatesChanges: Bool,
         clockTransition: DockClockTransition? = nil,
-        serviceStatusTransition: DockServiceStatusTransition? = nil
+        serviceStatusTransition: DockServiceStatusTransition? = nil,
+        showsOuterBorder: Bool = true
     ) {
         self.presentation = presentation
         self.animatesChanges = animatesChanges
         self.clockTransition = clockTransition
         self.serviceStatusTransition = serviceStatusTransition
+        self.showsOuterBorder = showsOuterBorder
     }
 
     var body: some View {
@@ -28,6 +42,7 @@ struct DockTileView: View {
                 .position(x: proxy.size.width / 2, y: proxy.size.height / 2)
         }
         .aspectRatio(1, contentMode: .fit)
+        .environment(\.dockTileShowsOuterBorder, showsOuterBorder)
     }
 
     @ViewBuilder
@@ -64,9 +79,8 @@ struct DockTileView: View {
                 state: state,
                 animatesChanges: animatesChanges
             )
-        case let .calendar(date, events, configuration, access, isLoading, hasError):
-            DockCalendarView(date: date, events: events, configuration: configuration,
-                             access: access, isLoading: isLoading, hasError: hasError)
+        case let .calendar(date, hasItems, currentWeather):
+            DockCalendarView(date: date, hasItems: hasItems, currentWeather: currentWeather)
         case let .clock(date, configuration):
             DockClockView(
                 date: date,
@@ -101,8 +115,6 @@ struct DockTileView: View {
                 serviceStatusTransition: serviceStatusTransition,
                 animatesChanges: animatesChanges
             )
-        case let .augment(state, appearance):
-            DockAugmentView(state: state, appearance: appearance)
         case let .grokBuild(local, settings, appearance):
             DockGrokBuildView(local: local, settings: settings, appearance: appearance)
         case let .openCode(state, appearance):
@@ -509,6 +521,7 @@ struct DockTileSurface<Content: View>: View {
     @Environment(\.designTheme) private var theme
     @Environment(\.colorSchemeContrast) private var contrast
     @Environment(\.dsAccessibilityOverrides) private var accessibilityOverrides
+    @Environment(\.dockTileShowsOuterBorder) private var showsOuterBorder
 
     private var increasedContrast: Bool {
         accessibilityOverrides.increaseContrast ?? (contrast == .increased)
@@ -533,12 +546,14 @@ struct DockTileSurface<Content: View>: View {
                     theme.dockBackgroundRaised
                 )
 
-                shape.strokeBorder(
-                    theme.dockOutline.opacity(increasedContrast ? 1 : 0.8),
-                    lineWidth: increasedContrast
-                        ? max(1.5, side * 0.018)
-                        : max(1.25, side * 0.014)
-                )
+                if showsOuterBorder {
+                    shape.strokeBorder(
+                        theme.dockOutline.opacity(increasedContrast ? 1 : 0.8),
+                        lineWidth: increasedContrast
+                            ? max(1.5, side * 0.018)
+                            : max(1.25, side * 0.014)
+                    )
+                }
 
                 content(side)
             }

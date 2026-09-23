@@ -8,6 +8,7 @@ struct WeatherHoverDashboardView: View {
     var now: Date = .now
 
     @Environment(\.designTheme) private var theme
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         VStack(spacing: 10) {
@@ -17,7 +18,7 @@ struct WeatherHoverDashboardView: View {
                 currentConditions(snapshot)
 
                 Rectangle()
-                    .fill(theme.outline)
+                    .fill(sceneDivider)
                     .frame(height: 0.5)
                     .accessibilityHidden(true)
 
@@ -54,7 +55,7 @@ struct WeatherHoverDashboardView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text("Weather")
                     .dsFont(size: 17, weight: .bold)
-                    .foregroundStyle(theme.textPrimary)
+                    .foregroundStyle(primaryForeground)
 
                 HStack(spacing: 4) {
                     DSIcon(systemName: "mappin.and.ellipse")
@@ -67,7 +68,7 @@ struct WeatherHoverDashboardView: View {
                         .truncationMode(.tail)
                 }
                 .dsFont(size: 9, weight: .medium)
-                .foregroundStyle(theme.textTertiary)
+                .foregroundStyle(secondaryForeground)
             }
 
             Spacer(minLength: 6)
@@ -82,7 +83,7 @@ struct WeatherHoverDashboardView: View {
                     Text(status.title)
                         .dsFont(size: 8.5, weight: .semibold)
                 }
-                .foregroundStyle(status.foreground(theme))
+                .foregroundStyle(statusForeground(status))
                 .accessibilityElement(children: .combine)
             }
         }
@@ -94,33 +95,38 @@ struct WeatherHoverDashboardView: View {
     private func currentConditions(_ snapshot: WeatherSnapshot) -> some View {
         HStack(spacing: 12) {
             HStack(spacing: 9) {
-                Image(
+                DSIcon(
                     systemName: snapshot.condition.symbolName(
                         isDaylight: snapshot.isDaylight
                     )
                 )
-                .symbolRenderingMode(.hierarchical)
                 .dsFont(size: 45, weight: .medium)
-                .foregroundStyle(theme.textPrimary)
+                .foregroundStyle(
+                    snapshot.condition.sceneGlyphColor(
+                        isDaylight: snapshot.isDaylight,
+                        in: theme,
+                        colorScheme: colorScheme
+                    )
+                )
                 .frame(width: 54, height: 58)
                 .accessibilityHidden(true)
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(temperatureLabel(snapshot.temperatureCelsius))
                         .dsFont(size: 38, weight: .bold)
-                        .foregroundStyle(theme.textPrimary)
+                        .foregroundStyle(primaryForeground)
                         .monospacedDigit()
                         .lineLimit(1)
 
                     Text(snapshot.conditionDescription)
                         .dsFont(size: 11, weight: .bold)
-                        .foregroundStyle(theme.textPrimary)
+                        .foregroundStyle(primaryForeground)
                         .lineLimit(1)
 
                     if let feelsLike = snapshot.feelsLikeCelsius {
                         Text("Feels like \(temperatureLabel(feelsLike))")
                             .dsFont(size: 9, weight: .medium)
-                            .foregroundStyle(theme.textSecondary)
+                            .foregroundStyle(secondaryForeground)
                             .lineLimit(1)
                     }
                 }
@@ -131,7 +137,7 @@ struct WeatherHoverDashboardView: View {
             .accessibilityValue(currentAccessibilityValue(snapshot))
 
             Rectangle()
-                .fill(theme.outline)
+                .fill(sceneDivider)
                 .frame(width: 0.5, height: 88)
                 .accessibilityHidden(true)
 
@@ -143,7 +149,7 @@ struct WeatherHoverDashboardView: View {
                     )
 
                     Rectangle()
-                        .fill(theme.outline)
+                        .fill(sceneDivider)
                         .frame(width: 0.5, height: 31)
                         .padding(.horizontal, 9)
                         .accessibilityHidden(true)
@@ -155,7 +161,7 @@ struct WeatherHoverDashboardView: View {
                 }
 
                 Rectangle()
-                    .fill(theme.outline)
+                    .fill(sceneDivider)
                     .frame(height: 0.5)
                     .accessibilityHidden(true)
 
@@ -188,11 +194,11 @@ struct WeatherHoverDashboardView: View {
         VStack(alignment: .leading, spacing: 1) {
             Text(title)
                 .dsFont(size: 8.5, weight: .semibold)
-                .foregroundStyle(theme.textTertiary)
+                .foregroundStyle(secondaryForeground)
 
             Text(temperatureLabel(value))
                 .dsFont(size: 15, weight: .bold)
-                .foregroundStyle(theme.textPrimary)
+                .foregroundStyle(primaryForeground)
                 .monospacedDigit()
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -214,11 +220,11 @@ struct WeatherHoverDashboardView: View {
                 Text(title)
                     .dsFont(size: 8, weight: .semibold)
             }
-            .foregroundStyle(theme.textTertiary)
+            .foregroundStyle(secondaryForeground)
 
             Text(value)
                 .dsFont(size: 11, weight: .bold)
-                .foregroundStyle(theme.textPrimary)
+                .foregroundStyle(primaryForeground)
                 .monospacedDigit()
                 .lineLimit(1)
                 .minimumScaleFactor(0.78)
@@ -234,11 +240,11 @@ struct WeatherHoverDashboardView: View {
             HStack(alignment: .firstTextBaseline, spacing: 6) {
                 Text("7-day forecast")
                     .dsFont(size: 11.5, weight: .bold)
-                    .foregroundStyle(theme.textPrimary)
+                    .foregroundStyle(primaryForeground)
 
                 Text(forecastRangeLabel(days))
                     .dsFont(size: 8.5, weight: .medium)
-                    .foregroundStyle(theme.textTertiary)
+                    .foregroundStyle(secondaryForeground)
 
                 Spacer(minLength: 4)
             }
@@ -253,7 +259,11 @@ struct WeatherHoverDashboardView: View {
                             inSameDayAs: now
                         ),
                         temperatureLabel: temperatureLabel,
-                        percentageLabel: percentageLabel
+                        percentageLabel: percentageLabel,
+                        sceneBackground: snapshot.condition.sceneColor(
+                            isDaylight: snapshot.isDaylight,
+                            in: theme
+                        )
                     )
                     .frame(maxWidth: .infinity)
                     .accessibilityIdentifier(
@@ -262,7 +272,7 @@ struct WeatherHoverDashboardView: View {
 
                     if index < days.count - 1 {
                         Rectangle()
-                            .fill(theme.outline)
+                            .fill(sceneDivider)
                             .frame(width: 0.5, height: 134)
                             .accessibilityHidden(true)
                     }
@@ -329,17 +339,21 @@ struct WeatherHoverDashboardView: View {
     private var attribution: some View {
         HStack(spacing: 4) {
             Text("Weather data by")
-                .foregroundStyle(theme.textTertiary)
+                .foregroundStyle(secondaryForeground)
 
             Link("Open-Meteo", destination: Self.attributionURL)
-                .foregroundStyle(theme.actionForeground)
+                .foregroundStyle(primaryForeground)
+                .underline()
+                .buttonStyle(.plain)
                 .accessibilityLabel("Open-Meteo weather data")
 
             Text("·")
-                .foregroundStyle(theme.textTertiary)
+                .foregroundStyle(secondaryForeground)
 
             Link("CC BY 4.0", destination: Self.licenseURL)
-                .foregroundStyle(theme.actionForeground)
+                .foregroundStyle(primaryForeground)
+                .underline()
+                .buttonStyle(.plain)
 
             Spacer(minLength: 0)
         }
@@ -352,6 +366,38 @@ struct WeatherHoverDashboardView: View {
         state.snapshot?.location
             ?? locationPlaceholder
             ?? "Current location"
+    }
+
+    private var primaryForeground: Color {
+        state.snapshot == nil ? theme.textPrimary : theme.weatherSceneForeground
+    }
+
+    private var secondaryForeground: Color {
+        state.snapshot == nil
+            ? theme.textTertiary
+            : theme.weatherSceneForeground.opacity(0.9)
+    }
+
+    private var sceneDivider: Color {
+        state.snapshot == nil
+            ? theme.outline
+            : theme.weatherSceneForeground.opacity(0.32)
+    }
+
+    private func statusForeground(_ status: WeatherHoverStatusPresentation) -> Color {
+        guard let snapshot = state.snapshot else {
+            return status.foreground(theme)
+        }
+        return ProjectTheme.rendererColor(
+            nil,
+            automatic: theme.warning,
+            on: snapshot.condition.sceneColor(
+                isDaylight: snapshot.isDaylight,
+                in: theme
+            ),
+            colorScheme: colorScheme,
+            minimumContrast: 4.55
+        )
     }
 
     private var statusPresentation: WeatherHoverStatusPresentation? {
@@ -459,35 +505,44 @@ private struct WeatherHoverForecastDay: View {
     let isToday: Bool
     let temperatureLabel: (Double?) -> String
     let percentageLabel: (Double?) -> String
+    let sceneBackground: Color
 
     @Environment(\.designTheme) private var theme
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         VStack(spacing: 5) {
             Text(dateLabel)
                 .dsFont(size: 9, weight: isToday ? .bold : .semibold)
                 .foregroundStyle(
-                    isToday ? theme.textPrimary : theme.textSecondary
+                    theme.weatherSceneForeground.opacity(isToday ? 1 : 0.9)
                 )
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
                 .frame(height: 12)
 
             DSIcon(systemName: forecast.condition.symbolName())
-                .symbolRenderingMode(.hierarchical)
                 .dsFont(size: 25, weight: .medium)
-                .foregroundStyle(theme.textPrimary)
+                .foregroundStyle(
+                    ProjectTheme.rendererColor(
+                        nil,
+                        automatic: forecast.condition.conditionColor(in: theme),
+                        on: sceneBackground,
+                        colorScheme: colorScheme,
+                        minimumContrast: 3.05
+                    )
+                )
                 .frame(height: 31)
                 .accessibilityHidden(true)
 
             VStack(spacing: 1) {
                 Text(temperatureLabel(forecast.highCelsius))
                     .dsFont(size: 14, weight: .bold)
-                    .foregroundStyle(theme.textPrimary)
+                    .foregroundStyle(theme.weatherSceneForeground)
 
                 Text(temperatureLabel(forecast.lowCelsius))
                     .dsFont(size: 10, weight: .semibold)
-                    .foregroundStyle(theme.textSecondary)
+                    .foregroundStyle(theme.weatherSceneForeground.opacity(0.9))
             }
             .monospacedDigit()
 
@@ -501,7 +556,7 @@ private struct WeatherHoverForecastDay: View {
                     .monospacedDigit()
             }
             .dsFont(size: 8, weight: .medium)
-            .foregroundStyle(theme.textTertiary)
+            .foregroundStyle(theme.weatherSceneForeground.opacity(0.9))
             .lineLimit(1)
         }
         .padding(.horizontal, 2)

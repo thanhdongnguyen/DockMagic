@@ -14,21 +14,7 @@ enum CalendarAccess: String, Equatable, Sendable {
     }
 }
 
-enum CalendarDockLayout: String, CaseIterable, Codable, Identifiable, Sendable {
-    case date, nextEvent, dateAndNextEvent, dateAndAgenda
-    var id: Self { self }
-    var title: String {
-        switch self {
-        case .date: "Date"
-        case .nextEvent: "Next event"
-        case .dateAndNextEvent: "Date + next event"
-        case .dateAndAgenda: "Date + agenda"
-        }
-    }
-}
-
 struct CalendarConfiguration: Codable, Equatable, Sendable {
-    var layout: CalendarDockLayout = .date
     // nil means all calendars, [] means none. Never silently replace a missing
     // selection with every calendar after an account or device changes.
     var selectedCalendarIDs: Set<String>? = nil
@@ -40,13 +26,12 @@ struct CalendarConfiguration: Codable, Equatable, Sendable {
 
     // Preserve existing Calendar preferences when upgrading from the read-only version.
     private enum CodingKeys: String, CodingKey {
-        case layout, selectedCalendarIDs, includesAllDayEvents, showsCallButton
+        case selectedCalendarIDs, includesAllDayEvents, showsCallButton
         case selectedReminderListIDs, showsReminders, showsCompletedReminders
     }
     init() {}
     init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
-        layout = try values.decodeIfPresent(CalendarDockLayout.self, forKey: .layout) ?? .date
         selectedCalendarIDs = try values.decodeIfPresent(Set<String>.self, forKey: .selectedCalendarIDs)
         includesAllDayEvents = try values.decodeIfPresent(Bool.self, forKey: .includesAllDayEvents) ?? true
         showsCallButton = try values.decodeIfPresent(Bool.self, forKey: .showsCallButton) ?? true
@@ -99,6 +84,24 @@ struct CalendarEvent: Identifiable, Equatable, Sendable {
     }
 }
 
+/// A visual hint only. EventKit calendar colors and event content remain untouched.
+enum CalendarEventVisualCategory: Equatable, Sendable {
+    case birthday, holiday, work, regular
+
+    static func classify(_ event: CalendarEvent) -> Self {
+        let calendar = event.calendarTitle.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current)
+        let title = event.title.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current)
+        if calendar.contains("birthday") || calendar.contains("sinh nhat")
+            || title.contains("birthday") || title.contains("sinh nhat") { return .birthday }
+        if calendar.contains("holiday") || calendar.contains("ngay le")
+            || title.contains("holiday") || title.contains("christmas")
+            || title.contains("quoc khanh") || title.contains("giang sinh") { return .holiday }
+        if calendar.contains("work") || calendar.contains("office")
+            || calendar.contains("cong viec") { return .work }
+        return .regular
+    }
+}
+
 struct CalendarReadResult: Sendable {
     let calendars: [CalendarSource]
     let events: [CalendarEvent]
@@ -127,7 +130,9 @@ enum CalendarAgenda {
         guard let month = calendar.dateInterval(of: .month, for: date) else { return [] }
         let offset = (calendar.component(.weekday, from: month.start) - calendar.firstWeekday + 7) % 7
         guard let first = calendar.date(byAdding: .day, value: -offset, to: month.start) else { return [] }
-        return (0..<42).compactMap { calendar.date(byAdding: .day, value: $0, to: first) }
+        let daysInMonth = calendar.range(of: .day, in: .month, for: month.start)?.count ?? 31
+        let cells = ((offset + daysInMonth + 6) / 7) * 7
+        return (0..<cells).compactMap { calendar.date(byAdding: .day, value: $0, to: first) }
     }
 
     static func queryIntervals(month: Date, today: Date, calendar: Calendar = .autoupdatingCurrent) -> [DateInterval] {

@@ -49,7 +49,7 @@ open_app() {
   local key
   # Opt-in QA composition only; never forward arbitrary environment/secrets.
   # An absent Grok fixture key must remain absent for real-local verification.
-  for key in DockMagicUITesting DockMagicUITestDefaultsSuite DockMagicUITestGrok DOCKMAGIC_EXPERIMENTAL_GROK DockMagicMaiaGallery DockMagicMaiaAppearance DockMagicUITestBinanceFixtures DockMagicUITestCalendar DockMagicUITestNowPlaying DockMagicUITestAugment; do
+  for key in DockMagicUITesting DockMagicUITestDefaultsSuite DockMagicUITestGrok DOCKMAGIC_EXPERIMENTAL_GROK DockMagicMaiaGallery DockMagicMaiaAppearance DockMagicUITestBinanceFixtures DockMagicUITestCalendar DockMagicUITestNowPlaying; do
     if [[ -n "${!key:-}" ]]; then launch_args+=(--env "$key=${!key}"); fi
   done
   /usr/bin/open "${launch_args[@]}" "$APP_BUNDLE"

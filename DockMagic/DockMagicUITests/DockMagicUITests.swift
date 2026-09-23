@@ -1,4 +1,6 @@
 import XCTest
+import CoreGraphics
+import AppKit
 
 final class DockMagicUITests: XCTestCase {
     private let automaticDefaultsSuite =
@@ -15,6 +17,803 @@ final class DockMagicUITests: XCTestCase {
             .removePersistentDomain(forName: automaticDefaultsSuite)
     }
 
+    func testShelfModeWithoutAccessibilityReturnsToDockActiveWithRecoveryMessage() {
+        let suite = "DockMagicUITests.ShelfDenied.\(UUID().uuidString)"
+        let app = launchApp(
+            defaultsSuite: suite,
+            initialDockMode: "shelfDock",
+            denyShelfAccessibility: true
+        )
+        let settings = app.windows["DockMagic Settings"]
+        XCTAssertTrue(settings.waitForExistence(timeout: 8))
+        XCTAssertTrue(app.buttons["settings.dockMode.dockActive"].exists)
+        let recoveryStatus = app.staticTexts.matching(
+            NSPredicate(
+                format: "label CONTAINS[c] %@ OR value CONTAINS[c] %@",
+                "Shelf Dock unavailable",
+                "Shelf Dock unavailable"
+            )
+        ).firstMatch
+        XCTAssertTrue(
+            recoveryStatus.waitForExistence(timeout: 3),
+            app.debugDescription
+        )
+
+        app.terminate()
+        let relaunched = launchApp(defaultsSuite: suite)
+        XCTAssertTrue(
+            relaunched.windows["DockMagic Settings"].waitForExistence(timeout: 8)
+        )
+        XCTAssertTrue(
+            relaunched.buttons["settings.dockMode.dockActive"].isSelected
+        )
+    }
+
+    func testShelfDockShowsDuplicateTilesAddsFeatureAndControlsDashboard() {
+        let suite = "DockMagicUITests.ShelfInteractions.\(UUID().uuidString)"
+        let app = launchApp(
+            defaultsSuite: suite,
+            initialDockMode: "shelfDock",
+            shelfFeatures: "systemMetrics,systemMetrics",
+            shelfEdge: "right",
+            hideRuntimeDockItems: true,
+            assumeShelfAccessibility: true,
+            skipAppleDockLease: true,
+            disableDockHandoff: true
+        )
+        XCTAssertTrue(
+            app.windows["DockMagic Settings"].waitForExistence(timeout: 8)
+        )
+
+        let root = app.descendants(matching: .any)["customDock.root"]
+        XCTAssertTrue(root.waitForExistence(timeout: 5), app.debugDescription)
+        XCTAssertTrue(
+            app.descendants(matching: .any)["customDock.system.finder"].exists
+        )
+        XCTAssertTrue(
+            app.descendants(matching: .any)["customDock.system.apps"].exists
+        )
+        XCTAssertTrue(
+            app.descendants(matching: .any)["customDock.shelf"].exists
+        )
+        XCTAssertTrue(
+            app.descendants(matching: .any)["customDock.resize"].exists
+        )
+        XCTAssertTrue(
+            app.descendants(matching: .any)["customDock.trash"].exists
+        )
+
+        let slots = app.buttons.matching(
+            NSPredicate(format: "identifier BEGINSWITH %@", "customDock.slot.")
+        )
+        XCTAssertEqual(slots.count, 2)
+        let firstSlot = slots.element(boundBy: 0)
+        let secondSlot = slots.element(boundBy: 1)
+        XCTAssertEqual(firstSlot.label, "CPU & RAM")
+        XCTAssertEqual(secondSlot.label, "CPU & RAM")
+        XCTAssertNotEqual(firstSlot.identifier, secondSlot.identifier)
+
+        let add = app.buttons["customDock.addFeature"]
+        XCTAssertTrue(add.exists)
+        let finder = XCUIApplication(bundleIdentifier: "com.apple.finder")
+        finder.activate()
+        XCTAssertEqual(finder.state, .runningForeground)
+        add.click()
+        let picker = app.descendants(matching: .any)["customDock.picker"]
+        XCTAssertTrue(picker.waitForExistence(timeout: 3), app.debugDescription)
+        XCTAssertEqual(app.state, .runningForeground)
+        let pickerWindow = app.windows["Add Shelf feature"]
+        XCTAssertTrue(pickerWindow.waitForExistence(timeout: 2))
+        XCTAssertTrue(pickerWindow.isHittable)
+        let search = app.textFields["Search Shelf feature"]
+        XCTAssertTrue(search.waitForExistence(timeout: 2))
+        search.click()
+        search.typeText("Weather")
+        let weather = app.buttons["customDock.picker.weather"]
+        XCTAssertTrue(weather.waitForExistence(timeout: 2))
+        weather.click()
+
+        let threeSlots = expectation(
+            for: NSPredicate(format: "count == 3"),
+            evaluatedWith: slots
+        )
+        wait(for: [threeSlots], timeout: 4)
+        XCTAssertTrue(add.exists)
+
+        let weatherSlot = slots.element(boundBy: 2)
+        XCTAssertEqual(weatherSlot.label, "Weather")
+        app.activate()
+        firstSlot.hover()
+        weatherSlot.hover()
+        let dashboard = app.descendants(matching: .any)[
+            "customDock.dashboard.\(weatherSlot.identifier.replacingOccurrences(of: "customDock.slot.", with: ""))"
+        ]
+        XCTAssertTrue(dashboard.waitForExistence(timeout: 3), app.debugDescription)
+        let dashboardCapture = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        dashboardCapture.name = "Shelf Weather dashboard on right-edge Custom Dock"
+        dashboardCapture.lifetime = .keepAlways
+        self.add(dashboardCapture)
+        app.typeKey(.escape, modifierFlags: [])
+        let dashboardClosed = expectation(
+            for: NSPredicate(format: "exists == false"),
+            evaluatedWith: dashboard
+        )
+        wait(for: [dashboardClosed], timeout: 3)
+
+        weatherSlot.click()
+        XCTAssertTrue(dashboard.waitForExistence(timeout: 3))
+        weatherSlot.click()
+        let dashboardClickClosed = expectation(
+            for: NSPredicate(format: "exists == false"),
+            evaluatedWith: dashboard
+        )
+        wait(for: [dashboardClickClosed], timeout: 3)
+
+        weatherSlot.press(forDuration: 0.8, thenDragTo: firstSlot)
+        let weatherMovedFirst = expectation(
+            for: NSPredicate(format: "label == %@", "Weather"),
+            evaluatedWith: slots.element(boundBy: 0)
+        )
+        wait(for: [weatherMovedFirst], timeout: 4)
+
+        slots.element(boundBy: 1).rightClick()
+        let remove = app.menuItems["Remove from Shelf"]
+        XCTAssertTrue(remove.waitForExistence(timeout: 2))
+        remove.click()
+        let twoSlots = expectation(
+            for: NSPredicate(format: "count == 2"),
+            evaluatedWith: slots
+        )
+        wait(for: [twoSlots], timeout: 4)
+        XCTAssertTrue(add.exists)
+
+        finder.activate()
+        let trash = app.buttons["customDock.trash"]
+        XCTAssertTrue(trash.isHittable)
+        trash.click()
+        XCTAssertTrue(
+            finder.windows["Trash"].waitForExistence(timeout: 5),
+            finder.debugDescription
+        )
+    }
+
+    func testShelfDockResizeDividerSupportsPointerDrag() {
+        let app = launchApp(
+            defaultsSuite: "DockMagicUITests.ShelfResize.\(UUID().uuidString)",
+            initialDockMode: "shelfDock",
+            shelfFeatures: "systemMetrics,weather",
+            shelfEdge: "bottom",
+            shelfIconSize: "44",
+            hideRuntimeDockItems: true,
+            assumeShelfAccessibility: true,
+            skipAppleDockLease: true,
+            disableDockHandoff: true
+        )
+        defer { app.terminate() }
+        XCTAssertTrue(
+            app.windows["DockMagic Settings"].waitForExistence(timeout: 8),
+            app.debugDescription
+        )
+
+        let root = app.descendants(matching: .any)["customDock.root"]
+        var resize = app.descendants(matching: .any)["customDock.resize"]
+        XCTAssertTrue(root.waitForExistence(timeout: 5), app.debugDescription)
+        XCTAssertTrue(resize.waitForExistence(timeout: 2), app.debugDescription)
+        XCTAssertTrue(resize.isHittable)
+
+        let initialHeight = root.frame.height
+        let growStart = resize.coordinate(
+            withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)
+        )
+        growStart.press(
+            forDuration: 0.8,
+            thenDragTo: growStart.withOffset(CGVector(dx: 40, dy: 0))
+        )
+        let grew = expectation(
+            for: NSPredicate { _, _ in root.frame.height > initialHeight + 8 },
+            evaluatedWith: root
+        )
+        wait(for: [grew], timeout: 4)
+
+        let grownHeight = root.frame.height
+        resize = app.descendants(matching: .any)["customDock.resize"]
+        XCTAssertTrue(resize.isHittable)
+        let shrinkStart = resize.coordinate(
+            withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)
+        )
+        shrinkStart.press(
+            forDuration: 0.8,
+            thenDragTo: shrinkStart.withOffset(CGVector(dx: -28, dy: 0))
+        )
+        let shrank = expectation(
+            for: NSPredicate { _, _ in root.frame.height < grownHeight - 8 },
+            evaluatedWith: root
+        )
+        wait(for: [shrank], timeout: 4)
+    }
+
+    func testShelfDockHybridMagnificationKeepsShelfGeometryFixed() {
+        let app = launchApp(
+            defaultsSuite: "DockMagicUITests.ShelfMagnification.\(UUID().uuidString)",
+            initialDockMode: "shelfDock",
+            shelfFeatures: "systemMetrics,weather,nowPlaying",
+            shelfEdge: "bottom",
+            shelfIconSize: "44",
+            shelfMagnification: true,
+            assumeShelfAccessibility: true,
+            skipAppleDockLease: true,
+            disableDockHandoff: true
+        )
+        defer { app.terminate() }
+        XCTAssertTrue(
+            app.windows["DockMagic Settings"].waitForExistence(timeout: 8),
+            app.debugDescription
+        )
+        let root = app.descendants(matching: .any)["customDock.root"]
+        let finder = app.descendants(matching: .any)["customDock.system.finder"]
+        let shelf = app.descendants(matching: .any)["customDock.shelf"]
+        let add = app.buttons["customDock.addFeature"]
+        let trash = app.buttons["customDock.trash"]
+        XCTAssertTrue(root.waitForExistence(timeout: 5), app.debugDescription)
+        XCTAssertTrue(finder.exists)
+        XCTAssertTrue(shelf.exists)
+        XCTAssertTrue(add.exists)
+        XCTAssertTrue(trash.exists)
+
+        // The pointer can already be resting over a Dock item when the panel
+        // appears. Move it into the Shelf hard boundary before taking baselines.
+        add.hover()
+        XCTAssertTrue(app.descendants(matching: .any)[
+            "customDock.magnificationProbe.idle"
+        ].waitForExistence(timeout: 3), app.debugDescription)
+        let shelfFrame = shelf.frame
+        let addFrame = add.frame
+        let finderFrame = finder.frame
+        let trashFrame = trash.frame
+        finder.hover()
+        XCTAssertTrue(app.descendants(matching: .any)[
+            "customDock.magnificationProbe.system.finder"
+        ].waitForExistence(timeout: 3), app.debugDescription)
+        XCTAssertEqual(shelf.frame.origin.x, shelfFrame.origin.x, accuracy: 0.5)
+        XCTAssertEqual(shelf.frame.origin.y, shelfFrame.origin.y, accuracy: 0.5)
+        XCTAssertEqual(shelf.frame.size.width, shelfFrame.size.width, accuracy: 0.5)
+        XCTAssertEqual(shelf.frame.size.height, shelfFrame.size.height, accuracy: 0.5)
+        XCTAssertEqual(add.frame.origin.x, addFrame.origin.x, accuracy: 0.5)
+        XCTAssertEqual(add.frame.origin.y, addFrame.origin.y, accuracy: 0.5)
+        XCTAssertEqual(finder.frame.origin.x, finderFrame.origin.x, accuracy: 0.5)
+        XCTAssertEqual(finder.frame.origin.y, finderFrame.origin.y, accuracy: 0.5)
+        XCTAssertEqual(finder.frame.size.width, finderFrame.size.width, accuracy: 0.5)
+        XCTAssertEqual(finder.frame.size.height, finderFrame.size.height, accuracy: 0.5)
+
+        let peakCapture = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        peakCapture.name = "Hybrid magnification peak with fixed Shelf segment"
+        peakCapture.lifetime = .keepAlways
+        self.add(peakCapture)
+
+        add.hover()
+        XCTAssertTrue(app.descendants(matching: .any)[
+            "customDock.magnificationProbe.idle"
+        ].waitForExistence(timeout: 3), app.debugDescription)
+        XCTAssertEqual(shelf.frame.origin.x, shelfFrame.origin.x, accuracy: 0.5)
+        XCTAssertEqual(add.frame.origin.x, addFrame.origin.x, accuracy: 0.5)
+
+        trash.hover()
+        XCTAssertTrue(app.descendants(matching: .any)[
+            "customDock.magnificationProbe.trash"
+        ].waitForExistence(timeout: 3), app.debugDescription)
+        XCTAssertEqual(shelf.frame.origin.x, shelfFrame.origin.x, accuracy: 0.5)
+        XCTAssertEqual(add.frame.origin.x, addFrame.origin.x, accuracy: 0.5)
+        XCTAssertEqual(trash.frame.origin.x, trashFrame.origin.x, accuracy: 0.5)
+        XCTAssertEqual(trash.frame.origin.y, trashFrame.origin.y, accuracy: 0.5)
+        XCTAssertEqual(trash.frame.size.width, trashFrame.size.width, accuracy: 0.5)
+        XCTAssertEqual(trash.frame.size.height, trashFrame.size.height, accuracy: 0.5)
+    }
+
+    func testShelfDockReduceMotionSuppressesMagnification() {
+        let app = launchApp(
+            defaultsSuite: "DockMagicUITests.ShelfReduceMotion.\(UUID().uuidString)",
+            initialDockMode: "shelfDock",
+            shelfFeatures: "systemMetrics,weather",
+            shelfEdge: "bottom",
+            shelfIconSize: "44",
+            shelfMagnification: true,
+            reduceMotion: true,
+            hideRuntimeDockItems: true,
+            assumeShelfAccessibility: true,
+            skipAppleDockLease: true,
+            disableDockHandoff: true
+        )
+        defer { app.terminate() }
+        XCTAssertTrue(
+            app.windows["DockMagic Settings"].waitForExistence(timeout: 8),
+            app.debugDescription
+        )
+        let finder = app.descendants(matching: .any)["customDock.system.finder"]
+        XCTAssertTrue(finder.waitForExistence(timeout: 5), app.debugDescription)
+        let baseline = finder.frame
+        finder.hover()
+        XCTAssertTrue(app.descendants(matching: .any)[
+            "customDock.magnificationProbe.idle"
+        ].waitForExistence(timeout: 3), app.debugDescription)
+        XCTAssertEqual(finder.frame.origin.x, baseline.origin.x, accuracy: 0.5)
+        XCTAssertEqual(finder.frame.origin.y, baseline.origin.y, accuracy: 0.5)
+        XCTAssertEqual(finder.frame.size.width, baseline.size.width, accuracy: 0.5)
+        XCTAssertEqual(finder.frame.size.height, baseline.size.height, accuracy: 0.5)
+        XCTAssertTrue(app.staticTexts[
+            "Reduce Motion is on, so Dock items stay at their normal size."
+        ].waitForExistence(timeout: 3), app.debugDescription)
+    }
+
+    @available(macOS 14.0, *)
+    func testShelfDockPassesAccessibilityAudit() throws {
+        let app = launchApp(
+            defaultsSuite: "DockMagicUITests.ShelfAccessibility.\(UUID().uuidString)",
+            initialDockMode: "shelfDock",
+            shelfFeatures: "systemMetrics,weather,nowPlaying",
+            shelfEdge: "bottom",
+            assumeShelfAccessibility: true,
+            skipAppleDockLease: true,
+            disableDockHandoff: true
+        )
+        defer { app.terminate() }
+        let settings = app.windows["DockMagic Settings"]
+        XCTAssertTrue(settings.waitForExistence(timeout: 8), app.debugDescription)
+        settings.buttons[XCUIIdentifierCloseWindow].click()
+        let root = app.descendants(matching: .any)["customDock.root"]
+        XCTAssertTrue(root.waitForExistence(timeout: 5), app.debugDescription)
+
+        var issues: [String] = []
+        try app.performAccessibilityAudit(for: .all) { issue in
+            if issue.element?.elementType == .touchBar { return true }
+            issues.append(
+                "\(issue.auditType.rawValue): \(issue.compactDescription) — "
+                + "\(issue.detailedDescription) — "
+                + "\(issue.element?.debugDescription ?? "No element")"
+            )
+            return true
+        }
+        XCTAssertTrue(
+            issues.isEmpty,
+            "Custom Dock accessibility audit found:\n\(issues.joined(separator: "\n"))"
+        )
+    }
+
+    /// Opt-in desktop integration test. It drags one generated text file from
+    /// Finder to TextEdit and then to the Custom Dock Trash. The test restores
+    /// the file from Trash and removes its temporary directory before exiting.
+    func testCustomDockAcceptsFinderFileDrops() throws {
+        let marker = "/private/tmp/dockmagic-custom-dock-pointer-drop"
+        try XCTSkipUnless(
+            FileManager.default.fileExists(atPath: marker),
+            "This test moves one generated file through Finder and Trash."
+        )
+
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(
+            "DockMagicPointerDropQA-\(UUID().uuidString)",
+            isDirectory: true
+        )
+        try FileManager.default.createDirectory(
+            at: folder,
+            withIntermediateDirectories: true
+        )
+        let source = folder.appendingPathComponent(
+            "DockMagic-pointer-drop-QA-\(UUID().uuidString).txt"
+        )
+        try Data("DockMagic pointer drop QA".utf8).write(to: source)
+        let appDropResult = folder.appendingPathComponent("app-drop-result.txt")
+        let dropResult = folder.appendingPathComponent("trash-destination.txt")
+        var recycledURL: URL?
+
+        let textEdit = XCUIApplication(bundleIdentifier: "com.apple.TextEdit")
+        textEdit.terminate()
+        textEdit.launchArguments += ["-ApplePersistenceIgnoreState", "YES"]
+        textEdit.launch()
+        let newDocumentButton = textEdit.buttons["NewDocumentButton"]
+        if newDocumentButton.waitForExistence(timeout: 2) {
+            newDocumentButton.click()
+        }
+        let app = launchApp(
+            defaultsSuite: "DockMagicUITests.PointerDrop.\(UUID().uuidString)",
+            initialDockMode: "shelfDock",
+            shelfFeatures: "systemMetrics",
+            shelfEdge: "right",
+            assumeShelfAccessibility: true,
+            skipAppleDockLease: true,
+            disableDockHandoff: true,
+            appDropResultPath: appDropResult.path,
+            trashDropResultPath: dropResult.path
+        )
+        defer {
+            app.terminate()
+            textEdit.terminate()
+            if let recycledURL,
+               FileManager.default.fileExists(atPath: recycledURL.path),
+               !FileManager.default.fileExists(atPath: source.path) {
+                try? FileManager.default.moveItem(at: recycledURL, to: source)
+            }
+            try? FileManager.default.removeItem(at: folder)
+        }
+
+        let settings = app.windows["DockMagic Settings"]
+        XCTAssertTrue(settings.waitForExistence(timeout: 8), app.debugDescription)
+        settings.buttons[XCUIIdentifierCloseWindow].click()
+        let trash = app.buttons["customDock.trash"]
+        XCTAssertTrue(trash.waitForExistence(timeout: 10), app.debugDescription)
+        let trashReady = expectation(
+            for: NSPredicate(format: "enabled == true"),
+            evaluatedWith: trash
+        )
+        wait(for: [trashReady], timeout: 15)
+
+        let textEditTile = app.buttons["customDock.app.com.apple.TextEdit"]
+        XCTAssertTrue(textEditTile.waitForExistence(timeout: 5), app.debugDescription)
+        let finder = XCUIApplication(bundleIdentifier: "com.apple.finder")
+        XCTAssertTrue(
+            NSWorkspace.shared.selectFile(
+                source.path,
+                inFileViewerRootedAtPath: folder.path
+            )
+        )
+        finder.activate()
+        let finderWindow = finder.windows.firstMatch
+        XCTAssertTrue(finderWindow.waitForExistence(timeout: 5), finder.debugDescription)
+        let safeInset: CGFloat = 80
+        let moveLeftBy = max(0, finderWindow.frame.minX - safeInset)
+        if moveLeftBy > 1 {
+            let titleBar = finderWindow.coordinate(
+                withNormalizedOffset: CGVector(dx: 0.05, dy: 0.03)
+            )
+            titleBar.press(
+                forDuration: 0.2,
+                thenDragTo: titleBar.withOffset(CGVector(dx: -moveLeftBy, dy: 0))
+            )
+        }
+        let sourceItem = finder.images[source.lastPathComponent].firstMatch
+        XCTAssertTrue(sourceItem.waitForExistence(timeout: 8), finder.debugDescription)
+
+        sourceItem.press(forDuration: 0.8, thenDragTo: textEditTile)
+        if !waitForFile(at: appDropResult, timeout: 5) {
+            XCTAssertTrue(
+                NSWorkspace.shared.selectFile(
+                    source.path,
+                    inFileViewerRootedAtPath: folder.path
+                )
+            )
+            finder.activate()
+            XCTAssertTrue(sourceItem.waitForExistence(timeout: 5), finder.debugDescription)
+            sourceItem.press(forDuration: 0.8, thenDragTo: textEditTile)
+        }
+        XCTAssertTrue(
+            waitForFile(at: appDropResult, timeout: 10),
+            "Custom Dock app tile did not confirm the Finder file drop."
+        )
+        let appDropStatus = try String(contentsOf: appDropResult, encoding: .utf8)
+        XCTAssertEqual(appDropStatus, "success\n\(source.path)")
+        let openedDocument = textEdit.windows.matching(
+            NSPredicate(format: "title CONTAINS[c] %@", source.deletingPathExtension().lastPathComponent)
+        ).firstMatch
+        _ = openedDocument.waitForExistence(timeout: 3)
+        textEdit.terminate()
+
+        XCTAssertTrue(
+            NSWorkspace.shared.selectFile(
+                source.path,
+                inFileViewerRootedAtPath: folder.path
+            )
+        )
+        finder.activate()
+        XCTAssertTrue(sourceItem.waitForExistence(timeout: 8), finder.debugDescription)
+        sourceItem.press(forDuration: 0.8, thenDragTo: trash)
+        if !waitForFileToDisappear(at: source, timeout: 5) {
+            XCTAssertTrue(
+                NSWorkspace.shared.selectFile(
+                    source.path,
+                    inFileViewerRootedAtPath: folder.path
+                )
+            )
+            finder.activate()
+            XCTAssertTrue(sourceItem.waitForExistence(timeout: 5), finder.debugDescription)
+            sourceItem.press(forDuration: 0.8, thenDragTo: trash)
+        }
+        XCTAssertTrue(
+            waitForFileToDisappear(at: source, timeout: 10),
+            "Custom Dock Trash did not remove the generated QA file from its source."
+        )
+        XCTAssertTrue(
+            waitForFile(at: dropResult, timeout: 10),
+            "NSWorkspace.recycle did not return the generated QA file destination."
+        )
+        let destinationPath = try String(contentsOf: dropResult, encoding: .utf8)
+        recycledURL = URL(fileURLWithPath: destinationPath)
+        XCTAssertTrue(
+            FileManager.default.fileExists(atPath: destinationPath),
+            "NSWorkspace did not return a live Trash destination."
+        )
+
+        let capture = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        capture.name = "Custom Dock accepted Finder file drop into Trash"
+        capture.lifetime = .keepAlways
+        self.add(capture)
+    }
+
+    private func waitForFile(at url: URL, timeout: TimeInterval) -> Bool {
+        let completed = XCTNSPredicateExpectation(
+            predicate: NSPredicate { _, _ in
+                FileManager.default.fileExists(atPath: url.path)
+            },
+            object: nil
+        )
+        return XCTWaiter.wait(for: [completed], timeout: timeout) == .completed
+    }
+
+    private func waitForFileToDisappear(at url: URL, timeout: TimeInterval) -> Bool {
+        let completed = XCTNSPredicateExpectation(
+            predicate: NSPredicate { _, _ in
+                !FileManager.default.fileExists(atPath: url.path)
+            },
+            object: nil
+        )
+        return XCTWaiter.wait(for: [completed], timeout: timeout) == .completed
+    }
+
+    /// Run explicitly while the system Dock is set to auto-hide. This moves the
+    /// macOS pointer, so it must not run as part of the ordinary UI test suite.
+    func testShelfProbeRevealsAndHidesWithSystemDock() throws {
+        try XCTSkipUnless(
+            ProcessInfo.processInfo.environment["DockMagicShelfProbeUITest"] == "1",
+            "The Shelf geometry probe is an opt-in desktop integration test."
+        )
+        let app = XCUIApplication()
+        app.launchEnvironment["DockMagicUITesting"] = "1"
+        app.launchEnvironment["DOCKMAGIC_SHELF_PROBE"] = "1"
+        app.launchEnvironment["DockMagicUITestDefaultsSuite"] = automaticDefaultsSuite
+        app.launchArguments += ["-ApplePersistenceIgnoreState", "YES"]
+        app.launch()
+        let window = app.windows.firstMatch
+        XCTAssertTrue(window.waitForExistence(timeout: 5))
+
+        let display = CGDisplayBounds(CGMainDisplayID())
+        let origin = window.coordinate(withNormalizedOffset: CGVector(dx: 0, dy: 0))
+        let edge = origin.withOffset(CGVector(
+            dx: display.midX - window.frame.minX,
+            dy: display.maxY - window.frame.minY - 1
+        ))
+        let away = origin.withOffset(CGVector(
+            dx: display.midX - window.frame.minX,
+            dy: display.midY - window.frame.minY
+        ))
+
+        away.hover()
+        Thread.sleep(forTimeInterval: 2)
+        let logURL = URL(fileURLWithPath: "/private/tmp/dockmagic-shelf-geometry.log")
+        let hiddenLog = try String(contentsOf: logURL, encoding: .utf8)
+        XCTAssertTrue(hiddenLog.contains("DockList=unavailable"), hiddenLog.suffix(2000).description)
+
+        edge.hover()
+        Thread.sleep(forTimeInterval: 3)
+        let revealedLog = try String(contentsOf: logURL, encoding: .utf8)
+        XCTAssertTrue(revealedLog.contains("edge=bottom autohide=true"), revealedLog.suffix(2000).description)
+
+        away.hover()
+        Thread.sleep(forTimeInterval: 2)
+        let finalLog = try String(contentsOf: logURL, encoding: .utf8)
+        XCTAssertTrue(finalLog.suffix(2000).contains("DockList=unavailable"), finalLog.suffix(2000).description)
+    }
+
+    /// Opt-in desktop integration test. The caller sets Apple Dock auto-hide
+    /// and orientation, then restores both values after this test exits.
+    func testCustomDockYieldsToNativeDockAtPhysicalEdge() throws {
+        let harnessURL = URL(
+            fileURLWithPath: "/private/tmp/dockmagic-custom-dock-gate0.env"
+        )
+        try XCTSkipUnless(
+            FileManager.default.fileExists(atPath: harnessURL.path),
+            "Run only while the Apple Dock handoff harness owns Dock auto-hide."
+        )
+        let harness = try String(contentsOf: harnessURL, encoding: .utf8)
+        let values = Dictionary(uniqueKeysWithValues: harness.split(separator: "\n").compactMap {
+            line -> (String, String)? in
+            let pair = line.split(separator: "=", maxSplits: 1).map(String.init)
+            return pair.count == 2 ? (pair[0], pair[1]) : nil
+        })
+        let requestedEdge = values["edge"] ?? "bottom"
+        XCTAssertTrue(["bottom", "left", "right"].contains(requestedEdge))
+        let suite = "DockMagicUITests.Gate0.\(requestedEdge).\(UUID().uuidString)"
+        let driver = launchApp(
+            defaultsSuite: suite,
+            initialDockMode: "shelfDock",
+            shelfFeatures: "systemMetrics,weather",
+            shelfEdge: requestedEdge,
+            assumeShelfAccessibility: true,
+            skipAppleDockLease: true
+        )
+        let settings = driver.windows["DockMagic Settings"]
+        XCTAssertTrue(settings.waitForExistence(timeout: 8), driver.debugDescription)
+        let customDock = driver.dialogs["customDock.panel"]
+        XCTAssertTrue(customDock.waitForExistence(timeout: 5), driver.debugDescription)
+
+        let targetScreen: NSScreen
+        switch requestedEdge {
+        case "left":
+            targetScreen = try XCTUnwrap(
+                NSScreen.screens.min { $0.frame.minX < $1.frame.minX }
+            )
+        case "right":
+            targetScreen = try XCTUnwrap(
+                NSScreen.screens.max { $0.frame.maxX < $1.frame.maxX }
+            )
+        default:
+            targetScreen = try XCTUnwrap(NSScreen.main ?? NSScreen.screens.first)
+        }
+        let displayID = targetScreen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as! CGDirectDisplayID
+        let display = CGDisplayBounds(displayID)
+        let edgePoint: CGPoint
+        switch requestedEdge {
+        case "left":
+            edgePoint = CGPoint(x: display.minX + 1, y: display.midY)
+        case "right":
+            edgePoint = CGPoint(x: display.maxX - 1, y: display.midY)
+        default:
+            edgePoint = CGPoint(x: display.midX, y: display.maxY - 1)
+        }
+        let origin = settings.coordinate(withNormalizedOffset: CGVector(dx: 0, dy: 0))
+        let away = origin.withOffset(CGVector(
+            dx: display.midX - settings.frame.minX,
+            dy: display.midY - settings.frame.minY
+        ))
+        let edge = origin.withOffset(CGVector(
+            dx: edgePoint.x - settings.frame.minX,
+            dy: edgePoint.y - settings.frame.minY
+        ))
+        defer { away.hover() }
+
+        let cycles = min(max(Int(values["cycles"] ?? "1") ?? 1, 1), 100)
+        for cycle in 1...cycles {
+            away.hover()
+            XCTAssertTrue(
+                customDock.waitForExistence(timeout: 3),
+                "Cycle \(cycle): Custom Dock did not return after Apple Dock hid."
+            )
+            edge.hover()
+            let pointer = NSEvent.mouseLocation
+            let edgeDistance: CGFloat = requestedEdge == "left"
+                ? abs(pointer.x - targetScreen.frame.minX)
+                : requestedEdge == "right"
+                    ? abs(pointer.x - targetScreen.frame.maxX)
+                    : abs(pointer.y - targetScreen.frame.minY)
+            XCTAssertLessThanOrEqual(
+                edgeDistance, 5,
+                "Cycle \(cycle): XCUITest did not move the physical pointer to the \(requestedEdge) Dock edge: \(pointer)"
+            )
+            let hidden = expectation(
+                for: NSPredicate(format: "exists == false"),
+                evaluatedWith: customDock
+            )
+            wait(for: [hidden], timeout: 2)
+        }
+
+        let capture = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        capture.name = "Custom Dock handoff at native Dock \(requestedEdge) edge"
+        capture.lifetime = .keepAlways
+        add(capture)
+    }
+
+    /// Opt-in desktop integration test. The shell harness owns and restores
+    /// Apple Dock preferences even when this test fails or Xcode is stopped.
+    func testNativeAndCustomDockGeometryVisualMatrix() throws {
+        let markerURL = URL(
+            fileURLWithPath: "/private/tmp/dockmagic-custom-dock-geometry.env"
+        )
+        try XCTSkipUnless(
+            FileManager.default.fileExists(atPath: markerURL.path),
+            "Run through script/run_custom_dock_geometry_qa.sh."
+        )
+        let marker = try String(contentsOf: markerURL, encoding: .utf8)
+        let values = Dictionary(uniqueKeysWithValues: marker
+            .split(separator: "\n")
+            .compactMap { line -> (String, String)? in
+                let pair = line.split(separator: "=", maxSplits: 1).map(String.init)
+                return pair.count == 2 ? (pair[0], pair[1]) : nil
+            })
+        let edge = try XCTUnwrap(values["edge"])
+        let size = try XCTUnwrap(Int(values["size"] ?? ""))
+        XCTAssertTrue(["bottom", "left", "right"].contains(edge))
+        XCTAssertTrue([30, 44, 60].contains(size))
+
+        let nativeDock = XCUIApplication(bundleIdentifier: "com.apple.dock")
+        let nativeList = nativeDock.children(matching: .other).firstMatch
+        XCTAssertTrue(
+            nativeList.waitForExistence(timeout: 5),
+            nativeDock.debugDescription
+        )
+        let nativeFrame = nativeList.frame
+        let nativeThickness = edge == "bottom"
+            ? nativeFrame.height : nativeFrame.width
+        let nativeCapture = XCTAttachment(
+            screenshot: XCUIScreen.main.screenshot()
+        )
+        nativeCapture.name = "Native Dock — \(edge) — \(size) pt"
+        nativeCapture.lifetime = .keepAlways
+        self.add(nativeCapture)
+        let nativeElementCapture = XCTAttachment(screenshot: nativeList.screenshot())
+        nativeElementCapture.name = "Native Dock element — \(edge) — \(size) pt"
+        nativeElementCapture.lifetime = .keepAlways
+        self.add(nativeElementCapture)
+
+        let app = launchApp(
+            defaultsSuite: "DockMagicUITests.Geometry.\(edge).\(size).\(UUID().uuidString)",
+            initialDockMode: "shelfDock",
+            shelfFeatures: "systemMetrics,weather,nowPlaying",
+            shelfEdge: edge,
+            shelfIconSize: "\(size)",
+            preserveNativeDockApps: true,
+            assumeShelfAccessibility: true,
+            disableDockHandoff: true
+        )
+        let settings = app.windows["DockMagic Settings"]
+        XCTAssertTrue(settings.waitForExistence(timeout: 8))
+        settings.coordinate(
+            withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)
+        ).hover()
+        Thread.sleep(forTimeInterval: 1)
+        let customPanel = app.dialogs["customDock.panel"]
+        XCTAssertTrue(customPanel.waitForExistence(timeout: 5))
+        let customFrame = customPanel.frame
+        let customThickness = edge == "bottom"
+            ? customFrame.height : customFrame.width
+        let delta = abs(customThickness - nativeThickness)
+        let customCapture = XCTAttachment(
+            screenshot: XCUIScreen.main.screenshot()
+        )
+        customCapture.name = "DockMagic Custom Dock — \(edge) — \(size) pt"
+        customCapture.lifetime = .keepAlways
+        self.add(customCapture)
+        let customElementCapture = XCTAttachment(screenshot: customPanel.screenshot())
+        customElementCapture.name = "DockMagic Custom Dock element — \(edge) — \(size) pt"
+        customElementCapture.lifetime = .keepAlways
+        self.add(customElementCapture)
+        let measurement: [String: Any] = [
+            "edge": edge,
+            "iconSize": size,
+            "native": rectDictionary(nativeFrame),
+            "custom": rectDictionary(customFrame),
+            "thicknessDelta": delta
+        ]
+        app.terminate()
+        let data = try JSONSerialization.data(
+            withJSONObject: measurement,
+            options: [.prettyPrinted, .sortedKeys]
+        )
+        let geometryAttachment = XCTAttachment(
+            data: data,
+            uniformTypeIdentifier: "public.json"
+        )
+        geometryAttachment.name = "DockMagic native-custom geometry measurements"
+        geometryAttachment.lifetime = .keepAlways
+        self.add(geometryAttachment)
+        XCTAssertLessThanOrEqual(
+            delta,
+            2,
+            "\(edge), \(size) pt: Custom \(customThickness), native \(nativeThickness), delta \(delta)"
+        )
+    }
+
+    func testLegacyCompanionShelfIsUnavailable() {
+        let suiteName = "DockMagicUITests.LegacyShelf.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        let oldConfiguration = Data(#"{"isEnabled":true,"orderedFeatures":["weather"],"positionFraction":0,"hidesSensitiveValues":false}"#.utf8)
+        defaults.set(oldConfiguration, forKey: "DockMagicShelfConfiguration")
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let app = launchApp(defaultsSuite: suiteName)
+        let scroll = app.scrollViews["settings.general"].firstMatch
+        XCTAssertTrue(scroll.waitForExistence(timeout: 5))
+        scroll.scroll(byDeltaX: 0, deltaY: -650)
+        XCTAssertFalse(app.checkBoxes["settings.shelf.toggle"].exists)
+        Thread.sleep(forTimeInterval: 1)
+        XCTAssertFalse(app.descendants(matching: .any)["dockmagic.shelf"].exists)
+        XCTAssertEqual(defaults.data(forKey: "DockMagicShelfConfiguration"), oldConfiguration)
+    }
+
     func testLaunchPresentsMaiaSettingsWithRequestedSidebar() {
         let app = launchApp()
         let settings = app.windows["DockMagic Settings"]
@@ -28,7 +827,9 @@ final class DockMagicUITests: XCTestCase {
                 .waitForExistence(timeout: 3),
             "Missing the DockMagic logo and Settings title in the window header."
         )
-        XCTAssertTrue(app.staticTexts["System appearance"].exists)
+        XCTAssertFalse(
+            app.descendants(matching: .any)["settings.appearanceBadge"].exists
+        )
         XCTAssertTrue(
             app.descendants(matching: .any)["settings.appearancePicker"].exists
         )
@@ -762,7 +1563,6 @@ final class DockMagicUITests: XCTestCase {
                 "claudeCode",
                 "antigravity",
                 "openCode",
-                "augment",
                 "binance",
                 "searchConsole"
             ] {
@@ -1544,19 +2344,22 @@ final class DockMagicUITests: XCTestCase {
         let systemOption = appearanceOption("system", in: app)
         XCTAssertTrue(systemOption.waitForExistence(timeout: 3))
         systemOption.click()
-        XCTAssertTrue(
-            app.staticTexts["System appearance"]
-                .waitForExistence(timeout: 3)
+        let systemAppearanceSelected = expectation(
+            for: NSPredicate(format: "value == %@", "System"),
+            evaluatedWith: appearancePicker(in: app)
         )
+        wait(for: [systemAppearanceSelected], timeout: 3)
+        XCTAssertEqual(appearancePicker(in: app).value as? String, "System")
 
         let darkOption = appearanceOption("dark", in: app)
         XCTAssertTrue(darkOption.waitForExistence(timeout: 3))
         darkOption.click()
 
-        XCTAssertTrue(
-            app.staticTexts["Dark appearance"].waitForExistence(timeout: 3),
-            "Appearance footer did not update after selecting Dark."
+        let darkAppearanceSelected = expectation(
+            for: NSPredicate(format: "value == %@", "Dark"),
+            evaluatedWith: appearancePicker(in: app)
         )
+        wait(for: [darkAppearanceSelected], timeout: 3)
         XCTAssertEqual(appearancePicker(in: app).value as? String, "Dark")
 
         app.terminate()
@@ -1568,11 +2371,11 @@ final class DockMagicUITests: XCTestCase {
             relaunched.windows["DockMagic Settings"].waitForExistence(timeout: 5)
         )
         relaunched.activate()
-        XCTAssertTrue(
-            relaunched.staticTexts["Dark appearance"]
-                .waitForExistence(timeout: 3),
-            "Dark appearance did not persist across relaunch."
+        let persistedDarkAppearance = expectation(
+            for: NSPredicate(format: "value == %@", "Dark"),
+            evaluatedWith: appearancePicker(in: relaunched)
         )
+        wait(for: [persistedDarkAppearance], timeout: 3)
         XCTAssertEqual(
             appearancePicker(in: relaunched).value as? String,
             "Dark"
@@ -1581,10 +2384,12 @@ final class DockMagicUITests: XCTestCase {
         let restoredLightOption = appearanceOption("light", in: relaunched)
         XCTAssertTrue(restoredLightOption.waitForExistence(timeout: 3))
         restoredLightOption.click()
-        XCTAssertTrue(
-            relaunched.staticTexts["Light appearance"]
-                .waitForExistence(timeout: 3)
+        let lightAppearanceSelected = expectation(
+            for: NSPredicate(format: "value == %@", "Light"),
+            evaluatedWith: appearancePicker(in: relaunched)
         )
+        wait(for: [lightAppearanceSelected], timeout: 3)
+        XCTAssertEqual(appearancePicker(in: relaunched).value as? String, "Light")
     }
 
     func testClosingThenUsingSettingsCommandReopensSingleSettingsWindow() {
@@ -1622,7 +2427,22 @@ final class DockMagicUITests: XCTestCase {
         antigravityConnected: Bool = false,
         antigravityBridgeInstalled: Bool = false,
         antigravityExecutablePath: String? = nil,
-        openActiveFeaturePicker: Bool = false
+        openActiveFeaturePicker: Bool = false,
+        nowPlayingMode: String? = nil,
+        initialDockMode: String? = nil,
+        shelfFeatures: String? = nil,
+        shelfEdge: String? = nil,
+        shelfIconSize: String? = nil,
+        shelfMagnification: Bool? = nil,
+        reduceMotion: Bool = false,
+        preserveNativeDockApps: Bool = false,
+        hideRuntimeDockItems: Bool = false,
+        assumeShelfAccessibility: Bool = false,
+        skipAppleDockLease: Bool = false,
+        disableDockHandoff: Bool = false,
+        appDropResultPath: String? = nil,
+        trashDropResultPath: String? = nil,
+        denyShelfAccessibility: Bool = false
     ) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchEnvironment["DockMagicUITesting"] = "1"
@@ -1648,6 +2468,52 @@ final class DockMagicUITests: XCTestCase {
         app.launchEnvironment[
             "DockMagicUITestDefaultsSuite"
         ] = defaultsSuite ?? automaticDefaultsSuite
+        if denyShelfAccessibility {
+            app.launchEnvironment["DockMagicUITestDenyShelfAccessibility"] = "1"
+        }
+        if let initialDockMode {
+            app.launchEnvironment["DockMagicUITestInitialDockMode"] = initialDockMode
+        }
+        if let shelfFeatures {
+            app.launchEnvironment["DockMagicUITestShelfFeatures"] = shelfFeatures
+        }
+        if let shelfEdge {
+            app.launchEnvironment["DockMagicUITestShelfEdge"] = shelfEdge
+        }
+        if let shelfIconSize {
+            app.launchEnvironment["DockMagicUITestShelfIconSize"] = shelfIconSize
+        }
+        if let shelfMagnification {
+            app.launchEnvironment["DockMagicUITestShelfMagnification"] =
+                shelfMagnification ? "1" : "0"
+        }
+        if reduceMotion {
+            app.launchEnvironment["DockMagicUITestReduceMotion"] = "1"
+        }
+        if preserveNativeDockApps {
+            app.launchEnvironment["DockMagicUITestPreserveNativeDockApps"] = "1"
+        }
+        if hideRuntimeDockItems {
+            app.launchEnvironment["DockMagicUITestHideRuntimeDockItems"] = "1"
+        }
+        if assumeShelfAccessibility {
+            app.launchEnvironment["DockMagicUITestAssumeShelfAccessibility"] = "1"
+        }
+        if skipAppleDockLease {
+            app.launchEnvironment["DockMagicUITestSkipAppleDockLease"] = "1"
+        }
+        if disableDockHandoff {
+            app.launchEnvironment["DockMagicUITestDisableDockHandoff"] = "1"
+        }
+        if let appDropResultPath {
+            app.launchEnvironment["DockMagicUITestAppDropResult"] = appDropResultPath
+        }
+        if let trashDropResultPath {
+            app.launchEnvironment["DockMagicUITestTrashDropResult"] = trashDropResultPath
+        }
+        if let nowPlayingMode {
+            app.launchEnvironment["DockMagicUITestNowPlaying"] = nowPlayingMode
+        }
         if let updateAvailableVersion {
             app.launchEnvironment[
                 "DockMagicUITestUpdateAvailableVersion"
@@ -1704,6 +2570,15 @@ final class DockMagicUITests: XCTestCase {
         }
         app.launch()
         return app
+    }
+
+    private func rectDictionary(_ rect: CGRect) -> [String: CGFloat] {
+        [
+            "x": rect.origin.x,
+            "y": rect.origin.y,
+            "width": rect.width,
+            "height": rect.height
+        ]
     }
 
     private func makeClaudeLoginFixtureExecutable(launchCounterURL: URL? = nil) throws -> URL {

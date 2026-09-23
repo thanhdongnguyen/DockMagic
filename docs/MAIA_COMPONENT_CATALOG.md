@@ -49,10 +49,10 @@ active native mapping, superseding archived recommendations.
 | `sheet` | dsDialog; system Share/file panels native |
 | `sidebar` | Shared Settings navigation composition |
 | `skeleton` | Deferred: no current DockMagic feature requires this primitive. Inspect the pinned source before future implementation. |
-| `slider` | DSSlider / DSNativeSlider |
+| `slider` | DSSlider / DSNativeSlider; thumbless visual with native interaction |
 | `sonner` | Deferred: no current DockMagic feature requires this primitive. Inspect the pinned source before future implementation. |
 | `spinner` | DSLoadingState and native ProgressView |
-| `switch` | DSSwitchStyle |
+| `switch` | DSSwitchStyle; documented blue enabled track |
 | `table` | Shared numeric rows and feature tables; no generic data-table demand |
 | `tabs` | DSSegmentedControl and Settings navigation |
 | `textarea` | DSTextArea |

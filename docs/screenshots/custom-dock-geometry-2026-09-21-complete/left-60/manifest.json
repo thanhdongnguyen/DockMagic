@@ -1,0 +1,53 @@
+[
+  {
+    "attachments" : [
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "00006030-001C588A1AD9001C",
+        "deviceName" : "My Mac",
+        "exportedFileName" : "08DB600D-BC69-4C42-BE8B-C15191130D2A.json",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "DockMagic native-custom geometry measurements_0_0AAEDBC6-3F81-4715-9802-4094EECE4E0B.json",
+        "timestamp" : 1790005673.071
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "00006030-001C588A1AD9001C",
+        "deviceName" : "My Mac",
+        "exportedFileName" : "64E98EC9-9B8E-4D07-BD5C-4BE57F27EEA9.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "DockMagic Custom Dock element — left — 60 pt_0_4F6756B2-1EB1-450C-A7F8-9182FFBAAA1F.png",
+        "timestamp" : 1790005671.997
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "00006030-001C588A1AD9001C",
+        "deviceName" : "My Mac",
+        "exportedFileName" : "1998C5A5-B7FA-469F-893F-D25F0FBF1DF3.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "DockMagic Custom Dock — left — 60 pt_0_199209A8-DAA1-4998-B0C4-030FC9BF88FB.png",
+        "timestamp" : 1790005671.75
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "00006030-001C588A1AD9001C",
+        "deviceName" : "My Mac",
+        "exportedFileName" : "39F67284-4119-4B9E-B83F-395A0C7FCEDF.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "Native Dock element — left — 60 pt_0_963FE9B1-FDDD-42D6-8335-9CA514DFC76A.png",
+        "timestamp" : 1790005649.32
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "00006030-001C588A1AD9001C",
+        "deviceName" : "My Mac",
+        "exportedFileName" : "39000428-AAF0-4323-A52E-36FE1BEC5A0D.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "Native Dock — left — 60 pt_0_568360E9-331D-4CD0-AB11-4E16B2197E8D.png",
+        "timestamp" : 1790005649.287
+      }
+    ],
+    "testIdentifier" : "DockMagicUITests/testNativeAndCustomDockGeometryVisualMatrix()",
+    "testIdentifierURL" : "test://com.apple.xcode/DockMagic/DockMagicUITests/DockMagicUITests/testNativeAndCustomDockGeometryVisualMatrix"
+  }
+]

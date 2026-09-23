@@ -9,6 +9,10 @@ colors:
   primary-foreground-dark: "#E5E5E5"
   on-primary: "#FAFAFA"
   on-primary-dark: "#171717"
+  switch-active: "#0A84FF"
+  switch-active-dark: "#0A84FF"
+  on-switch-active: "#FFFFFF"
+  on-switch-active-dark: "#FFFFFF"
   surface: "#FFFFFF"
   surface-dark: "#0A0A0A"
   surface-raised: "#FFFFFF"
@@ -43,6 +47,41 @@ colors:
   streak-active-dark: "#57C07E"
   on-streak-active: "#121212"
   on-streak-active-dark: "#121212"
+  weather-sun: "#B45309"
+  weather-sun-dark: "#FBBF24"
+  weather-moon: "#4338CA"
+  weather-moon-dark: "#A5B4FC"
+  weather-cloud: "#465C8B"
+  weather-cloud-dark: "#CBCDE1"
+  weather-wind: "#0F766E"
+  weather-wind-dark: "#5EEAD4"
+  weather-rain: "#006BC9"
+  weather-rain-dark: "#42C6F7"
+  weather-ice: "#027A94"
+  weather-ice-dark: "#6AE4FF"
+  weather-storm: "#7E22CE"
+  weather-storm-dark: "#C4B5FD"
+  weather-scene-sun: "#216691"
+  weather-scene-sun-dark: "#15466C"
+  weather-scene-moon: "#29355F"
+  weather-scene-moon-dark: "#18213D"
+  weather-scene-cloud: "#415773"
+  weather-scene-cloud-dark: "#293C53"
+  weather-scene-wind: "#256A72"
+  weather-scene-wind-dark: "#184D57"
+  weather-scene-rain: "#295683"
+  weather-scene-rain-dark: "#1C416B"
+  weather-scene-ice: "#2B697E"
+  weather-scene-ice-dark: "#17495E"
+  weather-scene-storm: "#4A3866"
+  weather-scene-storm-dark: "#30264C"
+  on-weather-scene: "#FFFFFF"
+  calendar-birthday: "#C44958"
+  calendar-birthday-dark: "#FF8C9A"
+  calendar-holiday: "#A46508"
+  calendar-holiday-dark: "#F3BF64"
+  calendar-work: "#1F65A7"
+  calendar-work-dark: "#7DBCF2"
 typography:
   settings-title:
     fontFamily: "Geist"
@@ -152,6 +191,18 @@ components:
     textColor: "{colors.on-primary-dark}"
     typography: "{typography.dashboard-label}"
     rounded: "{rounded.md}"
+  switch-control:
+    backgroundColor: "{colors.switch-active}"
+    rounded: "{rounded.full}"
+  switch-control-dark:
+    backgroundColor: "{colors.switch-active-dark}"
+    rounded: "{rounded.full}"
+  switch-thumb:
+    backgroundColor: "{colors.on-switch-active}"
+    rounded: "{rounded.full}"
+  switch-thumb-dark:
+    backgroundColor: "{colors.on-switch-active-dark}"
+    rounded: "{rounded.full}"
   dashboard-panel:
     backgroundColor: "{colors.surface}"
     textColor: "{colors.on-surface}"
@@ -160,6 +211,76 @@ components:
   dashboard-panel-dark:
     backgroundColor: "{colors.surface-dark}"
     textColor: "{colors.on-surface-dark}"
+    typography: "{typography.dashboard-body}"
+    rounded: "{rounded.lg}"
+  weather-scene-sun:
+    backgroundColor: "{colors.weather-scene-sun}"
+    textColor: "{colors.on-weather-scene}"
+    typography: "{typography.dashboard-body}"
+    rounded: "{rounded.lg}"
+  weather-scene-sun-dark:
+    backgroundColor: "{colors.weather-scene-sun-dark}"
+    textColor: "{colors.on-weather-scene}"
+    typography: "{typography.dashboard-body}"
+    rounded: "{rounded.lg}"
+  weather-scene-moon:
+    backgroundColor: "{colors.weather-scene-moon}"
+    textColor: "{colors.on-weather-scene}"
+    typography: "{typography.dashboard-body}"
+    rounded: "{rounded.lg}"
+  weather-scene-moon-dark:
+    backgroundColor: "{colors.weather-scene-moon-dark}"
+    textColor: "{colors.on-weather-scene}"
+    typography: "{typography.dashboard-body}"
+    rounded: "{rounded.lg}"
+  weather-scene-cloud:
+    backgroundColor: "{colors.weather-scene-cloud}"
+    textColor: "{colors.on-weather-scene}"
+    typography: "{typography.dashboard-body}"
+    rounded: "{rounded.lg}"
+  weather-scene-cloud-dark:
+    backgroundColor: "{colors.weather-scene-cloud-dark}"
+    textColor: "{colors.on-weather-scene}"
+    typography: "{typography.dashboard-body}"
+    rounded: "{rounded.lg}"
+  weather-scene-wind:
+    backgroundColor: "{colors.weather-scene-wind}"
+    textColor: "{colors.on-weather-scene}"
+    typography: "{typography.dashboard-body}"
+    rounded: "{rounded.lg}"
+  weather-scene-wind-dark:
+    backgroundColor: "{colors.weather-scene-wind-dark}"
+    textColor: "{colors.on-weather-scene}"
+    typography: "{typography.dashboard-body}"
+    rounded: "{rounded.lg}"
+  weather-scene-rain:
+    backgroundColor: "{colors.weather-scene-rain}"
+    textColor: "{colors.on-weather-scene}"
+    typography: "{typography.dashboard-body}"
+    rounded: "{rounded.lg}"
+  weather-scene-rain-dark:
+    backgroundColor: "{colors.weather-scene-rain-dark}"
+    textColor: "{colors.on-weather-scene}"
+    typography: "{typography.dashboard-body}"
+    rounded: "{rounded.lg}"
+  weather-scene-ice:
+    backgroundColor: "{colors.weather-scene-ice}"
+    textColor: "{colors.on-weather-scene}"
+    typography: "{typography.dashboard-body}"
+    rounded: "{rounded.lg}"
+  weather-scene-ice-dark:
+    backgroundColor: "{colors.weather-scene-ice-dark}"
+    textColor: "{colors.on-weather-scene}"
+    typography: "{typography.dashboard-body}"
+    rounded: "{rounded.lg}"
+  weather-scene-storm:
+    backgroundColor: "{colors.weather-scene-storm}"
+    textColor: "{colors.on-weather-scene}"
+    typography: "{typography.dashboard-body}"
+    rounded: "{rounded.lg}"
+  weather-scene-storm-dark:
+    backgroundColor: "{colors.weather-scene-storm-dark}"
+    textColor: "{colors.on-weather-scene}"
     typography: "{typography.dashboard-body}"
     rounded: "{rounded.lg}"
   settings-content:
@@ -250,6 +371,18 @@ preview, swatch and legend boundaries. Never reuse data colors for controls.
 Dark sidebar selection uses the neutral accent rather than the source's
 chromatic sidebar-primary token.
 
+The user-approved enabled state of the shared `DSSwitchStyle` is the control
+extension {colors.switch-active} / {colors.switch-active-dark}; its thumb uses
+{colors.on-switch-active}. This blue identifies only an enabled binary switch.
+The thumb position, label and accessibility value preserve the state without
+color; no other action, focus, selection, status, or feature control inherits it.
+
+The user-approved CPU & RAM, Network, Storage, Clock, Calendar, Now Playing and Batteries
+marks are authored, original-color SVG identity artwork. Their solid hues stay
+inside the fixed 22 pt sidebar / Active Dock Feature logo region; they do not
+establish product palette tokens or color Settings chrome, controls, focus,
+status, text or selection.
+
 The user-approved Codex and Antigravity data accent is {colors.codex-activity}
 in Light and {colors.codex-activity-dark} in Dark, matching the supplied blue
 reference in Dark. `DesignTheme.codexActivity` colors quota progress, token
@@ -268,6 +401,31 @@ Verified streak days use the bounded {colors.streak-active} /
 continuity strip, celebration view and Recent activity in the badge detail.
 Inactive, unknown and pending days retain their shape and semantic treatment;
 the green never colors badge artwork, chrome, controls, focus or status.
+
+Weather condition colors are bounded content roles for the Weather condition
+glyphs and their current-condition scene. Sun, moon, cloud, wind, rain, ice and
+storm use matching `weather-*` glyph and `weather-scene-*` solid background
+tokens in the Weather Dock tile and hover dashboard, and behind the Calendar Dock
+date only for fresh current conditions. {colors.on-weather-scene} is the
+legible text color on these scenes. Seven SVG skies traced from original,
+generated illustrations are subdued over the solid token; the artwork suggests the condition without
+carrying meaning. The glyph silhouette, description and
+accessibility label/value still work in grayscale. Loading and unavailable
+surfaces remain neutral. Controls, focus and freshness status retain their
+semantic roles; no code-generated gradient is used.
+
+Calendar's selected-day forecast reuses the matching solid Weather scene and
+authored artwork in one bounded panel above the agenda. Eight generated,
+vector-traced pictograms in `CalendarWeather*.imageset` color only the month
+forecast marks and hourly strip. Month and selected-day pictograms render larger
+and directly on their surfaces, without a white badge or icon border. The
+month grid keeps a separate
+red event/reminder dot and occupies only the 4–6 weeks needed by the displayed
+month. Agenda hints use {colors.calendar-birthday} /
+{colors.calendar-birthday-dark}, {colors.calendar-holiday} /
+{colors.calendar-holiday-dark}, and {colors.calendar-work} /
+{colors.calendar-work-dark} only as slim content markers and labeled categories.
+These hints never recolor controls, selection, EventKit data, or the Dock tile.
 
 Accessibility adaptations are explicit: focus uses .556 Light / .708 Dark,
 strong boundaries use the same contrasting neutral family, Dock track is .6
@@ -336,18 +494,63 @@ source represents a personal streak or organization-level reported activity.
 Dock geometry remains proportional at 32/48/64/128 pt. Preview uses the same
 production renderer. Export uses its dedicated 1200 × 1200 layout and one
 artifact for Save/Copy/Share; activity and quota eligibility remain distinct.
+The Calendar Dock tile presents only abbreviated weekday, day number and
+abbreviated month, plus a bounded `danger` dot when today's selected events or
+unfinished due reminders exist. Agenda details stay in the hover dashboard;
+the date remains visible without Calendar or Reminders access. A shared Weather
+scene may sit behind this date when current conditions are at most 45 minutes
+old. With no Location access or stale data the background stays neutral; the
+date and red dot remain the focal, contrast-safe content.
 
 Dock click opens Settings immediately. Continuous hover for one second opens
 only a supported dashboard; a click cancels pending hover or closes an open
 dashboard before opening Settings. Popup interaction leases keep a dashboard
 alive while its menu, select or dialog is open.
 
+Dock Active and Shelf are exclusive modes. Dock Active keeps one feature on the
+DockMagic icon in Apple Dock. Shelf is a Dockset-like, app-owned Custom Dock
+segment: each slot uses that feature's existing `DockTileView` presentation,
+including repeated features, but suppresses the tile's outer outline in both
+Light and Dark appearances so the tile belongs to the continuous Custom Dock
+surface. Internal renderer strokes, state marks and the rounded square dashed
+`+` remain visible; the `+` stays last as new slots are added. Hover targets and
+focus belong to stable slot IDs. The Shelf uses the Custom Dock's one continuous
+adaptive material with no independent
+fill or nested blur; two semantic hairline dividers mark its boundaries. The
+previous companion panel beside Apple Dock, with separate icon-and-label
+summaries, does not satisfy Shelf. See the latest Shelf study before changing
+Dock or Settings behavior.
+
+Custom Dock uses the approved Hybrid magnification preset for Finder, Apps,
+applications, overflow, stacks, minimized windows and Trash. The item under the
+pointer reaches a nominal 1.32× scale; neighbors use cosine falloff over a
+radius of 1.75 × icon size, normally producing about 1.08–1.11× for the first
+neighbor. Motion uses `interactiveSpring(response: 0.16,
+dampingFraction: 0.88, blendDuration: 0.04)` with the visual anchor toward the
+screen: up from a bottom Dock, right from a left Dock and left from a right Dock.
+The panel never expands. The engine reduces scale only when needed to keep
+artwork within panel bounds or on its own side of the Shelf.
+
+The Shelf is a hard motion boundary: its feature slots, trailing `+` and both
+semantic dividers do not scale, shift or propagate magnification. The resize
+divider is also fixed. Only artwork or a window thumbnail transforms; the
+Button, pointer hit target, running indicator, context menu, drag/drop target
+and accessibility frame retain their original geometry. Reduce Motion resolves
+every transform to identity while preserving the user's saved magnification
+choice. New Custom Dock configurations enable this preset; a saved choice is
+retained and legacy data without the field decodes to the former disabled state.
+
 ## Elevation & Depth
 
 All app-owned surfaces are **opaque**, including sidebar, chrome, popup and
-hover panel. System/Light/Dark selects a palette, not a material. Reduce
-Transparency therefore retains the same solid surfaces. Do not add glass,
-gradients, colored glow or tinted cards. The floating host alone owns shadow:
+hover panel. The outer Custom Dock surface alone may use a public macOS
+material so it responds to wallpaper and appearance like a Dock surface;
+its Shelf group remains part of that continuous surface and uses semantic
+hairline dividers instead of another fill or material. Under Reduce Transparency the
+Custom Dock outer surface resolves to an opaque neutral role. System/Light/Dark
+selects a palette for every other surface. Do not add glass elsewhere,
+code-generated gradients, colored glow or tinted cards outside the bounded
+Weather scene artwork described above. The floating host alone owns shadow:
 primary radius 10/y 5, secondary radius 5/y 2. Nested metrics and charts use
 spacing and borders without stacked shadows.
 
@@ -359,8 +562,8 @@ spacing and borders without stacked shadows.
 | Card, dashboard panel | radius 18 |
 | Textarea, inset | radius 14 |
 | Checkbox | 16 square, radius 6 |
-| Switch | 32 × 18.4, thumb 16 |
-| Slider | track 12, thumb 16; native tracking and keyboard |
+| Switch | 32 × 18.4, thumb 16; enabled track uses the dedicated blue switch role |
+| Slider | track 12, no visible thumb; native tracking and keyboard retain the hidden knob geometry |
 | Small/keycap, row | radius 6, 8 |
 
 The complete radius scale is 6/8/10/14/18/22/26. YAML `md` maps to control,
@@ -375,7 +578,7 @@ ring arcs and brand silhouettes retain their domain geometry.
 | Buttons | `DSButtonStyle(emphasis:intent:size:)`, `DSIconButtonStyle`; loading composes spinner plus disabled interaction |
 | Label/helper/error | `DSField`; native text editing through `DSInputStyle`, `DSTextInput`, `DSSecureInput`, `DSTextArea` |
 | Selection | `DSSwitchStyle`, `DSCheckboxStyle`, `DSRadioGroup`, `DSSegmentedControl`, `DSSelect` with optional search |
-| Slider | `DSSlider` / `DSNativeSlider`, native tracking, keyboard and AX with Maia drawing |
+| Slider | `DSSlider` / `DSNativeSlider`, thumbless Maia drawing with native tracking, keyboard and AX |
 | Popup | `DSMenu`, `dsPopover`, `dsDialog`, `dsAlert`; per-window presentation/focus leases |
 | Content | `DSCard`, status badge/card, loading/empty/error, `DSProgress`, `DSMetricCard` |
 | Settings | `DSSettingsSection`, action/link/connection rows, renderer palette and production preview |
@@ -408,7 +611,7 @@ stores, call networks or persist defaults. Feature code owns formatting,
 capability, freshness, data acquisition and persistence.
 
 Feedback: button press 120 ms, row hover 160 ms, focus 140 ms; Reduce Motion
-removes movement. Value changes retain existing domain-aware motion; do not
+removes movement, including Custom Dock magnification. Value changes retain existing domain-aware motion; do not
 animate unavailable data from zero. Static Dock/export renders use final frames.
 The older motion proposal is historical where it contradicts these approved
 geometry/typography decisions; unimplemented chart-motion proposals remain
@@ -417,8 +620,7 @@ proposals.
 `DSContentButtonStyle` is the transparent content variant for chart marks,
 calendar/media controls and navigation rows: it preserves content geometry and
 selection, adds shared pressed/disabled feedback and a neutral focus ring.
-`DSMetricCard.compact` uses 16 pt values for dense metric rows (Augment); the
-standard variant uses 24 pt. Export menus use the shared 208 pt-wide
+`DSMetricCard` uses 24 pt values. Export menus use the shared 208 pt-wide
 `DSExportActions`, with 36 pt minimum action rows and optional layout caption.
 
 **Future component workflow:** check the shared library first → compare the
@@ -446,7 +648,8 @@ Settings sidebar use the same feature logo.
 - Test zero, absent/invalid, partial/stale, permission failure and retained data.
 - Keep source/build, automated test, render snapshot and real Dock/UI evidence
   separate. See the QA record for actual results and unresolved environment limits.
-- Do not reintroduce SF/blue/glass as app UI policy, decorative gradients, local
-  palettes, unsupported provider parity, or fabricated zero observations.
+- Do not reintroduce SF/blue/glass as app UI policy beyond the documented
+  `DSSwitchStyle` enabled-track exception; do not add decorative gradients,
+  local palettes, unsupported provider parity, or fabricated zero observations.
 - Keep source, bundle resources, catalog and documents synchronized; run
   `npx --yes @google/design.md@0.4.0 lint Design.md` after format changes.

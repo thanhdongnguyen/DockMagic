@@ -37,7 +37,7 @@ final class CalendarStore {
     @ObservationIgnored private var interests: Set<Interest> = []
     @ObservationIgnored private var editorController: CalendarEditorWindowController?
 
-    enum Interest { case dock, settings, editor }
+    enum Interest { case dock, shelf, settings, editor }
 
     init(provider: any CalendarProviding = EventKitCalendarProvider(),
          defaults: UserDefaults = DockMagicRuntimeDefaults.current,
@@ -99,7 +99,8 @@ final class CalendarStore {
                 title: reminder.title, start: reminder.dueDate!, end: reminder.dueDate!, isAllDay: !reminder.hasDueTime,
                 location: nil, meetingURL: nil, isReminder: true)
         }
-        return (todayEvents + projected).sorted {
+        let todayCalendarEvents = CalendarAgenda.events(events, on: currentDate, configuration: configuration)
+        return (todayCalendarEvents + projected).sorted {
             if $0.start != $1.start { return $0.start < $1.start }
             return $0.id < $1.id
         }
@@ -344,6 +345,11 @@ final class CalendarStore {
 
     static func openRemindersPrivacySettings() {
         guard let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Reminders") else { return }
+        NSWorkspace.shared.open(url)
+    }
+
+    static func openLocationPrivacySettings() {
+        guard let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_LocationServices") else { return }
         NSWorkspace.shared.open(url)
     }
 

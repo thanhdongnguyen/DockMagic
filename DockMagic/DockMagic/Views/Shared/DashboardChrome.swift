@@ -3,7 +3,7 @@ import SwiftUI
 
 enum DockHoverCardLayout {
     // Keep the rounded surface fully inside the transparent NSPanel. Explicit
-    // placement prevents AppKit from clipping its top outline at the host edge.
+    // placement prevents AppKit from clipping any outline at the host edge.
     static let panelInset: CGFloat = 6
 
     static func size(
@@ -26,9 +26,9 @@ enum DockHoverCardLayout {
         }
     }
 
-    /// The panel's transparent host keeps the same size, so moving the card
-    /// toward the Dock replaces the former pointer tip without reflowing any
-    /// dashboard content.
+    /// The panel's transparent host keeps the same size. The card occupies most
+    /// of the former pointer space while retaining `panelInset` on the Dock-facing
+    /// edge, so its rounded outline never lands on the NSPanel boundary.
     static func cardOffset(
         for dockEdge: DockHoverPointerEdge
     ) -> CGSize {
@@ -36,13 +36,13 @@ enum DockHoverCardLayout {
         case .bottom:
             CGSize(
                 width: panelInset,
-                height: panelInset + DockHoverPanelPlacement.pointerExtent
+                height: DockHoverPanelPlacement.pointerExtent
             )
         case .left:
-            CGSize(width: 0, height: panelInset)
+            CGSize(width: panelInset, height: panelInset)
         case .right:
             CGSize(
-                width: panelInset + DockHoverPanelPlacement.pointerExtent,
+                width: DockHoverPanelPlacement.pointerExtent,
                 height: panelInset
             )
         }
@@ -53,16 +53,31 @@ enum DockHoverCardLayout {
 /// owns its external inset; neither belongs in an image.
 struct DockHoverDashboardCard<Content: View>: View {
     let size: CGSize
+    var surfaceColor: Color? = nil
+    var weatherSceneBackdrop: WeatherSceneBackdrop? = nil
     @ViewBuilder let content: () -> Content
 
     var body: some View {
-        content()
-            .padding(12)
-            .frame(width: size.width, height: size.height)
-            .dsSurface(
-                RoundedRectangle(cornerRadius: DSRadius.card, style: .continuous),
-                kind: .raised
-            )
+        let shape = RoundedRectangle(
+            cornerRadius: DSRadius.card,
+            style: .continuous
+        )
+
+        ZStack {
+            if let weatherSceneBackdrop {
+                weatherSceneBackdrop
+                    .clipShape(shape)
+            }
+
+            content()
+                .padding(12)
+        }
+        .frame(width: size.width, height: size.height)
+        .dsSurface(
+            shape,
+            kind: .raised,
+            fill: surfaceColor
+        )
     }
 }
 
@@ -70,6 +85,8 @@ struct DockHoverChrome<Content: View>: View {
 
     let pointerEdge: DockHoverPointerEdge
     let panelSize: CGSize
+    var surfaceColor: Color? = nil
+    var weatherSceneBackdrop: WeatherSceneBackdrop? = nil
     @ViewBuilder let content: () -> Content
 
     var body: some View {
@@ -83,6 +100,8 @@ struct DockHoverChrome<Content: View>: View {
                 panelSize: panelSize,
                 pointerEdge: pointerEdge
             ),
+            surfaceColor: surfaceColor,
+            weatherSceneBackdrop: weatherSceneBackdrop,
             content: content
         )
     }

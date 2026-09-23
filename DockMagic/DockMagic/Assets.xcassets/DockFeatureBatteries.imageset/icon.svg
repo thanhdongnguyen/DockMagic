@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48" fill="none">
+  <title>Batteries</title>
+  <rect x="4" y="12" width="36" height="24" rx="7" fill="#007A54"/>
+  <rect x="40" y="19" width="4" height="10" rx="2" fill="#07513E"/>
+  <rect x="9" y="16.5" width="6.5" height="15" rx="2.6" fill="#A5F3D0"/>
+  <rect x="20.75" y="16.5" width="6.5" height="15" rx="2.6" fill="#55D8A8"/>
+  <rect x="32.5" y="16.5" width="3.5" height="15" rx="1.75" fill="#11B981"/>
+</svg>

@@ -1,0 +1,17 @@
+[
+  {
+    "attachments" : [
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "00006030-001C588A1AD9001C",
+        "deviceName" : "My Mac",
+        "exportedFileName" : "9A69A04F-026A-484B-9856-FDBD43360109.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "Shelf Weather dashboard on right-edge Custom Dock_0_99C9C312-AFA3-4462-8967-AE97F6BDC626.png",
+        "timestamp" : 1790007043.001
+      }
+    ],
+    "testIdentifier" : "DockMagicUITests/testShelfDockShowsDuplicateTilesAddsFeatureAndControlsDashboard()",
+    "testIdentifierURL" : "test://com.apple.xcode/DockMagic/DockMagicUITests/DockMagicUITests/testShelfDockShowsDuplicateTilesAddsFeatureAndControlsDashboard"
+  }
+]

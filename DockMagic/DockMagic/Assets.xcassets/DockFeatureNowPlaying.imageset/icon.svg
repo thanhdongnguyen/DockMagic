@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48" fill="none">
+  <title>Now Playing</title>
+  <path d="M11.1 37.7A18 18 0 1 1 37.6 13" stroke="#5540B5" stroke-width="5" stroke-linecap="round"/>
+  <path d="M14.8 30.7A11.3 11.3 0 0 1 19.9 16" stroke="#734DD1" stroke-width="3.5" stroke-linecap="round"/>
+  <path d="M18.2 29.3A7.4 7.4 0 0 1 21.6 19.4" stroke="#8B65D8" stroke-width="3" stroke-linecap="round"/>
+  <path d="M25 18.5C25 17.3 26.3 16.6 27.3 17.2L35.2 22.1C36.3 22.8 36.3 24.3 35.2 25L27.3 29.9C26.3 30.5 25 29.8 25 28.6V18.5Z" fill="#734DD1"/>
+  <rect x="39" y="18" width="4" height="12" rx="2" fill="#A97BE8"/>
+</svg>

@@ -73,12 +73,6 @@ struct BinanceSettingsView: View {
                     Text("Prioritizes search results when adding coins. Existing pairs keep their quote asset; USDT prices are not USD prices.")
                         .font(DSTypography.metadata).foregroundStyle(theme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
-                    DSDivider()
-                    LabeledContent("Dock price format", value: "Adaptive")
-                    LabeledContent("Following", value: "\(store.configuration.watchlist.count) of 20 pairs")
-                    Text("Prices shorten to fit the Dock. The dashboard shows the detailed price. Hover the Dock icon for 1 second to open the dashboard when Dock hover is enabled.")
-                        .font(DSTypography.metadata).foregroundStyle(theme.textSecondary)
-                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
         }

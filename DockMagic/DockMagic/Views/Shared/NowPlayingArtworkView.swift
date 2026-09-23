@@ -1,7 +1,8 @@
 import SwiftUI
 
-struct NowPlayingArtworkView: View {
+struct NowPlayingArtworkView: View, Equatable {
     let data: Data?
+    static func == (lhs: Self, rhs: Self) -> Bool { lhs.data == rhs.data }
     @Environment(\.designTheme) private var theme
     var body: some View {
         GeometryReader { proxy in

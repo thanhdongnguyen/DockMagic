@@ -1,0 +1,85 @@
+{
+  "environment": "DockMagic \u00b7 Built with macOS 26.2",
+  "total": 61,
+  "passed": 39,
+  "failed": 19,
+  "skipped": 3,
+  "failures": [
+    {
+      "test": "DockMagicUITests/testAntigravityCancelThenSignInStartsANewProcess()",
+      "reason": "Asynchronous wait failed: Exceeded timeout of 5 seconds, with unfulfilled expectations: \"Expect predicate `BLOCKPREDICATE(0x8ad8cc750)`\"."
+    },
+    {
+      "test": "DockMagicUITests/testAntigravityLoginCLIIsFullyVisibleInDarkAppearance()",
+      "reason": "XCTAssertTrue failed"
+    },
+    {
+      "test": "DockMagicUITests/testAntigravityLoginOpensInteractiveCLIInsideSettings()",
+      "reason": "XCTAssertTrue failed"
+    },
+    {
+      "test": "DockMagicUITests/testAppearanceSelectionUpdatesAndPersistsAcrossRelaunch()",
+      "reason": "Asynchronous wait failed: Exceeded timeout of 3 seconds, with unfulfilled expectations: \"Expect predicate `value == \"System\"` for object \"settings.appearancePicker\" Any\"."
+    },
+    {
+      "test": "DockMagicUITests/testClaudeCancelThenSignInStartsANewProcess()",
+      "reason": "Asynchronous wait failed: Exceeded timeout of 5 seconds, with unfulfilled expectations: \"Expect predicate `BLOCKPREDICATE(0x8ad8cd020)`\"."
+    },
+    {
+      "test": "DockMagicUITests/testClaudeConnectedRowIsCompactAndOffersSignOut()",
+      "reason": "XCTAssertTrue failed"
+    },
+    {
+      "test": "DockMagicUITests/testClockIsDockOnlyAndConfiguresStyleAndLocation()",
+      "reason": "XCTAssertEqual failed: (\"Optional(\"\")\") is not equal to (\"Optional(\"Digital\")\")"
+    },
+    {
+      "test": "CalendarUITests/testConnectSelectionDashboardAndPersistedPreferences()",
+      "reason": "XCTAssertTrue failed"
+    },
+    {
+      "test": "CalendarUITests/testEventEditorCreateEditDeleteAndCancel()",
+      "reason": "XCTAssertTrue failed - Attributes: Application, 0x8abc28280, pid: 51724, title: 'DockMagic', Disabled"
+    },
+    {
+      "test": "DockMagicUITests/testGeneralAppearanceControlExposesAllSupportedModes()",
+      "reason": "XCTAssertEqual failed: (\"Optional(\"\")\") is not equal to (\"Optional(\"System\")\")"
+    },
+    {
+      "test": "DockMagicUITestsLaunchTests/testLaunch()",
+      "reason": "XCTAssertTrue failed"
+    },
+    {
+      "test": "NowPlayingUITests/testLightAndUnknownDuration()",
+      "reason": "XCTAssertEqual failed: (\"XCTWaiterResult(rawValue: 2)\") is not equal to (\"XCTWaiterResult(rawValue: 1)\")"
+    },
+    {
+      "test": "MaiaUITests/testMenuEscapeAndDialogDefaultCancelActions()",
+      "reason": "XCTAssertTrue failed - Attributes: Application, 0x8ab7a4c80, pid: 61795, title: 'DockMagic', Disabled"
+    },
+    {
+      "test": "MaiaUITests/testNativeTextEditingAndDisabledAction()",
+      "reason": "XCTAssertTrue failed - Attributes: Application, 0x8ab7e7840, pid: 61920, title: 'DockMagic', Disabled"
+    },
+    {
+      "test": "DockMagicUITests/testOpeningDeveloperToolSettingsAutomaticallyPreparesCLIs()",
+      "reason": "XCTAssertTrue failed - Missing compact Claude Code installed indicator."
+    },
+    {
+      "test": "CalendarUITests/testRemindersConnectCreateCompleteReopenAndDelete()",
+      "reason": "XCTAssertTrue failed"
+    },
+    {
+      "test": "DockMagicUITests/testSearchConsoleEveryMetricTimeRangeAndDisplayMode()",
+      "reason": "Asynchronous wait failed: Exceeded timeout of 3 seconds, with unfulfilled expectations: \"Expect predicate `value == \"Clicks\"` for object \"settings.searchConsole.primaryMetric\" Any\"."
+    },
+    {
+      "test": "MaiaUITests/testSegmentedControlKeyboardSkipsDisabledAndReflectsSelection()",
+      "reason": "XCTAssertTrue failed - Attributes: Application, 0x8abacabc0, pid: 62051, title: 'DockMagic', Disabled"
+    },
+    {
+      "test": "MaiaUITests/testSelectSearchKeyboardAndAppearanceMatrix()",
+      "reason": "XCTAssertTrue failed - Attributes: Application, 0x8abad1f40, pid: 62176, title: 'DockMagic', Disabled"
+    }
+  ]
+}

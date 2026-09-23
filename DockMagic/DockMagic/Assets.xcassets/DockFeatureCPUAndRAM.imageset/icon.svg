@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48" fill="none">
+  <title>CPU and RAM</title>
+  <g fill="#006BC9">
+    <rect x="4" y="11" width="21" height="26" rx="5.5"/>
+    <rect x="9" y="7" width="3" height="5" rx="1.5"/>
+    <rect x="16.5" y="7" width="3" height="5" rx="1.5"/>
+    <rect x="9" y="36" width="3" height="5" rx="1.5"/>
+    <rect x="16.5" y="36" width="3" height="5" rx="1.5"/>
+    <rect x="1" y="17" width="4" height="3" rx="1.5"/>
+    <rect x="1" y="28" width="4" height="3" rx="1.5"/>
+  </g>
+  <rect x="8.5" y="15.5" width="12" height="17" rx="3" fill="#073B68"/>
+  <rect x="11.5" y="18.5" width="6" height="11" rx="1.6" fill="#2A8FE2"/>
+  <g fill="#007A9E">
+    <rect x="28" y="14" width="17" height="8" rx="3"/>
+    <rect x="28" y="26" width="17" height="8" rx="3"/>
+  </g>
+  <g fill="#073B68">
+    <rect x="32" y="16.5" width="2.5" height="3" rx="1"/>
+    <rect x="37" y="16.5" width="2.5" height="3" rx="1"/>
+    <rect x="32" y="28.5" width="2.5" height="3" rx="1"/>
+    <rect x="37" y="28.5" width="2.5" height="3" rx="1"/>
+  </g>
+</svg>

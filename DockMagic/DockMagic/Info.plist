@@ -31,7 +31,7 @@
 	<key>NSRemindersFullAccessUsageDescription</key>
 	<string>DockMagic displays your reminders and saves reminders you create, edit, complete, or delete in its Calendar dashboard to Apple Reminders.</string>
 	<key>NSLocationUsageDescription</key>
-	<string>DockMagic uses your current location to show local weather and the location name in the Dock preview.</string>
+	<string>DockMagic uses your current location to show local weather in Weather and Calendar, including forecasts and the Dock preview.</string>
 	<key>SUEnableAutomaticChecks</key>
 	<true/>
 	<key>SUAutomaticallyUpdate</key>
@@ -45,6 +45,6 @@
 	<key>SUVerifyUpdateBeforeExtraction</key>
 	<true/>
 	<key>NSAppleEventsUsageDescription</key>
-	<string>DockMagic reads the current song and controls playback in Spotify and Music when you connect each app.</string>
+	<string>DockMagic reads and controls playback in connected music apps and can change Apple Dock auto-hide when you enable Shelf Dock.</string>
 </dict>
 </plist>

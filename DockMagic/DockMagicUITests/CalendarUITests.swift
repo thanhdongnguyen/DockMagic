@@ -8,9 +8,11 @@ final class CalendarUITests: XCTestCase {
         UserDefaults(suiteName: suite)?.removePersistentDomain(forName: suite)
     }
 
-    func testConnectSelectionDashboardAndPersistedLayout() {
+    func testConnectSelectionDashboardAndPersistedPreferences() {
         let app = launch(access: "notDetermined", appearance: "light")
         openCalendarSettings(app)
+        XCTAssertFalse(app.staticTexts["Local weather"].exists)
+        XCTAssertFalse(app.descendants(matching: .any)["calendar.weather.attribution"].exists)
         let connect = app.buttons["calendar.connect"]
         XCTAssertTrue(connect.waitForExistence(timeout: 5), app.debugDescription)
         connect.click()
@@ -20,18 +22,19 @@ final class CalendarUITests: XCTestCase {
         XCTAssertTrue(preview.isHittable)
         preview.click()
         XCTAssertTrue(app.buttons["calendar.nextMonth"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.scrollViews["calendar.weather.hours"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.descendants(matching: .any)
+            .matching(NSPredicate(format: "label == %@", "Open-Meteo · CC BY 4.0"))
+            .firstMatch.exists)
         XCTAssertTrue(app.staticTexts["Team planning"].exists)
         screenshot(app, "Calendar dashboard — Light")
         app.buttons["calendar.nextMonth"].click()
         XCTAssertTrue(app.staticTexts["No events"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.staticTexts["No forecast for this date"].exists)
         app.buttons["calendar.today"].click()
         XCTAssertTrue(app.staticTexts["Team planning"].waitForExistence(timeout: 3))
         app.typeKey(.escape, modifierFlags: [])
-        let layout = app.buttons["settings.calendar.layout"]
-        layout.scrollToVisibleIfNeeded(in: app)
-        layout.click()
-        app.buttons["Date + agenda"].click()
-        XCTAssertEqual(layout.value as? String, "Date + agenda")
+        XCTAssertFalse(app.buttons["settings.calendar.layout"].exists)
         let allDay = app.checkBoxes["settings.calendar.allDay"]
         XCTAssertTrue(allDay.exists)
         allDay.scrollToVisibleIfNeeded(in: app)
@@ -46,9 +49,7 @@ final class CalendarUITests: XCTestCase {
         app.terminate()
         let reopened = launch(access: "fullAccess", appearance: "dark")
         openCalendarSettings(reopened)
-        let restored = reopened.buttons["settings.calendar.layout"]
-        restored.scrollToVisibleIfNeeded(in: reopened)
-        XCTAssertEqual(restored.value as? String, "Date + agenda")
+        XCTAssertFalse(reopened.buttons["settings.calendar.layout"].exists)
         XCTAssertEqual(checkboxValue(reopened.checkBoxes["settings.calendar.allDay"]), 0)
     }
 

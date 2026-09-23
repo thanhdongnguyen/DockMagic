@@ -33,11 +33,11 @@ enum DockHoverPermissionState: Equatable, Sendable {
         case .disabled:
             "DockMagic does not inspect the Dock accessibility hierarchy."
         case .needsPermission:
-            "Allow Accessibility so DockMagic can detect its own hovered Dock icon and read that icon's position."
+            "Allow Accessibility so DockMagic can read Dock position for hover dashboards and Shelf."
         case .awaitingUserAction:
             "Turn on DockMagic in Privacy & Security → Accessibility, then return here."
         case .authorized:
-            "DockMagic can detect its own Dock icon. It does not capture the screen or read keystrokes."
+            "DockMagic can read Dock position. It does not capture the screen or read keystrokes."
         }
     }
 }
@@ -165,6 +165,7 @@ final class DockHoverPermissionController {
 @MainActor
 final class DockHoverCoordinator {
     let permissionController: DockHoverPermissionController
+    var onDashboardWillShow: (() -> Void)?
 
     private let appModel: DockAppModel
     private let dockObserver: DockAccessibilityObserver
@@ -218,6 +219,7 @@ final class DockHoverCoordinator {
         }
         permissionController.synchronize(
             isEnabled: appModel.preferences.isDockHoverDashboardEnabled
+                && appModel.preferences.dockMode == .dockActive
         )
         applyConfiguration()
     }
@@ -234,6 +236,11 @@ final class DockHoverCoordinator {
         suppressesHoverUntilExit = true
         panelController.hide()
         nowPlayingPanelController.hide()
+    }
+
+    func dismissForShelf() {
+        panelController.hide()
+        nowPlayingPanelController.hideTransient()
     }
 
     func dockMenuDidClose() {
@@ -256,6 +263,7 @@ final class DockHoverCoordinator {
         withObservationTracking {
             _ = appModel.preferences.isDockHoverDashboardEnabled
             _ = appModel.preferences.activeFeature
+            _ = appModel.preferences.dockMode
             _ = permissionController.state
         } onChange: { [weak self] in
             Task { @MainActor [weak self] in
@@ -271,6 +279,7 @@ final class DockHoverCoordinator {
 
     private func applyConfiguration() {
         let isEnabled = appModel.preferences.isDockHoverDashboardEnabled
+            && appModel.preferences.dockMode == .dockActive
         let activeFeature = appModel.preferences.activeFeature
         if activeFeature != .nowPlaying { nowPlayingPanelController.hide() }
         permissionController.synchronize(isEnabled: isEnabled)
@@ -293,6 +302,7 @@ final class DockHoverCoordinator {
                 guard !self.isDockMenuPresented, !self.suppressesHoverUntilExit else {
                     return
                 }
+                self.onDashboardWillShow?()
                 if self.appModel.preferences.activeFeature == .nowPlaying {
                     self.panelController.hide()
                     self.nowPlayingPanelController.scheduleShow(anchor: anchor, appModel: self.appModel)
@@ -325,6 +335,7 @@ final class DockHoverCoordinator {
                 self.permissionController.synchronize(
                     isEnabled: self.appModel.preferences
                         .isDockHoverDashboardEnabled
+                        && self.appModel.preferences.dockMode == .dockActive
                 )
                 self.applyConfiguration()
             }
@@ -687,7 +698,7 @@ enum DockHoverPanelPlacement {
     static let nowPlayingPanelSize = CGSize(width: 572, height: 362)
     static let standardPanelSize = CGSize(width: 440, height: 304)
     static let systemMetricsPanelSize = CGSize(width: 620, height: 474)
-    static let calendarPanelSize = CGSize(width: 480, height: 620)
+    static let calendarPanelSize = CGSize(width: 480, height: 760)
     static let weatherPanelSize = CGSize(width: 440, height: 420)
     static let codexPanelSize = CGSize(width: 440, height: 556)
     static let claudeCodePanelSize = CGSize(width: 440, height: 740)
@@ -718,8 +729,6 @@ enum DockHoverPanelPlacement {
             codexPanelSize
         case .claudeCode:
             claudeCodePanelSize
-        case .augment:
-            CGSize(width: 440, height: 650)
         case .grokBuild:
             CGSize(width: 440, height: 740)
         case .openCode:
@@ -963,7 +972,7 @@ final class DockHoverPanelController {
         }
         if visibleFeature != feature { hide() }
         visibleFeature = feature
-        if appModel.preferences.activeFeature == .openCode || appModel.preferences.activeFeature == .grokBuild || appModel.preferences.activeFeature == .augment {
+        if appModel.preferences.activeFeature == .openCode || appModel.preferences.activeFeature == .grokBuild {
             panelSize.height = min(panelSize.height, max(240, anchor.screen.visibleFrame.height - 24))
         }
         if isVisible, visibleFeature == feature, panel?.frame.size == panelSize {
@@ -1079,7 +1088,7 @@ final class DockHoverPanelController {
         case .antigravity:
             .antigravity
         case .dockMagic, .systemMetrics, .network, .storage, .weather,
-             .clock, .calendar, .batteries, .github, .searchConsole, .augment, .openCode, .grokBuild, .binance, .nowPlaying:
+             .clock, .calendar, .batteries, .github, .searchConsole, .openCode, .grokBuild, .binance, .nowPlaying:
             nil
         }
     }
@@ -1130,3 +1139,148 @@ private final class DockHoverPanel: NSPanel {
     override var canBecomeKey: Bool { acceptsKeyboard }
     override var canBecomeMain: Bool { false }
 }
+
+#if DEBUG
+/// Opt-in runtime probe for the Shelf placement gate; never runs in Release.
+@MainActor
+final class DockShelfGeometryProbe {
+    static let shared = DockShelfGeometryProbe()
+
+    private var timer: Timer?
+    private var panel: NSPanel?
+    private var samples: [String] = []
+    private let outputURL = URL(fileURLWithPath: "/private/tmp/dockmagic-shelf-geometry.log")
+
+    func start() {
+        guard timer == nil else { return }
+        sample()
+        timer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
+            Task { @MainActor [weak self] in self?.sample() }
+        }
+    }
+
+    func stop() {
+        timer?.invalidate()
+        timer = nil
+        panel?.orderOut(nil)
+        panel = nil
+    }
+
+    private func sample() {
+        let timestamp = Date().formatted(.iso8601)
+        guard AXIsProcessTrusted() else {
+            record("\(timestamp) AX=untrusted")
+            panel?.orderOut(nil)
+            return
+        }
+        guard let dock = NSRunningApplication.runningApplications(
+            withBundleIdentifier: "com.apple.dock"
+        ).first else {
+            record("\(timestamp) Dock=missing")
+            panel?.orderOut(nil)
+            return
+        }
+        let application = AXUIElementCreateApplication(dock.processIdentifier)
+        AXUIElementSetMessagingTimeout(application, 0.2)
+        guard let list = findDockList(application, depth: 0),
+              let quartzFrame = frame(of: list),
+              let converted = DockHoverScreenGeometry.convert(quartzFrame: quartzFrame) else {
+            record("\(timestamp) DockList=unavailable pid=\(dock.processIdentifier) mouse=\(NSEvent.mouseLocation) screens=\(NSScreen.screens.map(\.frame))")
+            panel?.orderOut(nil)
+            return
+        }
+        let screen = converted.screen
+        let dockFrame = converted.frame
+        let children = (attribute(kAXChildrenAttribute as CFString, from: list) as? [AXUIElement]) ?? []
+        let childFrames = children.compactMap { frame(of: $0) }
+        let union = childFrames.reduce(CGRect.null) { $0.union($1) }
+        let edge = DockHoverScreenGeometry.pointerEdge(for: dockFrame, in: screen.frame)
+        let orientation = UserDefaults(suiteName: "com.apple.dock")?.string(forKey: "orientation") ?? "default"
+        let autoHide = UserDefaults(suiteName: "com.apple.dock")?.bool(forKey: "autohide") ?? false
+        let isOnScreen = screen.frame.intersects(dockFrame)
+        record("\(timestamp) edge=\(edge) autohide=\(autoHide) orientation=\(orientation) screen=\(screen.frame) visible=\(screen.visibleFrame) dockList=\(dockFrame) childUnionQuartz=\(union) childCount=\(children.count) onScreen=\(isOnScreen) mouse=\(NSEvent.mouseLocation)")
+
+        guard isOnScreen, let placement = placement(near: dockFrame, screen: screen.frame, edge: edge) else {
+            panel?.orderOut(nil)
+            return
+        }
+        let panel = panel ?? makePanel()
+        panel.setFrame(placement, display: true)
+        panel.orderFrontRegardless()
+    }
+
+    private func placement(near dock: CGRect, screen: CGRect, edge: DockHoverPointerEdge) -> CGRect? {
+        let gap: CGFloat = 8
+        switch edge {
+        case .bottom:
+            let size = CGSize(width: 110, height: 56)
+            let x = dock.minX - size.width - gap >= screen.minX + gap
+                ? dock.minX - size.width - gap
+                : dock.maxX + gap
+            guard x + size.width <= screen.maxX - gap else { return nil }
+            return CGRect(x: x, y: dock.midY - size.height / 2, width: size.width, height: size.height)
+        case .left, .right:
+            let size = CGSize(width: 56, height: 110)
+            let y = dock.minY - size.height - gap >= screen.minY + gap
+                ? dock.minY - size.height - gap
+                : dock.maxY + gap
+            guard y + size.height <= screen.maxY - gap else { return nil }
+            let x = dock.midX - size.width / 2
+            guard x >= screen.minX + gap, x + size.width <= screen.maxX - gap else { return nil }
+            return CGRect(x: x, y: y, width: size.width, height: size.height)
+        }
+    }
+
+    private func makePanel() -> NSPanel {
+        let panel = NSPanel(contentRect: CGRect(x: 0, y: 0, width: 110, height: 56),
+                            styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
+        panel.identifier = NSUserInterfaceItemIdentifier("shelfGeometry.probe")
+        panel.backgroundColor = .windowBackgroundColor
+        panel.isOpaque = true
+        panel.level = .floating
+        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .transient]
+        panel.hidesOnDeactivate = false
+        panel.hasShadow = true
+        self.panel = panel
+        return panel
+    }
+
+    private func findDockList(_ element: AXUIElement, depth: Int) -> AXUIElement? {
+        guard depth <= 5 else { return nil }
+        let role = attribute(kAXRoleAttribute as CFString, from: element) as? String
+        let children = (attribute(kAXChildrenAttribute as CFString, from: element) as? [AXUIElement]) ?? []
+        if role == (kAXListRole as String), children.contains(where: {
+            (attribute(kAXSubroleAttribute as CFString, from: $0) as? String)
+                == (kAXApplicationDockItemSubrole as String)
+        }) { return element }
+        for child in children {
+            if let found = findDockList(child, depth: depth + 1) { return found }
+        }
+        return nil
+    }
+
+    private func frame(of element: AXUIElement) -> CGRect? {
+        guard let position = attribute(kAXPositionAttribute as CFString, from: element),
+              let size = attribute(kAXSizeAttribute as CFString, from: element),
+              CFGetTypeID(position) == AXValueGetTypeID(),
+              CFGetTypeID(size) == AXValueGetTypeID() else { return nil }
+        var point = CGPoint.zero
+        var dimensions = CGSize.zero
+        guard AXValueGetValue(position as! AXValue, .cgPoint, &point),
+              AXValueGetValue(size as! AXValue, .cgSize, &dimensions) else { return nil }
+        return CGRect(origin: point, size: dimensions)
+    }
+
+    private func attribute(_ name: CFString, from element: AXUIElement) -> CFTypeRef? {
+        var value: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(element, name, &value) == .success else { return nil }
+        return value
+    }
+
+    private func record(_ line: String) {
+        samples.append(line)
+        if samples.count > 400 { samples.removeFirst(100) }
+        try? samples.joined(separator: "\n").write(to: outputURL, atomically: true, encoding: .utf8)
+    }
+}
+#endif

@@ -93,7 +93,9 @@ struct DSSelectTrigger: View {
     }
 }
 
-private struct DSSelectList<Value: Hashable>: View {
+/// Shared searchable selection content for both a DSSelect popover and a
+/// compact external trigger such as the Shelf add button.
+struct DSSelectList<Value: Hashable>: View {
     let title: String
     @Binding var selection: Value
     let options: [DSSelectOption<Value>]
@@ -163,8 +165,11 @@ private struct DSSelectList<Value: Hashable>: View {
         .font(DSTypography.body).background(theme.surfaceRaised)
         .onMoveCommand(perform: move)
         .onAppear {
-            if searchable { searchFocused = true }
-            else { active = options.first { $0.value == selection && !$0.disabled }?.value ?? options.first { !$0.disabled }?.value }
+            Task { @MainActor in
+                await Task.yield()
+                if searchable { searchFocused = true }
+                else { active = options.first { $0.value == selection && !$0.disabled }?.value ?? options.first { !$0.disabled }?.value }
+            }
         }
         .onKeyPress(.return) {
             guard !searchFocused, let active, visible.contains(where: { $0.value == active && !$0.disabled }) else { return .ignored }

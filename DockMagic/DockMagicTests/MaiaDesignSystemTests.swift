@@ -5,6 +5,32 @@ import XCTest
 @testable import DockMagic
 
 final class MaiaDesignSystemTests: XCTestCase {
+    func testSliderDoesNotRenderVisibleThumb() throws {
+        let repositoryRoot = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let slider = try String(
+            contentsOf: repositoryRoot.appending(path: "DockMagic/DockMagic/DesignSystem/Components/DSSlider.swift")
+        )
+        XCTAssertTrue(slider.contains("Preserve AppKit's native knob geometry for hit-testing"))
+        XCTAssertTrue(slider.contains("override func knobRect"))
+        XCTAssertFalse(slider.contains("NSBezierPath(ovalIn: knobRect"))
+    }
+
+    func testSwitchStyleUsesDedicatedBlueControlTokens() throws {
+        let repositoryRoot = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let controls = try String(
+            contentsOf: repositoryRoot.appending(path: "DockMagic/DockMagic/DesignSystem/Components/DSFormControls.swift")
+        )
+        XCTAssertTrue(controls.contains("theme.switchActive"))
+        XCTAssertTrue(controls.contains("theme.onSwitchActive"))
+        XCTAssertFalse(controls.contains("configuration.isOn ? theme.action : theme.surfaceInset"))
+    }
+
     func testAntigravityDashboardUsesCodexActivityDataRoles() throws {
         let root = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()
@@ -72,9 +98,6 @@ final class MaiaDesignSystemTests: XCTestCase {
         let openCode = try source(
             "DockMagic/Views/Hover/OpenCodeHoverDashboardView.swift"
         )
-        let augment = try source(
-            "DockMagic/Views/Hover/AugmentHoverDashboardView.swift"
-        )
         let rootView = try source(
             "DockMagic/Views/Shared/DockHoverDashboardRoot.swift"
         )
@@ -89,16 +112,9 @@ final class MaiaDesignSystemTests: XCTestCase {
         XCTAssertTrue(controls.contains("var dimsWhenDisabled = true"))
         XCTAssertTrue(openCode.contains("AIUsageTokenHistoryChart("))
         XCTAssertTrue(openCode.contains("dataColor: resolvedChartColor"))
-        XCTAssertTrue(augment.contains("AIUsageHistoryChart("))
-        XCTAssertTrue(augment.contains("dataColor: resolvedChartColor"))
         XCTAssertTrue(
             rootView.contains(
                 "appearance: appModel.preferences.openCodeAppearance"
-            )
-        )
-        XCTAssertTrue(
-            rootView.contains(
-                "chartColor: appModel.preferences.augmentAppearance.color"
             )
         )
     }
@@ -118,7 +134,6 @@ final class MaiaDesignSystemTests: XCTestCase {
             "DockMagic/Views/Hover/CodexHoverDashboardView.swift",
             "DockMagic/Views/Hover/ClaudeCodeHoverDashboardView.swift",
             "DockMagic/Views/Hover/AntigravityHoverDashboardView.swift",
-            "DockMagic/Views/Hover/AugmentHoverDashboardView.swift",
             "DockMagic/Views/Hover/OpenCodeHoverDashboardView.swift",
         ]
         for path in dashboards {
@@ -127,11 +142,6 @@ final class MaiaDesignSystemTests: XCTestCase {
                 "\(path) must reuse the shared daily intensity component"
             )
         }
-
-        let augment = try source("DockMagic/Views/Hover/AugmentHoverDashboardView.swift")
-        XCTAssertTrue(augment.contains("StreakContinuityStrip("))
-        XCTAssertTrue(augment.contains("presentation: .organizationActivity"))
-        XCTAssertTrue(augment.contains("AIUsageHistoryChart("))
     }
 
     @MainActor func testBundledFontWeightsAndVietnameseFallback() {

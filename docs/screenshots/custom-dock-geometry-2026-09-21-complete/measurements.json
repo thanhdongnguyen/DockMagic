@@ -1,0 +1,155 @@
+[
+  {
+    "custom": {
+      "height": 44,
+      "width": 780,
+      "x": 570,
+      "y": 1026
+    },
+    "edge": "bottom",
+    "iconSize": 30,
+    "native": {
+      "height": 44,
+      "width": 712,
+      "x": 604,
+      "y": 1026
+    },
+    "thicknessDelta": 0
+  },
+  {
+    "custom": {
+      "height": 58,
+      "width": 1088,
+      "x": 416,
+      "y": 1012
+    },
+    "edge": "bottom",
+    "iconSize": 44,
+    "native": {
+      "height": 58,
+      "width": 1014,
+      "x": 453,
+      "y": 1012
+    },
+    "thicknessDelta": 0
+  },
+  {
+    "custom": {
+      "height": 80,
+      "width": 1478,
+      "x": 221,
+      "y": 990
+    },
+    "edge": "bottom",
+    "iconSize": 60,
+    "native": {
+      "height": 80,
+      "width": 1418,
+      "x": 251,
+      "y": 990
+    },
+    "thicknessDelta": 0
+  },
+  {
+    "custom": {
+      "height": 780,
+      "width": 44,
+      "x": -1502,
+      "y": 216
+    },
+    "edge": "left",
+    "iconSize": 30,
+    "native": {
+      "height": 713,
+      "width": 44,
+      "x": -1502,
+      "y": 249
+    },
+    "thicknessDelta": 0
+  },
+  {
+    "custom": {
+      "height": 904,
+      "width": 50,
+      "x": -1502,
+      "y": 154
+    },
+    "edge": "left",
+    "iconSize": 44,
+    "native": {
+      "height": 887,
+      "width": 52,
+      "x": -1502,
+      "y": 162
+    },
+    "thicknessDelta": 2
+  },
+  {
+    "custom": {
+      "height": 904,
+      "width": 50,
+      "x": -1502,
+      "y": 154
+    },
+    "edge": "left",
+    "iconSize": 60,
+    "native": {
+      "height": 887,
+      "width": 52,
+      "x": -1502,
+      "y": 162
+    },
+    "thicknessDelta": 2
+  },
+  {
+    "custom": {
+      "height": 780,
+      "width": 44,
+      "x": 1866,
+      "y": 165
+    },
+    "edge": "right",
+    "iconSize": 30,
+    "native": {
+      "height": 713,
+      "width": 44,
+      "x": 1866,
+      "y": 199
+    },
+    "thicknessDelta": 0
+  },
+  {
+    "custom": {
+      "height": 1002,
+      "width": 55,
+      "x": 1855,
+      "y": 54
+    },
+    "edge": "right",
+    "iconSize": 44,
+    "native": {
+      "height": 979,
+      "width": 56,
+      "x": 1854,
+      "y": 65
+    },
+    "thicknessDelta": 1
+  },
+  {
+    "custom": {
+      "height": 1002,
+      "width": 55,
+      "x": 1855,
+      "y": 54
+    },
+    "edge": "right",
+    "iconSize": 60,
+    "native": {
+      "height": 979,
+      "width": 56,
+      "x": 1854,
+      "y": 65
+    },
+    "thicknessDelta": 1
+  }
+]

@@ -22,12 +22,9 @@ final class DSMaiaSliderCell: NSSliderCell {
     }
 
     override func drawKnob(_ knobRect: NSRect) {
-        let path = NSBezierPath(ovalIn: knobRect.insetBy(dx: 0.5, dy: 0.5))
-        NSColor(ProjectTheme.current.surfaceRaised).setFill()
-        path.fill()
-        NSColor(ProjectTheme.current.outlineStrong).setStroke()
-        path.lineWidth = 1
-        path.stroke()
+        // Preserve AppKit's native knob geometry for hit-testing, pointer
+        // tracking, keyboard adjustment, and accessibility without rendering
+        // a visible thumb. The filled track communicates the current value.
     }
 }
 

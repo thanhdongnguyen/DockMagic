@@ -5,8 +5,10 @@ struct DockWeatherView: View {
     let animatesChanges: Bool
 
     @Environment(\.designTheme) private var theme
+    @Environment(\.colorScheme) private var colorScheme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorSchemeContrast) private var contrast
+    @Environment(\.dockTileShowsOuterBorder) private var showsOuterBorder
 
     var body: some View {
         GeometryReader { proxy in
@@ -17,15 +19,31 @@ struct DockWeatherView: View {
             )
 
             ZStack {
-                shape.fill(theme.dockBackgroundRaised)
+                shape.fill(
+                    state.snapshot.map {
+                        $0.condition.sceneColor(
+                            isDaylight: $0.isDaylight,
+                            in: theme
+                        )
+                    } ?? theme.dockBackgroundRaised
+                )
+                if let snapshot = state.snapshot {
+                    WeatherSceneBackdrop(
+                        condition: snapshot.condition,
+                        isDaylight: snapshot.isDaylight
+                    )
+                    .clipShape(shape)
+                }
                 weatherContent(side: side)
 
-                shape.strokeBorder(
-                    theme.dockOutline.opacity(contrast == .increased ? 1 : 0.8),
-                    lineWidth: contrast == .increased
-                        ? max(1.5, side * 0.018)
-                        : max(1, side * 0.012)
-                )
+                if showsOuterBorder {
+                    shape.strokeBorder(
+                        theme.dockOutline.opacity(contrast == .increased ? 1 : 0.8),
+                        lineWidth: contrast == .increased
+                            ? max(1.5, side * 0.018)
+                            : max(1, side * 0.012)
+                    )
+                }
             }
             .frame(width: side, height: side)
             .position(x: proxy.size.width / 2, y: proxy.size.height / 2)
@@ -45,9 +63,14 @@ struct DockWeatherView: View {
         if let snapshot = state.snapshot {
             VStack(spacing: -side * 0.015) {
                 DSIcon(systemName: snapshot.condition.symbolName(isDaylight: snapshot.isDaylight))
-                    .symbolRenderingMode(.hierarchical)
                     .dsFont(size: max(10, side * 0.29), weight: .semibold)
-                    .foregroundStyle(theme.dockForeground)
+                    .foregroundStyle(
+                        snapshot.condition.sceneGlyphColor(
+                            isDaylight: snapshot.isDaylight,
+                            in: theme,
+                            colorScheme: colorScheme
+                        )
+                    )
                     .frame(height: side * 0.37)
 
                 Text(Self.temperatureLabel(snapshot.temperatureCelsius))
@@ -55,14 +78,14 @@ struct DockWeatherView: View {
                     .monospacedDigit()
                     .minimumScaleFactor(0.7)
                     .lineLimit(1)
-                    .foregroundStyle(theme.dockForeground)
+                    .foregroundStyle(theme.weatherSceneForeground)
 
                 if side >= 78, snapshot.highCelsius != nil || snapshot.lowCelsius != nil {
                     Text(highLowLabel(snapshot))
                         .dsFont(size: max(8, side * 0.085), weight: .semibold)
                         .monospacedDigit()
                         .lineLimit(1)
-                        .foregroundStyle(theme.textSecondary)
+                        .foregroundStyle(theme.weatherSceneForeground.opacity(0.9))
                 }
             }
             .padding(.horizontal, side * 0.09)
@@ -164,5 +187,38 @@ struct DockWeatherView: View {
             return nil
         }
         return DSMotion.metricChange
+    }
+}
+
+/// Static vector artwork is subdued over a semantic solid scene color.
+/// The scene remains decorative; glyphs and labels carry all weather meaning.
+struct WeatherSceneBackdrop: View {
+    let condition: WeatherCondition
+    let isDaylight: Bool?
+
+    @Environment(\.designTheme) private var theme
+    @Environment(\.colorSchemeContrast) private var contrast
+
+    var body: some View {
+        GeometryReader { proxy in
+            let role = condition.colorRole(isDaylight: isDaylight)
+            ZStack {
+                role.sceneColor(in: theme)
+
+                role.sceneArtwork()
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: proxy.size.width, height: proxy.size.height)
+                    .clipped()
+                    .opacity(
+                        contrast == .increased || proxy.size.width < 64
+                            ? 0.45 : 0.7
+                    )
+                    .blendMode(.multiply)
+            }
+            .compositingGroup()
+        }
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
     }
 }

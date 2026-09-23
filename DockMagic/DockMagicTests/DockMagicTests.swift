@@ -5,6 +5,573 @@ import XCTest
 @testable import DockMagic
 
 final class DockMagicTests: XCTestCase {
+    private final class RecycleResult: @unchecked Sendable {
+        var destinations: [URL: URL] = [:]
+        var error: Error?
+    }
+
+    @MainActor
+    func testCustomDockSlotsKeepDuplicateFeatureIdentityAndPersistMode() throws {
+        let suite = "DockMagicTests.CustomDock.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let preferences = DockPreferencesStore(defaults: defaults)
+        XCTAssertEqual(preferences.dockMode, .dockActive)
+        let selectedTile = preferences.activeFeature
+        preferences.initializeCustomDockIfNeeded()
+        preferences.addCustomDockSlot(.systemMetrics)
+        preferences.addCustomDockSlot(.systemMetrics)
+        preferences.addCustomDockSlot(.dockMagic)
+        let matches = preferences.customDockConfiguration.slots.filter { $0.feature == .systemMetrics }
+        XCTAssertEqual(matches.count, 2)
+        XCTAssertNotEqual(matches[0].id, matches[1].id)
+        preferences.moveCustomDockSlot(matches[1].id, by: -1)
+        XCTAssertEqual(preferences.customDockConfiguration.slots.first?.id, matches[1].id)
+        preferences.dockMode = .shelfDock
+        let restored = DockPreferencesStore(defaults: defaults)
+        XCTAssertEqual(restored.dockMode, .shelfDock)
+        XCTAssertEqual(restored.customDockConfiguration.slots, preferences.customDockConfiguration.slots)
+        XCTAssertEqual(restored.activeFeature, selectedTile)
+        restored.initializeCustomDockIfNeeded()
+        XCTAssertEqual(restored.customDockConfiguration.slots, preferences.customDockConfiguration.slots)
+    }
+
+    func testCustomDockConfigurationClampsSizeButDoesNotDeduplicateSlots() {
+        let first = CustomDockSlot(feature: .weather)
+        let second = CustomDockSlot(feature: .weather)
+        var config = CustomDockConfiguration()
+        config.preferredIconSize = 200
+        config.slots = [first, second, .init(feature: .dockMagic)]
+        config.normalize()
+        XCTAssertEqual(config.preferredIconSize, 128)
+        XCTAssertEqual(config.slots.map(\.id), [first.id, second.id])
+        config.preferredIconSize = 0
+        config.normalize()
+        XCTAssertEqual(config.preferredIconSize, 16)
+    }
+
+    func testCustomDockMagnificationDefaultsAndLegacyDecoding() throws {
+        XCTAssertTrue(CustomDockConfiguration().magnificationEnabled)
+
+        var saved = CustomDockConfiguration()
+        saved.magnificationEnabled = false
+        saved.slots = [.init(feature: .weather), .init(feature: .weather)]
+        let persisted = try JSONEncoder().encode(saved)
+        let roundTrip = try JSONDecoder().decode(
+            CustomDockConfiguration.self, from: persisted
+        )
+        XCTAssertFalse(roundTrip.magnificationEnabled)
+        XCTAssertEqual(roundTrip.slots, saved.slots)
+
+        var legacyObject = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: persisted) as? [String: Any]
+        )
+        legacyObject.removeValue(forKey: "magnificationEnabled")
+        let legacyData = try JSONSerialization.data(withJSONObject: legacyObject)
+        let legacy = try JSONDecoder().decode(
+            CustomDockConfiguration.self, from: legacyData
+        )
+        XCTAssertFalse(legacy.magnificationEnabled)
+        XCTAssertEqual(legacy.slots, saved.slots)
+    }
+
+    func testHybridMagnificationUsesPeakNeighborFalloffAndShelfBarrier() {
+        let first = CustomDockMagnificationItemID.system("finder")
+        let second = CustomDockMagnificationItemID.application("messages")
+        let third = CustomDockMagnificationItemID.application("photos")
+        let fourth = CustomDockMagnificationItemID.application("notes")
+        let items = [first, second, third, fourth].enumerated().map { index, id in
+            CustomDockMagnificationItem(
+                id: id,
+                frame: CGRect(x: 20 + CGFloat(index) * 48, y: 18, width: 44, height: 44),
+                group: .beforeShelf
+            )
+        }
+        let shelf = CGRect(x: 300, y: 10, width: 150, height: 60)
+        let panel = CGRect(x: 0, y: 0, width: 520, height: 80)
+        let pointer = CGPoint(x: items[1].frame.midX, y: items[1].frame.midY)
+        let result = CustomDockMagnificationEngine.resolve(
+            pointer: pointer,
+            items: items,
+            shelfFrame: shelf,
+            panelBounds: panel,
+            iconSize: 44,
+            edge: .bottom,
+            enabled: true,
+            reduceMotion: false
+        )
+
+        XCTAssertEqual(result.activeItemID, second)
+        XCTAssertEqual(result.transform(for: second).scale, 1.32, accuracy: 0.001)
+        XCTAssertEqual(result.transform(for: first).scale, 1.10, accuracy: 0.015)
+        XCTAssertEqual(result.transform(for: third).scale, 1.10, accuracy: 0.015)
+        XCTAssertEqual(result.transform(for: fourth).scale, 1, accuracy: 0.001)
+
+        let overShelf = CustomDockMagnificationEngine.resolve(
+            pointer: CGPoint(x: shelf.midX, y: shelf.midY),
+            items: items,
+            shelfFrame: shelf,
+            panelBounds: panel,
+            iconSize: 44,
+            edge: .bottom,
+            enabled: true,
+            reduceMotion: false
+        )
+        XCTAssertNil(overShelf.activeItemID)
+        XCTAssertTrue(overShelf.transforms.values.allSatisfy { $0 == .identity })
+
+        let reduced = CustomDockMagnificationEngine.resolve(
+            pointer: pointer,
+            items: items,
+            shelfFrame: shelf,
+            panelBounds: panel,
+            iconSize: 44,
+            edge: .bottom,
+            enabled: true,
+            reduceMotion: true
+        )
+        XCTAssertNil(reduced.activeItemID)
+        XCTAssertTrue(reduced.transforms.values.allSatisfy { $0 == .identity })
+    }
+
+    func testHybridMagnificationClampsToPanelAndShelfOnEveryEdge() {
+        for edge in CustomDockEdge.allCases {
+            let vertical = edge != .bottom
+            let id = CustomDockMagnificationItemID.system("finder")
+            let itemFrame = vertical
+                ? CGRect(x: 7, y: 20, width: 44, height: 44)
+                : CGRect(x: 20, y: 7, width: 44, height: 44)
+            let shelf = vertical
+                ? CGRect(x: 0, y: 100, width: 58, height: 100)
+                : CGRect(x: 100, y: 0, width: 100, height: 58)
+            let panel = vertical
+                ? CGRect(x: 0, y: 0, width: 58, height: 300)
+                : CGRect(x: 0, y: 0, width: 300, height: 58)
+            let result = CustomDockMagnificationEngine.resolve(
+                pointer: CGPoint(x: itemFrame.midX, y: itemFrame.midY),
+                items: [.init(id: id, frame: itemFrame, group: .beforeShelf)],
+                shelfFrame: shelf,
+                panelBounds: panel,
+                iconSize: 44,
+                edge: edge,
+                enabled: true,
+                reduceMotion: false
+            )
+            let transform = result.transform(for: id)
+            XCTAssertLessThanOrEqual(transform.scale, 58 / 44, "\(edge)")
+            switch edge {
+            case .bottom:
+                XCTAssertGreaterThan(transform.yOffset, 0)
+            case .left:
+                XCTAssertLessThan(transform.xOffset, 0)
+            case .right:
+                XCTAssertGreaterThan(transform.xOffset, 0)
+            }
+        }
+
+        let adjacent = CustomDockMagnificationItemID.application("adjacent")
+        let frame = CGRect(x: 240, y: 18, width: 44, height: 44)
+        let shelf = CGRect(x: 288, y: 0, width: 160, height: 80)
+        let result = CustomDockMagnificationEngine.resolve(
+            pointer: CGPoint(x: frame.midX, y: frame.midY),
+            items: [.init(id: adjacent, frame: frame, group: .beforeShelf)],
+            shelfFrame: shelf,
+            panelBounds: CGRect(x: 0, y: 0, width: 520, height: 80),
+            iconSize: 44,
+            edge: .bottom,
+            enabled: true,
+            reduceMotion: false
+        )
+        let transform = result.transform(for: adjacent)
+        let visualMaximum = frame.midX + transform.xOffset
+            + frame.width * transform.scale / 2
+        XCTAssertLessThanOrEqual(visualMaximum, shelf.minX - 0.5 + 0.001)
+    }
+
+    func testHybridMagnificationDisabledAndShelfGroupsStayIndependent() {
+        let before = CustomDockMagnificationItemID.application("before")
+        let after = CustomDockMagnificationItemID.application("after")
+        let beforeItem = CustomDockMagnificationItem(
+            id: before,
+            frame: CGRect(x: 40, y: 8, width: 44, height: 44),
+            group: .beforeShelf
+        )
+        let afterItem = CustomDockMagnificationItem(
+            id: after,
+            frame: CGRect(x: 270, y: 8, width: 44, height: 44),
+            group: .afterShelf
+        )
+        let disabled = CustomDockMagnificationEngine.resolve(
+            pointer: CGPoint(x: beforeItem.frame.midX, y: beforeItem.frame.midY),
+            items: [beforeItem, afterItem],
+            shelfFrame: CGRect(x: 120, y: 0, width: 120, height: 58),
+            panelBounds: CGRect(x: 0, y: 0, width: 360, height: 58),
+            iconSize: 44,
+            edge: .bottom,
+            enabled: false,
+            reduceMotion: false
+        )
+        XCTAssertNil(disabled.activeItemID)
+        XCTAssertEqual(disabled.transform(for: before), .identity)
+        XCTAssertEqual(disabled.transform(for: after), .identity)
+
+        let activeAfter = CustomDockMagnificationEngine.resolve(
+            pointer: CGPoint(x: afterItem.frame.midX, y: afterItem.frame.midY),
+            items: [beforeItem, afterItem],
+            shelfFrame: CGRect(x: 120, y: 0, width: 120, height: 58),
+            panelBounds: CGRect(x: 0, y: 0, width: 360, height: 58),
+            iconSize: 44,
+            edge: .bottom,
+            enabled: true,
+            reduceMotion: false
+        )
+        XCTAssertEqual(activeAfter.activeItemID, after)
+        XCTAssertGreaterThan(activeAfter.transform(for: after).scale, 1)
+        XCTAssertEqual(activeAfter.transform(for: before), .identity)
+    }
+
+    func testHybridMagnificationVisualBoundsAtEverySupportedSizeAndEdge() {
+        for iconSize in [16.0, 30.0, 44.0, 60.0, 128.0] {
+            for edge in CustomDockEdge.allCases {
+                let vertical = edge != .bottom
+                let thickness = iconSize + 14
+                let panel = vertical
+                    ? CGRect(x: 0, y: 0, width: thickness, height: iconSize * 8)
+                    : CGRect(x: 0, y: 0, width: iconSize * 8, height: thickness)
+                let shelf = vertical
+                    ? CGRect(x: 0, y: iconSize * 4, width: thickness, height: iconSize * 2)
+                    : CGRect(x: iconSize * 4, y: 0, width: iconSize * 2, height: thickness)
+                let leadingID = CustomDockMagnificationItemID.system("leading-\(edge)-\(iconSize)")
+                let shelfAdjacentID = CustomDockMagnificationItemID.application(
+                    "adjacent-\(edge)-\(iconSize)"
+                )
+                let trailingID = CustomDockMagnificationItemID.stack(UUID())
+                let crossOrigin = (thickness - iconSize) / 2
+                let items: [CustomDockMagnificationItem] = vertical
+                    ? [
+                        .init(
+                            id: leadingID,
+                            frame: CGRect(x: crossOrigin, y: 1, width: iconSize, height: iconSize),
+                            group: .beforeShelf
+                        ),
+                        .init(
+                            id: shelfAdjacentID,
+                            frame: CGRect(
+                                x: crossOrigin,
+                                y: shelf.minY - iconSize - 1,
+                                width: iconSize,
+                                height: iconSize
+                            ),
+                            group: .beforeShelf
+                        ),
+                        .init(
+                            id: trailingID,
+                            frame: CGRect(
+                                x: crossOrigin,
+                                y: shelf.maxY + 1,
+                                width: iconSize,
+                                height: iconSize
+                            ),
+                            group: .afterShelf
+                        )
+                    ]
+                    : [
+                        .init(
+                            id: leadingID,
+                            frame: CGRect(x: 1, y: crossOrigin, width: iconSize, height: iconSize),
+                            group: .beforeShelf
+                        ),
+                        .init(
+                            id: shelfAdjacentID,
+                            frame: CGRect(
+                                x: shelf.minX - iconSize - 1,
+                                y: crossOrigin,
+                                width: iconSize,
+                                height: iconSize
+                            ),
+                            group: .beforeShelf
+                        ),
+                        .init(
+                            id: trailingID,
+                            frame: CGRect(
+                                x: shelf.maxX + 1,
+                                y: crossOrigin,
+                                width: iconSize,
+                                height: iconSize
+                            ),
+                            group: .afterShelf
+                        )
+                    ]
+
+                for item in items {
+                    let result = CustomDockMagnificationEngine.resolve(
+                        pointer: CGPoint(x: item.frame.midX, y: item.frame.midY),
+                        items: items,
+                        shelfFrame: shelf,
+                        panelBounds: panel,
+                        iconSize: iconSize,
+                        edge: edge,
+                        enabled: true,
+                        reduceMotion: false
+                    )
+                    let transform = result.transform(for: item.id)
+                    let visual = magnifiedFrame(
+                        of: item.frame,
+                        transform: transform,
+                        edge: edge
+                    )
+                    XCTAssertTrue(
+                        panel.insetBy(dx: -0.001, dy: -0.001).contains(visual),
+                        "Visual escaped panel for size \(iconSize), edge \(edge): \(visual)"
+                    )
+                    XCTAssertFalse(
+                        visual.intersects(shelf),
+                        "Visual crossed Shelf for size \(iconSize), edge \(edge): \(visual)"
+                    )
+                }
+            }
+        }
+    }
+
+    func testHybridMagnificationCalculationStaysWithin120HzBudget() {
+        let iconSize: CGFloat = 44
+        let items = (0..<80).map { index in
+            CustomDockMagnificationItem(
+                id: .application("performance-\(index)"),
+                frame: CGRect(x: CGFloat(index) * 48 + 8, y: 8, width: 44, height: 44),
+                group: index < 40 ? .beforeShelf : .afterShelf
+            )
+        }
+        let shelf = CGRect(x: 1_930, y: 0, width: 120, height: 58)
+        let panel = CGRect(x: 0, y: 0, width: 4_000, height: 58)
+        let iterations = 2_000
+        let start = ProcessInfo.processInfo.systemUptime
+        for iteration in 0..<iterations {
+            let source = items[iteration % items.count]
+            _ = CustomDockMagnificationEngine.resolve(
+                pointer: CGPoint(x: source.frame.midX, y: source.frame.midY),
+                items: items,
+                shelfFrame: shelf,
+                panelBounds: panel,
+                iconSize: iconSize,
+                edge: .bottom,
+                enabled: true,
+                reduceMotion: false
+            )
+        }
+        let averageSeconds = (ProcessInfo.processInfo.systemUptime - start)
+            / Double(iterations)
+        XCTAssertLessThan(
+            averageSeconds,
+            1.0 / 120.0,
+            "Pure magnification calculation exceeded one 120 Hz frame: \(averageSeconds)s"
+        )
+    }
+
+    private func magnifiedFrame(
+        of frame: CGRect,
+        transform: CustomDockMagnificationTransform,
+        edge: CustomDockEdge
+    ) -> CGRect {
+        let scaledSize = CGSize(
+            width: frame.width * transform.scale,
+            height: frame.height * transform.scale
+        )
+        let origin: CGPoint = switch edge {
+        case .bottom:
+            CGPoint(
+                x: frame.midX - scaledSize.width / 2 + transform.xOffset,
+                y: frame.maxY - scaledSize.height + transform.yOffset
+            )
+        case .left:
+            CGPoint(
+                x: frame.minX + transform.xOffset,
+                y: frame.midY - scaledSize.height / 2 + transform.yOffset
+            )
+        case .right:
+            CGPoint(
+                x: frame.maxX - scaledSize.width + transform.xOffset,
+                y: frame.midY - scaledSize.height / 2 + transform.yOffset
+            )
+        }
+        return CGRect(origin: origin, size: scaledSize)
+    }
+
+    @MainActor
+    func testCustomDockTrashReadsStateAndRecyclesOnlyTheTestFile() async throws {
+        let marker = "/private/tmp/dockmagic-custom-dock-trash-integration"
+        try XCTSkipUnless(
+            FileManager.default.fileExists(atPath: marker),
+            "This test deliberately moves one generated temporary file through Trash."
+        )
+        let suite = "DockMagicTests.CustomDockTrash.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let runtime = CustomDockRuntime(
+            preferences: DockPreferencesStore(defaults: defaults)
+        )
+        runtime.refresh()
+        for _ in 0..<100 where runtime.trashState == .unknown {
+            try await Task.sleep(for: .milliseconds(100))
+        }
+        XCTAssertNotEqual(
+            runtime.trashState,
+            .unknown,
+            "Finder did not provide a reliable empty/full Trash state."
+        )
+
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(
+            "DockMagicTrashQA-\(UUID().uuidString)",
+            isDirectory: true
+        )
+        try FileManager.default.createDirectory(
+            at: folder,
+            withIntermediateDirectories: true
+        )
+        let source = folder.appendingPathComponent("generated-test-file.txt")
+        try Data("DockMagic Trash integration test".utf8).write(to: source)
+        let result = RecycleResult()
+        defer {
+            try? FileManager.default.removeItem(at: folder)
+            for destination in result.destinations.values {
+                try? FileManager.default.removeItem(at: destination)
+            }
+        }
+        let completed = expectation(description: "NSWorkspace.recycle completed")
+        runtime.recycle([source]) { destinations, error in
+            result.destinations = destinations
+            result.error = error
+            completed.fulfill()
+        }
+        await fulfillment(of: [completed], timeout: 10)
+
+        XCTAssertNil(result.error)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: source.path))
+        let recycled = try XCTUnwrap(result.destinations[source])
+        XCTAssertTrue(FileManager.default.fileExists(atPath: recycled.path))
+
+        try FileManager.default.moveItem(at: recycled, to: source)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: source.path))
+        try FileManager.default.removeItem(at: folder)
+    }
+
+    @MainActor
+    func testCustomDockLayoutKeepsSystemAndAddControlsOnEveryEdge() throws {
+        let suite = "DockMagicTests.CustomDockGeometry.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let runtime = CustomDockRuntime(preferences: DockPreferencesStore(defaults: defaults))
+        let screen = try XCTUnwrap(NSScreen.main)
+        for edge in CustomDockEdge.allCases {
+            for size in [30.0, 44.0, 60.0] {
+                var config = CustomDockConfiguration()
+                config.edge = edge
+                config.preferredIconSize = size
+                config.slots = (0..<40).map { _ in .init(feature: .calendar) }
+                let layout = CustomDockLayout(configuration: config,
+                                              runtime: runtime, screen: screen)
+                XCTAssertTrue(screen.frame.insetBy(dx: 0, dy: 0).contains(layout.frame), "\(edge), \(size)")
+                XCTAssertGreaterThanOrEqual(layout.iconSize, 16)
+                XCTAssertLessThanOrEqual(layout.iconSize, size)
+                XCTAssertEqual(layout.slots.count + layout.overflowCount, config.slots.count)
+            }
+        }
+        for (size, nativeThickness) in [(30.0, 44.0), (44.0, 58.0), (60.0, 80.0)] {
+            var config = CustomDockConfiguration()
+            config.preferredIconSize = size
+            let layout = CustomDockLayout(configuration: config,
+                                          runtime: runtime, screen: screen)
+            XCTAssertEqual(layout.frame.height, nativeThickness, accuracy: 0.01)
+            XCTAssertEqual(layout.frame.minY, screen.frame.minY + 10, accuracy: 0.01)
+        }
+    }
+
+    func testShelfPlacementUsesOnlyFreeDockEdgeAndOverflows() throws {
+        let screen = CGRect(x: 0, y: 0, width: 1920, height: 1080)
+        let dock = CGRect(x: 407, y: 10, width: 1106, height: 58)
+        let features: [DockFeature] = [.systemMetrics, .weather, .calendar,
+                                       .nowPlaying, .codex, .claudeCode,
+                                       .antigravity, .openCode, .binance]
+        let layout = try XCTUnwrap(DockShelfPlacementEngine.place(
+            dockFrame: dock, screenFrame: screen, edge: .bottom,
+            features: features, positionFraction: 0))
+        XCTAssertEqual(layout.frame.height, 56)
+        XCTAssertFalse(layout.frame.intersects(dock))
+        XCTAssertEqual(layout.side, .before)
+        XCTAssertEqual(layout.style, .icon)
+        XCTAssertEqual(layout.visibleFeatures + layout.overflowFeatures, features)
+        XCTAssertFalse(layout.overflowFeatures.isEmpty)
+
+        let far = try XCTUnwrap(DockShelfPlacementEngine.place(
+            dockFrame: dock, screenFrame: screen, edge: .bottom,
+            features: features, positionFraction: 1))
+        XCTAssertFalse(far.frame.intersects(dock))
+        XCTAssertLessThan(far.frame.minX, layout.frame.minX)
+
+        let crowded = CGRect(x: 30, y: 10, width: 840, height: 58)
+        XCTAssertNil(DockShelfPlacementEngine.place(
+            dockFrame: crowded, screenFrame: CGRect(x: 0, y: 0, width: 900, height: 1080),
+            edge: .bottom, features: [.weather], positionFraction: 0))
+
+        let narrowDock = CGRect(x: 154, y: 10, width: 650, height: 58)
+        let overflowOnly = try XCTUnwrap(DockShelfPlacementEngine.place(
+            dockFrame: narrowDock, screenFrame: CGRect(x: 0, y: 0, width: 900, height: 1080),
+            edge: .bottom, features: [.weather], positionFraction: 0))
+        XCTAssertTrue(overflowOnly.visibleFeatures.isEmpty)
+        XCTAssertEqual(overflowOnly.overflowFeatures, [.weather])
+        XCTAssertFalse(overflowOnly.frame.intersects(narrowDock))
+    }
+
+    func testShelfPlacementHandlesBothVerticalDockEdges() throws {
+        let screen = CGRect(x: 0, y: 0, width: 1920, height: 1080)
+        for (edge, x) in [(DockHoverPointerEdge.left, 10.0), (.right, 1852.0)] {
+            let dock = CGRect(x: x, y: 230, width: 58, height: 620)
+            let layout = try XCTUnwrap(DockShelfPlacementEngine.place(
+                dockFrame: dock, screenFrame: screen, edge: edge,
+                features: [.calendar], positionFraction: 0))
+            XCTAssertEqual(layout.frame.width, 56)
+            XCTAssertFalse(layout.frame.intersects(dock))
+            XCTAssertTrue(screen.contains(layout.frame))
+        }
+    }
+
+    func testShelfPlacementKeepsSecondaryScreenCoordinatesAndDockGap() throws {
+        let screen = CGRect(x: -1512, y: -982, width: 1512, height: 982)
+        let dock = CGRect(x: -1180, y: -970, width: 850, height: 50)
+        let layout = try XCTUnwrap(DockShelfPlacementEngine.place(
+            dockFrame: dock, screenFrame: screen, edge: .bottom,
+            features: [.weather], positionFraction: 0.5))
+        XCTAssertTrue(screen.insetBy(dx: 8, dy: 8).contains(layout.frame))
+        XCTAssertFalse(layout.frame.intersects(dock))
+        XCTAssertGreaterThanOrEqual(dock.minX - layout.frame.maxX, 12)
+    }
+
+    @MainActor
+    func testShelfPreferencesNormalizeAndRestoreSeparatelyFromDockTile() {
+        let suite = "DockMagicTests.Shelf.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let preferences = DockPreferencesStore(defaults: defaults)
+        XCTAssertFalse(preferences.shelfConfiguration.isEnabled)
+        XCTAssertTrue(preferences.shelfConfiguration.orderedFeatures.isEmpty)
+        let activeFeature = preferences.activeFeature
+        preferences.setShelfEnabled(true)
+        preferences.addShelfFeature(.dockMagic)
+        preferences.addShelfFeature(.systemMetrics)
+        preferences.addShelfFeature(.systemMetrics)
+        preferences.addShelfFeature(.network)
+        preferences.addShelfFeature(.weather)
+        preferences.moveShelfFeature(.weather, by: -1)
+        preferences.setShelfHidesSensitiveValues(true)
+        preferences.setShelfPositionFraction(2)
+        XCTAssertEqual(preferences.shelfConfiguration.orderedFeatures,
+                       [.weather, .systemMetrics])
+        XCTAssertEqual(preferences.activeFeature, activeFeature)
+        let restored = DockPreferencesStore(defaults: defaults)
+        XCTAssertEqual(restored.shelfConfiguration, preferences.shelfConfiguration)
+        XCTAssertEqual(restored.shelfConfiguration.positionFraction, 1)
+    }
+
     @MainActor
     func testMaiaNestedOverlayLeasesKeepEveryHoverPanelAliveAndRelease() async throws {
         let model = makeAppModel()
@@ -277,7 +844,6 @@ final class DockMagicTests: XCTestCase {
             .claudeCode: .claudeCode,
             .antigravity: .antigravity,
             .openCode: .openCode,
-            .augment: .augment,
             .grokBuild: GrokBuildFeatureGate.experimentalEnabled ? .grokBuild : .general,
             .binance: .binance,
             .searchConsole: .searchConsole
@@ -425,7 +991,6 @@ final class DockMagicTests: XCTestCase {
                 .claudeCode,
                 .antigravity,
                 .openCode,
-                .augment,
                 .grokBuild,
                 .binance,
                 .searchConsole
@@ -447,7 +1012,7 @@ final class DockMagicTests: XCTestCase {
     func testOnlyImplementedFeaturesExposeHoverDashboards() {
         XCTAssertEqual(
             DockFeature.allCases.filter(\.hasHoverDashboard),
-            [.systemMetrics, .weather, .calendar, .nowPlaying, .codex, .claudeCode, .antigravity, .openCode, .augment]
+            [.systemMetrics, .weather, .calendar, .nowPlaying, .codex, .claudeCode, .antigravity, .openCode]
                 + (GrokBuildFeatureGate.experimentalEnabled ? [.grokBuild] : []) + [.binance]
         )
     }
@@ -782,7 +1347,7 @@ final class DockMagicTests: XCTestCase {
         )
     }
 
-    func testDockHoverCardLayoutRemovesArrowAndUsesItsFormerTip() throws {
+    func testDockHoverCardLayoutKeepsRoundedSurfaceInsidePanelAfterRemovingArrow() throws {
         let panelSize = CGSize(width: 440, height: 556)
         let pointerExtent = DockHoverPanelPlacement.pointerExtent
         let inset = DockHoverCardLayout.panelInset
@@ -796,16 +1361,32 @@ final class DockMagicTests: XCTestCase {
         )
         XCTAssertEqual(
             DockHoverCardLayout.cardOffset(for: .bottom),
-            CGSize(width: inset, height: inset + pointerExtent)
+            CGSize(width: inset, height: pointerExtent)
         )
         XCTAssertEqual(
             DockHoverCardLayout.cardOffset(for: .left),
-            CGSize(width: 0, height: inset)
+            CGSize(width: inset, height: inset)
         )
         XCTAssertEqual(
             DockHoverCardLayout.cardOffset(for: .right),
-            CGSize(width: inset + pointerExtent, height: inset)
+            CGSize(width: pointerExtent, height: inset)
         )
+
+        for edge in [
+            DockHoverPointerEdge.bottom,
+            DockHoverPointerEdge.left,
+            DockHoverPointerEdge.right,
+        ] {
+            let size = DockHoverCardLayout.size(
+                panelSize: panelSize,
+                pointerEdge: edge
+            )
+            let offset = DockHoverCardLayout.cardOffset(for: edge)
+            XCTAssertGreaterThanOrEqual(offset.width, inset)
+            XCTAssertGreaterThanOrEqual(offset.height, inset)
+            XCTAssertLessThanOrEqual(offset.width + size.width, panelSize.width - inset)
+            XCTAssertLessThanOrEqual(offset.height + size.height, panelSize.height - inset)
+        }
 
         let projectDirectory = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()
@@ -3872,6 +4453,14 @@ final class DockMagicTests: XCTestCase {
         XCTAssertEqual(OpenMeteoWeatherCode.metadata(for: 86).condition, .snow)
         XCTAssertEqual(OpenMeteoWeatherCode.metadata(for: 99).condition, .thunderstorm)
         XCTAssertEqual(OpenMeteoWeatherCode.metadata(for: -1).condition, .unknown)
+
+        XCTAssertEqual(WeatherCondition.clear.colorRole(), .sun)
+        XCTAssertEqual(WeatherCondition.clear.colorRole(isDaylight: false), .moon)
+        XCTAssertEqual(WeatherCondition.cloudy.colorRole(), .cloud)
+        XCTAssertEqual(WeatherCondition.wind.colorRole(), .wind)
+        XCTAssertEqual(WeatherCondition.rain.colorRole(), .rain)
+        XCTAssertEqual(WeatherCondition.snow.colorRole(), .ice)
+        XCTAssertEqual(WeatherCondition.thunderstorm.colorRole(), .storm)
     }
 
     @MainActor
@@ -3935,7 +4524,19 @@ final class DockMagicTests: XCTestCase {
                 DockMagicThemeRoot(
                     content: DockHoverChrome(
                         pointerEdge: .bottom,
-                        panelSize: DockHoverPanelPlacement.weatherPanelSize
+                        panelSize: DockHoverPanelPlacement.weatherPanelSize,
+                        surfaceColor: variant.state.snapshot.map {
+                            $0.condition.sceneColor(
+                                isDaylight: $0.isDaylight,
+                                in: ProjectTheme.current
+                            )
+                        },
+                        weatherSceneBackdrop: variant.state.snapshot.map {
+                            WeatherSceneBackdrop(
+                                condition: $0.condition,
+                                isDaylight: $0.isDaylight
+                            )
+                        }
                     ) {
                         WeatherHoverDashboardView(
                             state: variant.state,
@@ -5851,12 +6452,29 @@ final class DockMagicTests: XCTestCase {
             (name: String, light: String, dark: String, lightAlpha: CGFloat, darkAlpha: CGFloat)
         ] = [
             ("DSAction", "#171717", "#E5E5E5", 1, 1),
+            ("DSSwitchActive", "#0A84FF", "#0A84FF", 1, 1),
+            ("DSOnSwitchActive", "#FFFFFF", "#FFFFFF", 1, 1),
             ("DSDanger", "#E7000B", "#FF6467", 1, 1),
             ("DSWarning", "#FF8D28", "#FF9230", 1, 1),
             ("DSInformation", "#00C0E8", "#3CD3FE", 1, 1),
             ("DSProcessing", "#00C8B3", "#00DAC3", 1, 1),
             ("DSStreakActive", "#43A66A", "#57C07E", 1, 1),
             ("DSOnStreakActive", "#121212", "#121212", 1, 1),
+            ("DSWeatherSun", "#B45309", "#FBBF24", 1, 1),
+            ("DSWeatherMoon", "#4338CA", "#A5B4FC", 1, 1),
+            ("DSWeatherCloud", "#465C8B", "#CBCDE1", 1, 1),
+            ("DSWeatherWind", "#0F766E", "#5EEAD4", 1, 1),
+            ("DSWeatherRain", "#006BC9", "#42C6F7", 1, 1),
+            ("DSWeatherIce", "#027A94", "#6AE4FF", 1, 1),
+            ("DSWeatherStorm", "#7E22CE", "#C4B5FD", 1, 1),
+            ("DSWeatherSceneSun", "#216691", "#15466C", 1, 1),
+            ("DSWeatherSceneMoon", "#29355F", "#18213D", 1, 1),
+            ("DSWeatherSceneCloud", "#415773", "#293C53", 1, 1),
+            ("DSWeatherSceneWind", "#256A72", "#184D57", 1, 1),
+            ("DSWeatherSceneRain", "#295683", "#1C416B", 1, 1),
+            ("DSWeatherSceneIce", "#2B697E", "#17495E", 1, 1),
+            ("DSWeatherSceneStorm", "#4A3866", "#30264C", 1, 1),
+            ("DSWeatherSceneForeground", "#FFFFFF", "#FFFFFF", 1, 1),
             ("DSOpaqueSurface", "#FFFFFF", "#0A0A0A", 1, 1),
             ("DSOpaqueSurfaceRaised", "#FFFFFF", "#171717", 1, 1)
         ]
@@ -5874,6 +6492,275 @@ final class DockMagicTests: XCTestCase {
                 expectedHex: item.dark,
                 expectedAlpha: item.darkAlpha
             )
+        }
+    }
+
+    @MainActor
+    func testWeatherConditionGlyphColorsMeetContrastInBothAppearances() {
+        let theme = ProjectTheme.current
+        let glyphColors = [
+            theme.weatherSun,
+            theme.weatherMoon,
+            theme.weatherCloud,
+            theme.weatherWind,
+            theme.weatherRain,
+            theme.weatherIce,
+            theme.weatherStorm
+        ]
+
+        for scheme: ColorScheme in [.light, .dark] {
+            let background = ProjectTheme.resolvedColor(
+                theme.dockBackgroundRaised,
+                colorScheme: scheme
+            )
+            for color in glyphColors {
+                let resolved = ProjectTheme.resolvedColor(
+                    color,
+                    colorScheme: scheme
+                )
+                XCTAssertGreaterThanOrEqual(
+                    ProjectTheme.rendererContrast(resolved, background),
+                    3,
+                    "Weather glyph must remain visible in \(scheme)"
+                )
+            }
+        }
+    }
+
+    @MainActor
+    func testWeatherScenesKeepTextAndGlyphsLegibleInBothAppearances() {
+        let theme = ProjectTheme.current
+        let conditions: [(WeatherCondition, Bool)] = [
+            (.clear, true),
+            (.clear, false),
+            (.cloudy, true),
+            (.wind, true),
+            (.rain, true),
+            (.snow, true),
+            (.thunderstorm, true)
+        ]
+
+        for scheme: ColorScheme in [.light, .dark] {
+            let foreground = ProjectTheme.resolvedColor(
+                theme.weatherSceneForeground,
+                colorScheme: scheme
+            )
+            for (condition, isDaylight) in conditions {
+                let backgroundColor = condition.sceneColor(
+                    isDaylight: isDaylight,
+                    in: theme
+                )
+                let background = ProjectTheme.resolvedColor(
+                    backgroundColor,
+                    colorScheme: scheme
+                )
+                XCTAssertGreaterThanOrEqual(
+                    ProjectTheme.rendererContrast(foreground, background),
+                    4.5,
+                    "Scene text must remain legible for \(condition) in \(scheme)"
+                )
+                let secondary = DockColor(
+                    red: foreground.red * 0.9 + background.red * 0.1,
+                    green: foreground.green * 0.9 + background.green * 0.1,
+                    blue: foreground.blue * 0.9 + background.blue * 0.1
+                )
+                XCTAssertGreaterThanOrEqual(
+                    ProjectTheme.rendererContrast(secondary, background),
+                    4.5,
+                    "Secondary scene text must remain legible for \(condition) in \(scheme)"
+                )
+                let staleStatus = ProjectTheme.resolvedColor(
+                    ProjectTheme.rendererColor(
+                        nil,
+                        automatic: theme.warning,
+                        on: backgroundColor,
+                        colorScheme: scheme,
+                        minimumContrast: 4.55
+                    ),
+                    colorScheme: scheme
+                )
+                XCTAssertGreaterThanOrEqual(
+                    ProjectTheme.rendererContrast(staleStatus, background),
+                    4.5,
+                    "Saved forecast status must remain legible for \(condition) in \(scheme)"
+                )
+
+                let glyph = ProjectTheme.resolvedColor(
+                    condition.sceneGlyphColor(
+                        isDaylight: isDaylight,
+                        in: theme,
+                        colorScheme: scheme
+                    ),
+                    colorScheme: scheme
+                )
+                XCTAssertGreaterThanOrEqual(
+                    ProjectTheme.rendererContrast(glyph, background),
+                    3,
+                    "Scene glyph must remain visible for \(condition) in \(scheme)"
+                )
+
+                for (forecastCondition, _) in conditions {
+                    let forecastGlyph = ProjectTheme.resolvedColor(
+                        ProjectTheme.rendererColor(
+                            nil,
+                            automatic: forecastCondition.conditionColor(in: theme),
+                            on: backgroundColor,
+                            colorScheme: scheme,
+                            minimumContrast: 3.05
+                        ),
+                        colorScheme: scheme
+                    )
+                    XCTAssertGreaterThanOrEqual(
+                        ProjectTheme.rendererContrast(forecastGlyph, background),
+                        3,
+                        "Forecast glyph must remain visible on \(condition) in \(scheme)"
+                    )
+                }
+            }
+        }
+    }
+
+    @MainActor
+    func testWeatherArtworkPreservesTextContrastAfterCompositing() throws {
+        let theme = ProjectTheme.current
+        let conditions: [(WeatherCondition, Bool)] = [
+            (.clear, true), (.clear, false), (.cloudy, true),
+            (.wind, true), (.rain, true), (.snow, true),
+            (.thunderstorm, true)
+        ]
+        let size = NSSize(width: 256, height: 256)
+
+        let appearances: [(
+            mode: DSAppearanceMode,
+            appearance: NSAppearance.Name,
+            scheme: ColorScheme
+        )] = [
+            (.light, .aqua, .light),
+            (.dark, .darkAqua, .dark),
+            (.dark, .accessibilityHighContrastDarkAqua, .dark)
+        ]
+
+        for (mode, appearance, scheme) in appearances {
+            let foreground = ProjectTheme.resolvedColor(
+                theme.weatherSceneForeground,
+                colorScheme: scheme
+            )
+
+            for (condition, isDaylight) in conditions {
+                let scene = condition.sceneColor(
+                    isDaylight: isDaylight,
+                    in: theme
+                )
+                let data = try renderPNG(
+                    of: DockMagicThemeRoot(
+                        content: ZStack {
+                            Rectangle().fill(scene)
+                            WeatherSceneBackdrop(
+                                condition: condition,
+                                isDaylight: isDaylight
+                            )
+                        }
+                        .frame(width: size.width, height: size.height),
+                        appearanceMode: mode
+                    ),
+                    size: size,
+                    appearanceName: appearance,
+                    name: "Weather artwork contrast — \(condition) — \(mode)"
+                )
+                let bitmap = try XCTUnwrap(NSBitmapImageRep(data: data))
+                var lowest = Double.infinity
+                for y in stride(from: 8, to: bitmap.pixelsHigh - 8, by: 8) {
+                    for x in stride(from: 8, to: bitmap.pixelsWide - 8, by: 8) {
+                        guard let color = bitmap.colorAt(x: x, y: y)?
+                            .usingColorSpace(.sRGB) else {
+                            XCTFail("Artwork pixel could not be resolved")
+                            continue
+                        }
+                        let background = DockColor(
+                            red: Double(color.redComponent),
+                            green: Double(color.greenComponent),
+                            blue: Double(color.blueComponent)
+                        )
+                        lowest = min(
+                            lowest,
+                            ProjectTheme.rendererContrast(foreground, background)
+                        )
+                    }
+                }
+                XCTAssertGreaterThanOrEqual(
+                    lowest,
+                    4.5,
+                    "Composited Weather artwork must preserve white text contrast for \(condition) in \(mode)"
+                )
+            }
+        }
+    }
+
+    @MainActor
+    func testWeatherVectorArtworkIsBundledForEveryScene() {
+        let appURL = Bundle(for: Self.self).bundleURL
+            .deletingLastPathComponent() // PlugIns
+            .deletingLastPathComponent() // Contents
+            .deletingLastPathComponent() // DockMagic.app
+        let appBundle = Bundle(url: appURL) ?? .main
+        let assets: [(WeatherConditionColor, String)] = [
+            (.sun, "WeatherSceneSun"),
+            (.moon, "WeatherSceneMoon"),
+            (.cloud, "WeatherSceneCloud"),
+            (.wind, "WeatherSceneWind"),
+            (.rain, "WeatherSceneRain"),
+            (.ice, "WeatherSceneIce"),
+            (.storm, "WeatherSceneStorm")
+        ]
+        for (role, name) in assets {
+            XCTAssertEqual(role.sceneArtworkName, name)
+            guard let image = appBundle.image(forResource: NSImage.Name(name)) else {
+                XCTFail("Missing vector Weather artwork for \(role)")
+                continue
+            }
+            XCTAssertGreaterThan(image.size.width, 0)
+            XCTAssertGreaterThan(image.size.height, 0)
+            XCTAssertFalse(image.isTemplate, "Weather scenes must preserve their colors")
+        }
+    }
+
+    @MainActor
+    func testWeatherDockScenesRenderForAllConditionsAndSmallSizes() throws {
+        let conditions: [(String, WeatherCondition, Bool)] = [
+            ("Sunny", .clear, true),
+            ("Night", .clear, false),
+            ("Cloudy", .cloudy, true),
+            ("Windy", .wind, true),
+            ("Rainy", .rain, true),
+            ("Snowy", .snow, true),
+            ("Stormy", .thunderstorm, true)
+        ]
+        for side: CGFloat in [48, 96] {
+            var images: [Data] = []
+            for (label, condition, isDaylight) in conditions {
+                let snapshot = sampleWeatherSnapshot(
+                    condition: condition,
+                    conditionDescription: label,
+                    isDaylight: isDaylight
+                )
+                let image = try renderPNG(
+                    of: DockMagicThemeRoot(
+                        content: DockWeatherView(
+                            state: .live(snapshot),
+                            animatesChanges: false
+                        )
+                        .frame(width: side, height: side),
+                        appearanceMode: .dark
+                    ),
+                    size: NSSize(width: side, height: side),
+                    appearanceName: .darkAqua,
+                    name: "Weather Dock — \(label) — \(Int(side))"
+                )
+                XCTAssertGreaterThan(image.count, 2_000)
+                attachPNG(image, name: "Weather Dock — \(label) — \(Int(side))")
+                images.append(image)
+            }
+            XCTAssertEqual(Set(images).count, conditions.count)
         }
     }
 
@@ -5907,6 +6794,9 @@ final class DockMagicTests: XCTestCase {
             ("DSOnWarning", "DSWarning"),
             ("DSOnDanger", "DSDanger"),
             ("DSOnSidebarIcon", "DSSidebarIconFill")
+        ]
+        let switchControlPairs = [
+            ("DSOnSwitchActive", "DSSwitchActive")
         ]
 
         for (appearanceName, appearanceLabel) in appearances {
@@ -5948,6 +6838,24 @@ final class DockMagicTests: XCTestCase {
                         on: backgroundName,
                         minimum: 4.5,
                         appearance: appearanceLabel
+                    )
+                }
+
+                for (foregroundName, backgroundName) in switchControlPairs {
+                    assertContrast(
+                        foregroundName,
+                        on: backgroundName,
+                        minimum: 3,
+                        appearance: "\(appearanceLabel) switch control"
+                    )
+                }
+
+                for backgroundName in contentSurfaces {
+                    assertContrast(
+                        "DSSwitchActive",
+                        on: backgroundName,
+                        minimum: 3,
+                        appearance: "\(appearanceLabel) switch boundary"
                     )
                 }
 
@@ -11359,6 +12267,139 @@ final class DockMagicTests: XCTestCase {
                 )
             }
         }
+    }
+
+    @MainActor
+    func testShelfTilesRenderWithoutOuterBorderAcrossAppearances() throws {
+        let presentation = DockTilePresentation.calendar(
+            date: Date(timeIntervalSince1970: 1_777_777_745),
+            hasItems: false,
+            currentWeather: nil
+        )
+        let size = NSSize(width: 128, height: 128)
+
+        let borderedLight = try renderPNG(
+            of: DockMagicThemeRoot(
+                content: DockTileView(
+                    presentation: presentation,
+                    animatesChanges: false
+                ),
+                appearanceMode: .light
+            ),
+            size: size,
+            appearanceName: .aqua,
+            name: "Shelf tile border control — Light"
+        )
+        let borderlessLight = try renderPNG(
+            of: DockMagicThemeRoot(
+                content: DockTileView(
+                    presentation: presentation,
+                    animatesChanges: false,
+                    showsOuterBorder: false
+                ),
+                appearanceMode: .light
+            ),
+            size: size,
+            appearanceName: .aqua,
+            name: "Shelf tile borderless — Light"
+        )
+        let borderedDark = try renderPNG(
+            of: DockMagicThemeRoot(
+                content: DockTileView(
+                    presentation: presentation,
+                    animatesChanges: false
+                ),
+                appearanceMode: .dark
+            ),
+            size: size,
+            appearanceName: .darkAqua,
+            name: "Shelf tile border control — Dark"
+        )
+        let borderlessDark = try renderPNG(
+            of: DockMagicThemeRoot(
+                content: DockTileView(
+                    presentation: presentation,
+                    animatesChanges: false,
+                    showsOuterBorder: false
+                ),
+                appearanceMode: .dark
+            ),
+            size: size,
+            appearanceName: .darkAqua,
+            name: "Shelf tile borderless — Dark"
+        )
+        let increasedContrast = try renderPNG(
+            of: DockMagicThemeRoot(
+                content: DockTileView(
+                    presentation: presentation,
+                    animatesChanges: false,
+                    showsOuterBorder: false
+                ),
+                appearanceMode: .light
+            )
+            .environment(
+                \.dsAccessibilityOverrides,
+                DSAccessibilityOverrides(increaseContrast: true)
+            ),
+            size: size,
+            appearanceName: .aqua,
+            name: "Shelf tile borderless — Increased Contrast"
+        )
+        let reducedTransparency = try renderPNG(
+            of: DockMagicThemeRoot(
+                content: DockTileView(
+                    presentation: presentation,
+                    animatesChanges: false,
+                    showsOuterBorder: false
+                ),
+                appearanceMode: .light
+            )
+            .environment(
+                \.dsAccessibilityOverrides,
+                DSAccessibilityOverrides(reduceTransparency: true)
+            ),
+            size: size,
+            appearanceName: .aqua,
+            name: "Shelf tile borderless — Reduce Transparency"
+        )
+        let grayscale = try grayscalePNG(
+            borderlessLight,
+            name: "Shelf tile borderless — Grayscale"
+        )
+
+        XCTAssertNotEqual(borderedLight, borderlessLight)
+        XCTAssertNotEqual(borderedDark, borderlessDark)
+        for (name, data) in [
+            ("Light", borderlessLight),
+            ("Dark", borderlessDark),
+            ("Increased Contrast", increasedContrast),
+            ("Reduce Transparency", reducedTransparency),
+            ("Grayscale", grayscale)
+        ] {
+            XCTAssertGreaterThan(
+                data.count,
+                1_000,
+                "Shelf tile should render in \(name)."
+            )
+        }
+
+        attachPNG(borderlessLight, name: "Shelf tile borderless — Light")
+        attachPNG(borderlessDark, name: "Shelf tile borderless — Dark")
+        attachPNG(
+            increasedContrast,
+            name: "Shelf tile borderless — Increased Contrast",
+            lifetime: .deleteOnSuccess
+        )
+        attachPNG(
+            reducedTransparency,
+            name: "Shelf tile borderless — Reduce Transparency",
+            lifetime: .deleteOnSuccess
+        )
+        attachPNG(
+            grayscale,
+            name: "Shelf tile borderless — Grayscale",
+            lifetime: .deleteOnSuccess
+        )
     }
 
     @MainActor

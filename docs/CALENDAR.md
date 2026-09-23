@@ -1,8 +1,8 @@
 # Calendar and Reminders
 
 DockMagic uses EventKit as the shared source of truth for Apple Calendar events
-and Apple Reminders. Both appear in the Calendar feature's Dock tile, dashboard,
-and Settings. Saving an explicit user action writes to the same native item;
+and Apple Reminders. The Dock tile signals their presence; their details appear
+in the dashboard and Settings. Saving an explicit user action writes to the same native item;
 changes made in the native apps are read back automatically. Reminders are not
 copied into calendar events, and no separate replication database is created.
 
@@ -14,11 +14,27 @@ copied into calendar events, and no separate replication database is created.
 2. Select calendars and reminder lists. **All** includes future sources; an
    explicit empty selection means none. Missing identifiers remain selected and
    are reported, rather than silently replaced with another account/list.
-3. Select Calendar as the active Dock feature. The four layouts are Date, Next
-   event, Date + next event, and Date + agenda. Agenda layouts also show unfinished
-   reminders with due dates, including overdue items. Date works without access.
+3. Select Calendar as the active Dock feature. Its tile shows only the abbreviated
+   weekday, day number, abbreviated month, and an optional red dot. The dot
+   means a selected calendar event occurs today (even if it has ended) or an
+   unfinished due reminder is included. The date works without access; event
+   and reminder times and titles never appear on the tile. With Location access
+   and fresh current conditions, the tile uses the shared Weather scene behind
+   the date; otherwise it keeps the neutral background.
 4. Hover the Dock tile or open **Preview dashboard** in Settings. The month grid
-   marks dates with events or reminders. Select a day to browse its agenda.
+   marks dates with events or reminders and small weather icons for forecast
+   days. Select a day to browse its agenda and, when available, a daily summary
+   and horizontally scrolling hourly forecast above the agenda. Weather never
+   replaces events or reminders. Dates outside today through six days ahead
+   show no forecast.
+   A red dot marks a day with included events/reminders independently of its
+   weather icon. The selected-day forecast uses the matching Weather scene;
+   generated colored SVG pictograms identify conditions in the grid and hourly
+   strip. These icons render without a white badge or border. Agenda rows use
+   restrained labeled color markers for recognized
+   birthdays, holidays and work calendars. These are visual hints only and do
+   not modify or reclassify the EventKit items. The month grid uses the number
+   of weeks that month actually needs rather than always reserving six rows.
    Today's reminders also include unfinished overdue and undated items. **All
    reminders** shows the selected lists independently of the selected day.
 5. Use **New event**, **New reminder**, or a row's Edit button. Editing opens a
@@ -35,6 +51,25 @@ cannot be edited. New-item actions require a writable destination.
 
 The existing meeting shortcuts support HTTPS Google Meet, Zoom and Teams links,
 validated from event URL, location and notes. Links open only after a user click.
+
+## Local weather
+
+Calendar uses separate Core Location and Open-Meteo requests/cache from the
+Weather feature. Opening Calendar Settings for the first time requests Location
+when DockMagic is foreground. A Calendar hover dashboard without access shows
+an explicit button; selecting Calendar on the Dock alone never prompts. Denied
+access links to macOS Location Settings. Open-Meteo attribution appears beside
+the forecast and in Calendar Settings.
+
+While Calendar is visible on the Dock/Shelf or its Settings/dashboard is open,
+current conditions and today's forecast refresh every 15 minutes; tomorrow
+through day six refresh every four hours. Both requests preload all hourly
+values, so selecting a day makes no network request. A midnight boundary, wake,
+time-zone change, or materially changed location invalidates/reloads the
+appropriate cache. Daily/hourly data use the Mac Calendar time zone and actual
+hourly instants, including 23- and 25-hour days. Failed requests retain labeled
+last-known forecasts; current-condition artwork becomes neutral after 45 minutes.
+The Weather feature's own 10-minute schedule remains independent.
 
 ## Synchronization and write behavior
 
@@ -110,12 +145,12 @@ release process. No App Store provisioning or StoreKit dependency is introduced.
 
 ## Verification
 
-The Calendar suites contain 25 model, store and render tests. These passed in
-`/tmp/dockmagic-calendar-sync-tests-4.xcresult`, covering independent permissions,
+The Calendar model, store and render tests cover independent permissions,
 legacy preference migration, reminder dates/filtering, bidirectional store
 behavior, external-change notifications, stale edits/deletions, denied and
 read-only writes, duplicate-submit protection, all-day/DST boundaries, and
-monitoring ownership.
+monitoring ownership. The date-only tile is rendered at 32/48/64/128 pt across
+accessibility appearances, and the dot is tested with and without items.
 
 `CalendarUITests` exercises native forms and the connection/create/edit/complete/
 reopen/delete paths through the injected Debug provider. Render checks cover the

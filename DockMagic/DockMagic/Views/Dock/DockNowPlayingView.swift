@@ -3,21 +3,20 @@ import SwiftUI
 struct DockNowPlayingView: View {
     let presentation: NowPlayingDockPresentation
     @Environment(\.designTheme) private var theme
+    @Environment(\.dockTileShowsOuterBorder) private var showsOuterBorder
     var body: some View {
         GeometryReader { proxy in
             let side = min(proxy.size.width, proxy.size.height)
             ZStack {
-                RoundedRectangle(cornerRadius: side * 0.23, style: .continuous)
-                    .fill(theme.dockBackgroundRaised)
-                Image("NowPlayingDisc").resizable().interpolation(.high).scaledToFit()
-                    .frame(width: side * 0.9, height: side * 0.9).clipShape(Circle())
                 NowPlayingArtworkView(data: presentation.artworkData)
-                    .frame(width: side * 0.278, height: side * 0.278).clipShape(Circle())
-                    .overlay(Circle().strokeBorder(theme.dockOutline, lineWidth: side * 0.004))
+                    .frame(width: side, height: side)
+                    .clipShape(RoundedRectangle(cornerRadius: side * 0.23, style: .continuous))
             }
             .overlay {
-                RoundedRectangle(cornerRadius: side * 0.23, style: .continuous)
-                    .strokeBorder(theme.dockOutline, lineWidth: side * 0.007)
+                if showsOuterBorder {
+                    RoundedRectangle(cornerRadius: side * 0.23, style: .continuous)
+                        .strokeBorder(theme.dockOutline, lineWidth: side * 0.007)
+                }
             }
             .overlay(alignment: .bottomTrailing) {
                 if presentation.canControl {

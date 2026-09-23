@@ -102,6 +102,7 @@ private struct DockClockTileSurface<Content: View>: View {
     @Environment(\.designTheme) private var theme
     @Environment(\.colorSchemeContrast) private var contrast
     @Environment(\.dsAccessibilityOverrides) private var accessibilityOverrides
+    @Environment(\.dockTileShowsOuterBorder) private var showsOuterBorder
 
     private let content: (CGFloat) -> Content
 
@@ -119,12 +120,14 @@ private struct DockClockTileSurface<Content: View>: View {
 
             ZStack {
                 shape.fill(theme.dockBackgroundInset)
-                shape.strokeBorder(
-                    theme.dockOutline,
-                    lineWidth: isIncreasedContrast
-                        ? max(1.75, side * 0.019)
-                        : max(1.25, side * 0.014)
-                )
+                if showsOuterBorder {
+                    shape.strokeBorder(
+                        theme.dockOutline,
+                        lineWidth: isIncreasedContrast
+                            ? max(1.75, side * 0.019)
+                            : max(1.25, side * 0.014)
+                    )
+                }
                 content(side)
             }
             .frame(width: side, height: side)

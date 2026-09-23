@@ -12,6 +12,7 @@ final class DockAppModel {
     let storageStore: StorageMetricsStore
     let weatherStore: WeatherStore
     let calendarStore: CalendarStore
+    let calendarWeatherStore: CalendarWeatherStore
     let nowPlayingStore: NowPlayingStore
     var openNowPlaying: (() -> Void)?
     var openNowPlayingSettings: (() -> Void)?
@@ -22,8 +23,6 @@ final class DockAppModel {
     let codexStore: CodexUsageStore
     let claudeCodeStore: ClaudeCodeUsageStore
     let antigravityStore: AntigravityUsageStore
-    let augmentStore: AugmentUsageStore
-    var openAugmentSettings: (() -> Void)?
     let grokIntegration: GrokIntegrationController
     var grokBuildStore: GrokBuildUsageStore { grokIntegration.store }
     var openGrokBuildSettings: (() -> Void)?
@@ -34,6 +33,8 @@ final class DockAppModel {
     let searchConsoleStore: SearchConsoleStore
 
     private(set) var isRunning = false
+    private(set) var shelfVisibleFeatures: Set<DockFeature> = []
+    var shelfVisibility: DockShelfVisibility = .off
 
     @ObservationIgnored
     private var isObservingPreferences = false
@@ -51,6 +52,7 @@ final class DockAppModel {
         weatherStore: WeatherStore? = nil,
         clockStore: ClockStore? = nil,
         calendarStore: CalendarStore? = nil,
+        calendarWeatherStore: CalendarWeatherStore? = nil,
         nowPlayingStore: NowPlayingStore? = nil,
         batteryStore: BatteryMetricsStore? = nil,
         githubStore: GitHubRepositoryStore? = nil,
@@ -58,7 +60,6 @@ final class DockAppModel {
         codexStore: CodexUsageStore? = nil,
         claudeCodeStore: ClaudeCodeUsageStore? = nil,
         antigravityStore: AntigravityUsageStore? = nil,
-        augmentStore: AugmentUsageStore? = nil,
         openCodeStore: OpenCodeUsageStore? = nil,
         grokBuildStore: GrokBuildUsageStore? = nil,
         developerToolInstallationStore: DeveloperToolInstallationStore? = nil,
@@ -69,7 +70,6 @@ final class DockAppModel {
         self.preferences = preferences
         self.grokIntegration = GrokIntegrationController(preferences: preferences, store: grokBuildStore)
         self.binanceStore = binanceStore ?? BinanceMarketStore(configuration: preferences.binanceConfiguration, persist: { [weak preferences] in preferences?.binanceConfiguration = $0 })
-        self.augmentStore = augmentStore ?? AugmentUsageStore()
         self.openCodeStore = openCodeStore ?? OpenCodeUsageStore()
         self.metricsStore = metricsStore ?? SystemMetricsStore()
         self.networkStore = networkStore ?? NetworkMetricsStore()
@@ -77,6 +77,7 @@ final class DockAppModel {
         self.weatherStore = weatherStore ?? WeatherStore()
         self.clockStore = clockStore ?? ClockStore()
         self.calendarStore = calendarStore ?? CalendarStore()
+        self.calendarWeatherStore = calendarWeatherStore ?? CalendarWeatherStore()
         self.nowPlayingStore = nowPlayingStore ?? NowPlayingStore()
         self.batteryStore = batteryStore ?? BatteryMetricsStore()
         self.githubStore = githubStore ?? GitHubRepositoryStore()
@@ -106,7 +107,13 @@ final class DockAppModel {
     }
 
     var dockPresentation: DockTilePresentation {
-        switch preferences.activeFeature {
+        presentation(for: preferences.activeFeature)
+    }
+
+    /// Both the Apple Dock tile and Custom Dock slots use this presentation.
+    /// Duplicate slots therefore observe one provider state and one renderer.
+    func presentation(for feature: DockFeature) -> DockTilePresentation {
+        switch feature {
         case .dockMagic:
             .dockMagic
         case .systemMetrics:
@@ -132,9 +139,8 @@ final class DockAppModel {
         case .weather:
             .weather(state: weatherStore.state)
         case .calendar:
-            .calendar(date: calendarStore.currentDate, events: calendarStore.todayDockItems,
-                      configuration: calendarStore.configuration, access: calendarStore.dockAccess,
-                      isLoading: calendarStore.isLoading, hasError: calendarStore.dockHasError)
+            .calendar(date: calendarStore.currentDate, hasItems: !calendarStore.todayDockItems.isEmpty,
+                      currentWeather: calendarWeatherStore.currentScene)
         case .nowPlaying:
             .nowPlaying(nowPlayingStore.dockPresentation)
         case .clock:
@@ -167,8 +173,6 @@ final class DockAppModel {
                 appearance: preferences.claudeCodeAppearance,
                 serviceStatus: serviceStatusStore.claudeCodeState
             )
-        case .augment:
-            .augment(state: augmentStore.state, appearance: preferences.augmentAppearance)
         case .grokBuild:
             GrokBuildFeatureGate.experimentalEnabled
                 ? .grokBuild(local: grokBuildStore.local, settings: preferences.grokBuildSettings,
@@ -202,6 +206,7 @@ final class DockAppModel {
 
     func stop() {
         isRunning = false
+        shelfVisibleFeatures = []
         isObservingPreferences = false
         for task in developerToolPreparationTasks.values {
             task.cancel()
@@ -213,6 +218,8 @@ final class DockAppModel {
         networkStore.stop()
         storageStore.stop()
         weatherStore.stop()
+        calendarWeatherStore.setInterest(.dock, active: false)
+        calendarWeatherStore.setInterest(.shelf, active: false)
         clockStore.stop()
         calendarStore.stop()
         nowPlayingStore.stop()
@@ -221,7 +228,6 @@ final class DockAppModel {
         codexStore.stop()
         claudeCodeStore.stop()
         antigravityStore.stop()
-        augmentStore.stop()
         openCodeStore.stop()
         grokIntegration.stop()
         serviceStatusStore.stop()
@@ -236,6 +242,7 @@ final class DockAppModel {
         isObservingPreferences = true
         withObservationTracking {
             _ = preferences.activeFeature
+            _ = preferences.dockMode
             _ = preferences.githubRepositoryURL
             _ = preferences.codexExecutablePath
         } onChange: { [weak self] in
@@ -252,10 +259,15 @@ final class DockAppModel {
     }
 
     private func applyPreferences() {
-        nowPlayingStore.setInterest(.dock, active: preferences.activeFeature == .nowPlaying)
-        binanceStore.setSelected(preferences.activeFeature == .binance)
-        augmentStore.setSelected(preferences.activeFeature == .augment)
-        openCodeStore.setSelected(preferences.activeFeature == .openCode)
+        let dockFeature: DockFeature = preferences.dockMode == .dockActive
+            ? preferences.activeFeature : .dockMagic
+        nowPlayingStore.setInterest(.dock, active: dockFeature == .nowPlaying)
+        nowPlayingStore.setInterest(.shelf, active: shelfVisibleFeatures.contains(.nowPlaying))
+        calendarStore.setInterest(.shelf, active: shelfVisibleFeatures.contains(.calendar))
+        calendarWeatherStore.setInterest(.dock, active: dockFeature == .calendar)
+        calendarWeatherStore.setInterest(.shelf, active: shelfVisibleFeatures.contains(.calendar))
+        binanceStore.setSelected(dockFeature == .binance || shelfVisibleFeatures.contains(.binance))
+        openCodeStore.setSelected(dockFeature == .openCode || shelfVisibleFeatures.contains(.openCode))
         codexStore.executableOverridePath = preferences.codexExecutablePath
         developerToolInstallationStore.refreshAvailability(
             codexOverridePath: preferences.codexExecutablePath
@@ -264,10 +276,10 @@ final class DockAppModel {
         githubStore.configure(
             repositoryURL: preferences.githubRepositoryURL
         )
-        if preferences.activeFeature == .calendar { calendarStore.start() }
+        if dockFeature == .calendar { calendarStore.start() }
         else { calendarStore.stop() }
-        switch preferences.activeFeature {
-        case .dockMagic, .calendar, .augment, .openCode, .grokBuild, .binance, .nowPlaying:
+        switch dockFeature {
+        case .dockMagic, .calendar, .openCode, .grokBuild, .binance, .nowPlaying:
             metricsStore.stop()
             networkStore.stop()
             storageStore.stop()
@@ -380,17 +392,36 @@ final class DockAppModel {
             searchConsoleStore.start()
         }
 
+        // A visible Shelf is a second consumer of existing dashboards. The
+        // Dock tile selection remains independent and retains its presentation.
+        if shelfVisibleFeatures.contains(.systemMetrics) { metricsStore.start() }
+        if shelfVisibleFeatures.contains(.network) { networkStore.start() }
+        if shelfVisibleFeatures.contains(.storage) { storageStore.start() }
+        if shelfVisibleFeatures.contains(.weather) { weatherStore.start() }
+        if shelfVisibleFeatures.contains(.calendar) { calendarStore.setInterest(.shelf, active: true) }
+        if shelfVisibleFeatures.contains(.clock) { clockStore.start() }
+        if shelfVisibleFeatures.contains(.batteries) { batteryStore.start() }
+        if shelfVisibleFeatures.contains(.github) { githubStore.start() }
+        if shelfVisibleFeatures.contains(.searchConsole) { searchConsoleStore.start() }
+
         // Usage history and streak collection stay independent of the feature
         // currently shown in the Dock. Claude monitoring no longer depends on
         // a statusLine bridge.
         codexStore.start()
         claudeCodeStore.start()
         if antigravityStore.isBridgeInstalled
-            || preferences.activeFeature == .antigravity {
+            || dockFeature == .antigravity
+            || shelfVisibleFeatures.contains(.antigravity) {
             antigravityStore.start()
         } else {
             antigravityStore.stop()
         }
+    }
+
+    func setShelfVisibleFeatures(_ features: Set<DockFeature>) {
+        guard shelfVisibleFeatures != features else { return }
+        shelfVisibleFeatures = features
+        if isRunning { applyPreferences() }
     }
 
     /// Resolves the default Codex executable and reads the first usage sample.
@@ -498,12 +529,13 @@ final class DockAppModel {
         binanceStore.refreshAfterInterruption()
         refreshActiveClockAfterResume()
         if preferences.activeFeature == .calendar { calendarStore.reload() }
+        async let calendarWeather: Void = calendarWeatherStore.refreshAfterInterruption()
         nowPlayingStore.reload()
         async let weather: Void = refreshActiveWeatherAfterResume()
         async let batteries: Void = refreshActiveBatteriesAfterResume()
         async let github: Void = refreshActiveGitHubAfterResume()
         async let statuses: Void = refreshServiceStatusesAfterResume()
-        _ = await (weather, batteries, github, statuses)
+        _ = await (weather, batteries, github, statuses, calendarWeather)
     }
 
     func refreshDeveloperUsageAfterInterruption() async {

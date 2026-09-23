@@ -23,6 +23,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     )
     private var dockTileController: DockTileController?
     private var dockHoverCoordinator: DockHoverCoordinator?
+    private var customDockController: CustomDockController?
     private var appearanceObserver: NSObjectProtocol?
     private var accessibilityDisplayObserver: NSObjectProtocol?
     private var workspaceWakeObserver: NSObjectProtocol?
@@ -123,6 +124,47 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 Task { await antigravityStore.refresh() }
             }
             let binancePreferences = DockPreferencesStore(defaults: DockMagicRuntimeDefaults.current)
+#if DEBUG
+            if let rawFeatures = environment["DockMagicUITestShelfFeatures"] {
+                let features = rawFeatures.split(separator: ",").compactMap {
+                    DockFeature(rawValue: String($0))
+                }.filter { $0 != .dockMagic && DockFeature.availableCases.contains($0) }
+                binancePreferences.updateCustomDock { configuration in
+                    if environment[
+                        "DockMagicUITestPreserveNativeDockApps"
+                    ] == "1" {
+                        configuration = NativeDockImport.initialConfiguration(
+                            legacyFeatures: features
+                        )
+                    } else {
+                        configuration.initialized = true
+                        configuration.pinnedApps = []
+                        configuration.recentApps = []
+                        configuration.stacks = []
+                        configuration.slots = features.map {
+                            CustomDockSlot(feature: $0)
+                        }
+                    }
+                    if let rawEdge = environment["DockMagicUITestShelfEdge"],
+                       let edge = CustomDockEdge(rawValue: rawEdge) {
+                        configuration.edge = edge
+                    }
+                    if let rawSize = environment["DockMagicUITestShelfIconSize"],
+                       let size = Double(rawSize) {
+                        configuration.preferredIconSize = size
+                    }
+                    if let rawMagnification = environment[
+                        "DockMagicUITestShelfMagnification"
+                    ] {
+                        configuration.magnificationEnabled = rawMagnification == "1"
+                    }
+                }
+            }
+            if let rawMode = environment["DockMagicUITestInitialDockMode"],
+               let initialMode = DockMode(rawValue: rawMode) {
+                binancePreferences.dockMode = initialMode
+            }
+#endif
             let binanceStore: BinanceMarketStore?
 #if DEBUG
             if environment["DockMagicUITestBinanceFixtures"] == "1" {
@@ -135,12 +177,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             } else { binanceStore = nil }
 #else
             binanceStore = nil
-#endif
-            let augmentStore: AugmentUsageStore
-#if DEBUG
-            augmentStore = AugmentFixtureClient.store(mode: environment["DockMagicUITestAugment"] ?? "setup", defaults: DockMagicRuntimeDefaults.current)
-#else
-            augmentStore = AugmentUsageStore(vault: InMemoryAugmentCredentialVault())
 #endif
             let calendarStore: CalendarStore
             let nowPlayingStore: NowPlayingStore
@@ -168,6 +204,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     cache: DockMagicUITestWeatherCache()
                 ),
                 calendarStore: calendarStore,
+                calendarWeatherStore: CalendarWeatherStore(provider: DockMagicUITestCalendarWeatherProvider()),
                 nowPlayingStore: nowPlayingStore,
                 batteryStore: BatteryMetricsStore(
                     sampler: DockMagicUITestBatterySampler(),
@@ -195,7 +232,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     pollingInterval: .seconds(60)
                 ),
                 antigravityStore: antigravityStore,
-                augmentStore: augmentStore,
                 openCodeStore: OpenCodeUsageStore(
                     cache: OpenCodeHistoryCache(directory: FileManager.default.temporaryDirectory.appendingPathComponent("dockmagic-ui-opencode-\(antigravityCacheSuffix)")),
                     defaults: DockMagicRuntimeDefaults.current
@@ -235,9 +271,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         appModel.openBinanceSettings = { [weak settingsWindowRouter] in
             settingsWindowRouter?.showSettings(destination: .binance)
         }
-        appModel.openAugmentSettings = { [weak settingsWindowRouter] in
-            settingsWindowRouter?.showSettings(destination: .augment)
-        }
         appModel.openGrokBuildSettings = { [weak settingsWindowRouter] in
             guard GrokBuildFeatureGate.experimentalEnabled else { return }
             settingsWindowRouter?.showSettings(destination: .grokBuild)
@@ -276,6 +309,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         observeDockPresentation()
         softwareUpdateController.start()
         appModel.start()
+        customDockController = CustomDockController(
+            appModel: appModel, settings: settingsWindowRouter
+        )
+        customDockController?.start()
         networkAvailabilityMonitor.start { [weak self] in
             self?.scheduleRecovery(reason: "network restored")
         }
@@ -284,6 +321,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             permissionController: dockHoverPermissionController
         )
         dockHoverCoordinator?.start()
+        #if DEBUG
+        if ProcessInfo.processInfo.environment["DOCKMAGIC_SHELF_PROBE"] == "1" {
+            DockShelfGeometryProbe.shared.start()
+        }
+        #endif
         appModel.openNowPlaying = { [weak self] in self?.dockHoverCoordinator?.openNowPlaying() }
         appModel.openNowPlayingSettings = { [weak self] in _ = self?.settingsWindowRouter.showSettings(destination: .nowPlaying) }
         dockFeatureMenuController.onMenuClose = { [weak self] in self?.dockHoverCoordinator?.dockMenuDidClose() }
@@ -317,6 +359,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        customDockController?.stop()
+        customDockController = nil
+        #if DEBUG
+        DockShelfGeometryProbe.shared.stop()
+        #endif
         dockHoverCoordinator?.stop()
         networkAvailabilityMonitor.stop()
         for task in recoveryTasks.values { task.cancel() }
@@ -559,8 +606,6 @@ private final class DockFeatureMenuController: NSObject, NSMenuDelegate {
             #selector(selectCodex(_:))
         case .claudeCode:
             #selector(selectClaudeCode(_:))
-        case .augment:
-            #selector(selectAugment(_:))
         case .grokBuild:
             #selector(selectGrokBuild(_:))
         case .openCode:
@@ -624,8 +669,6 @@ private final class DockFeatureMenuController: NSObject, NSMenuDelegate {
     @objc private func selectClaudeCode(_ sender: Any?) {
         select(.claudeCode)
     }
-
-    @objc private func selectAugment(_ sender: Any?) { select(.augment) }
 
     @objc private func selectGrokBuild(_ sender: Any?) {
         guard GrokBuildFeatureGate.experimentalEnabled else { return }
@@ -699,6 +742,37 @@ private struct DockMagicUITestWeatherCache: WeatherSnapshotCaching {
     }
 
     func save(_ snapshot: WeatherSnapshot) {}
+}
+
+@MainActor
+private struct DockMagicUITestCalendarWeatherProvider: CalendarWeatherProviding {
+    func authorization() -> WeatherLocationAuthorization { .authorized }
+
+    func fetch(_ scope: CalendarWeatherRequestScope, now: Date, timeZone: TimeZone) async throws -> CalendarWeatherResult {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = timeZone
+        let offsets = scope == .today ? [0] : Array(1 ... 6)
+        let days = offsets.compactMap { offset -> CalendarWeatherDay? in
+            guard let day = calendar.date(byAdding: .day, value: offset, to: calendar.startOfDay(for: now)),
+                  let next = calendar.date(byAdding: .day, value: 1, to: day) else { return nil }
+            var hours: [CalendarWeatherHour] = []
+            var hour = day
+            while hour < next {
+                hours.append(CalendarWeatherHour(date: hour, condition: .partlyCloudy,
+                    conditionDescription: "Partly cloudy", temperatureCelsius: 28,
+                    precipitationChance: 0.2))
+                hour = hour.addingTimeInterval(3600)
+            }
+            return CalendarWeatherDay(dayID: CalendarWeatherDates.dayID(for: day, timeZone: timeZone),
+                condition: .partlyCloudy, conditionDescription: "Partly cloudy", highCelsius: 33,
+                lowCelsius: 26, precipitationChance: 0.2, hours: hours)
+        }
+        return CalendarWeatherResult(coordinate: WeatherCoordinate(latitude: 10.82, longitude: 106.63),
+            location: "Ho Chi Minh City, Vietnam", timeZoneID: timeZone.identifier,
+            current: scope == .today ? CalendarCurrentWeather(condition: .partlyCloudy,
+                conditionDescription: "Partly cloudy", isDaylight: true,
+                temperatureCelsius: 29, observedAt: now) : nil, days: days)
+    }
 }
 
 private struct DockMagicUITestBatterySampler: BatteryMetricsSampling {
@@ -1065,7 +1139,8 @@ private struct SettingsSceneRoot: View {
                 dockHoverPermissionController: dockHoverPermissionController,
                 windowRouter: windowRouter,
                 softwareUpdateController: softwareUpdateController
-            )
+            ),
+            windowOwnsAppearance: true
         )
         .defaultAppStorage(DockMagicRuntimeDefaults.current)
     }

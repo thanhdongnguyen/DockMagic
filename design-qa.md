@@ -1,3 +1,47 @@
+# Calendar weather color — 2026-09-20
+
+Visual fixture result: **passed** against the approved Option 2 direction;
+live UI automation: **not verified** because the macOS UI test runner exited
+before bootstrapping. This is not a claim that the actual Location prompt or
+physical Dock pixels were tested.
+
+The [approved reference](docs/design/calendar-weather-icons/approved-option-2.png)
+and [final render](docs/design/calendar-weather-icons/verification/dashboard-light.png)
+were inspected [side by side](docs/design/calendar-weather-icons/verification/option2-comparison.jpg).
+The month grid now uses its actual 4–6 weeks, preserving space for a bounded
+shared Weather scene and the agenda. The reference's oversized illustrative
+hero is adapted to native SwiftUI while retaining its blue atmosphere, colored
+weather glyphs, red day dots and category-marked events.
+
+Fixture captures: [Light](docs/design/calendar-weather-icons/verification/dashboard-light.png),
+[Dark](docs/design/calendar-weather-icons/verification/dashboard-dark.png),
+[Increased Contrast](docs/design/calendar-weather-icons/verification/dashboard-contrast.png),
+[Reduce Transparency](docs/design/calendar-weather-icons/verification/dashboard-reduce-transparency.png),
+[grayscale](docs/design/calendar-weather-icons/verification/dashboard-grayscale.png),
+[three event categories](docs/design/calendar-weather-icons/verification/dashboard-categories-light.png),
+and [eight bundled icons](docs/design/calendar-weather-icons/verification/icon-contact-sheet.png).
+The horizontal hourly strip, event/reminder agenda, condition text and
+Open-Meteo attribution remain present. Selected-day weather and Dock-current
+weather continue to use separate data rules.
+
+Final clean DerivedData run: **23 Calendar unit/integration/render tests passed,
+0 failed**. The new tests cover icon availability, event visual categories,
+4/5/6-week month geometry, and existing weather refresh/cache/permission/DST
+behavior. Standalone smoke checked all 14 conditions and four categories.
+The bundled SVGs rendered without missing assets. Calendar category caption
+colors meet at least 4.5:1 on the light surface (birthday 4.73:1, holiday
+4.73:1, work 6.04:1); dark variants exceed 7.8:1. `Design.md` YAML and all
+79 color references passed validation. The shared scene verifier passed 105
+renders (seven conditions × five appearances × three sizes), with minimum
+white contrast 5.33:1 Light and 8.10:1 Increased Contrast. `git diff --check`
+passed.
+
+The separate XCUI launch attempt failed before any assertion: test runner
+`Early unexpected exit ... before establishing connection`. Permission prompt,
+live hover input, keyboard/VoiceOver and physical Dock sizes still need manual
+device QA. Existing fixture renders cover Dock 32/48/64/128 pt but are not
+physical Dock evidence.
+
 # Binance UI update — 2026-09-17
 
 The current appearance update is documented in [Binance UI QA](docs/BINANCE_UI_QA.md), with new captures and separate fixture/runtime results. The record below is the original 2026-09-16 implementation audit and does not describe the later typography/color update.

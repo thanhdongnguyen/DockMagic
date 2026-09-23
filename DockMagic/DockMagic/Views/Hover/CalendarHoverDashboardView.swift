@@ -1,8 +1,11 @@
+import AppKit
 import SwiftUI
 
 @MainActor
 struct CalendarHoverDashboardView: View {
     let store: CalendarStore
+    var weatherStore: CalendarWeatherStore? = nil
+    var weatherInterest: CalendarWeatherStore.Interest? = nil
     @Environment(\.designTheme) private var theme
     @State private var showsAllReminders = false
 
@@ -44,7 +47,10 @@ struct CalendarHoverDashboardView: View {
                     .help("Refresh events").accessibilityLabel("Refresh events")
                     .accessibilityIdentifier("calendar.refresh")
             }
+            if !showsAllReminders { weatherDetails }
             agenda
+                .frame(minHeight: 110)
+                .layoutPriority(1)
             HStack {
                 Text("\(TimeZone.autoupdatingCurrent.abbreviation() ?? TimeZone.autoupdatingCurrent.identifier) · Changes sync to this Mac")
                     .font(DSTypography.caption).foregroundStyle(theme.textSecondary)
@@ -59,6 +65,12 @@ struct CalendarHoverDashboardView: View {
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Calendar dashboard")
         .accessibilityIdentifier("dockHover.calendar")
+        .onAppear {
+            if let weatherInterest { weatherStore?.setInterest(weatherInterest, active: true) }
+        }
+        .onDisappear {
+            if let weatherInterest { weatherStore?.setInterest(weatherInterest, active: false) }
+        }
     }
 
     private var monthNavigation: some View {
@@ -107,15 +119,23 @@ struct CalendarHoverDashboardView: View {
                 (store.configuration.selectedReminderListIDs?.contains($0.calendarID) ?? true)
                     && (!$0.isCompleted || store.configuration.showsCompletedReminders) && $0.occurs(on: day)
             }.count : 0)
+        let weather = weatherStore?.day(for: day)
         return Button { store.selectDay(day) } label: {
-            VStack(spacing: 2) {
+            VStack(spacing: 1) {
                 Text(day.formatted(.dateTime.day()))
                     .dsFont(size: 13, weight: today || selected ? .bold : .medium)
-                Circle().fill(selected ? theme.onAction : theme.textPrimary)
-                    .frame(width: 3, height: 3).opacity(count > 0 ? 1 : 0)
+                Circle().fill(theme.danger)
+                    .frame(width: 4, height: 4).opacity(count > 0 ? 1 : 0)
+                if let weather {
+                    Image(CalendarWeatherIcon.assetName(for: weather.condition))
+                        .resizable().scaledToFit().frame(width: 18, height: 18)
+                        .accessibilityHidden(true)
+                } else {
+                    Color.clear.frame(width: 18, height: 18).accessibilityHidden(true)
+                }
             }
             .foregroundStyle(selected ? theme.onAction : inMonth ? theme.textPrimary : theme.textSecondary)
-            .frame(maxWidth: .infinity).frame(height: 29)
+            .frame(maxWidth: .infinity).frame(height: 40)
             .background {
                 if selected { RoundedRectangle(cornerRadius: DSRadius.fixedSmall).fill(theme.action) }
             }
@@ -126,8 +146,112 @@ struct CalendarHoverDashboardView: View {
         }
         .buttonStyle(DSContentButtonStyle())
         .accessibilityLabel(day.formatted(date: .complete, time: .omitted))
-        .accessibilityValue("\(today ? "Today, " : "")\(count) items\(selected ? ", selected" : "")")
+        .accessibilityValue("\(today ? "Today, " : "")\(count) items\(weather.map { ", forecast \($0.conditionDescription)" } ?? "")\(selected ? ", selected" : "")")
         .accessibilityAddTraits(selected ? .isSelected : [])
+    }
+
+    @ViewBuilder private var weatherDetails: some View {
+        if let weatherStore {
+            VStack(alignment: .leading, spacing: DSSpacing.compact) {
+                if weatherStore.authorization == .notDetermined {
+                    HStack {
+                        Text("Local weather needs Location access.")
+                            .font(DSTypography.metadata).foregroundStyle(theme.textSecondary)
+                        Spacer()
+                        Button("Enable weather") {
+                            NSApp.activate(ignoringOtherApps: true)
+                            weatherStore.requestAccess()
+                        }
+                        .buttonStyle(DSButtonStyle())
+                        .accessibilityIdentifier("calendar.weather.enable")
+                    }
+                } else if weatherStore.authorization != .authorized {
+                    HStack {
+                        Text(weatherStore.authorization.errorDescription ?? "Location unavailable")
+                            .font(DSTypography.metadata).foregroundStyle(theme.textSecondary)
+                        Spacer()
+                        Button("Location Settings", action: CalendarStore.openLocationPrivacySettings)
+                            .buttonStyle(DSButtonStyle())
+                    }
+                } else if let day = weatherStore.day(for: store.selectedDate) {
+                    weatherScene(day, weatherStore: weatherStore)
+                } else {
+                    Text(weatherStore.isRefreshing ? "Loading local forecast…"
+                         : weatherStore.forecastError(for: store.selectedDate).map { "Forecast unavailable: \($0)" }
+                         ?? "No forecast for this date")
+                        .font(DSTypography.metadata).foregroundStyle(theme.textSecondary)
+                }
+            }
+            .accessibilityIdentifier("calendar.weather.details")
+        }
+    }
+
+    private func temperature(_ value: Double?) -> String {
+        guard let value else { return "—" }
+        let fahrenheit = Locale.current.measurementSystem == .us
+        return "\(Int((fahrenheit ? value * 9 / 5 + 32 : value).rounded()))°"
+    }
+
+    private func chance(_ value: Double?) -> String {
+        guard let value else { return "—" }
+        return "\(Int((value * 100).rounded()))%"
+    }
+
+    private func weatherScene(_ day: CalendarWeatherDay, weatherStore: CalendarWeatherStore) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 10) {
+                Image(CalendarWeatherIcon.assetName(for: day.condition))
+                    .resizable().scaledToFit().frame(width: 44, height: 44)
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(day.conditionDescription).font(DSTypography.bodyEmphasis)
+                    Text("H \(temperature(day.highCelsius)) · L \(temperature(day.lowCelsius)) · Rain \(chance(day.precipitationChance))")
+                        .font(DSTypography.metadata)
+                }
+                Spacer(minLength: 0)
+            }
+            .accessibilityElement(children: .combine)
+            GeometryReader { geometry in
+                ScrollView(.horizontal) {
+                    HStack(spacing: 5) {
+                        ForEach(day.hours) { hour in
+                            VStack(spacing: 2) {
+                                Text(hour.date.formatted(.dateTime.hour())).font(DSTypography.caption)
+                                Image(CalendarWeatherIcon.assetName(for: hour.condition))
+                                    .resizable().scaledToFit().frame(width: 25, height: 25)
+                                    .accessibilityHidden(true)
+                                Text(temperature(hour.temperatureCelsius)).font(DSTypography.metadata)
+                                Text("Rain \(chance(hour.precipitationChance))").font(DSTypography.caption)
+                            }
+                            .frame(width: max(56, (geometry.size.width - 25) / 6))
+                            .accessibilityElement(children: .ignore)
+                            .accessibilityLabel("\(hour.date.formatted(.dateTime.hour())), \(hour.conditionDescription), \(temperature(hour.temperatureCelsius)), rain \(chance(hour.precipitationChance))")
+                            .accessibilityIdentifier("calendar.weather.hour")
+                        }
+                    }
+                }
+            }
+            .frame(height: 80)
+            .accessibilityIdentifier("calendar.weather.hours")
+            HStack {
+                Text("\(weatherStore.locationName ?? "Current location")\(weatherStore.isLastKnown(day) ? " · Last known forecast" : "")")
+                    .lineLimit(1)
+                Spacer(minLength: 4)
+                Link(destination: URL(string: "https://open-meteo.com/")!) {
+                    Text("Open-Meteo · CC BY 4.0").underline()
+                }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.white)
+            }
+            .font(DSTypography.caption)
+        }
+        .foregroundStyle(theme.weatherSceneForeground)
+        .padding(8)
+        .background {
+            WeatherSceneBackdrop(condition: day.condition, isDaylight: true)
+                .clipShape(RoundedRectangle(cornerRadius: DSRadius.fixedSmall))
+        }
+        .accessibilityIdentifier("calendar.weather.scene")
     }
 
     @ViewBuilder private var agenda: some View {
@@ -185,10 +309,21 @@ struct CalendarHoverDashboardView: View {
     }
 
     private func eventRow(_ event: CalendarEvent) -> some View {
-        HStack(alignment: .top, spacing: DSSpacing.standard) {
+        let category = CalendarEventVisualCategory.classify(event)
+        return HStack(alignment: .top, spacing: DSSpacing.standard) {
+            RoundedRectangle(cornerRadius: 2)
+                .fill(eventColor(category))
+                .frame(width: 3)
+                .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 3) {
-                Text(event.timeLabel(now: store.currentDate))
-                    .font(DSTypography.caption).foregroundStyle(theme.textSecondary)
+                HStack(spacing: 7) {
+                    Text(event.timeLabel(now: store.currentDate))
+                        .foregroundStyle(theme.textSecondary)
+                    if let categoryLabel = eventCategoryLabel(category) {
+                        Text(categoryLabel).foregroundStyle(eventColor(category))
+                    }
+                }
+                .font(DSTypography.caption)
                 Text(event.title).font(DSTypography.bodyEmphasis)
                     .foregroundStyle(theme.textPrimary).lineLimit(2).help(event.title)
                 Text(event.calendarTitle + (event.location.flatMap { $0.isEmpty ? nil : " · \($0)" } ?? ""))
@@ -212,6 +347,24 @@ struct CalendarHoverDashboardView: View {
         }
         .padding(.vertical, DSSpacing.standard)
         .accessibilityElement(children: .contain)
+    }
+
+    private func eventColor(_ category: CalendarEventVisualCategory) -> Color {
+        switch category {
+        case .birthday: theme.calendarBirthday
+        case .holiday: theme.calendarHoliday
+        case .work: theme.calendarWork
+        case .regular: theme.textSecondary
+        }
+    }
+
+    private func eventCategoryLabel(_ category: CalendarEventVisualCategory) -> String? {
+        switch category {
+        case .birthday: "Birthday"
+        case .holiday: "Holiday"
+        case .work: "Work"
+        case .regular: nil
+        }
     }
 
     private func reminderRow(_ reminder: CalendarReminder) -> some View {

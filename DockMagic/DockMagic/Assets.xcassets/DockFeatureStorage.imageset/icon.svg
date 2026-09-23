@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48" fill="none">
+  <title>Storage</title>
+  <path d="M11 8.5C11 6.6 12.6 5 14.5 5H33.5C35.4 5 37 6.6 37 8.5L42 22H6L11 8.5Z" fill="#007A54"/>
+  <rect x="5" y="23" width="38" height="16" rx="6.5" fill="#008D63"/>
+  <rect x="10" y="28" width="25" height="6" rx="3" fill="#07513E"/>
+  <rect x="11.5" y="29.5" width="14" height="3" rx="1.5" fill="#5BE0B8"/>
+  <circle cx="38.5" cy="31" r="2.3" fill="#07513E"/>
+</svg>

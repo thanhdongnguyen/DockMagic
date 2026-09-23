@@ -1,5 +1,26 @@
 # Maia migration verification
 
+## Weather SVG scenes — 20 September 2026
+
+All seven generated Weather PNGs were traced into original-color SVG paths;
+the PNGs are retained under [weather scene originals](design/weather-scenes/originals/).
+Each asset catalog entry preserves its vector representation, and the compiled
+`Assets.car` reports both `Vector` and Xcode-generated raster renditions for
+all seven names. XML validation found path geometry and no embedded bitmap.
+
+The macOS app build and test-bundle build passed. Two direct XCTest cases passed:
+condition-to-scene mapping and loading all seven named assets from the app
+bundle. The [SVG render smoke test](../script/verify_weather_svg.swift)
+produced 105 backdrop previews (seven scenes at 48 × 48, 96 × 96 and
+440 × 420, across five appearance/accessibility variants). Each
+scene was distinct; sampled minimum white-text contrast was 5.33:1 Light,
+8.26:1 Dark, 8.10:1 Increased Contrast and 8.62:1 grayscale. These are
+offscreen reproductions of the backdrop, not end-to-end snapshots of the
+glyph/text overlay or a physical Apple Dock/dashboard interaction. Two
+`xcodebuild test` attempts stalled in Xcode's test host before the selected
+render cases executed; those XCTest renders remain unverified. `Design.md`
+lint has 0 errors and 34 orphan-token warnings.
+
 ## Codex blue data accent — 18 September 2026
 
 The user reference resolves to sRGB #0088FF after applying its embedded Color
@@ -33,7 +54,7 @@ The user's follow-up removes the former native segmented-picker exception.
 `DSSegmentedControl` now owns short single-choice groups in Settings and hover
 dashboards. `DSSelect` owns dropdowns, including Active Dock Feature, Search
 Console properties and Now Playing sources. Appearance, Clock style, shared
-Dock display, GitHub, Search Console, Augment, Binance, Claude and OpenCode
+Dock display, GitHub, Search Console, Binance, Claude and OpenCode
 selection callers retain their existing bindings and persistence. Features
 without these selectors inherit the shared components without new controls.
 DatePicker and system-owned dialogs remain native. A source regression test
@@ -47,7 +68,7 @@ Validation of this follow-up:
 - Production selection renders cover Light/Dark, Increased Contrast, Reduce
   Transparency, Reduce Motion and grayscale. All 18 Settings destinations render
   in the existing appearance matrix. The broader run also covers Binance,
-  Augment, Calendar, Now Playing and provider dashboard/capture fixtures.
+  Calendar, Now Playing and provider dashboard/capture fixtures.
 - Native gallery: AXPress changes selection; Left/Right skip a disabled option;
   Tab skips the disabled option; Return selects the focused option. These were
   verified by reading selected state, focused element and bound fixture value.
@@ -66,8 +87,7 @@ Evidence: [Light](qa/maia/selection/selection-light-standard.png),
 [Dark](qa/maia/selection/selection-dark-standard.png),
 [native segmented keyboard](qa/maia/selection/native-segment-keyboard.png),
 [native select popup](qa/maia/selection/native-select-popup.png),
-[native interaction records](qa/maia/selection/native-interactions.json) and
-[unit summary](qa/maia/selection/unit-summary.json).
+[native interaction records](qa/maia/selection/native-interactions.json).
 
 ## Original migration scope
 
@@ -91,9 +111,9 @@ Dock interaction are separate evidence.
 
 ### Shared AI history chart follow-up — 18 September 2026
 
-Claude Code, OpenCode and Augment now render daily history through
+Claude Code and OpenCode render daily history through
 `AIUsageHistoryChart`. Claude's compatibility view only maps token/cost values
-and its empty message. OpenCode and Augment pass their persisted appearance
+and its empty message. OpenCode passes its persisted appearance
 color into the dashboard after a 3:1 contrast correction; Claude keeps its
 existing clay data color. OpenCode applies the same resolved color to daily and
 hourly plots. Provider-specific data semantics, metric formatting, missing and
@@ -101,10 +121,10 @@ partial states remain owned by each feature.
 
 Focused verification passed for the shared-source contract, Codex pointer/scroll
 behavior, Claude native scroller geometry across Tokens/Cost, overlay/always
-visible scrollers and 360/428/548 pt widths, plus the OpenCode and Augment
+visible scrollers and 360/428/548 pt widths, plus the OpenCode
 Light/Dark/contrast/transparency/motion/grayscale matrices. Reviewed renders are
-in `/private/tmp/dockmagic-shared-chart-qa`,
-`/private/tmp/dockmagic-opencode-qa` and `/private/tmp/augment-captures`.
+in `/private/tmp/dockmagic-shared-chart-qa` and
+`/private/tmp/dockmagic-opencode-qa`.
 
 The 63 registry entries are mapped or explicitly deferred in
 [MAIA_COMPONENT_CATALOG.md](MAIA_COMPONENT_CATALOG.md). Deferred entries have no
@@ -165,30 +185,6 @@ Settings examples: [General Light](qa/maia/settings-general-light.png),
 [activity export](qa/maia/antigravity-activity-export.png).
 These are production NSHostingView/ImageRenderer renders, not screenshots of
 manual interaction.
-
-## Augment continuity and Daily intensity — 2026-09-18
-
-Augment now reuses `StreakContinuityStrip` with the explicit
-`organizationActivity` presentation and reuses `AIUsageDailyIntensityCard` for
-Output tokens in UTC. The organization presentation has no personal badge or
-streak claim. Explicit zero is inactive/measured zero; missing dates and missing
-Output remain unknown. Codex, Claude Code, Antigravity, Augment and OpenCode
-production sources all instantiate `AIUsageDailyIntensityCard`.
-
-- 19 selected Augment/design-system tests passed, including source reuse and
-  zero-versus-unknown coverage.
-- 20 provider regression tests passed across Codex, Claude Code, Antigravity,
-  OpenCode and the compatibility coverage used by Grok Build.
-- Augment Light/Dark and accessibility fixtures passed. Focused component
-  renders: `/private/tmp/augment-captures/organization-insights-light.png` and
-  `/private/tmp/augment-captures/organization-insights-dark.png`.
-- `python3 script/verify_maia_resources.py`, `git diff --check`,
-  `./script/build_and_run.sh --verify` and strict deep code-sign verification
-  passed. `Design.md` lint reports no errors and the existing 20 orphan-token
-  warnings described below.
-
-These checks use synthetic organization analytics. They do not establish live
-Enterprise-account agreement with Augment web.
 
 ## Known baseline failures and harness limits
 

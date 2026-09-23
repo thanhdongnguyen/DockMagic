@@ -9,7 +9,7 @@ python3 script/verify_maia_resources.py
 TESTS=()
 case "${1:-unit}" in
   unit)
-    for test_class in MaiaDesignSystemTests BinanceRenderTests CalendarFeatureTests AugmentIntegrationTests NowPlayingTests DockHoverDelayTests SearchConsoleFeatureTests; do
+    for test_class in MaiaDesignSystemTests BinanceRenderTests CalendarFeatureTests NowPlayingTests DockHoverDelayTests SearchConsoleFeatureTests; do
       TESTS+=("-only-testing:DockMagicTests/$test_class")
     done
     for test_method in \

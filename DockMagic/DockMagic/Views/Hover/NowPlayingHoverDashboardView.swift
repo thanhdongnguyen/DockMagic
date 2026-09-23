@@ -19,6 +19,7 @@ struct NowPlayingHoverDashboardView: View {
                 HStack(alignment: .top, spacing: 24) {
                     VStack(alignment: .leading, spacing: 12) {
                         NowPlayingArtworkView(data: store.artworkData)
+                            .equatable()
                             .frame(width: 216, height: 216)
                             .clipShape(RoundedRectangle(cornerRadius: 12))
                             .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(theme.outline, lineWidth: 0.5))
@@ -97,7 +98,7 @@ struct NowPlayingHoverDashboardView: View {
             let elapsed = seekPreview ?? snapshot.elapsed(at: ProcessInfo.processInfo.systemUptime)
             VStack(spacing: 4) {
                 NowPlayingCommitSlider(value: snapshot.track?.duration == nil ? 0 : elapsed ?? 0, upperBound: snapshot.track?.duration ?? 1,
-                    enabled: store.canPerform(.seek(0)), target: store.commandTarget, label: "Playback position", identifier: "nowPlaying.seek",
+                    enabled: store.canOffer(.seek(0)), target: store.commandTarget, label: "Playback position", identifier: "nowPlaying.seek",
                     onPreview: { seekPreview = $0 }, onCommit: { value, target in store.perform(.seek(value), target: target) })
                     .frame(height: 18)
                     .help(snapshot.capabilities.seek ? "Seek within this song" : "Seeking is unavailable for this content")
@@ -127,8 +128,8 @@ struct NowPlayingHoverDashboardView: View {
                     .dsFont(size: 21, weight: .semibold)
                     .frame(width: 48, height: 48)
                     .foregroundStyle(theme.onAction).background(theme.action, in: Circle())
-            }.buttonStyle(DSContentButtonStyle()).disabled(!store.canPerform(.play))
-                .opacity(store.canPerform(.play) ? 1 : 0.45)
+            }.buttonStyle(DSContentButtonStyle()).disabled(!store.canOffer(.play))
+                .opacity(store.canOffer(.play) ? 1 : 0.45)
                 .accessibilityLabel(store.snapshot?.state == .playing ? "Pause" : "Play")
                 .accessibilityIdentifier("nowPlaying.playPause")
                 .keyboardShortcut(.space, modifiers: [])
@@ -140,7 +141,7 @@ struct NowPlayingHoverDashboardView: View {
     }
     private func transportButton(_ symbol: String, label: String, command: NowPlayingCommand, action: @escaping () -> Void) -> some View {
         Button(action: action) { DSIcon(systemName: symbol).dsFont(size: 19, weight: .medium).frame(width: 30, height: 40) }
-            .buttonStyle(DSContentButtonStyle()).foregroundStyle(theme.textPrimary).disabled(!store.canPerform(command))
+            .buttonStyle(DSContentButtonStyle()).foregroundStyle(theme.textPrimary).disabled(!store.canOffer(command))
             .help(label).accessibilityLabel(label)
     }
     private func volume(snapshot: NowPlayingSnapshot) -> some View {
@@ -148,7 +149,7 @@ struct NowPlayingHoverDashboardView: View {
             DSIcon(systemName: (volumePreview ?? snapshot.volume ?? 0) == 0 ? "speaker.slash.fill" : "speaker.wave.2.fill")
                 .dsFont(size: 13).frame(width: 18).accessibilityHidden(true)
             NowPlayingCommitSlider(value: volumePreview ?? snapshot.volume ?? 0, upperBound: 100,
-                enabled: store.canPerform(.volume(0)), target: store.commandTarget, label: "\(snapshot.source.title) volume", identifier: "nowPlaying.volume",
+                enabled: store.canOffer(.volume(0)), target: store.commandTarget, label: "\(snapshot.source.title) volume", identifier: "nowPlaying.volume",
                 onPreview: { volumePreview = $0 }, onCommit: { value, target in store.perform(.volume(value), target: target) })
                 .frame(height: 20)
             Text((volumePreview ?? snapshot.volume).map { "\(Int($0.rounded()))%" } ?? "—")

@@ -1,0 +1,17 @@
+[
+  {
+    "attachments" : [
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "00006030-001C588A1AD9001C",
+        "deviceName" : "My Mac",
+        "exportedFileName" : "DE59154C-CD76-4C77-B919-9D2B10CFA5C6.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "Hybrid magnification peak with fixed Shelf segment_0_EB14F173-AA21-491F-BD28-7FF03D313433.png",
+        "timestamp" : 1790097147.402
+      }
+    ],
+    "testIdentifier" : "DockMagicUITests/testShelfDockHybridMagnificationKeepsShelfGeometryFixed()",
+    "testIdentifierURL" : "test://com.apple.xcode/DockMagic/DockMagicUITests/DockMagicUITests/testShelfDockHybridMagnificationKeepsShelfGeometryFixed"
+  }
+]

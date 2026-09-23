@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48" fill="none">
+  <title>Clock</title>
+  <circle cx="24" cy="24" r="15" stroke="#B85F00" stroke-width="5"/>
+  <path d="M12.4 10.2L9.3 6.7" stroke="#D98511" stroke-width="4.2" stroke-linecap="round"/>
+  <path d="M35.6 37.8L38.7 41.3" stroke="#D98511" stroke-width="4.2" stroke-linecap="round"/>
+  <path d="M24 24L16.1 18.6" stroke="#7A4000" stroke-width="4.4" stroke-linecap="round"/>
+  <path d="M24 24L31.6 17.2" stroke="#C17100" stroke-width="4.4" stroke-linecap="round"/>
+  <circle cx="24" cy="24" r="3.1" fill="#7A4000"/>
+</svg>

@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48" fill="none">
+  <title>Network</title>
+  <path d="M20.8 13.5C16.2 16.4 12.6 21.1 11.7 27.4" stroke="#007A9E" stroke-width="4" stroke-linecap="round"/>
+  <path d="M27.5 14.3C34.3 17.5 38.4 23.3 38.1 28.5" stroke="#006BC9" stroke-width="4" stroke-linecap="round"/>
+  <path d="M34.6 27.1L38.1 31.5L41.5 27.1" stroke="#073B68" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="24" cy="10.5" r="6.5" fill="#007A9E"/>
+  <circle cx="10.5" cy="35.5" r="7.5" fill="#006BC9"/>
+  <circle cx="38" cy="35.5" r="7.5" fill="#006BC9"/>
+  <circle cx="24" cy="10.5" r="2.25" fill="#C9F7FF"/>
+</svg>

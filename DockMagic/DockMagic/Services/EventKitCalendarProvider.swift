@@ -77,7 +77,9 @@ actor EventKitCalendarProvider: CalendarProviding {
         return CalendarReadResult(calendars: sources, events: Array(values.values))
     }
 
-    func reminderAuthorization() -> CalendarAccess {
+    func reminderAuthorization() -> CalendarAccess { currentReminderAccess() }
+
+    private func currentReminderAccess() -> CalendarAccess {
         switch EKEventStore.authorizationStatus(for: .reminder) {
         case .fullAccess: .fullAccess
         case .notDetermined: .notDetermined
@@ -89,7 +91,9 @@ actor EventKitCalendarProvider: CalendarProviding {
     func requestReminderAccess() async throws { _ = try await eventStore.requestFullAccessToReminders() }
 
     func readReminders(selectedIDs: Set<String>?) async throws -> CalendarReminderReadResult {
-        guard await reminderAuthorization() == .fullAccess else { throw CalendarWriteError.permission }
+        // Avoid the protocol extension's async fallback, which reports
+        // `.notDetermined` for providers without Reminders support.
+        guard currentReminderAccess() == .fullAccess else { throw CalendarWriteError.permission }
         let store = eventStore
         store.refreshSourcesIfNecessary()
         let calendars = store.calendars(for: .reminder)
@@ -106,7 +110,7 @@ actor EventKitCalendarProvider: CalendarProviding {
             }
         }
         try Task.checkCancellation()
-        guard await reminderAuthorization() == .fullAccess else { throw CalendarWriteError.permission }
+        guard currentReminderAccess() == .fullAccess else { throw CalendarWriteError.permission }
         return .init(lists: lists, reminders: reminders)
     }
 

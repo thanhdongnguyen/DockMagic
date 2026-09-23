@@ -49,6 +49,7 @@ struct DockBatteryView: View {
 private struct BatteryDockTileSurface<Content: View>: View {
     @Environment(\.designTheme) private var theme
     @Environment(\.colorSchemeContrast) private var contrast
+    @Environment(\.dockTileShowsOuterBorder) private var showsOuterBorder
 
     private let content: (CGFloat) -> Content
 
@@ -69,12 +70,14 @@ private struct BatteryDockTileSurface<Content: View>: View {
                     theme.dockBackgroundRaised
                 )
 
-                shape.strokeBorder(
-                    theme.dockOutline.opacity(
-                        contrast == .increased ? 0.9 : 0.48
-                    ),
-                    lineWidth: contrast == .increased ? 2 : 1.25
-                )
+                if showsOuterBorder {
+                    shape.strokeBorder(
+                        theme.dockOutline.opacity(
+                            contrast == .increased ? 0.9 : 0.48
+                        ),
+                        lineWidth: contrast == .increased ? 2 : 1.25
+                    )
+                }
 
                 content(side)
             }

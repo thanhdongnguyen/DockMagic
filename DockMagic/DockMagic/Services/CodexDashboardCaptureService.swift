@@ -576,7 +576,6 @@ enum CodexDashboardCaptureService {
         case .antigravity: "Antigravity"
         case .grokBuild: "Grok-Build" // Name only; Grok's manifest does not select export.
         case .openCode: "OpenCode"
-        case .augment: "Augment" // Name only; Augment's manifest does not select export.
         }
         return "DockMagic-\(provider)-Activity-\(formatter.string(from: date)).png"
     }

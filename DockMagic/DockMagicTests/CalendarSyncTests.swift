@@ -16,13 +16,14 @@ final class CalendarSyncTests: XCTestCase {
     @MainActor func testExistingPreferencesMigrateWithoutLosingCalendarSelection() throws {
         let data = Data(#"{"layout":"dateAndAgenda","selectedCalendarIDs":[],"includesAllDayEvents":false,"showsCallButton":false}"#.utf8)
         let result = try JSONDecoder().decode(CalendarConfiguration.self, from: data)
-        XCTAssertEqual(result.layout, .dateAndAgenda)
         XCTAssertEqual(result.selectedCalendarIDs, [])
         XCTAssertFalse(result.includesAllDayEvents)
         XCTAssertFalse(result.showsCallButton)
         XCTAssertTrue(result.showsReminders)
         XCTAssertFalse(result.showsCompletedReminders)
         XCTAssertNil(result.selectedReminderListIDs)
+        let encoded = try XCTUnwrap(String(data: JSONEncoder().encode(result), encoding: .utf8))
+        XCTAssertFalse(encoded.contains("layout"))
     }
 
     @MainActor func testReminderFilteringDateOnlyOverdueUndatedCompletedAndSelection() throws {

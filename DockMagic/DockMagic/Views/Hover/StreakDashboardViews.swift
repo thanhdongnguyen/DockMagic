@@ -7,7 +7,6 @@ enum StreakServiceBrand: Sendable {
     case antigravity
     case openCode
     case grokBuild
-    case augment
 
     var displayName: String {
         switch self {
@@ -16,7 +15,6 @@ enum StreakServiceBrand: Sendable {
         case .antigravity: "Antigravity"
         case .grokBuild: "Grok Build"
         case .openCode: "OpenCode"
-        case .augment: "Augment"
         }
     }
 
@@ -27,7 +25,6 @@ enum StreakServiceBrand: Sendable {
         case .antigravity: "AntigravityLogo"
         case .grokBuild: ""
         case .openCode: "OpenCodeLogo"
-        case .augment: "AugmentLogo"
         }
     }
 }
@@ -234,7 +231,7 @@ struct StreakCelebrationView: View {
                 .accessibilityHidden(true)
         case .grokBuild:
             GrokBuildIdentityMark()
-        case .claudeCode, .antigravity, .openCode, .augment:
+        case .claudeCode, .antigravity, .openCode:
             PreservedVectorAssetImage(assetName: brand.logoAssetName)
                 .scaledToFit()
                 .frame(width: 26, height: 26)
@@ -361,11 +358,6 @@ struct StreakCelebrationView: View {
     }
 }
 
-enum ContinuityStripPresentation: Sendable {
-    case tokenStreak
-    case organizationActivity
-}
-
 enum StreakUnknownDayStyle: Sendable {
     case questionMark
     case dash
@@ -376,7 +368,6 @@ struct StreakContinuityStrip: View {
     let brand: StreakServiceBrand
     let accent: Color
     var currentDayIsUnknown = false
-    var presentation: ContinuityStripPresentation = .tokenStreak
     var unknownDayStyle: StreakUnknownDayStyle = .questionMark
     let onOpen: () -> Void
 
@@ -399,7 +390,7 @@ struct StreakContinuityStrip: View {
                         .foregroundStyle(theme.textTertiary)
                         .lineLimit(1)
                 }
-                .frame(width: presentation == .organizationActivity ? 92 : 78, alignment: .leading)
+                .frame(width: 78, alignment: .leading)
 
                 Rectangle()
                     .fill(theme.outline)
@@ -457,104 +448,58 @@ struct StreakContinuityStrip: View {
 
     @ViewBuilder
     private var leadingMark: some View {
-        switch presentation {
-        case .tokenStreak:
-            StreakBadgeView(
-                milestone: summary?.earnedBadge ?? .firstPrompt,
-                size: 48,
-                isUnlocked: summary?.earnedBadge != nil
-            )
-        case .organizationActivity:
-            DSIcon(.activity, size: 24)
-                .foregroundStyle(accent)
-                .frame(width: 42, height: 42)
-                .background(accent.opacity(0.12))
-                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                .overlay {
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .strokeBorder(theme.outline, lineWidth: 0.5)
-                }
-                .frame(width: 48, height: 48)
-                .accessibilityHidden(true)
-        }
+        StreakBadgeView(
+            milestone: summary?.earnedBadge ?? .firstPrompt,
+            size: 48,
+            isUnlocked: summary?.earnedBadge != nil
+        )
     }
 
     private var streakTitle: String {
-        switch presentation {
-        case .tokenStreak:
-            guard let summary else { return "Streak unavailable" }
-            return currentDayIsUnknown ? "Streak unknown" : "\(summary.currentDays)-day streak"
-        case .organizationActivity:
-            guard let summary else { return "Activity unavailable" }
-            return currentDayIsUnknown ? "Activity unknown" : "\(summary.currentDays)-day activity"
-        }
+        guard let summary else { return "Streak unavailable" }
+        return currentDayIsUnknown ? "Streak unknown" : "\(summary.currentDays)-day streak"
     }
 
     private var streakSubtitle: String {
         guard let summary else { return "Waiting for usage data" }
-        switch presentation {
-        case .tokenStreak:
-            if let earned = summary.earnedBadge {
-                return "\(earned.title) · best \(summary.bestDays)"
-            }
-            return "Use tokens to begin"
-        case .organizationActivity:
-            return "Organization · best \(summary.bestDays)"
+        if let earned = summary.earnedBadge {
+            return "\(earned.title) · best \(summary.bestDays)"
         }
+        return "Use tokens to begin"
     }
 
     private var progressTitle: String {
         guard !currentDayIsUnknown else { return "—" }
         guard let summary else { return "—" }
-        switch presentation {
-        case .tokenStreak:
-            guard let days = summary.daysUntilNextBadge else { return "Complete" }
-            return "\(days)d"
-        case .organizationActivity:
-            return "\(summary.bestDays)d"
-        }
+        guard let days = summary.daysUntilNextBadge else { return "Complete" }
+        return "\(days)d"
     }
 
     private var progressSubtitle: String {
         guard let summary else { return "No data" }
-        switch presentation {
-        case .tokenStreak:
-            return summary.nextBadge?.title ?? "All earned"
-        case .organizationActivity:
-            return "Best run"
-        }
+        return summary.nextBadge?.title ?? "All earned"
     }
 
     private var accessibilityValue: String {
-        guard let summary else { return presentation == .tokenStreak ? "Streak data unavailable" : "Organization activity data unavailable" }
-        switch presentation {
-        case .tokenStreak:
-            let badge = summary.earnedBadge?.title ?? "No badge earned"
-            return currentDayIsUnknown ? "Current streak unknown, best \(summary.bestDays) verified days, \(badge)" : "\(summary.currentDays) day current streak, best \(summary.bestDays) days, \(badge)"
-        case .organizationActivity:
-            return currentDayIsUnknown ? "Current organization activity run unknown, best \(summary.bestDays) reported days" : "\(summary.currentDays) day organization activity run, best \(summary.bestDays) days"
-        }
+        guard let summary else { return "Streak data unavailable" }
+        let badge = summary.earnedBadge?.title ?? "No badge earned"
+        return currentDayIsUnknown ? "Current streak unknown, best \(summary.bestDays) verified days, \(badge)" : "\(summary.currentDays) day current streak, best \(summary.bestDays) days, \(badge)"
     }
 
     private var helpText: String {
-        presentation == .tokenStreak ? "Open streak badges" : "Open organization activity continuity"
+        "Open streak badges"
     }
 
     private var accessibilityLabel: String {
-        presentation == .tokenStreak
-            ? "Open \(brand.displayName) streak details"
-            : "Open \(brand.displayName) organization activity details"
+        "Open \(brand.displayName) streak details"
     }
 
     private var accessibilityHint: String {
-        presentation == .tokenStreak
-            ? "Shows the current badge and all streak milestones"
-            : "Shows reported UTC activity continuity and output intensity"
+        "Shows the current badge and all streak milestones"
     }
 
     private var accessibilityIdentifier: String {
         if brand == .grokBuild { return "grokBuild.streak.open" }
-        if brand == .augment { return "augment.continuity.open" }
         return "dockHover.streak.open"
     }
 

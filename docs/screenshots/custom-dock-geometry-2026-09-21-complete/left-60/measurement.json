@@ -1,0 +1,17 @@
+{
+  "custom" : {
+    "height" : 904,
+    "width" : 50,
+    "x" : -1502,
+    "y" : 154
+  },
+  "edge" : "left",
+  "iconSize" : 60,
+  "native" : {
+    "height" : 887,
+    "width" : 52,
+    "x" : -1502,
+    "y" : 162
+  },
+  "thicknessDelta" : 2
+}

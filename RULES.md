@@ -75,15 +75,32 @@ Keep DockMagic-owned UI neutral-first. Primary action, focus, hover and selectio
 semantic color appears only for a real information, processing, warning, or
 danger state and replaces the local accent when prominent.
 
-### UI-008 — Do not add decorative gradients or palettes
+The enabled track of the shared `DSSwitchStyle` is the user-approved blue
+control-state exception. It uses the dedicated switch semantic roles only; it
+does not establish a blue action, focus, selection, status, or feature palette.
+
+### UI-008 — Keep decorative color bounded
 
 Do not add `LinearGradient`, `RadialGradient`, `AngularGradient`, colored glow,
-decorative tinted cards, or a new feature-local palette.
+decorative tinted cards, or a new feature-local palette. The Weather scene
+backgrounds specified by UI-021 are the sole condition-driven surface
+exception, including their reuse behind the Calendar Dock date and inside the
+selected-day Calendar forecast: use shared solid
+tokens beneath quiet static artwork. Do not add
+code-generated gradients; natural tonal variation inside the authored Weather
+images does not establish a UI gradient role.
 
 ### UI-009 — Constrain icon and brand colors
 
-Keep interface icons monochrome or hierarchical in one hue. Preserve
-full-color brand assets only inside a bounded identity region.
+Keep interface icons monochrome or hierarchical in one hue. The user-approved
+generated Calendar forecast pictograms may use their authored weather colors
+only in the month grid and selected-day forecast; they never color controls or
+replace condition text/accessibility labels. The user-approved
+CPU & RAM, Network, Storage, Clock, Calendar, Now Playing, and Batteries identities may
+use their authored solid colors only inside the fixed Settings/sidebar and
+Active Dock Feature logo region. Preserve full-color brand assets only inside
+a bounded identity region; neither kind of artwork may tint surrounding text,
+selection, controls, surfaces, focus, or status.
 
 ### UI-010 — Contain renderer and data-series colors
 
@@ -109,7 +126,16 @@ hex, system color names, or asset lookups in feature views when a semantic
 role exists. Follow the pinned catalog workflow in Design.md before adding a
 component: reuse first, add a named native variant with gallery states and
 verification when necessary, then compose the feature. App-owned surfaces are
-opaque; native file/permission/Share/app menus keep platform presentation.
+opaque except the outer Custom Dock surface, which may use a public macOS
+material to follow Apple Dock appearance. The approved Shelf segment has no
+independent fill or nested material: two semantic hairline dividers group its
+existing Dock tiles and trailing dashed `+` within the one continuous Custom
+Dock surface. Shelf feature tiles suppress only their outer tile outline in
+both Light and Dark appearances; internal renderer strokes, indicators and the
+trailing `+` border remain intact. Controls, Settings and dashboards retain
+semantic Maia surfaces; Reduce Transparency must resolve the outer surface to
+an opaque neutral color. Native file/permission/Share/app menus keep platform
+presentation.
 
 AI daily history dashboards use `AIUsageHistoryChart`; provider adapters only
 map source values, missing/partial state and formatting into that component.
@@ -174,6 +200,90 @@ shared dashboard card keeps its dimensions and shifts toward the Dock by the
 former 10 pt pointer extent, so its Dock-facing edge ends at the arrow tip's
 former position. Apply this through shared hover chrome for bottom and side
 Dock placements; do not introduce feature-specific offsets.
+
+### UI-018 — Keep shared sliders thumbless
+
+`DSSlider` and its `DSNativeSlider` derivatives render a value track without a
+visible thumb. Preserve the native knob geometry for pointer hit-testing,
+keyboard adjustment and accessibility; feature views must not add a local thumb
+or replace the shared slider solely to draw one.
+
+### UI-019 — Preserve Dock Active and Shelf mode semantics
+
+DockMagic offers two exclusive modes: Dock Active shows one selected feature in
+the app's Apple Dock tile; Shelf shows a Dockset-like Custom Dock segment with a
+trailing square, rounded, dashed-border `+` tile. Adding a feature replaces the
+current `+` position with that feature's **existing Dock tile presentation** and
+appends `+` one slot to the right (or next in Dock-edge order). The same feature
+may be added more than once: each occurrence has its own stable slot identity
+for reorder, removal, focus and dashboard anchoring, while provider data may be
+shared. The Shelf context removes the feature tile's outer outline in Light and
+Dark while preserving its content, surface, internal strokes and state marks.
+Do not substitute a new icon-and-label summary for the Dock renderer.
+The Custom Dock is a separate app-owned surface; do not claim it is a native
+subview of Apple Dock. Validate its visual placement and window behavior before
+calling Shelf complete. Existing `UI-015` behavior applies to the DockMagic
+icon in Dock Active mode.
+
+Hybrid magnification applies only to ordinary Custom Dock items: Finder, Apps,
+applications, overflow, stacks, minimized windows and Trash. It uses a 1.32×
+peak with cosine neighbor falloff and treats the Shelf segment as a hard
+boundary. Shelf slots, the trailing `+`, Shelf dividers and the resize divider
+must remain fixed. Transform only artwork or thumbnails; button geometry,
+pointer hit targets, running indicators, context menus, drag/drop targets and
+accessibility frames stay at their original positions. Reduce Motion suppresses
+the transform even when the saved magnification toggle is on.
+
+### UI-020 — Keep the Calendar Dock tile date-led with a current-day indicator
+
+The Calendar Dock tile shows only the abbreviated weekday, day number,
+abbreviated month, and a conditional prominent red notification dot at the
+top-right corner. Never render event/reminder times, titles, or other agenda
+details in the tile; those belong in the hover dashboard. Show the dot when a
+selected calendar event occurs at any time today or an unfinished due reminder
+is included, even if an event has already ended. Use `DesignTheme.danger` only
+for this bounded indicator; it must not tint nearby text, icons, or surfaces.
+The tile's accessibility value must state when today has calendar items, so the
+condition is not conveyed by color alone. Verify the composition across Dock
+sizes and accessibility appearances.
+The tile may use UI-021's shared Weather scene as a decorative background only
+when the current condition is no older than 45 minutes. Without Location access
+or fresh current data it remains neutral; daily forecast codes never drive it.
+Date and dot must remain legible and dominant over the scene.
+
+### UI-021 — Encode Weather conditions in bounded glyphs and scenes
+
+Weather's Dock tile and hover dashboard use the shared semantic Weather
+condition palette for the condition glyph and a matching token-backed scene:
+sun, moon, cloud, wind, rain, ice, and storm. Show the scene only for live or
+last-known weather; loading and unavailable surfaces stay neutral. Calendar's
+Dock tile may reuse the same scene for fresh current weather under UI-020, never
+for a selected date's forecast. The Calendar dashboard may use that shared
+scene behind its selected-day forecast and hourly strip; this never changes
+the Dock tile's current-condition rule. Subdued static SVG artwork may add weather
+atmosphere over the solid token, but must remain
+subordinate to information, with accessible high-contrast text and glyphs after
+compositing in Light, Dark and Increased Contrast. Forecast glyphs may each use
+their own condition color against the current scene. Controls, selection, focus,
+and stale/error statuses retain their semantic roles. The glyph shape,
+condition text, and accessibility label/value must identify weather without
+relying on color or decorative art. Verify small Dock sizes, Reduced
+Transparency and grayscale as well.
+
+### UI-022 — Give Calendar content bounded, readable color
+
+In the Calendar dashboard, dates with an event or included reminder show a
+red dot independent of weather icons. Preserve the date, selected state, and
+accessible item count. Forecast days use the approved generated SVG condition
+pictograms; dates without forecast have no weather pictogram. Birthday,
+holiday, and work agenda rows may use dedicated Calendar content-color roles
+for a slim marker and explicit category label. Category inference is only a
+visual hint and never changes EventKit data. All other agenda rows remain
+neutral. Verify the grid and agenda in Light, Dark, Increased Contrast and
+grayscale; event/reminder actions must remain usable. Calendar weather
+pictograms in the date grid and selected-day details are prominent and render
+without white icon badges or borders. Keep the condition label and hourly
+values readable against the shared Weather scene.
 
 ## Maintaining this file
 

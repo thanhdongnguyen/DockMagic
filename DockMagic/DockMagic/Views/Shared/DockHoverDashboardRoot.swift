@@ -4,6 +4,7 @@ import SwiftUI
 @MainActor
 struct DockHoverDashboardRoot: View {
     let appModel: DockAppModel
+    let feature: DockFeature
     let pointerEdge: DockHoverPointerEdge
     let panelSize: CGSize
     var appearanceMode: DSAppearanceMode = .dark
@@ -21,6 +22,7 @@ struct DockHoverDashboardRoot: View {
 
     init(
         appModel: DockAppModel,
+        feature: DockFeature? = nil,
         pointerEdge: DockHoverPointerEdge,
         panelSize: CGSize? = nil,
         appearanceMode: DSAppearanceMode = .dark,
@@ -37,10 +39,11 @@ struct DockHoverDashboardRoot: View {
         onBinanceClose: @escaping () -> Void = {}
     ) {
         self.appModel = appModel
+        self.feature = feature ?? appModel.preferences.activeFeature
         self.pointerEdge = pointerEdge
         self.panelSize = panelSize
             ?? DockHoverPanelPlacement.panelSize(
-                for: appModel.preferences.activeFeature
+                for: feature ?? appModel.preferences.activeFeature
             )
         self.appearanceMode = appearanceMode
         self.initialHoveredBucketID = initialHoveredBucketID
@@ -59,13 +62,15 @@ struct DockHoverDashboardRoot: View {
 
     var body: some View {
         Group {
-            if appModel.preferences.activeFeature.hasHoverDashboard {
+            if feature.hasHoverDashboard {
                 DockMagicThemeRoot(
                     content: DockHoverChrome(
                         pointerEdge: pointerEdge,
-                        panelSize: panelSize
+                        panelSize: panelSize,
+                        surfaceColor: weatherSurfaceColor,
+                        weatherSceneBackdrop: weatherSceneBackdrop
                     ) {
-                        switch appModel.preferences.activeFeature {
+                        switch feature {
                         case .systemMetrics:
                             SystemMetricsHoverDashboardView(
                                 current: appModel.metricsStore.current,
@@ -84,7 +89,9 @@ struct DockHoverDashboardRoot: View {
                                 appModel.openBinanceSettings()
                             }, onInteraction: onBinanceInteraction, onClose: onBinanceClose)
                         case .calendar:
-                            CalendarHoverDashboardView(store: appModel.calendarStore)
+                            CalendarHoverDashboardView(store: appModel.calendarStore,
+                                                       weatherStore: appModel.calendarWeatherStore,
+                                                       weatherInterest: .hover)
                         case .nowPlaying:
                             NowPlayingHoverDashboardView(store: appModel.nowPlayingStore)
                         case .weather:
@@ -163,12 +170,6 @@ struct DockHoverDashboardRoot: View {
                                     }
                                 }
                             )
-                        case .augment:
-                            AugmentHoverDashboardView(
-                                store: appModel.augmentStore,
-                                chartColor: appModel.preferences.augmentAppearance.color,
-                                onOpenSettings: { appModel.openAugmentSettings?() }
-                            )
                         case .grokBuild:
                             if GrokBuildFeatureGate.experimentalEnabled {
                                 GrokBuildHoverDashboardView(store: appModel.grokBuildStore, appearance: appModel.preferences.grokBuildAppearance,
@@ -219,5 +220,27 @@ struct DockHoverDashboardRoot: View {
             height: panelSize.height
         )
         .accessibilityIdentifier("dockHover.dashboard")
+    }
+
+    private var weatherSurfaceColor: Color? {
+        guard feature == .weather,
+              let snapshot = appModel.weatherStore.state.snapshot else {
+            return nil
+        }
+        return snapshot.condition.sceneColor(
+            isDaylight: snapshot.isDaylight,
+            in: ProjectTheme.current
+        )
+    }
+
+    private var weatherSceneBackdrop: WeatherSceneBackdrop? {
+        guard feature == .weather,
+              let snapshot = appModel.weatherStore.state.snapshot else {
+            return nil
+        }
+        return WeatherSceneBackdrop(
+            condition: snapshot.condition,
+            isDaylight: snapshot.isDaylight
+        )
     }
 }

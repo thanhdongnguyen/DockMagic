@@ -70,7 +70,7 @@ extension DockFeature {
         case .antigravity:
             .antigravity
         case .dockMagic, .systemMetrics, .network, .storage, .weather, .clock, .calendar,
-             .batteries, .github, .searchConsole, .augment, .openCode, .grokBuild, .binance, .nowPlaying:
+             .batteries, .github, .searchConsole, .openCode, .grokBuild, .binance, .nowPlaying:
             nil
         }
     }

@@ -16,7 +16,6 @@ enum DockFeature: String, CaseIterable, Codable, Identifiable, Sendable {
     case claudeCode
     case antigravity
     case openCode
-    case augment
     case grokBuild
     case binance
     case searchConsole
@@ -54,8 +53,6 @@ enum DockFeature: String, CaseIterable, Codable, Identifiable, Sendable {
             "Claude Code"
         case .grokBuild:
             "Grok Build (Experimental)"
-        case .augment:
-            "Augment"
         case .openCode:
             "OpenCode"
         case .antigravity:
@@ -95,8 +92,6 @@ enum DockFeature: String, CaseIterable, Codable, Identifiable, Sendable {
             "Remaining usage limits"
         case .grokBuild:
             "Experimental local tokens; quota unavailable"
-        case .augment:
-            "Reported organization tokens and USD usage"
         case .openCode:
             "Local token history and daily activity"
         case .antigravity:
@@ -136,8 +131,6 @@ enum DockFeature: String, CaseIterable, Codable, Identifiable, Sendable {
             "chevron.left.forwardslash.chevron.right"
         case .grokBuild:
             "g.circle"
-        case .augment:
-            "chart.bar"
         case .openCode:
             "terminal"
         case .antigravity:
@@ -153,7 +146,7 @@ enum DockFeature: String, CaseIterable, Codable, Identifiable, Sendable {
         switch self {
         case .grokBuild:
             GrokBuildFeatureGate.experimentalEnabled
-        case .binance, .systemMetrics, .weather, .calendar, .nowPlaying, .codex, .claudeCode, .antigravity, .openCode, .augment:
+        case .binance, .systemMetrics, .weather, .calendar, .nowPlaying, .codex, .claudeCode, .antigravity, .openCode:
             true
         case .dockMagic, .network, .storage, .clock, .batteries,
              .github, .searchConsole:
@@ -662,7 +655,7 @@ enum DockTilePresentation: Equatable, Sendable {
     )
     case binance(snapshot: BinanceDockSnapshot)
     case weather(state: WeatherState)
-    case calendar(date: Date, events: [CalendarEvent], configuration: CalendarConfiguration, access: CalendarAccess, isLoading: Bool, hasError: Bool)
+    case calendar(date: Date, hasItems: Bool, currentWeather: CalendarCurrentWeather? = nil)
     case clock(date: Date, configuration: DockClockConfiguration)
     case batteries(snapshot: BatteryMetricsSnapshot, errorDescription: String?)
     case github(
@@ -682,7 +675,6 @@ enum DockTilePresentation: Equatable, Sendable {
             provider: .claudeCode
         )
     )
-    case augment(state: AugmentUsageState, appearance: AugmentDockAppearance)
     case openCode(state: OpenCodeUsageState, appearance: OpenCodeDockAppearance)
     case grokBuild(local: GrokBuildObservation<GrokBuildHistorySnapshot>, settings: GrokBuildSettings,
                    appearance: GrokBuildAppearance = .standard)

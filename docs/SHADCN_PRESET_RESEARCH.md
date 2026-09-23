@@ -239,7 +239,7 @@ Các tên/parameter mới phải được chốt khi triển khai. Có thể gi�
 
 ## 7. Áp dụng theo tính năng
 
-Inventory Settings hiện có **18 destination enum**; feature flag có thể làm một số mục không hiện ở runtime. About/update/support cần rà qua composition của General/chrome, không dựa vào danh sách cũ trong docs để kết luận số màn hình.
+Inventory Settings hiện có **17 destination enum**; feature flag có thể làm một số mục không hiện ở runtime. About/update/support cần rà qua composition của General/chrome, không dựa vào danh sách cũ trong docs để kết luận số màn hình.
 
 | Nhóm | Component chung cần dùng | Phần vẫn đặc thù |
 | --- | --- | --- |
@@ -250,7 +250,7 @@ Inventory Settings hiện có **18 destination enum**; feature flag có thể l�
 | Now Playing | Identity/artwork container, icon actions, slider/value, connection state | Playback commands, artwork, source selection |
 | GitHub, Search Console | Connection form, metric/table states, period selection, charts | Provider auth, repository/property data, aggregation |
 | Codex, Claude Code, Antigravity | Dashboard shell, quota/history/freshness/status, export actions | Capability và evidence của từng provider; không suy quota từ activity |
-| OpenCode, Grok Build, Augment | Shared history/insight modules, breakdown, connection/source section | Local observation và token bucket/provider khác nhau |
+| OpenCode, Grok Build | Shared history/insight modules, breakdown, connection/source section | Local observation và token bucket/provider khác nhau |
 | Binance | Search/select, segmented chart type, metric/table/tooltip/chart frame | Candlestick, volume, feed update, scale và symbol semantics |
 | Dock tile + Settings preview | Foundation/renderer primitives phù hợp | Raster proportional, không nhét form/button vào tile |
 | Save/Copy/Share | Shared action và state | Dedicated artifact renderer, kích thước và điều kiện export riêng |

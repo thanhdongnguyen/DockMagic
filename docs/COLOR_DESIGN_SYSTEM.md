@@ -34,6 +34,9 @@ chromatic color count.
   inactive icons use neutral roles.
 - The neutral action role is used for the primary action, current selection, focus,
   or the most important active state.
+- The user-approved blue `switchActive` role is limited to an enabled
+  `DSSwitchStyle` track; it does not change the neutral action, focus, or
+  selection roles.
 - Hover is neutral. Hover alone does not introduce a new hue.
 - A screen must not give every feature, card, row, or icon its own accent.
 
@@ -53,7 +56,8 @@ chromatic color count.
 For DockMagic-owned interface elements in a single surface:
 
 1. Use the neutral family.
-2. Use the neutral primary-action family; no persistent blue action accent.
+2. Use the neutral primary-action family. The only persistent blue control
+   accent is the documented enabled `DSSwitchStyle` track.
 3. Add at most one conditional semantic hue only when a real state requires it.
 
 The result normally reads as a neutral family. A semantic family is local
@@ -78,6 +82,7 @@ information/processing/warning remain bounded semantic extensions.
 | Neutral surfaces | Structure and depth | Window, panel, raised/inset content, popover | Feature identity or status |
 | Neutral text | Reading hierarchy | Primary, secondary, tertiary text and inactive icons | Disabled text through arbitrary low opacity |
 | Action | Primary interaction | Primary action, selection, focus, active control | Decoration, every clickable control, passive metrics |
+| Switch active | Enabled binary state | The `DSSwitchStyle` track only | Buttons, focus, selection, status, or feature chrome |
 | Information | Important non-critical message | A true informational state with label or symbol | General help text or blue decoration |
 | Processing | Work currently in progress | Progress indicator plus text/value | A permanent green/mint accent |
 | Warning | Recoverable attention state | Stale data, degraded service, action required soon | Decorative orange cards or icons |
@@ -114,7 +119,9 @@ Before applying a chromatic color, answer these questions in order:
    renderer and obey the data rules below.
 5. **Is this an original brand asset or user-selected color?** Keep it inside
    its explicit brand, preview, swatch, or renderer boundary.
-6. Otherwise, reject the color.
+6. **Is this the enabled track of the shared binary switch?** Use the dedicated
+   `switchActive` role and preserve its state with position, label, and AX value.
+7. Otherwise, reject the color.
 
 No component may introduce a new hue merely to feel lively, premium, layered,
 or more visually interesting.
@@ -124,12 +131,13 @@ or more visually interesting.
 | Element | Required treatment |
 | --- | --- |
 | Surface/background | Neutral semantic surface only. Content popovers and hover dashboards use an opaque semantic surface. |
-| Material/glass | No app-owned materials. Every surface uses its opaque semantic role. System-owned UI retains platform presentation. |
-| Border/divider | Neutral outline roles. No colored border unless it communicates focus, selection, or status. |
+| Material/glass | Only the outer Custom Dock surface may use a public macOS material, with an opaque neutral fallback under Reduce Transparency. The Shelf group, Settings, dashboards and popovers use semantic opaque roles. System-owned UI retains platform presentation. |
+| Border/divider | Neutral outline roles. No colored border unless it communicates focus, selection, or status. Shelf feature tiles omit their outer outline in Light and Dark; internal renderer strokes, state marks, semantic boundary dividers and the dashed `+` border remain. |
 | Shadow | Neutral shadow only. No colored glow. The outer floating host owns elevation. |
 | Text | Neutral text roles by default. Accent text only for links/actions; semantic text only for real status. |
 | Interface icon | Monochrome or hierarchical in one hue. Default to neutral; use action/semantic color only when meaning requires it. |
 | Button | Primary may use action fill. Secondary and tertiary buttons remain neutral. Destructive uses danger only for the destructive action. |
+| Switch | `DSSwitchStyle` uses `switchActive` only when enabled; its thumb position, label, and accessibility value communicate the state without color. |
 | Selection/focus | One action family through `selection…` and `focus` roles. Do not add another feature-specific tint. |
 | Hover/pressed | Change neutral fill, opacity, weight, or elevation. Do not add a new hue. |
 | Badge/status | Compact semantic color plus text/symbol. Do not color an unrelated container. |
@@ -166,12 +174,33 @@ Exceptions are allowed only when color is the content rather than decoration:
 
 - An original application/service logo may retain its authored colors inside a
   fixed logo region. Those colors do not tint nearby text, icons, or surfaces.
+- The user-approved CPU & RAM, Network, Storage, Clock, Calendar, Now Playing,
+  and Batteries identities are original-color SVG artwork within their fixed Settings
+  sidebar and Active Dock Feature logo region. Each uses a restrained set of
+  authored solid hues for its own silhouette only; the artwork has no gradient,
+  colored container, status meaning, or effect on adjacent Settings chrome.
 - A color picker or swatch gallery may show many choices because choosing color
   is the task. All surrounding UI remains neutral.
 - User-selected Dock renderer colors remain inside the renderer, its preview,
   and its color controls. They do not become semantic status or chrome colors.
+- The Calendar Dock tile may use `DesignTheme.danger` for one prominent red
+  top-right notification dot when a selected event occurs today or an unfinished due
+  reminder. The dot is a bounded schedule indicator, has an accessibility value,
+  and does not tint surrounding text, icons, or surfaces.
+- Calendar month days with included events/reminders use the same danger-red
+  content dot, separate from the generated colored weather pictogram. The
+  selected-day forecast alone may reuse the shared Weather scene. Birthday,
+  holiday and work agenda rows use dedicated `DSCalendarBirthday`,
+  `DSCalendarHoliday` and `DSCalendarWork` content roles for a slim marker and
+  explicit category label; category inference never changes EventKit data.
 - A two-series chart may use two data hues when labels, shapes, or positions
   alone are insufficient. Its legend must repeat the series names.
+- `DSSwitchActive` is the user-approved blue (`#0A84FF` in Light and Dark)
+  for an enabled `DSSwitchStyle` track. `DSOnSwitchActive` supplies its white
+  thumb. This one control-state hue is bounded to the shared switch; track
+  position, label, and accessibility value make enabled state legible without
+  color. It is never reused for action buttons, focus, selection, status, or
+  feature chrome.
 - Codex and Antigravity quantitative content use `DesignTheme.codexActivity`, owned by
   `DSCodexActivity`: #0088FF Dark from the user's supplied reference and
   #006BC9 Light for contrast. It covers quota progress, token charts/metrics,
@@ -198,6 +227,26 @@ Exceptions are allowed only when color is the content rather than decoration:
   the shared strip, celebration and badge-detail Recent activity. The check and
   node shape preserve the state in grayscale; the role never colors badge art,
   pending/unknown days, chrome, controls, focus or status.
+- Weather condition glyphs use the shared `DSWeatherSun`, `DSWeatherMoon`,
+  `DSWeatherCloud`, `DSWeatherWind`, `DSWeatherRain`, `DSWeatherIce`, and
+  `DSWeatherStorm` assets. Matching solid `DSWeatherScene*` assets color the
+  live/last-known Dock tile and hover dashboard, with `DSWeatherSceneForeground`
+  for readable text. Seven true-vector SVG `WeatherScene*.imageset` illustrations,
+  traced from original generated imagery, add static atmosphere at low opacity
+  above these solid colors. Original PNGs are retained in
+  `docs/design/weather-scenes/originals/` for provenance.
+  Forecast glyph colors
+  are adjusted for contrast against the current scene. Loading and unavailable
+  surfaces remain neutral; stale/error labels retain their text semantics.
+  Glyph shape, condition description and accessibility label preserve meaning
+  in grayscale. Controls and focus keep their existing semantic roles. This
+  bounded Weather exception does not permit code-generated gradients or tinting
+  other features; test text contrast after image compositing.
+  Calendar's month grid and selected-day hourly strip use eight generated,
+  vector-traced `CalendarWeather*.imageset` pictograms. They render directly
+  on the date cell and Weather scene without a white icon badge or border;
+  verify visibility after compositing in Light, Dark and grayscale. Original PNGs and the
+  deterministic conversion script are retained for provenance.
 - Photography, weather imagery, and other content media are not UI palette
   tokens, but their container and controls still follow this contract.
 - System-owned macOS UI keeps its native appearance.
@@ -233,6 +282,8 @@ Named Color Set assets
   `ProjectTheme`.
 - Add a semantic role only when it will be shared and its meaning is stable
   across features.
+- `DSSwitchActive` / `DSOnSwitchActive` are the shared, control-specific
+  semantic roles for the enabled binary switch; they are not feature colors.
 - Prefer extending an existing shared component over styling a feature view.
 - Renderer appearance models may own user-configurable data colors. The same
   saved color may feed a feature's Dock renderer, Settings preview and shared
@@ -240,8 +291,8 @@ Named Color Set assets
 - Brand assets remain assets; do not extract a palette from them for UI chrome.
 
 AI daily history uses one `AIUsageHistoryChart` renderer. Codex supplies its
-approved blue data role, Claude supplies its clay usage role, and OpenCode plus
-Augment supply their persisted appearance color after a 3:1 plot-background
+approved blue data role, Claude supplies its clay usage role, and OpenCode
+supplies its persisted appearance color after a 3:1 plot-background
 contrast correction. The correction is render-only and never rewrites the
 saved swatch.
 

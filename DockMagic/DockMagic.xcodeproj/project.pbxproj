@@ -35,10 +35,7 @@
 		E7A000000000000000000022 /* GrokBuildAuthenticationController.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7B000000000000000000022 /* GrokBuildAuthenticationController.swift */; };
 		E7A000000000000000000021 /* GrokBuildAuthenticationSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7B000000000000000000021 /* GrokBuildAuthenticationSection.swift */; };
 		CA160000000000000000A014 /* CalendarSyncTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA160000000000000000B014 /* CalendarSyncTests.swift */; };
-		A8CBA009563DBC28BDC03AF3 /* AugmentIntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 256F2F9835965F59B81EFF3F /* AugmentIntegrationTests.swift */; };
-		CFEC173B1B4A69C7144E1E4E /* AugmentUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA583EEA3E1B1B19EF067CE4 /* AugmentUITests.swift */; };
 		CA160000000000000000A013 /* CalendarUITestProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA160000000000000000B013 /* CalendarUITestProvider.swift */; };
-		516B32A59647D48D918984C6 /* AugmentFixtures.swift in Sources */ = {isa = PBXBuildFile; fileRef = FEC3C765A363BDB4C22D92C9 /* AugmentFixtures.swift */; };
 		E7A000000000000000000018 /* GrokPresentationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7B000000000000000000018 /* GrokPresentationTests.swift */; };
 		E7A000000000000000000019 /* GrokUIFixtures.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7B000000000000000000019 /* GrokUIFixtures.swift */; };
 		E7A000000000000000000020 /* GrokUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7B000000000000000000020 /* GrokUITests.swift */; };
@@ -46,17 +43,6 @@
 		CA160000000000000000A011 /* CalendarEditorWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA160000000000000000B011 /* CalendarEditorWindowController.swift */; };
 		CA160000000000000000A010 /* EventKitCalendarWriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA160000000000000000B010 /* EventKitCalendarWriter.swift */; };
 		CA160000000000000000A009 /* CalendarEditing.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA160000000000000000B009 /* CalendarEditing.swift */; };
-		53F6AC5AB7FFB636C8363E8A /* AugmentStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C3D24171D1A7ECECA61FA6F /* AugmentStoreTests.swift */; };
-		E7C7764B0289BD21024EA16E /* AugmentAnalyticsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5E1292BC2383EE14C3A7529 /* AugmentAnalyticsTests.swift */; };
-		45FB7CDFF2D4FF72E84EED2D /* AugmentSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2486EEC4B09BE3A5DC8E3DF /* AugmentSettingsView.swift */; };
-		B54C9D5809CBBF5D9EF49802 /* AugmentHoverDashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 565BBE7951F2C599AD510358 /* AugmentHoverDashboardView.swift */; };
-		B8B69E05E3A6F4898F022FA0 /* DockAugmentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 215AF5AC0D6DFAA0CCCD2CB5 /* DockAugmentView.swift */; };
-		950ABAAC51A7BF0947B38383 /* AugmentUsageStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AE2F2EE17FD76B12E0C839C /* AugmentUsageStore.swift */; };
-		C28C19707B6A0C633904E5D6 /* AugmentHistoryCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55D00EF34870BB6956ED7042 /* AugmentHistoryCache.swift */; };
-		2A2B6F907B0EAAEC2F692E64 /* AugmentCredentialVault.swift in Sources */ = {isa = PBXBuildFile; fileRef = 197428DE2FAE9BF43323A224 /* AugmentCredentialVault.swift */; };
-		5FA499CEF72D21648711BBFC /* AugmentAnalyticsClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 913591A465E369AE47433D66 /* AugmentAnalyticsClient.swift */; };
-		D6AA1E99D35A1989D430871B /* AugmentPresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DC392E8389699A165E16D7E /* AugmentPresentation.swift */; };
-		E711F37F4A923990D6D7FBED /* AugmentUsage.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE623AAA48EBA3CC0FA44BE9 /* AugmentUsage.swift */; };
 		E7A000000000000000000012 /* GrokBuildSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7B000000000000000000012 /* GrokBuildSettings.swift */; };
 		E7A000000000000000000013 /* GrokIntegrationController.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7B000000000000000000013 /* GrokIntegrationController.swift */; };
 		E7A000000000000000000014 /* GrokBuildPresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7B000000000000000000014 /* GrokBuildPresentation.swift */; };
@@ -83,6 +69,9 @@
 		CA160000000000000000A005 /* CalendarHoverDashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA160000000000000000B005 /* CalendarHoverDashboardView.swift */; };
 		CA160000000000000000A004 /* DockCalendarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA160000000000000000B004 /* DockCalendarView.swift */; };
 		CA160000000000000000A003 /* CalendarStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA160000000000000000B003 /* CalendarStore.swift */; };
+		CA170000000000000000A001 /* CalendarWeather.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA170000000000000000B001 /* CalendarWeather.swift */; };
+		CA170000000000000000A002 /* OpenMeteoCalendarWeatherProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA170000000000000000B002 /* OpenMeteoCalendarWeatherProvider.swift */; };
+		CA170000000000000000A003 /* CalendarWeatherStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA170000000000000000B003 /* CalendarWeatherStore.swift */; };
 		CA160000000000000000A002 /* EventKitCalendarProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA160000000000000000B002 /* EventKitCalendarProvider.swift */; };
 		CA160000000000000000A001 /* CalendarAgenda.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA160000000000000000B001 /* CalendarAgenda.swift */; };
 		E7A000000000000000000010 /* GrokBuildActivityLedger.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7B000000000000000000010 /* GrokBuildActivityLedger.swift */; };
@@ -189,6 +178,10 @@
 		B4A000000000000000000002 /* DockClockView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4B000000000000000000002 /* DockClockView.swift */; };
 		B4A000000000000000000003 /* ClockSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4B000000000000000000003 /* ClockSettingsView.swift */; };
 		C3A000000000000000000001 /* DockHoverCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3B000000000000000000001 /* DockHoverCoordinator.swift */; };
+		C3A0000000000000000000F0 /* DockShelf.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3B0000000000000000000F0 /* DockShelf.swift */; };
+		DCC000000000000000000001 /* CustomDock.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCC000000000000000000002 /* CustomDock.swift */; };
+		DCC000000000000000000003 /* CustomDockController.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCC000000000000000000004 /* CustomDockController.swift */; };
+		DCC000000000000000000005 /* CustomDockView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCC000000000000000000006 /* CustomDockView.swift */; };
 		C3A000000000000000000002 /* CodexHoverDashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3B000000000000000000002 /* CodexHoverDashboardView.swift */; };
 		C3A000000000000000000003 /* ClaudeCodeHoverDashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3B000000000000000000003 /* ClaudeCodeHoverDashboardView.swift */; };
 		C3A000000000000000000004 /* CodexDashboardCaptureService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3B000000000000000000004 /* CodexDashboardCaptureService.swift */; };
@@ -286,10 +279,7 @@
 		E7B000000000000000000022 /* GrokBuildAuthenticationController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DockMagic/Services/GrokBuildAuthenticationController.swift"; sourceTree = SOURCE_ROOT; };
 		E7B000000000000000000021 /* GrokBuildAuthenticationSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DockMagic/Views/Settings/GrokBuildAuthenticationSection.swift"; sourceTree = SOURCE_ROOT; };
 		CA160000000000000000B014 /* CalendarSyncTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarSyncTests.swift; sourceTree = "<group>"; };
-		256F2F9835965F59B81EFF3F /* AugmentIntegrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AugmentIntegrationTests.swift; sourceTree = "<group>"; };
-		FA583EEA3E1B1B19EF067CE4 /* AugmentUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AugmentUITests.swift; sourceTree = "<group>"; };
 		CA160000000000000000B013 /* CalendarUITestProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarUITestProvider.swift; sourceTree = "<group>"; };
-		FEC3C765A363BDB4C22D92C9 /* AugmentFixtures.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AugmentFixtures.swift; sourceTree = "<group>"; };
 		E7B000000000000000000018 /* GrokPresentationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GrokPresentationTests.swift; sourceTree = "<group>"; };
 		E7B000000000000000000019 /* GrokUIFixtures.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DockMagic/Support/GrokUIFixtures.swift"; sourceTree = SOURCE_ROOT; };
 		E7B000000000000000000020 /* GrokUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DockMagicUITests/GrokUITests.swift"; sourceTree = SOURCE_ROOT; };
@@ -297,17 +287,6 @@
 		CA160000000000000000B011 /* CalendarEditorWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarEditorWindowController.swift; sourceTree = "<group>"; };
 		CA160000000000000000B010 /* EventKitCalendarWriter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventKitCalendarWriter.swift; sourceTree = "<group>"; };
 		CA160000000000000000B009 /* CalendarEditing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarEditing.swift; sourceTree = "<group>"; };
-		9C3D24171D1A7ECECA61FA6F /* AugmentStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AugmentStoreTests.swift; sourceTree = "<group>"; };
-		A5E1292BC2383EE14C3A7529 /* AugmentAnalyticsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AugmentAnalyticsTests.swift; sourceTree = "<group>"; };
-		D2486EEC4B09BE3A5DC8E3DF /* AugmentSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AugmentSettingsView.swift; sourceTree = "<group>"; };
-		565BBE7951F2C599AD510358 /* AugmentHoverDashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AugmentHoverDashboardView.swift; sourceTree = "<group>"; };
-		215AF5AC0D6DFAA0CCCD2CB5 /* DockAugmentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DockAugmentView.swift; sourceTree = "<group>"; };
-		9AE2F2EE17FD76B12E0C839C /* AugmentUsageStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AugmentUsageStore.swift; sourceTree = "<group>"; };
-		55D00EF34870BB6956ED7042 /* AugmentHistoryCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AugmentHistoryCache.swift; sourceTree = "<group>"; };
-		197428DE2FAE9BF43323A224 /* AugmentCredentialVault.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AugmentCredentialVault.swift; sourceTree = "<group>"; };
-		913591A465E369AE47433D66 /* AugmentAnalyticsClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AugmentAnalyticsClient.swift; sourceTree = "<group>"; };
-		2DC392E8389699A165E16D7E /* AugmentPresentation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AugmentPresentation.swift; sourceTree = "<group>"; };
-		BE623AAA48EBA3CC0FA44BE9 /* AugmentUsage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AugmentUsage.swift; sourceTree = "<group>"; };
 		E7B000000000000000000012 /* GrokBuildSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DockMagic/Models/GrokBuildSettings.swift"; sourceTree = SOURCE_ROOT; };
 		E7B000000000000000000013 /* GrokIntegrationController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DockMagic/Support/GrokIntegrationController.swift"; sourceTree = SOURCE_ROOT; };
 		E7B000000000000000000014 /* GrokBuildPresentation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DockMagic/Views/Hover/GrokBuildPresentation.swift"; sourceTree = SOURCE_ROOT; };
@@ -334,6 +313,9 @@
 		CA160000000000000000B005 /* CalendarHoverDashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarHoverDashboardView.swift; sourceTree = "<group>"; };
 		CA160000000000000000B004 /* DockCalendarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DockCalendarView.swift; sourceTree = "<group>"; };
 		CA160000000000000000B003 /* CalendarStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarStore.swift; sourceTree = "<group>"; };
+		CA170000000000000000B001 /* CalendarWeather.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarWeather.swift; sourceTree = "<group>"; };
+		CA170000000000000000B002 /* OpenMeteoCalendarWeatherProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenMeteoCalendarWeatherProvider.swift; sourceTree = "<group>"; };
+		CA170000000000000000B003 /* CalendarWeatherStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarWeatherStore.swift; sourceTree = "<group>"; };
 		CA160000000000000000B002 /* EventKitCalendarProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventKitCalendarProvider.swift; sourceTree = "<group>"; };
 		CA160000000000000000B001 /* CalendarAgenda.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarAgenda.swift; sourceTree = "<group>"; };
 		E7B000000000000000000010 /* GrokBuildActivityLedger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GrokBuildActivityLedger.swift; sourceTree = "<group>"; };
@@ -445,6 +427,10 @@
 		B4B000000000000000000002 /* DockClockView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DockClockView.swift; sourceTree = "<group>"; };
 		B4B000000000000000000003 /* ClockSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClockSettingsView.swift; sourceTree = "<group>"; };
 		C3B000000000000000000001 /* DockHoverCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DockHoverCoordinator.swift; sourceTree = "<group>"; };
+		C3B0000000000000000000F0 /* DockShelf.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DockShelf.swift; sourceTree = "<group>"; };
+		DCC000000000000000000002 /* CustomDock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CustomDock.swift; sourceTree = "<group>"; };
+		DCC000000000000000000004 /* CustomDockController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CustomDockController.swift; sourceTree = "<group>"; };
+		DCC000000000000000000006 /* CustomDockView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CustomDockView.swift; sourceTree = "<group>"; };
 		C3B000000000000000000002 /* CodexHoverDashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexHoverDashboardView.swift; sourceTree = "<group>"; };
 		C3B000000000000000000003 /* ClaudeCodeHoverDashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeCodeHoverDashboardView.swift; sourceTree = "<group>"; };
 		C3B000000000000000000004 /* CodexDashboardCaptureService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexDashboardCaptureService.swift; sourceTree = "<group>"; };
@@ -572,9 +558,6 @@
 			isa = PBXGroup;
 			children = (
 				3F8089C4FD5FEBBF3E5C65E9 /* MaiaDesignSystemTests.swift */,
-				256F2F9835965F59B81EFF3F /* AugmentIntegrationTests.swift */,
-				9C3D24171D1A7ECECA61FA6F /* AugmentStoreTests.swift */,
-				A5E1292BC2383EE14C3A7529 /* AugmentAnalyticsTests.swift */,
 				B1B90000000000000000002A /* BinanceRenderTests.swift */,
 				8A1441054C3837F47C0909E0 /* NowPlayingTests.swift */,
 				B1B900000000000000000029 /* BinanceFeatureTests.swift */,
@@ -610,7 +593,6 @@
 			isa = PBXGroup;
 			children = (
 				BA9271E7C9C57511D496152A /* MaiaUITests.swift */,
-				FA583EEA3E1B1B19EF067CE4 /* AugmentUITests.swift */,
 				B1B90000000000000000002B /* BinanceUITests.swift */,
 				BAD5DA5C123329E620D53F0B /* NowPlayingUITests.swift */,
 				783EB5EBEF27DFA8D47B9A8B /* OpenCodeUITests.swift */,
@@ -633,8 +615,6 @@
 		D0C200000000000000000002 /* Models */ = {
 			isa = PBXGroup;
 			children = (
-				2DC392E8389699A165E16D7E /* AugmentPresentation.swift */,
-				BE623AAA48EBA3CC0FA44BE9 /* AugmentUsage.swift */,
 				FB27573D42A3E95F5A99EAE2 /* NowPlaying.swift */,
 				B1B900000000000000000001 /* BinanceMarketModels.swift */,
 				9A7C7F13185F4C6A1AF99E1C /* OpenCodePresentation.swift */,
@@ -660,6 +640,7 @@
 				E0B000000000000000000001 /* BatteryMetricsSnapshot.swift */,
 				D7B000000000000000000001 /* DockConfiguration.swift */,
 				CA160000000000000000B001 /* CalendarAgenda.swift */,
+				CA170000000000000000B001 /* CalendarWeather.swift */,
 				CA160000000000000000B009 /* CalendarEditing.swift */,
 				F0B000000000000000000001 /* GitHubRepositorySnapshot.swift */,
 				D7B000000000000000000002 /* CodexRateLimitSnapshot.swift */,
@@ -675,10 +656,6 @@
 		D0C200000000000000000003 /* Services */ = {
 			isa = PBXGroup;
 			children = (
-				FEC3C765A363BDB4C22D92C9 /* AugmentFixtures.swift */,
-				55D00EF34870BB6956ED7042 /* AugmentHistoryCache.swift */,
-				197428DE2FAE9BF43323A224 /* AugmentCredentialVault.swift */,
-				913591A465E369AE47433D66 /* AugmentAnalyticsClient.swift */,
 				F74EE7ED039EE81F51D4484E /* NowPlayingPanelController.swift */,
 				D0951D663EC20F21B5550206 /* NowPlayingFixtures.swift */,
 				6905A0B91C42FA6E6A576058 /* NowPlayingArtworkCache.swift */,
@@ -707,6 +684,10 @@
 				D7B000000000000000000008 /* CodexDailyTokenDetailLoader.swift */,
 				C3B000000000000000000004 /* CodexDashboardCaptureService.swift */,
 				C3B000000000000000000001 /* DockHoverCoordinator.swift */,
+				C3B0000000000000000000F0 /* DockShelf.swift */,
+				DCC000000000000000000002 /* CustomDock.swift */,
+				DCC000000000000000000004 /* CustomDockController.swift */,
+				DCC000000000000000000006 /* CustomDockView.swift */,
 				B2B000000000000000000001 /* DockIconRenderingRules.swift */,
 				A1B000000000000000000004 /* SearchConsoleAPIClient.swift */,
 				E0B000000000000000000002 /* BatteryMetricsSampler.swift */,
@@ -728,6 +709,7 @@
 				CA160000000000000000B011 /* CalendarEditorWindowController.swift */,
 				CA160000000000000000B010 /* EventKitCalendarWriter.swift */,
 				D9B000000000000000000002 /* OpenMeteoWeatherProvider.swift */,
+				CA170000000000000000B002 /* OpenMeteoCalendarWeatherProvider.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -735,7 +717,6 @@
 		D0C200000000000000000004 /* Stores */ = {
 			isa = PBXGroup;
 			children = (
-				9AE2F2EE17FD76B12E0C839C /* AugmentUsageStore.swift */,
 				405EF4D5702BE22A03B00E30 /* NowPlayingStore.swift */,
 				B1B900000000000000000005 /* BinanceMarketStore.swift */,
 				A2C02188610D75C9F2358447 /* OpenCodeUsageStore.swift */,
@@ -746,6 +727,7 @@
 				C4B000000000000000000002 /* TokenUsageStreakStore.swift */,
 				B4B000000000000000000001 /* ClockStore.swift */,
 				CA160000000000000000B003 /* CalendarStore.swift */,
+				CA170000000000000000B003 /* CalendarWeatherStore.swift */,
 				A1B000000000000000000005 /* SearchConsoleStore.swift */,
 				E0B000000000000000000003 /* BatteryMetricsStore.swift */,
 				D8B000000000000000000002 /* ClaudeCodeUsageStore.swift */,
@@ -774,7 +756,6 @@
 		D0C200000000000000000006 /* Dock */ = {
 			isa = PBXGroup;
 			children = (
-				215AF5AC0D6DFAA0CCCD2CB5 /* DockAugmentView.swift */,
 				522A0903D0E02557094C1E1A /* DockNowPlayingView.swift */,
 				B1B900000000000000000006 /* DockBinanceView.swift */,
 				E31379BC6A22D044D03AD75A /* DockOpenCodeView.swift */,
@@ -795,7 +776,6 @@
 		D0C200000000000000000008 /* Settings */ = {
 			isa = PBXGroup;
 			children = (
-				D2486EEC4B09BE3A5DC8E3DF /* AugmentSettingsView.swift */,
 				873E46CCDA6AB96335641941 /* NowPlayingSettingsView.swift */,
 				B1B900000000000000000009 /* BinanceSettingsView.swift */,
 				7601003927F97DEB4F70E205 /* OpenCodeSettingsView.swift */,
@@ -815,7 +795,6 @@
 		C3C000000000000000000001 /* Hover */ = {
 			isa = PBXGroup;
 			children = (
-				565BBE7951F2C599AD510358 /* AugmentHoverDashboardView.swift */,
 				39D04B5B0FE8FA7113B5CF62 /* NowPlayingHoverDashboardView.swift */,
 				B1B900000000000000000008 /* BinanceDashboardView.swift */,
 				B1B900000000000000000007 /* BinancePriceChartView.swift */,
@@ -1059,16 +1038,6 @@
 				E66833DB8A4D3F3576076F6C /* DSIcon.swift in Sources */,
 				4FA556DAEE77217D8D651483 /* DSIconName.swift in Sources */,
 				32ABF263BC116779A41DFF65 /* DSFonts.swift in Sources */,
-				516B32A59647D48D918984C6 /* AugmentFixtures.swift in Sources */,
-				45FB7CDFF2D4FF72E84EED2D /* AugmentSettingsView.swift in Sources */,
-				B54C9D5809CBBF5D9EF49802 /* AugmentHoverDashboardView.swift in Sources */,
-				B8B69E05E3A6F4898F022FA0 /* DockAugmentView.swift in Sources */,
-				950ABAAC51A7BF0947B38383 /* AugmentUsageStore.swift in Sources */,
-				C28C19707B6A0C633904E5D6 /* AugmentHistoryCache.swift in Sources */,
-				2A2B6F907B0EAAEC2F692E64 /* AugmentCredentialVault.swift in Sources */,
-				5FA499CEF72D21648711BBFC /* AugmentAnalyticsClient.swift in Sources */,
-				D6AA1E99D35A1989D430871B /* AugmentPresentation.swift in Sources */,
-				E711F37F4A923990D6D7FBED /* AugmentUsage.swift in Sources */,
 				B1A90000000000000000002C /* AIUsageHistoryChart.swift in Sources */,
 				B1A900000000000000000028 /* BinanceFixtures.swift in Sources */,
 				80C9DE16FA5C757783E32CD6 /* NowPlayingSettingsView.swift in Sources */,
@@ -1132,6 +1101,10 @@
 				C4A000000000000000000001 /* TokenUsageStreakRecord.swift in Sources */,
 				C4A000000000000000000002 /* TokenUsageStreakStore.swift in Sources */,
 				C3A000000000000000000001 /* DockHoverCoordinator.swift in Sources */,
+				C3A0000000000000000000F0 /* DockShelf.swift in Sources */,
+				DCC000000000000000000001 /* CustomDock.swift in Sources */,
+				DCC000000000000000000003 /* CustomDockController.swift in Sources */,
+				DCC000000000000000000005 /* CustomDockView.swift in Sources */,
 				B83100000000000000000001 /* DashboardNativeHistoryViewport.swift in Sources */,
 				C3A000000000000000000002 /* CodexHoverDashboardView.swift in Sources */,
 				C3A000000000000000000005 /* CodexDailyTokenDetailView.swift in Sources */,
@@ -1142,6 +1115,9 @@
 				B2A000000000000000000001 /* DockIconRenderingRules.swift in Sources */,
 				B4A000000000000000000001 /* ClockStore.swift in Sources */,
 				CA160000000000000000A003 /* CalendarStore.swift in Sources */,
+				CA170000000000000000A001 /* CalendarWeather.swift in Sources */,
+				CA170000000000000000A002 /* OpenMeteoCalendarWeatherProvider.swift in Sources */,
+				CA170000000000000000A003 /* CalendarWeatherStore.swift in Sources */,
 				B4A000000000000000000002 /* DockClockView.swift in Sources */,
 				CA160000000000000000A004 /* DockCalendarView.swift in Sources */,
 				B4A000000000000000000003 /* ClockSettingsView.swift in Sources */,
@@ -1230,9 +1206,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				25E4BD0520DB34C277E10DF4 /* MaiaDesignSystemTests.swift in Sources */,
-				A8CBA009563DBC28BDC03AF3 /* AugmentIntegrationTests.swift in Sources */,
-				53F6AC5AB7FFB636C8363E8A /* AugmentStoreTests.swift in Sources */,
-				E7C7764B0289BD21024EA16E /* AugmentAnalyticsTests.swift in Sources */,
 				B1A90000000000000000002A /* BinanceRenderTests.swift in Sources */,
 				51A3A590FBE74E43FCB4FC71 /* NowPlayingTests.swift in Sources */,
 				B1A900000000000000000029 /* BinanceFeatureTests.swift in Sources */,
@@ -1268,7 +1241,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				4E7EC4E6E0E400FEEAE92B54 /* MaiaUITests.swift in Sources */,
-				CFEC173B1B4A69C7144E1E4E /* AugmentUITests.swift in Sources */,
 				B1A90000000000000000002B /* BinanceUITests.swift in Sources */,
 				FE7993F6AB42250DE83CD3FE /* NowPlayingUITests.swift in Sources */,
 				03AB4D8F301BB7FA006D74C0 /* DockMagicUITests.swift in Sources */,

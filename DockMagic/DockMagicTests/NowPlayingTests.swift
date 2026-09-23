@@ -1,5 +1,6 @@
 import AppKit
 import ImageIO
+import Observation
 import SwiftUI
 import UniformTypeIdentifiers
 import XCTest
@@ -111,6 +112,40 @@ final class NowPlayingTests: XCTestCase {
         store.perform(.seek(999))
         try await wait { store.snapshot?.position == 224 }
         XCTAssertEqual(store.selectedSource, .appleMusic)
+    }
+
+    @MainActor func testPendingCommandKeepsControlsAvailableWithoutAcceptingDuplicates() async throws {
+        let provider = GatedCommandProvider()
+        let store = makeStore([provider]); defer { store.stop(); Task { await provider.finish() } }
+        store.setEnabled(.spotify, enabled: true); store.setInterest(.panel, active: true)
+        try await wait { store.snapshot != nil }
+        let unexpectedRedraw = expectation(description: "Command bookkeeping should not invalidate the dashboard")
+        unexpectedRedraw.isInverted = true
+        withObservationTracking { _ = store.isCommandPending; _ = store.commandError } onChange: { unexpectedRedraw.fulfill() }
+        store.perform(.pause)
+        try await waitAsync { await provider.commandStarted }
+        XCTAssertTrue(store.isCommandPending)
+        XCTAssertTrue(store.canOffer(.play), "A pending command must not dim the controls")
+        XCTAssertFalse(store.canPerform(.play), "A second command must still be rejected")
+        store.perform(.play)
+        let commands = await provider.commands
+        XCTAssertEqual(commands, [.pause])
+        await fulfillment(of: [unexpectedRedraw], timeout: 0.2)
+        await provider.finish()
+        try await wait { !store.isCommandPending }
+    }
+
+    @MainActor func testSharedArtworkStaysVisibleAcrossTrackChange() async throws {
+        let store = NowPlayingFixtures.store(mode: "playing", defaults: freshDefaults()); defer { store.stop() }
+        store.setInterest(.panel, active: true)
+        try await wait { store.artworkData != nil }
+        let artworkChanged = expectation(description: "Shared album artwork should not be cleared")
+        artworkChanged.isInverted = true
+        withObservationTracking { _ = store.artworkData } onChange: { artworkChanged.fulfill() }
+        store.perform(.next)
+        try await wait { store.snapshot?.track?.title == "Through the pines" }
+        await fulfillment(of: [artworkChanged], timeout: 0.2)
+        XCTAssertNotNil(store.artworkData)
     }
 
     @MainActor func testRevocationClearsArtAndOneSourceFailureDoesNotBlockOther() async throws {
@@ -246,9 +281,24 @@ final class NowPlayingTests: XCTestCase {
             try save(view, name: "dashboard-\(name)", directory: directory, size: size, appearance: appearance, contrast: accessibility.increaseContrast == true)
             if name == "dark" {
                 try save(view.saturation(0), name: "dashboard-grayscale", directory: directory, size: size, appearance: appearance)
+                let dockVariants: [(name: String, appearance: DSAppearanceMode, accessibility: DSAccessibilityOverrides)] = [
+                    ("dark", .dark, .init()),
+                    ("light", .light, .init()),
+                    ("contrast", .dark, .init(increaseContrast: true)),
+                    ("opaque", .light, .init(reduceTransparency: true))
+                ]
                 for points in [32, 48, 64, 128, 512] {
+                    for variant in dockVariants {
+                        let dock = DockMagicThemeRoot(content: DockTileView(presentation: .nowPlaying(store.dockPresentation), animatesChanges: false)
+                            .frame(width: CGFloat(points), height: CGFloat(points)), appearanceMode: variant.appearance)
+                            .environment(\.dsAccessibilityOverrides, variant.accessibility)
+                        let suffix = variant.name == "dark" ? "" : "-\(variant.name)"
+                        try save(dock, name: "dock-\(points)\(suffix)", directory: directory, size: CGSize(width: points, height: points),
+                            appearance: variant.appearance, contrast: variant.accessibility.increaseContrast == true)
+                    }
                     try save(DockMagicThemeRoot(content: DockTileView(presentation: .nowPlaying(store.dockPresentation), animatesChanges: false)
-                        .frame(width: CGFloat(points), height: CGFloat(points)), appearanceMode: appearance), name: "dock-\(points)", directory: directory, size: CGSize(width: points, height: points), appearance: appearance)
+                        .frame(width: CGFloat(points), height: CGFloat(points)), appearanceMode: .dark)
+                        .saturation(0), name: "dock-\(points)-grayscale", directory: directory, size: CGSize(width: points, height: points), appearance: .dark)
                 }
             }
             store.stop()
@@ -315,6 +365,23 @@ private actor GatedArtworkProvider: NowPlayingProviding {
         return await withCheckedContinuation { oldArtworkRequested = true; oldArtwork = $0 }
     }
     func releaseOldArtwork() { oldArtwork?.resume(returning: oldData); oldArtwork = nil }
+}
+
+private actor GatedCommandProvider: NowPlayingProviding {
+    nonisolated let source = NowPlayingSource.spotify
+    private(set) var commands: [NowPlayingCommand] = []
+    private(set) var commandStarted = false
+    private var continuation: CheckedContinuation<Void, Never>?
+    func observe(requestPermission: Bool) async -> NowPlayingObservation {
+        .init(access: .authorized, snapshot: NowPlayingFixtures.snapshot(source: source))
+    }
+    func perform(_ command: NowPlayingCommand, target: NowPlayingCommandTarget) async throws {
+        commands.append(command)
+        commandStarted = true
+        await withCheckedContinuation { continuation = $0 }
+    }
+    func finish() { continuation?.resume(); continuation = nil }
+    func artwork(for reference: NowPlayingArtworkReference) async throws -> Data? { nil }
 }
 
 private struct DelayedNowPlayingProvider: NowPlayingProviding {

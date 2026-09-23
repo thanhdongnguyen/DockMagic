@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import UniformTypeIdentifiers
 
 enum SettingsDestination: String, CaseIterable, Identifiable {
     case general
@@ -17,7 +18,6 @@ enum SettingsDestination: String, CaseIterable, Identifiable {
     case antigravity
     case openCode
     case grokBuild
-    case augment
     case binance
     case searchConsole
 
@@ -47,8 +47,6 @@ enum SettingsDestination: String, CaseIterable, Identifiable {
             self = .codex
         case .claudeCode:
             self = .claudeCode
-        case .augment:
-            self = .augment
         case .grokBuild:
             self = GrokBuildFeatureGate.experimentalEnabled ? .grokBuild : .general
         case .openCode:
@@ -90,8 +88,6 @@ enum SettingsDestination: String, CaseIterable, Identifiable {
             "Codex"
         case .claudeCode:
             "Claude Code"
-        case .augment:
-            "Augment"
         case .grokBuild:
             "Grok Build (Experimental)"
         case .openCode:
@@ -108,7 +104,7 @@ enum SettingsDestination: String, CaseIterable, Identifiable {
     var detail: String {
         switch self {
         case .general:
-            "Choose the single feature shown in your Dock."
+            "Choose Dock Active or Shelf Dock and manage the features shown there."
         case .systemMetrics:
             "Customize live CPU and memory rings."
         case .network:
@@ -131,8 +127,6 @@ enum SettingsDestination: String, CaseIterable, Identifiable {
             "Show Codex rate limits and aggregate token usage."
         case .claudeCode:
             "Show remaining 5-hour and weekly Claude Code limits."
-        case .augment:
-            "Organization token history and reported USD usage."
         case .grokBuild:
             "Test local Grok tokens and activity. Quota remains unavailable."
         case .openCode:
@@ -172,8 +166,6 @@ enum SettingsDestination: String, CaseIterable, Identifiable {
             "sparkles"
         case .claudeCode:
             "chevron.left.forwardslash.chevron.right"
-        case .augment:
-            "chart.bar"
         case .grokBuild:
             "g.circle"
         case .openCode:
@@ -213,8 +205,6 @@ enum SettingsDestination: String, CaseIterable, Identifiable {
             .codex
         case .claudeCode:
             .claudeCode
-        case .augment:
-            .augment
         case .grokBuild:
             .grokBuild
         case .openCode:
@@ -243,6 +233,7 @@ struct SettingsView: View {
     @Environment(\.designTheme) private var theme
     @Environment(\.dsAccessibilityOverrides) private var accessibilityOverrides
     @Environment(\.colorSchemeContrast) private var contrast
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     init(
         appModel: DockAppModel,
@@ -281,7 +272,7 @@ struct SettingsView: View {
             minWidth: DSLayout.minimumWindowWidth,
             minHeight: DSLayout.minimumWindowHeight
         )
-        .background(SettingsWindowTitleVisibilityBridge())
+        .background(SettingsWindowPresentationBridge(appearanceMode: appearanceMode))
         .onChange(of: windowRouter?.destination, initial: true) { _, request in
             guard let request, request != destination else {
                 return
@@ -313,7 +304,7 @@ struct SettingsView: View {
             case .searchConsole:
                 appModel.searchConsoleStore.start()
             case .general, .systemMetrics, .network, .storage, .codex,
-                 .claudeCode, .antigravity, .grokBuild, .openCode, .augment, .github, .binance, .nowPlaying:
+                 .claudeCode, .antigravity, .grokBuild, .openCode, .github, .binance, .nowPlaying:
                 if newDestination == .general {
                     launchAtLoginController.refresh()
                 }
@@ -390,7 +381,7 @@ struct SettingsView: View {
                     sidebarSection(
                         title: "AI Features",
                         identifier: "aiFeatures",
-                        items: [.codex, .claudeCode, .antigravity, .openCode, .augment] + (GrokBuildFeatureGate.experimentalEnabled ? [.grokBuild] : [])
+                        items: [.codex, .claudeCode, .antigravity, .openCode] + (GrokBuildFeatureGate.experimentalEnabled ? [.grokBuild] : [])
                     )
 
                     sidebarSection(
@@ -415,34 +406,14 @@ struct SettingsView: View {
                 .padding(.vertical, DSSpacing.medium)
             }
 
-            VStack(spacing: DSSpacing.small) {
-                if let availableVersion =
-                    softwareUpdateController.availableVersion
-                {
-                    SoftwareUpdateFooterButton(
-                        version: availableVersion,
-                        action: softwareUpdateController.checkForUpdates
-                    )
-                }
-
-                HStack(spacing: DSSpacing.compact) {
-                    DSIcon(systemName: appearanceMode.systemImage)
-                        .accessibilityHidden(true)
-                    Text("\(appearanceMode.title) appearance")
-                }
-                .font(DSTypography.metadata)
-                .foregroundStyle(theme.textSecondary)
-                .padding(.horizontal, DSSpacing.medium)
-                .padding(.vertical, DSSpacing.small)
-                .frame(maxWidth: .infinity, minHeight: 32, alignment: .leading)
-                .dsSurface(
-                    Capsule(style: .circular),
-                    kind: .chrome
+            if let availableVersion = softwareUpdateController.availableVersion {
+                SoftwareUpdateFooterButton(
+                    version: availableVersion,
+                    action: softwareUpdateController.checkForUpdates
                 )
-                .accessibilityIdentifier("settings.appearanceBadge")
+                .padding(.horizontal, DSSpacing.medium)
+                .padding(.bottom, DSSpacing.medium)
             }
-            .padding(.horizontal, DSSpacing.medium)
-            .padding(.bottom, DSSpacing.medium)
         }
         .background(theme.opaqueSurfaceChrome)
     }
@@ -657,7 +628,9 @@ struct SettingsView: View {
         case .binance:
             BinanceSettingsView(store: appModel.binanceStore, isActive: appModel.preferences.activeFeature == .binance)
         case .calendar:
-            CalendarSettingsView(store: appModel.calendarStore, isActive: appModel.preferences.activeFeature == .calendar)
+            CalendarSettingsView(store: appModel.calendarStore,
+                                 weatherStore: appModel.calendarWeatherStore,
+                                 isActive: appModel.preferences.activeFeature == .calendar)
         case .nowPlaying:
             NowPlayingSettingsView(store: appModel.nowPlayingStore, isActive: appModel.preferences.activeFeature == .nowPlaying, onOpen: { appModel.openNowPlaying?() })
         case .clock:
@@ -670,8 +643,6 @@ struct SettingsView: View {
             codexContent
         case .claudeCode:
             claudeCodeContent
-        case .augment:
-            AugmentSettingsView(store: appModel.augmentStore, preferences: appModel.preferences)
         case .grokBuild:
             if GrokBuildFeatureGate.experimentalEnabled {
                 GrokBuildSettingsView(store: appModel.grokBuildStore, preferences: appModel.preferences)
@@ -744,9 +715,37 @@ struct SettingsView: View {
 
             DSSettingsSection(
                 title: "Dock",
-                detail: "Choose the single feature DockMagic shows and updates in the Dock."
+                detail: "Choose one feature on the Apple Dock, or use a Custom Dock with a Shelf group."
             ) {
                 VStack(spacing: DSSpacing.standard) {
+                    DSSegmentedControl(
+                        title: "Dock mode",
+                        selection: Binding(
+                            get: { appModel.preferences.dockMode },
+                            set: { mode in
+                                if mode == .shelfDock {
+                                    dockHoverPermissionController?.synchronize(isEnabled: true)
+                                    dockHoverPermissionController?.requestAccess()
+                                }
+                                appModel.preferences.dockMode = mode
+                            }
+                        ),
+                        options: DockMode.allCases.map {
+                            .init(value: $0, title: $0.title,
+                                  accessibilityIdentifier: "settings.dockMode.\($0.rawValue)")
+                        }
+                    )
+                    .accessibilityIdentifier("settings.dockMode")
+
+                    if let status = appModel.preferences.customDockStatusMessage {
+                        DSStatusCard(title: "Shelf Dock unavailable", detail: status,
+                                     systemImage: "exclamationmark.triangle.fill", role: .danger)
+                            .accessibilityIdentifier("settings.customDock.status")
+                    }
+
+                    if appModel.preferences.dockMode == .shelfDock {
+                        customDockSettings
+                    } else {
                     DSSettingsRow(
                         title: "Active Dock Feature",
                         detail: appModel.preferences.activeFeature.detail,
@@ -770,9 +769,11 @@ struct SettingsView: View {
                             .frame(width: 280)
                         }
                     }
+                    }
                 }
             }
 
+            if appModel.preferences.dockMode == .dockActive {
             DSSettingsSection(
                 title: "Dock hover dashboard",
                 detail: "Available for supported dashboards, including Now Playing, Calendar, Weather, CPU & RAM and AI features. Dock-only features never open a hover dashboard."
@@ -825,6 +826,7 @@ struct SettingsView: View {
                         .accessibilityIdentifier("settings.dockHover.permission")
                     }
                 }
+            }
             }
 
             DSSettingsSection(
@@ -1527,6 +1529,148 @@ struct SettingsView: View {
         }
     }
 
+    private var customDockSettings: some View {
+        let magnificationSuppressed = accessibilityOverrides.reduceMotion ?? reduceMotion
+        return VStack(alignment: .leading, spacing: DSSpacing.standard) {
+            DSDivider()
+            DSSettingsRow(title: "Icon size", detail: "Independent of Apple Dock after the first import.", systemImage: "dock.rectangle") {
+                HStack(spacing: 8) {
+                    DSSlider(value: Binding(
+                        get: { appModel.preferences.customDockConfiguration.preferredIconSize },
+                        set: { size in appModel.preferences.updateCustomDock { $0.preferredIconSize = size } }
+                    ), in: 16...128, step: 1)
+                    .frame(width: 170)
+                    Text("\(Int(appModel.preferences.customDockConfiguration.preferredIconSize)) pt")
+                        .font(DSTypography.metadata)
+                }
+            }
+            DSSelect(title: "Dock edge", selection: Binding(
+                get: { appModel.preferences.customDockConfiguration.edge },
+                set: { edge in appModel.preferences.updateCustomDock { $0.edge = edge } }
+            ), options: CustomDockEdge.allCases.map {
+                .init(value: $0, title: $0.rawValue.capitalized)
+            })
+            DSSelect(title: "Display", selection: Binding<UInt32?>(
+                get: { appModel.preferences.customDockConfiguration.displayID },
+                set: { id in appModel.preferences.updateCustomDock { $0.displayID = id } }
+            ), options: [DSSelectOption<UInt32?>(value: nil, title: "Main display")]
+                + NSScreen.screens.compactMap { screen in
+                    guard let number = screen.deviceDescription[
+                        NSDeviceDescriptionKey("NSScreenNumber")
+                    ] as? NSNumber else { return nil }
+                    return DSSelectOption<UInt32?>(
+                        value: number.uint32Value, title: screen.localizedName
+                    )
+                })
+            DSSettingsRow(
+                title: "Magnification",
+                detail: magnificationSuppressed
+                    ? "Reduce Motion is on, so Dock items stay at their normal size."
+                    : "Smoothly enlarges nearby Dock items. Shelf features stay fixed.",
+                systemImage: "magnifyingglass"
+            ) {
+                Toggle("Magnification", isOn: Binding(
+                    get: { appModel.preferences.customDockConfiguration.magnificationEnabled },
+                    set: { value in appModel.preferences.updateCustomDock { $0.magnificationEnabled = value } }
+                ))
+                .labelsHidden().toggleStyle(DSSwitchStyle())
+            }
+            if let warning = appModel.preferences.customDockConfiguration.importWarning {
+                DSStatusCard(title: "Apple Dock import", detail: warning,
+                             systemImage: "exclamationmark.triangle.fill", role: .warning)
+            }
+            DSDivider()
+            HStack {
+                Text("Pinned apps").font(DSTypography.bodyEmphasis)
+                Spacer()
+                Button("Add App…", action: addCustomDockApplication)
+                    .buttonStyle(DSButtonStyle())
+            }
+            ForEach(appModel.preferences.customDockConfiguration.pinnedApps) { app in
+                HStack {
+                    Image(nsImage: NSWorkspace.shared.icon(forFile: app.path))
+                        .resizable().frame(width: 24, height: 24)
+                    Text(app.title).font(DSTypography.body)
+                    Spacer()
+                    Button("↑") { appModel.preferences.moveCustomDockApplication(app.id, by: -1) }
+                        .buttonStyle(DSButtonStyle()).accessibilityLabel("Move \(app.title) earlier")
+                    Button("↓") { appModel.preferences.moveCustomDockApplication(app.id, by: 1) }
+                        .buttonStyle(DSButtonStyle()).accessibilityLabel("Move \(app.title) later")
+                    Button("Remove") { appModel.preferences.removeCustomDockApplication(app.id) }
+                        .buttonStyle(DSButtonStyle(intent: .destructive))
+                }
+            }
+            DSDivider()
+            HStack {
+                Text("Shelf features").font(DSTypography.bodyEmphasis)
+                Spacer()
+                DSSelect(title: "Add Shelf feature", selection: Binding<DockFeature?>(
+                    get: { nil },
+                    set: { if let feature = $0 { appModel.preferences.addCustomDockSlot(feature) } }
+                ), options: DockFeature.availableCases.filter { $0 != .dockMagic }.map {
+                    .init(value: Optional($0), title: $0.title, icon: $0.shelfIcon)
+                }, searchable: true, placeholder: "Add Feature…")
+                .frame(width: 180)
+            }
+            ForEach(appModel.preferences.customDockConfiguration.slots) { slot in
+                HStack {
+                    DSIcon(slot.feature.shelfIcon, size: 18)
+                    Text(slot.feature.title).font(DSTypography.body)
+                    Spacer()
+                    Button("↑") { appModel.preferences.moveCustomDockSlot(slot.id, by: -1) }
+                        .buttonStyle(DSButtonStyle()).accessibilityLabel("Move \(slot.feature.title) earlier")
+                    Button("↓") { appModel.preferences.moveCustomDockSlot(slot.id, by: 1) }
+                        .buttonStyle(DSButtonStyle()).accessibilityLabel("Move \(slot.feature.title) later")
+                    Button("Remove") { appModel.preferences.removeCustomDockSlot(slot.id) }
+                        .buttonStyle(DSButtonStyle(intent: .destructive))
+                }
+            }
+            DSDivider()
+            HStack {
+                Text("Files and folders").font(DSTypography.bodyEmphasis)
+                Spacer()
+                Button("Add…", action: addCustomDockStack).buttonStyle(DSButtonStyle())
+            }
+            ForEach(appModel.preferences.customDockConfiguration.stacks) { stack in
+                HStack {
+                    Text(stack.title).font(DSTypography.body)
+                    Spacer()
+                    Button("Remove") {
+                        appModel.preferences.updateCustomDock {
+                            $0.stacks.removeAll { $0.id == stack.id }
+                        }
+                    }
+                    .buttonStyle(DSButtonStyle(intent: .destructive))
+                }
+            }
+        }
+    }
+
+    private func addCustomDockApplication() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.applicationBundle]
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.allowsMultipleSelection = true
+        guard panel.runModal() == .OK else { return }
+        for url in panel.urls {
+            if let app = CustomDockApplication(url: url) {
+                appModel.preferences.addCustomDockApplication(app)
+            }
+        }
+    }
+
+    private func addCustomDockStack() {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = true
+        panel.allowsMultipleSelection = true
+        guard panel.runModal() == .OK else { return }
+        appModel.preferences.updateCustomDock { config in
+            config.stacks.append(contentsOf: panel.urls.map { CustomDockStack(path: $0.path) })
+        }
+    }
+
     private var activeFeatureBinding: Binding<DockFeature> {
         Binding(
             get: { appModel.preferences.activeFeature },
@@ -1555,8 +1699,6 @@ struct SettingsView: View {
                     navigate(to: .codex)
                 case .claudeCode:
                     navigate(to: .claudeCode)
-                case .augment:
-                    navigate(to: .augment)
                 case .grokBuild:
                     if GrokBuildFeatureGate.experimentalEnabled { navigate(to: .grokBuild) }
                 case .openCode:
@@ -2092,9 +2234,8 @@ private struct SoftwareUpdateFooterButton: View {
     let version: String
     let action: () -> Void
 
-    @FocusState private var isFocused: Bool
     @Environment(\.designTheme) private var theme
-
+    @FocusState private var isFocused: Bool
     var body: some View {
         Button(action: action) {
             HStack(spacing: DSSpacing.compact) {
@@ -2258,8 +2399,6 @@ private struct DockFeatureIcon: View {
     let feature: DockFeature
     var size: CGFloat = 22
 
-    @Environment(\.designTheme) private var theme
-
     var body: some View {
         Group {
             switch feature {
@@ -2279,8 +2418,6 @@ private struct DockFeatureIcon: View {
             case .claudeCode:
                 PreservedVectorAssetImage(assetName: "ClaudeCodeLogo")
                     .scaledToFit()
-            case .augment:
-                PreservedVectorAssetImage(assetName: "AugmentLogo").scaledToFit()
             case .grokBuild:
                 GrokBuildIdentityMark()
             case .openCode:
@@ -2317,37 +2454,28 @@ private struct DockFeatureIcon: View {
                         .frame(width: size, height: size)
                 }
             case .batteries:
-                DSIcon(systemName: featureSystemImage)
-                    .dsFont(size: size * 0.58, weight: .semibold)
-                    .foregroundStyle(theme.textPrimary)
-                    .frame(width: size, height: size)
-                    .background(
-                        RoundedRectangle(
-                            cornerRadius: max(5, size * 0.32),
-                            style: .continuous
-                        )
-                        .fill(theme.surfaceChrome)
-                    )
+                PreservedVectorAssetImage(assetName: "DockFeatureBatteries")
+                    .scaledToFit()
             case .binance:
                 BinanceBrandIcon(size: size)
-            case .calendar, .nowPlaying:
-                DSIcon(systemName: featureSystemImage)
-                    .symbolRenderingMode(.monochrome)
-                    .dsFont(size: size * 0.58, weight: .semibold)
-                    .foregroundStyle(theme.textPrimary)
-                    .frame(width: size, height: size)
-            case .systemMetrics, .network, .storage, .clock:
-                DSIcon(systemName: featureSystemImage)
-                    .dsFont(size: size * 0.58, weight: .semibold)
-                    .foregroundStyle(theme.textPrimary)
-                    .frame(width: size, height: size)
-                    .background(
-                        RoundedRectangle(
-                            cornerRadius: max(5, size * 0.32),
-                            style: .continuous
-                        )
-                        .fill(theme.surfaceChrome)
-                    )
+            case .systemMetrics:
+                PreservedVectorAssetImage(assetName: "DockFeatureCPUAndRAM")
+                    .scaledToFit()
+            case .network:
+                PreservedVectorAssetImage(assetName: "DockFeatureNetwork")
+                    .scaledToFit()
+            case .storage:
+                PreservedVectorAssetImage(assetName: "DockFeatureStorage")
+                    .scaledToFit()
+            case .clock:
+                PreservedVectorAssetImage(assetName: "DockFeatureClock")
+                    .scaledToFit()
+            case .calendar:
+                PreservedVectorAssetImage(assetName: "DockFeatureCalendar")
+                    .scaledToFit()
+            case .nowPlaying:
+                PreservedVectorAssetImage(assetName: "DockFeatureNowPlaying")
+                    .scaledToFit()
             }
         }
         .frame(width: size, height: size)
@@ -2392,8 +2520,6 @@ private struct DockFeatureIcon: View {
             "sparkles"
         case .claudeCode:
             "chevron.left.forwardslash.chevron.right"
-        case .augment:
-            "chart.bar"
         case .grokBuild:
             "g.circle"
         case .openCode:
@@ -2408,33 +2534,48 @@ private struct DockFeatureIcon: View {
     }
 }
 
-/// SwiftUI does not expose `NSWindow.titleVisibility`. Keep the scene's title
-/// intact for window routing and accessibility while the sidebar header owns
-/// the visible title treatment.
-private struct SettingsWindowTitleVisibilityBridge: NSViewRepresentable {
-    func makeNSView(context: Context) -> WindowTitleVisibilityView {
-        WindowTitleVisibilityView()
+/// Settings may be hosted in an AppKit window, where SwiftUI's color scheme
+/// alone does not change the appearance used to resolve asset catalog colors.
+private struct SettingsWindowPresentationBridge: NSViewRepresentable {
+    let appearanceMode: DSAppearanceMode
+
+    func makeNSView(context: Context) -> WindowPresentationView {
+        WindowPresentationView()
     }
 
     func updateNSView(
-        _ nsView: WindowTitleVisibilityView,
+        _ nsView: WindowPresentationView,
         context: Context
     ) {
-        nsView.applyTitleVisibility()
+        nsView.applyPresentation(appearanceMode: appearanceMode)
     }
 }
 
-private final class WindowTitleVisibilityView: NSView {
+private final class WindowPresentationView: NSView {
+    private var appearanceMode: DSAppearanceMode = .system
+
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
-        applyTitleVisibility()
+        applyPresentation(appearanceMode: appearanceMode)
     }
 
-    func applyTitleVisibility() {
+    func applyPresentation(appearanceMode: DSAppearanceMode) {
+        self.appearanceMode = appearanceMode
         guard let window else {
             return
         }
 
+        switch appearanceMode {
+        case .system:
+            window.appearance = nil
+        case .light:
+            window.appearance = NSAppearance(named: .aqua)
+        case .dark:
+            window.appearance = NSAppearance(named: .darkAqua)
+        }
+
+        // Keep the scene title for routing and accessibility while the sidebar
+        // header owns the visible title treatment.
         window.titleVisibility = .hidden
 
         // SwiftUI can reapply the scene title while the window is being

@@ -33,6 +33,14 @@ provider validates aligned seven-day arrays, dates, temperature, humidity,
 wind, precipitation probability, coordinates, and the HTTP response before
 the values reach the UI.
 
+Calendar has a separate Open-Meteo client/store and cache. It requests current
+conditions plus today's daily/hourly forecast every 15 minutes and the next six
+daily/hourly forecasts every four hours, only while a Calendar surface is in
+use. The response uses the Mac time zone and Unix hourly instants for DST-safe
+grouping. Calendar day selection reads preloaded data without an HTTP request;
+its Dock tile uses current conditions only and reverts to neutral after 45
+minutes. This does not change the Weather feature's 10-minute schedule.
+
 Official sources: [Open-Meteo Forecast API](https://open-meteo.com/en/docs),
 [pricing/authentication](https://open-meteo.com/en/pricing),
 [terms](https://open-meteo.com/en/terms), and the

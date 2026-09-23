@@ -5,6 +5,7 @@ struct DockBinanceView: View {
     let snapshot: BinanceDockSnapshot
     @Environment(\.designTheme) private var theme
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.dockTileShowsOuterBorder) private var showsOuterBorder
 
     var body: some View {
         GeometryReader { proxy in
@@ -43,8 +44,10 @@ struct DockBinanceView: View {
             .background(theme.opaqueSurfaceRaised)
             .clipShape(RoundedRectangle(cornerRadius: side * 0.21, style: .continuous))
             .overlay {
-                RoundedRectangle(cornerRadius: side * 0.21, style: .continuous)
-                    .strokeBorder(theme.outlineStrong, lineWidth: max(0.5, side * 0.012))
+                if showsOuterBorder {
+                    RoundedRectangle(cornerRadius: side * 0.21, style: .continuous)
+                        .strokeBorder(theme.outlineStrong, lineWidth: max(0.5, side * 0.012))
+                }
             }
         }
         .aspectRatio(1, contentMode: .fit)

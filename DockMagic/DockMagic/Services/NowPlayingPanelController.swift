@@ -21,6 +21,7 @@ final class NowPlayingPanelController {
     private var outsideMonitor: Any?
     private var menuObservers: [NSObjectProtocol] = []
     private var menuDepth = 0
+    private var overlayLeases: Set<UUID> = []
     private var suspendedForDockMenu = false
     private var explicitOpen = false
     var isVisible: Bool { panel?.isVisible == true }
@@ -85,17 +86,19 @@ final class NowPlayingPanelController {
     func scheduleHide() {
         showTask?.cancel(); showTask = nil
         hideTask?.cancel()
-        guard isVisible, !state.isPinned, !explicitOpen else { return }
+        guard isVisible, !state.isPinned, !explicitOpen, overlayLeases.isEmpty else { return }
         hideTask = Task { [weak self] in
             do {
                 try await Task.sleep(for: .milliseconds(180))
                 while let self, let panel = self.panel, panel.isVisible {
                     try Task.checkCancellation()
                     if self.state.isPinned || self.explicitOpen { return }
-                    if !panel.frame.contains(NSEvent.mouseLocation), NSEvent.pressedMouseButtons == 0, self.menuDepth == 0 {
+                    if !panel.frame.contains(NSEvent.mouseLocation), NSEvent.pressedMouseButtons == 0,
+                       self.menuDepth == 0, self.overlayLeases.isEmpty {
                         try await Task.sleep(for: .milliseconds(150))
                         try Task.checkCancellation()
-                        if !panel.frame.contains(NSEvent.mouseLocation), self.menuDepth == 0, NSEvent.pressedMouseButtons == 0 { self.hide(); return }
+                        if !panel.frame.contains(NSEvent.mouseLocation), self.menuDepth == 0,
+                           self.overlayLeases.isEmpty, NSEvent.pressedMouseButtons == 0 { self.hide(); return }
                     }
                     try await Task.sleep(for: .milliseconds(100))
                 }
@@ -125,7 +128,16 @@ final class NowPlayingPanelController {
         if let outsideMonitor { NSEvent.removeMonitor(outsideMonitor) }
         localMonitor = nil; outsideMonitor = nil
         for observer in menuObservers { NotificationCenter.default.removeObserver(observer) }
-        menuObservers.removeAll(); menuDepth = 0
+        menuObservers.removeAll(); menuDepth = 0; overlayLeases.removeAll()
+    }
+
+    private func owns(_ window: NSWindow) -> Bool {
+        var ancestor: NSWindow? = window
+        while let current = ancestor {
+            if current === panel { return true }
+            ancestor = current.parent ?? current.sheetParent
+        }
+        return false
     }
 
     private func installMonitors() {
@@ -134,18 +146,34 @@ final class NowPlayingPanelController {
             guard let self else { return event }
             if event.window === self.panel {
                 if event.type == .keyDown, event.keyCode == 53 { self.hide(); return nil }
-                if event.type == .leftMouseDown { self.panel?.makeKey() }
-            } else if self.menuDepth == 0 && !self.state.isPinned && !self.suspendedForDockMenu {
+                if event.type == .leftMouseDown, self.panel?.isKeyWindow == false { self.panel?.makeKey() }
+            } else if self.menuDepth == 0 && self.overlayLeases.isEmpty && !self.state.isPinned && !self.suspendedForDockMenu,
+                      event.window.map({ !self.owns($0) }) ?? true {
                 self.hide()
             }
             return event
         }
         outsideMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] _ in
             MainActor.assumeIsolated {
-                guard let self, !self.state.isPinned, !self.suspendedForDockMenu else { return }
+                guard let self, !self.state.isPinned, !self.suspendedForDockMenu, self.overlayLeases.isEmpty else { return }
                 self.hide()
             }
         }
+        menuObservers.append(NotificationCenter.default.addObserver(forName: DSOverlayActivity.began, object: nil, queue: .main) { [weak self] note in
+            MainActor.assumeIsolated {
+                guard let self, let window = note.object as? NSWindow, self.owns(window),
+                      let id = note.userInfo?["id"] as? UUID else { return }
+                self.overlayLeases.insert(id)
+                self.hideTask?.cancel()
+            }
+        })
+        menuObservers.append(NotificationCenter.default.addObserver(forName: DSOverlayActivity.ended, object: nil, queue: .main) { [weak self] note in
+            MainActor.assumeIsolated {
+                guard let self, let id = note.userInfo?["id"] as? UUID,
+                      self.overlayLeases.remove(id) != nil else { return }
+                self.scheduleHide()
+            }
+        })
         for (name, delta) in [(NSMenu.didBeginTrackingNotification, 1), (NSMenu.didEndTrackingNotification, -1)] {
             menuObservers.append(NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
                 MainActor.assumeIsolated { guard let self else { return }; self.menuDepth = max(0, self.menuDepth + delta) }

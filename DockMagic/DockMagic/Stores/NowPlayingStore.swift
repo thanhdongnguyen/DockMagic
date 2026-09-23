@@ -3,7 +3,7 @@ import Observation
 
 @MainActor @Observable
 final class NowPlayingStore {
-    enum Interest: Hashable { case dock, panel, settings }
+    enum Interest: Hashable { case dock, shelf, panel, settings }
     static let configurationKey = "DockMagicNowPlayingConfiguration"
     private(set) var configuration: NowPlayingConfiguration
     private(set) var observations: [NowPlayingSource: NowPlayingObservation] = [:]
@@ -11,7 +11,7 @@ final class NowPlayingStore {
     private(set) var artworkData: Data?
     private(set) var isLoading = false
     private(set) var connecting: Set<NowPlayingSource> = []
-    private(set) var isCommandPending = false
+    @ObservationIgnored private(set) var isCommandPending = false
     private(set) var commandError: String?
     private(set) var isMonitoring = false
     @ObservationIgnored private let providers: [NowPlayingSource: any NowPlayingProviding]
@@ -166,11 +166,17 @@ final class NowPlayingStore {
         let previous = commandTarget
         selectedSource = NowPlayingSourceResolver.resolve(configuration: configuration, observations: observations, current: current)
         if previous != commandTarget { commandError = nil }
+        let target = commandTarget
         let reference = snapshot?.track?.artwork
-        guard artworkTarget != commandTarget || artworkReference != reference || (artworkData == nil && artworkTask == nil) else { return }
+        let artworkChanged = artworkReference != reference || artworkTarget?.source != target?.source
+        guard artworkTarget != target || artworkChanged || (artworkData == nil && artworkTask == nil) else { return }
         artworkTask?.cancel()
-        artworkTarget = commandTarget; artworkReference = reference; artworkData = nil
-        guard let target = commandTarget, let reference, let provider = providers[target.source], !interests.isEmpty else { artworkTask = nil; return }
+        artworkTask = nil
+        artworkTarget = target; artworkReference = reference
+        if artworkChanged { artworkData = nil }
+        // Several songs can share one album cover. Keep it when the reference is unchanged.
+        if artworkData != nil { return }
+        guard let target, let reference, let provider = providers[target.source], !interests.isEmpty else { return }
         artworkTask = Task { [weak self, artworkCache] in
             let data = await artworkCache.data(for: reference, provider: provider)
             guard let self, !Task.isCancelled, self.commandTarget == target, self.artworkReference == reference else { return }
@@ -178,8 +184,8 @@ final class NowPlayingStore {
         }
     }
 
-    func canPerform(_ command: NowPlayingCommand) -> Bool {
-        guard observation?.access == .authorized, let snapshot, snapshot.isFresh(at: ProcessInfo.processInfo.systemUptime), !isCommandPending else { return false }
+    func canOffer(_ command: NowPlayingCommand) -> Bool {
+        guard observation?.access == .authorized, let snapshot, snapshot.isFresh(at: ProcessInfo.processInfo.systemUptime) else { return false }
         switch command {
         case .play, .pause: return snapshot.capabilities.playPause
         case .previous: return snapshot.capabilities.previous
@@ -188,10 +194,12 @@ final class NowPlayingStore {
         case .volume: return snapshot.capabilities.volume
         }
     }
+    func canPerform(_ command: NowPlayingCommand) -> Bool { !isCommandPending && canOffer(command) }
     func perform(_ command: NowPlayingCommand, target: NowPlayingCommandTarget? = nil) {
         guard let target = target ?? commandTarget, target == commandTarget,
               canPerform(command), let provider = providers[target.source] else { return }
-        isCommandPending = true; commandError = nil
+        isCommandPending = true
+        if commandError != nil { commandError = nil }
         commandTask = Task { [weak self] in
             do { try await provider.perform(command, target: target) }
             catch {

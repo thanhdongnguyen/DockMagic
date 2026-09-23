@@ -47,7 +47,7 @@ A source snapshot under `/private/tmp/dockmagic-nowplaying-qa-source` changes on
 
 ### QA runs 5–9
 
-Runs 5–7 found stale copies of shared Calendar/AI chart/Augment fixture files in the temporary source snapshot. The already-corrected repository versions were copied into that snapshot; these files were not edited by the Now Playing lane.
+Runs 5–7 found stale copies of shared Calendar/AI chart fixture files in the temporary source snapshot. The already-corrected repository versions were copied into that snapshot; these files were not edited by the Now Playing lane.
 
 Run 8 compiled successfully and both bundles passed `codesign --verify --deep --strict`. Tests did not execute: the UI runner timed out during bootstrap and the unit-test host failed at launch. The crash report for `DockMagic` PID 97444 identified a DYLD Sparkle Team ID mismatch in the ad hoc test environment. This is not a passing test result. Computer Use also timed out when inspecting that runner (`-10005: timeoutReached`).
 

@@ -5,6 +5,7 @@ private struct DSSurfaceModifier<S: InsettableShape>: ViewModifier {
     let kind: DSSurfaceKind
     let role: DSSemanticRole
     let elevation: DSElevation
+    let fill: Color?
     @Environment(\.designTheme) private var theme
     @Environment(\.dsAccessibilityOverrides) private var overrides
     @Environment(\.colorSchemeContrast) private var contrast
@@ -12,7 +13,7 @@ private struct DSSurfaceModifier<S: InsettableShape>: ViewModifier {
     func body(content: Content) -> some View {
         let increased = overrides.increaseContrast ?? (contrast == .increased)
         content
-            .background(shape.fill(theme.opaqueSurface(for: kind)))
+            .background(shape.fill(fill ?? theme.opaqueSurface(for: kind)))
             .overlay {
                 shape.strokeBorder(
                     role == .neutral ? (increased ? theme.outlineStrong : theme.outline) : theme.accentForeground(for: role),
@@ -30,8 +31,9 @@ private struct DSSurfaceModifier<S: InsettableShape>: ViewModifier {
 extension View {
     func dsSurface<S: InsettableShape>(
         _ shape: S, kind: DSSurfaceKind = .panel,
-        role: DSSemanticRole = .neutral, elevation: DSElevation = .none
+        role: DSSemanticRole = .neutral, elevation: DSElevation = .none,
+        fill: Color? = nil
     ) -> some View {
-        modifier(DSSurfaceModifier(shape: shape, kind: kind, role: role, elevation: elevation))
+        modifier(DSSurfaceModifier(shape: shape, kind: kind, role: role, elevation: elevation, fill: fill))
     }
 }

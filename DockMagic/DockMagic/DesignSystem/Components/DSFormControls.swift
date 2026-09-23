@@ -151,12 +151,17 @@ private struct DSToggleBody: View {
                 .overlay { if configuration.isOn { DSIcon(.check, size: 12).foregroundStyle(theme.onAction) } }
                 .frame(width: 16, height: 16)
         } else {
-            Capsule(style: .circular).fill(configuration.isOn ? theme.action : theme.surfaceInset)
+            Capsule(style: .circular).fill(configuration.isOn ? theme.switchActive : theme.surfaceInset)
                 .overlay(alignment: configuration.isOn ? .trailing : .leading) {
-                    Circle().fill(configuration.isOn ? theme.onAction : theme.surfaceRaised)
+                    Circle().fill(configuration.isOn ? theme.onSwitchActive : theme.surfaceRaised)
                         .frame(width: 16, height: 16).padding(1.2)
                 }
-                .overlay { Capsule(style: .circular).strokeBorder(theme.outlineStrong.opacity(0.5), lineWidth: 1) }
+                .overlay {
+                    Capsule(style: .circular).strokeBorder(
+                        configuration.isOn ? theme.switchActive : theme.outlineStrong.opacity(0.5),
+                        lineWidth: 1
+                    )
+                }
                 .frame(width: 32, height: 18.4)
                 .animation((overrides.reduceMotion ?? reduceMotion) ? nil : .easeOut(duration: 0.15), value: configuration.isOn)
         }

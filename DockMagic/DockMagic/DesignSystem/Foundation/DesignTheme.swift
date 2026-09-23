@@ -6,6 +6,9 @@ struct DesignTheme {
     let action: Color
     let actionForeground: Color
     let onAction: Color
+    /// User-approved blue, confined to the enabled shared binary-switch track.
+    let switchActive: Color
+    let onSwitchActive: Color
     /// Codex quantitative content only; never a control or status accent.
     let codexActivity: Color
     let codexActivityForeground: Color
@@ -18,6 +21,27 @@ struct DesignTheme {
     /// Verified streak-day content only; never chrome, focus, or status.
     let streakActive: Color
     let onStreakActive: Color
+    /// Weather-condition data colors, confined to Weather glyph renderers.
+    let weatherSun: Color
+    let weatherMoon: Color
+    let weatherCloud: Color
+    let weatherWind: Color
+    let weatherRain: Color
+    let weatherIce: Color
+    let weatherStorm: Color
+    /// Opaque Weather scenes shared by the Dock renderer and hover card.
+    let weatherSceneSun: Color
+    let weatherSceneMoon: Color
+    let weatherSceneCloud: Color
+    let weatherSceneWind: Color
+    let weatherSceneRain: Color
+    let weatherSceneIce: Color
+    let weatherSceneStorm: Color
+    let weatherSceneForeground: Color
+    /// Bounded Calendar content markers, never chrome or control accents.
+    let calendarBirthday: Color
+    let calendarHoliday: Color
+    let calendarWork: Color
     let dockTrack: Color
     let dockBackgroundRaised: Color
     let dockBackgroundInset: Color

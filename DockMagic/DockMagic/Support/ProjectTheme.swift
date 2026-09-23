@@ -75,6 +75,8 @@ enum ProjectTheme {
         action: Color("DSAction"),
         actionForeground: Color("DSActionForeground"),
         onAction: Color("DSOnAction"),
+        switchActive: Color("DSSwitchActive"),
+        onSwitchActive: Color("DSOnSwitchActive"),
         codexActivity: Color("DSCodexActivity"),
         codexActivityForeground: Color("DSCodexActivityForeground"),
         information: Color("DSInformation"),
@@ -85,6 +87,24 @@ enum ProjectTheme {
         onProcessing: Color("DSOnProcessing"),
         streakActive: Color("DSStreakActive"),
         onStreakActive: Color("DSOnStreakActive"),
+        weatherSun: Color("DSWeatherSun"),
+        weatherMoon: Color("DSWeatherMoon"),
+        weatherCloud: Color("DSWeatherCloud"),
+        weatherWind: Color("DSWeatherWind"),
+        weatherRain: Color("DSWeatherRain"),
+        weatherIce: Color("DSWeatherIce"),
+        weatherStorm: Color("DSWeatherStorm"),
+        weatherSceneSun: Color("DSWeatherSceneSun"),
+        weatherSceneMoon: Color("DSWeatherSceneMoon"),
+        weatherSceneCloud: Color("DSWeatherSceneCloud"),
+        weatherSceneWind: Color("DSWeatherSceneWind"),
+        weatherSceneRain: Color("DSWeatherSceneRain"),
+        weatherSceneIce: Color("DSWeatherSceneIce"),
+        weatherSceneStorm: Color("DSWeatherSceneStorm"),
+        weatherSceneForeground: Color("DSWeatherSceneForeground"),
+        calendarBirthday: Color("DSCalendarBirthday"),
+        calendarHoliday: Color("DSCalendarHoliday"),
+        calendarWork: Color("DSCalendarWork"),
         dockTrack: Color("DSDockTrack"),
         dockBackgroundRaised: Color("DSDockBackgroundRaised"),
         dockBackgroundInset: Color("DSDockBackgroundInset"),
@@ -206,6 +226,124 @@ enum ProjectTheme {
     ]
 }
 
+/// Weather's bounded condition palette: distinct glyphs and solid scenes.
+/// It never changes controls, focus, or status semantics.
+enum WeatherConditionColor: Equatable, Sendable {
+    case sun
+    case moon
+    case cloud
+    case wind
+    case rain
+    case ice
+    case storm
+
+    func color(in theme: DesignTheme) -> Color {
+        switch self {
+        case .sun:
+            theme.weatherSun
+        case .moon:
+            theme.weatherMoon
+        case .cloud:
+            theme.weatherCloud
+        case .wind:
+            theme.weatherWind
+        case .rain:
+            theme.weatherRain
+        case .ice:
+            theme.weatherIce
+        case .storm:
+            theme.weatherStorm
+        }
+    }
+
+    func sceneColor(in theme: DesignTheme) -> Color {
+        switch self {
+        case .sun:
+            theme.weatherSceneSun
+        case .moon:
+            theme.weatherSceneMoon
+        case .cloud:
+            theme.weatherSceneCloud
+        case .wind:
+            theme.weatherSceneWind
+        case .rain:
+            theme.weatherSceneRain
+        case .ice:
+            theme.weatherSceneIce
+        case .storm:
+            theme.weatherSceneStorm
+        }
+    }
+
+    func sceneArtwork() -> Image {
+        Image(sceneArtworkName)
+    }
+
+    var sceneArtworkName: String {
+        switch self {
+        case .sun:
+            "WeatherSceneSun"
+        case .moon:
+            "WeatherSceneMoon"
+        case .cloud:
+            "WeatherSceneCloud"
+        case .wind:
+            "WeatherSceneWind"
+        case .rain:
+            "WeatherSceneRain"
+        case .ice:
+            "WeatherSceneIce"
+        case .storm:
+            "WeatherSceneStorm"
+        }
+    }
+}
+
+extension WeatherCondition {
+    func colorRole(isDaylight: Bool? = true) -> WeatherConditionColor {
+        switch self {
+        case .clear, .mostlyClear, .partlyCloudy, .hot:
+            isDaylight == false ? .moon : .sun
+        case .cloudy, .fog, .unknown:
+            .cloud
+        case .wind:
+            .wind
+        case .drizzle, .rain:
+            .rain
+        case .sleet, .snow, .cold:
+            .ice
+        case .thunderstorm:
+            .storm
+        }
+    }
+
+    func conditionColor(
+        isDaylight: Bool? = true,
+        in theme: DesignTheme
+    ) -> Color {
+        colorRole(isDaylight: isDaylight).color(in: theme)
+    }
+
+    func sceneColor(isDaylight: Bool? = true, in theme: DesignTheme) -> Color {
+        colorRole(isDaylight: isDaylight).sceneColor(in: theme)
+    }
+
+    @MainActor
+    func sceneGlyphColor(
+        isDaylight: Bool? = true,
+        in theme: DesignTheme,
+        colorScheme: ColorScheme
+    ) -> Color {
+        ProjectTheme.rendererColor(
+            nil,
+            automatic: conditionColor(isDaylight: isDaylight, in: theme),
+            on: sceneColor(isDaylight: isDaylight, in: theme),
+            colorScheme: colorScheme,
+            minimumContrast: 3.05
+        )
+    }
+}
+
 private struct DesignThemeKey: EnvironmentKey {
     static let defaultValue = ProjectTheme.current
 }
@@ -295,30 +433,56 @@ enum DockMagicRuntimeDefaults {
 struct DockMagicThemeRoot<Content: View>: View {
     let content: Content
     private let appearanceOverride: DSAppearanceMode?
+    private let windowOwnsAppearance: Bool
     @Environment(\.colorScheme) private var inheritedColorScheme
+    @Environment(\.dsAccessibilityOverrides) private var inheritedAccessibilityOverrides
 
     @AppStorage(DSAppearanceMode.storageKey)
     private var storedAppearance = DSAppearanceMode.system.rawValue
 
     init(
         content: Content,
-        appearanceMode: DSAppearanceMode? = nil
+        appearanceMode: DSAppearanceMode? = nil,
+        windowOwnsAppearance: Bool = false
     ) {
         self.content = content
         appearanceOverride = appearanceMode
+        self.windowOwnsAppearance = windowOwnsAppearance
     }
 
     var body: some View {
-        content
+        contentWithColorScheme
             .environment(\.designTheme, ProjectTheme.current)
             .environment(\.dsAppearanceMode, appearanceMode)
-            .preferredColorScheme(appearanceMode.preferredColorScheme)
-            .environment(\.colorScheme, appearanceMode.preferredColorScheme ?? inheritedColorScheme)
+            .environment(\.dsAccessibilityOverrides, resolvedAccessibilityOverrides)
+            .preferredColorScheme(windowOwnsAppearance ? nil : appearanceMode.preferredColorScheme)
             .tint(ProjectTheme.current.action)
             .font(DSTypography.body)
             .buttonStyle(DSButtonStyle())
             .textFieldStyle(DSInputStyle())
             .toggleStyle(DSSwitchStyle())
+    }
+
+    private var resolvedAccessibilityOverrides: DSAccessibilityOverrides {
+        var overrides = inheritedAccessibilityOverrides
+#if DEBUG
+        if ProcessInfo.processInfo.environment["DockMagicUITestReduceMotion"] == "1" {
+            overrides.reduceMotion = true
+        }
+#endif
+        return overrides
+    }
+
+    @ViewBuilder
+    private var contentWithColorScheme: some View {
+        if windowOwnsAppearance {
+            content
+        } else {
+            content.environment(
+                \.colorScheme,
+                appearanceMode.preferredColorScheme ?? inheritedColorScheme
+            )
+        }
     }
 
     private var appearanceMode: DSAppearanceMode {

@@ -72,13 +72,10 @@ struct DSStatusBadge: View {
     }
 }
 
-enum DSMetricCardVariant { case standard, compact }
-
 struct DSMetricCard: View {
     let title: String
     var icon: DSIconName? = nil
     let state: DSDataState<DSMetricValue>
-    var variant: DSMetricCardVariant = .standard
     var role: DSSemanticRole = .neutral
     @Environment(\.designTheme) private var theme
 
@@ -86,14 +83,14 @@ struct DSMetricCard: View {
         DSCard(density: .small, role: role) {
             HStack(spacing: 8) {
                 if let icon { DSIcon(icon).accessibilityHidden(true) }
-                Text(title).font(variant == .compact ? DSTypography.caption : DSTypography.bodyEmphasis)
+                Text(title).font(DSTypography.bodyEmphasis)
                 Spacer(minLength: 0)
             }.foregroundStyle(theme.textPrimary)
         } content: {
             if state.isLoading { DSLoadingState() }
             else {
                 HStack(alignment: .firstTextBaseline, spacing: 4) {
-                    Text(state.value?.formatted ?? "—").font(variant == .compact ? DSTypography.bodyLarge : DSTypography.metric).monospacedDigit()
+                    Text(state.value?.formatted ?? "—").font(DSTypography.metric).monospacedDigit()
                     if let unit = state.value?.unit { Text(unit).font(DSTypography.metadata) }
                 }.foregroundStyle(theme.accentForeground(for: role))
                 if let fraction = state.value?.fraction {

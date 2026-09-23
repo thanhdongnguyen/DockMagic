@@ -18,7 +18,8 @@ See [MAIA_QA.md](MAIA_QA.md) for evidence, not assumed parity.
 
 System/Light/Dark persist as before. `DockMagicThemeRoot` installs Geist, neutral
 tint, controls and a complete palette at every scene, popup and offscreen-render
-boundary. All surfaces are opaque. No glass, gradients or tinted cards.
+boundary. All surfaces are opaque. No glass, gradients or tinted cards. The
+enabled track of `DSSwitchStyle` alone uses the documented blue switch role.
 
 Codex and Antigravity pass `codexActivity` into the shared quota, chart,
 momentum, intensity and model components. `codexActivityForeground` is the
@@ -43,7 +44,11 @@ only platform/content exceptions; brand artwork retains authored colors.
   SecureField keep editing, IME, selection, clipboard and undo. `DSInputStyle`
   and `DSInputChrome` share 36 pt capsule geometry; textarea radius is 14.
 - `DSSwitchStyle`, `DSCheckboxStyle`, `DSRadioGroup`, `DSSlider`: native activation
-  and accessibility with shared state styling. Sliders retain native tracking.
+  and accessibility with shared state styling. `DSSwitchStyle` uses
+  `switchActive` / `onSwitchActive` only for its enabled track and thumb; thumb
+  position, label, and AX value make state non-color-dependent. Sliders retain
+  native tracking, keyboard adjustment and AX through hidden native knob
+  geometry, but do not render a visible thumb.
 - `DSSegmentedControl(title:selection:options:size:)` owns all short single-choice
   controls, including chart type, appearance, metric and range (UI-014). It uses
   Maia inset/raised surfaces, neutral focus, selected AX state and arrow navigation
@@ -58,7 +63,9 @@ only platform/content exceptions; brand artwork retains authored colors.
   are shared. All app-owned dropdowns use this path, including Active Dock Feature,
   Search Console properties and Now Playing sources. Active Dock Feature passes
   the shared `DockFeatureIcon`, keeping every popup row identical to its Settings
-  sidebar identity (UI-016).
+  sidebar identity (UI-016). The user-approved CPU & RAM, Network, Storage,
+  Clock, Calendar, Now Playing and Batteries identities are original-color SVG artwork
+  owned by that shared icon, not feature-local chrome.
 - `DSMenu`, `dsPopover`, `dsDialog`, `dsAlert`: native presentation, shared Maia
   content, window-scoped interaction leases, Escape, default/cancel actions and
   focus restoration. The AppKit boundary handles presentation/focus only.
@@ -86,14 +93,12 @@ unknown-day marks, tooltip and timezone-aware labels. `AIUsageHistoryChart` owns
 daily AI axes, bars, scrolling, hover, keyboard
 focus, missing/partial state and accessibility. Provider adapters only normalize
 their source values and formatting. The caller supplies the bounded data color:
-Codex blue, Claude clay, or the contrast-resolved OpenCode/Augment appearance
+Codex blue, Claude clay, or the contrast-resolved OpenCode appearance
 color. Chart frames, legends and tooltips share chrome; data algorithms remain
 specific to system history, market candles, activity, quota and calendar data.
 Media and brand content remain within identity/artwork bounds.
 
-`StreakContinuityStrip` has separate personal-streak and organization-activity
-presentations. The organization variant shares geometry and day-state rendering
-without showing personal badges or claiming realtime/user-level continuity.
+`StreakContinuityStrip` presents personal token streaks.
 All active day nodes are rendered by the shared `StreakDayNode` with
 `DesignTheme.streakActive` and `onStreakActive`, including the compact strip,
 celebration and badge-detail Recent activity. The green is confined to verified
@@ -110,13 +115,41 @@ only opens a supported dashboard. Popup leases include nested child windows,
 prevent automatic hiding, restore key window/focus, and release monitors on close.
 Repeated hover events do not replace the root of a live interacting dashboard.
 
+The requested Shelf is the alternate to Dock Active: an app-owned Custom Dock
+segment whose slots show the same `DockTileView` presentation as each selected
+feature's active Apple Dock tile, except that Shelf suppresses the feature
+tile's outer outline in both Light and Dark appearances. Internal renderer
+strokes and state indicators remain unchanged. Repeated features are allowed as separate
+slots. A square, rounded, dashed `+` stays at the end and moves one position
+when a feature is appended. Slot hover opens that feature's dashboard when
+available. The previous icon-and-label panel beside Apple Dock is not an
+approved Shelf; its test evidence does not establish this UI. The approved
+segment shares the Custom Dock's single adaptive material, has no independent
+fill or nested blur, and uses two semantic hairline dividers for grouping.
+macOS placement remains under runtime review; see the current Shelf study.
+
 ## Dock and exports
 
 Dock geometry stays proportional and previews use production renderers. Ring,
 network, weather, calendar and market content retain their data semantics.
 Neutral frame/track/outline and Geist apply everywhere; persisted renderer colors
-remain unchanged. Export uses Geist and the same semantic colors, with the
+remain unchanged. The Calendar tile contains only abbreviated weekday, day
+number, abbreviated month, and a bounded top-right `danger` dot when a selected
+event occurs today or an unfinished due reminder is included; its accessibility
+value states the condition. Agenda details remain in the hover dashboard.
+Export uses Geist and the same semantic colors, with the
 existing eligibility/layout policy below.
+
+Weather condition glyphs use the bounded `weatherSun`, `weatherMoon`,
+`weatherCloud`, `weatherWind`, `weatherRain`, `weatherIce`, and `weatherStorm`
+roles. Matching `weatherScene*` solid colors and SVG atmospheric artwork traced
+from original generated illustrations fill the live/last-known Weather Dock tile
+and hover dashboard only. Text uses
+`weatherSceneForeground`; the subdued artwork sits above the solid token, and
+glyph colors are contrast-adjusted against the current scene. A forecast can display several glyph colors because each glyph
+is content. Loading/unavailable surfaces stay neutral. Focus and freshness
+status keep their semantic roles, and glyph shape plus accessible condition text
+remain available without color.
 
 ### Activity card image export
 
